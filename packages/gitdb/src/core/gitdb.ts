@@ -9,11 +9,14 @@ import { DeleteQuery } from '../queries/delete-query.ts';
 import { InsertQuery } from '../queries/insert-query.ts';
 import { SelectQuery, type IncludeRelationsInput } from '../queries/select-query.ts';
 import { UpdateQuery } from '../queries/update-query.ts';
+import { toPredicates, type EntityRow, type WhereInput } from '../queries/where-operators.ts';
 
 type SelectWithContext = {
   relationsRegistry?: RelationsRegistry;
   includeRelations?: IncludeRelationsInput;
 };
+
+type AggregateWhereInput = WhereInput | WhereInput[];
 
 export class GitDB {
   private readonly repository: GitRepository;
@@ -81,6 +84,44 @@ export class GitDB {
     });
   }
 
+  async $count(entity: EntityDefinition, where?: AggregateWhereInput): Promise<number> {
+    const rows = await this.loadRowsForAggregate(entity, where);
+    return rows.length;
+  }
+
+  async $sum(entity: EntityDefinition, field: string, where?: AggregateWhereInput): Promise<number> {
+    const numbers = await this.loadNumbersForAggregate(entity, field, where);
+    return numbers.reduce((total, value) => total + value, 0);
+  }
+
+  async $avg(entity: EntityDefinition, field: string, where?: AggregateWhereInput): Promise<number | null> {
+    const numbers = await this.loadNumbersForAggregate(entity, field, where);
+    if (!numbers.length) {
+      return null;
+    }
+
+    const total = numbers.reduce((accumulator, value) => accumulator + value, 0);
+    return total / numbers.length;
+  }
+
+  async $max(entity: EntityDefinition, field: string, where?: AggregateWhereInput): Promise<number | null> {
+    const numbers = await this.loadNumbersForAggregate(entity, field, where);
+    if (!numbers.length) {
+      return null;
+    }
+
+    return numbers.reduce((max, value) => (value > max ? value : max));
+  }
+
+  async $min(entity: EntityDefinition, field: string, where?: AggregateWhereInput): Promise<number | null> {
+    const numbers = await this.loadNumbersForAggregate(entity, field, where);
+    if (!numbers.length) {
+      return null;
+    }
+
+    return numbers.reduce((min, value) => (value < min ? value : min));
+  }
+
   insert(entity: EntityDefinition): InsertQuery {
     return new InsertQuery(entity, {
       loadEntityRows: (entityName) => this.fileManager.readEntityRows(entityName),
@@ -103,6 +144,34 @@ export class GitDB {
       saveEntityRows: (entityName, rows) => this.fileManager.writeEntityRows(entityName, rows),
       queueCommit: (reason) => this.repository.queueBackgroundCommit(reason),
     });
+  }
+
+  private async loadRowsForAggregate(entity: EntityDefinition, where?: AggregateWhereInput): Promise<EntityRow[]> {
+    const rows = await this.fileManager.readEntityRows<EntityRow>(entity.name);
+    if (!where) {
+      return rows;
+    }
+
+    const whereList = Array.isArray(where) ? where : [where];
+    if (!whereList.length) {
+      return rows;
+    }
+
+    const predicates = toPredicates(whereList);
+    return rows.filter((row) => predicates.every((predicate) => predicate.test(row)));
+  }
+
+  private async loadNumbersForAggregate(
+    entity: EntityDefinition,
+    field: string,
+    where?: AggregateWhereInput,
+  ): Promise<number[]> {
+    const rows = await this.loadRowsForAggregate(entity, where);
+    const numbers = rows
+      .map((row) => row[field])
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+
+    return numbers;
   }
 }
 
