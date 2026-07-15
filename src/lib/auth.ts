@@ -35,12 +35,13 @@ export function ensureAdminUser() {
     const hash = hashPassword('admin');
     db.prepare(
       `
-      INSERT INTO users (id, username, password_hash, role)
-      VALUES (@id, @username, @password_hash, @role)
+      INSERT INTO users (id, username, email, password_hash, role)
+      VALUES (@id, @username, @email, @password_hash, @role)
     `,
     ).run({
       id: crypto.randomUUID(),
       username: 'admin',
+      email: null,
       password_hash: hash,
       role: 'admin',
     });

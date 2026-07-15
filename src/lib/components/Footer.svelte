@@ -2,42 +2,43 @@
   import { Github, FileText } from 'lucide-svelte';
 </script>
 
-<footer class="bg-white border-t border-gray-200 mt-auto">
-  <div
-    class="max-w-[1600px] mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4"
-  >
-    <div class="text-sm text-gray-500 flex items-center gap-1.5">
-      <span>Released under the</span>
-      <a
-        href="https://github.com/kettu-studio/pulumi-open-state/blob/main/LICENSE"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 font-medium"
-      >
-        <FileText class="w-3.5 h-3.5" /> Apache 2.0 License
-      </a>
+<footer class="app-shell-footer mt-auto border-t border-slate-200 bg-white/80 backdrop-blur">
+  <div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-6 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex items-center gap-3 text-sm text-slate-500">
+      <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+        <FileText class="h-4 w-4" />
+      </span>
+      <p>
+        Released under the
+        <a
+          href="https://github.com/kettu-studio/pulumi-open-state/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-medium text-slate-700 transition-colors hover:text-slate-950"
+        >
+          Apache 2.0 License
+        </a>
+      </p>
     </div>
 
-    <div class="flex items-center gap-6">
+    <div class="flex items-center gap-5">
       <a
         href="https://kettu.studio"
         target="_blank"
         rel="noopener noreferrer"
-        class="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        class="text-sm text-slate-500 transition-colors hover:text-slate-950"
       >
-        Developed by <span class="font-bold text-gray-700 hover:text-blue-600 transition-colors"
-          >Kettu Studio</span
-        >
+        Developed by <span class="font-semibold text-slate-700">Kettu Studio</span>
       </a>
 
       <a
         href="https://github.com/kettu-studio/pulumi-open-state"
         target="_blank"
         rel="noopener noreferrer"
-        class="text-gray-400 hover:text-gray-900 transition-colors flex items-center gap-2"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
         aria-label="GitHub Repository"
       >
-        <Github class="w-5 h-5" />
+        <Github class="h-4 w-4" />
       </a>
     </div>
   </div>

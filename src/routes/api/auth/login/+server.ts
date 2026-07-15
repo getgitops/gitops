@@ -5,7 +5,19 @@ import { ensureEncryptionKey, verifyPassword } from '$lib/auth';
 
 export async function POST({ request, cookies }) {
   try {
-    const { username, password } = await request.json();
+    const contentType = request.headers.get('content-type') || '';
+    let username = '';
+    let password = '';
+
+    if (contentType.includes('application/json')) {
+      const payload = await request.json();
+      username = String(payload?.username || '');
+      password = String(payload?.password || '');
+    } else {
+      const formData = await request.formData();
+      username = String(formData.get('username') || '');
+      password = String(formData.get('password') || '');
+    }
 
     if (!username || !password) {
       throw new Error('Username and password are required');

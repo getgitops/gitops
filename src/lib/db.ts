@@ -17,6 +17,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
+    email TEXT,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'developer',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -80,6 +81,18 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (stack_id) REFERENCES stacks (id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    key_prefix TEXT NOT NULL,
+    key_hash TEXT NOT NULL,
+    last_used_at DATETIME,
+    revoked_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 try {
@@ -89,6 +102,7 @@ try {
 }
 
 const migrations = [
+  'ALTER TABLE users ADD COLUMN email TEXT',
   'ALTER TABLE config ADD COLUMN public_access INTEGER DEFAULT 1',
   'ALTER TABLE config ADD COLUMN google_sso_enabled INTEGER DEFAULT 0',
   'ALTER TABLE config ADD COLUMN google_client_id TEXT',

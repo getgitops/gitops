@@ -19,3 +19,29 @@ body {
 * {
   box-sizing: border-box;
 }
+
+.app-shell-sidebar {
+  width: 100%;
+}
+
+.app-shell-main {
+  padding-left: 0;
+}
+
+.app-shell-footer {
+  padding-left: 0;
+}
+
+@media (min-width: 1024px) {
+  .app-shell-sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .app-shell-main {
+    padding-left: var(--sidebar-width);
+  }
+
+  .app-shell-footer {
+    padding-left: var(--sidebar-width);
+  }
+}
