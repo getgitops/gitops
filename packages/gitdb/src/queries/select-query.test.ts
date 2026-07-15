@@ -113,6 +113,28 @@ describe('SelectQuery', () => {
     expect(result.rows).toHaveLength(4);
   });
 
+  it('proyecta solo campos seleccionados cuando se usa selectFields', async () => {
+    const query = new SelectQuery(
+      async (entityName) => {
+        if (entityName !== 'users') {
+          return [];
+        }
+
+        return [...rows];
+      },
+      { selectFields: { id: true, name: true } },
+    );
+
+    const result = await query.from(users);
+
+    expect(result.rows).toEqual([
+      { id: 1, name: 'Ana' },
+      { id: 2, name: 'Beto' },
+      { id: 3, name: 'Carla' },
+      { id: 4, name: 'Daniel' },
+    ]);
+  });
+
   it('filtra por where con objeto simple', async () => {
     const result = await createQuery().from(users).where({ id: 1 });
     expect(result.rows).toHaveLength(1);

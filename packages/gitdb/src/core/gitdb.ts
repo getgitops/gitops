@@ -7,7 +7,7 @@ import { getGlobalRelations, type RelationsRegistry } from './relations.ts';
 import type { GitDbOptions } from '../types.ts';
 import { DeleteQuery } from '../queries/delete-query.ts';
 import { InsertQuery } from '../queries/insert-query.ts';
-import { SelectQuery, type IncludeRelationsInput } from '../queries/select-query.ts';
+import { SelectQuery, type IncludeRelationsInput, type SelectFieldsInput } from '../queries/select-query.ts';
 import { UpdateQuery } from '../queries/update-query.ts';
 import { toPredicates, type EntityRow, type WhereInput } from '../queries/where-operators.ts';
 
@@ -77,10 +77,11 @@ export class GitDB {
     });
   }
 
-  select(): SelectQuery {
+  select(fields?: SelectFieldsInput): SelectQuery {
     return new SelectQuery((entityName) => this.fileManager.readEntityRows(entityName), {
       relationsRegistry: this.selectWithContext?.relationsRegistry,
       includeRelations: this.selectWithContext?.includeRelations,
+      selectFields: fields,
     });
   }
 

@@ -58,6 +58,15 @@ describe('GitDB select e2e', () => {
 
       const allRows = await db.select().from(users);
       expect(allRows.rows).toHaveLength(4);
+      expect(allRows.rows[0]).toEqual({ id: 1, name: 'ana', status: 'active' });
+
+      const selectedFields = await db.select({ id: true }).from(users).orderBy('id', 'asc');
+      expect(selectedFields.rows).toEqual([
+        { id: 1 },
+        { id: 2 },
+        { id: 3 },
+        { id: 4 },
+      ]);
 
       const filtered = await db
         .select()

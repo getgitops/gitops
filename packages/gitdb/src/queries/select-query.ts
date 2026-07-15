@@ -29,6 +29,8 @@ export type SelectExecutionResult = {
   state: SelectQueryState;
 };
 
+export type SelectFieldsInput = Record<string, boolean>;
+
 export interface IncludeRelationsMap {
   [relationName: string]: boolean | IncludeRelationsMap;
 }
@@ -42,6 +44,7 @@ type IncludeRelationEntry = {
 type SelectQueryOptions = {
   relationsRegistry?: RelationsRegistry;
   includeRelations?: IncludeRelationsInput;
+  selectFields?: SelectFieldsInput;
 };
 
 export class SelectQuery implements PromiseLike<SelectExecutionResult> {
@@ -164,6 +167,8 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
       rows = await this.hydrateRelations(rows);
     }
 
+    rows = this.applySelectFields(rows);
+
     return {
       entity: this.state.from.name,
       rows,
@@ -246,6 +251,29 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
     }
 
     return groupedRows;
+  }
+
+  private applySelectFields(rows: EntityRow[]): EntityRow[] {
+    const selectFields = this.options.selectFields;
+    if (!selectFields) {
+      return rows;
+    }
+
+    const selected = Object.entries(selectFields)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([field]) => field);
+
+    return rows.map((row) => {
+      const projected: EntityRow = {};
+
+      for (const field of selected) {
+        if (field in row) {
+          projected[field] = row[field];
+        }
+      }
+
+      return projected;
+    });
   }
 
   private async hydrateRelations(rows: EntityRow[]): Promise<EntityRow[]> {
