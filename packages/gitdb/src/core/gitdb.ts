@@ -4,8 +4,10 @@ import { GitDbLogger } from '../infrastructure/logger.ts';
 import { FileManager } from '../infrastructure/file-manager.ts';
 import type { EntityDefinition } from './schema.ts';
 import type { GitDbOptions } from '../types.ts';
+import { DeleteQuery } from '../queries/delete-query.ts';
 import { InsertQuery } from '../queries/insert-query.ts';
 import { SelectQuery } from '../queries/select-query.ts';
+import { UpdateQuery } from '../queries/update-query.ts';
 
 export class GitDB {
   private readonly repository: GitRepository;
@@ -26,6 +28,22 @@ export class GitDB {
 
   insert(entity: EntityDefinition): InsertQuery {
     return new InsertQuery(entity, {
+      loadEntityRows: (entityName) => this.fileManager.readEntityRows(entityName),
+      saveEntityRows: (entityName, rows) => this.fileManager.writeEntityRows(entityName, rows),
+      queueCommit: (reason) => this.repository.queueBackgroundCommit(reason),
+    });
+  }
+
+  update(entity: EntityDefinition): UpdateQuery {
+    return new UpdateQuery(entity, {
+      loadEntityRows: (entityName) => this.fileManager.readEntityRows(entityName),
+      saveEntityRows: (entityName, rows) => this.fileManager.writeEntityRows(entityName, rows),
+      queueCommit: (reason) => this.repository.queueBackgroundCommit(reason),
+    });
+  }
+
+  delete(entity: EntityDefinition): DeleteQuery {
+    return new DeleteQuery(entity, {
       loadEntityRows: (entityName) => this.fileManager.readEntityRows(entityName),
       saveEntityRows: (entityName, rows) => this.fileManager.writeEntityRows(entityName, rows),
       queueCommit: (reason) => this.repository.queueBackgroundCommit(reason),
