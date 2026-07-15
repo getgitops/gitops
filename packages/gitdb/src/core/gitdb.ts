@@ -1,13 +1,17 @@
+import path from 'node:path';
 import { GitRepository } from '../infrastructure/git-repository.ts';
 import { GitDbLogger } from '../infrastructure/logger.ts';
+import { FileManager } from '../infrastructure/file-manager.ts';
 import type { GitDbOptions } from '../types.ts';
 import { SelectQuery } from '../queries/select-query.ts';
 
 export class GitDB {
   private readonly repository: GitRepository;
+  private readonly fileManager: FileManager;
 
-  constructor(repository: GitRepository) {
+  constructor(repository: GitRepository, fileManager: FileManager) {
     this.repository = repository;
+    this.fileManager = fileManager;
   }
 
   async close(): Promise<void> {
@@ -15,7 +19,7 @@ export class GitDB {
   }
 
   select(): SelectQuery {
-    return new SelectQuery();
+    return new SelectQuery((entityName) => this.fileManager.readEntityRows(entityName));
   }
 }
 
@@ -31,7 +35,9 @@ export function gitDb(repositoryUrl: string, options: Partial<Omit<GitDbOptions,
     logger: options.logger ?? logger,
   });
 
+  const fileManager = new FileManager(path.resolve(process.cwd(), '.gitdb'));
+
   void repository.initialize();
 
-  return new GitDB(repository);
+  return new GitDB(repository, fileManager);
 }
