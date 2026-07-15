@@ -69,6 +69,28 @@ describe('GitDB select e2e', () => {
 
       const paginated = await db.select().from(users).orderBy('id', 'asc').offset(1).limit(2);
       expect(paginated.rows.map((row) => row.id)).toEqual([2, 3]);
+
+      const grouped = await db.select().from(users).groupBy('status').having(gte('$count', 2)).orderBy('status', 'asc');
+      expect(grouped.rows).toEqual([{ status: 'active', $count: 3 }]);
+    } finally {
+      await rm(basePath, { recursive: true, force: true });
+    }
+  });
+
+  it('falla si having se usa sin groupBy', async () => {
+    const { db, basePath } = await createDb();
+    const users = entity('users', {
+      id: integer().primaryKey().autoincrement(),
+      name: text().notNull(),
+      status: text().notNull(),
+    });
+
+    try {
+      await db.insert(users).values([{ name: 'ana', status: 'active' }]);
+
+      await expect(db.select().from(users).having(gte('$count', 1)).execute()).rejects.toThrow(
+        'having() requires groupBy(...) before execute()',
+      );
     } finally {
       await rm(basePath, { recursive: true, force: true });
     }

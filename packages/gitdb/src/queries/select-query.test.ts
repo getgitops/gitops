@@ -161,11 +161,39 @@ describe('SelectQuery', () => {
   });
 
   it('reset limpia el estado de la query', async () => {
-    const query = createQuery().from(users).where({ id: 1 }).orderBy('id', 'desc').limit(1).offset(1);
+    const query = createQuery()
+      .from(users)
+      .where({ id: 1 })
+      .groupBy('active')
+      .having(gte('$count', 1))
+      .orderBy('id', 'desc')
+      .limit(1)
+      .offset(1);
     query.reset().from(users);
 
     const result = await query;
     expect(result.rows).toHaveLength(4);
+  });
+
+  it('agrupa filas con groupBy y expone $count', async () => {
+    const result = await createQuery().from(users).groupBy('active').orderBy('active', 'asc');
+
+    expect(result.rows).toEqual([
+      { active: false, $count: 1 },
+      { active: true, $count: 3 },
+    ]);
+  });
+
+  it('filtra grupos con having', async () => {
+    const result = await createQuery().from(users).groupBy('active').having(gte('$count', 2));
+
+    expect(result.rows).toEqual([{ active: true, $count: 3 }]);
+  });
+
+  it('lanza error si se usa having sin groupBy', async () => {
+    await expect(createQuery().from(users).having(gte('$count', 1)).execute()).rejects.toThrow(
+      'having() requires groupBy(...) before execute()',
+    );
   });
 
   it('hidrata relaciones con contexto de with', async () => {

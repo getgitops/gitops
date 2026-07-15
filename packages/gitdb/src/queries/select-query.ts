@@ -16,6 +16,8 @@ export type OrderByClause = {
 export type SelectQueryState = {
   from?: EntityDefinition;
   where: WhereInput[];
+  groupBy: string[];
+  having: WhereInput[];
   orderBy: OrderByClause[];
   limit?: number;
   offset?: number;
@@ -50,6 +52,8 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
 
   private readonly state: SelectQueryState = {
     where: [],
+    groupBy: [],
+    having: [],
     orderBy: [],
   };
 
@@ -60,6 +64,16 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
 
   where(condition: WhereInput): this {
     this.state.where.push(condition);
+    return this;
+  }
+
+  groupBy(...fields: string[]): this {
+    this.state.groupBy.push(...fields);
+    return this;
+  }
+
+  having(condition: WhereInput): this {
+    this.state.having.push(condition);
     return this;
   }
 
@@ -90,6 +104,21 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
       rows = rows.filter((row) => {
         return predicates.every((predicate) => predicate.test(row));
       });
+    }
+
+    if (this.state.having.length && !this.state.groupBy.length) {
+      throw new Error('having() requires groupBy(...) before execute()');
+    }
+
+    if (this.state.groupBy.length) {
+      rows = this.applyGroupBy(rows);
+
+      if (this.state.having.length) {
+        const havingPredicates = toPredicates(this.state.having);
+        rows = rows.filter((row) => {
+          return havingPredicates.every((predicate) => predicate.test(row));
+        });
+      }
     }
 
     if (this.state.orderBy.length) {
@@ -131,7 +160,9 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
       rows = rows.slice(0, this.state.limit);
     }
 
-    rows = await this.hydrateRelations(rows);
+    if (!this.state.groupBy.length) {
+      rows = await this.hydrateRelations(rows);
+    }
 
     return {
       entity: this.state.from.name,
@@ -161,6 +192,8 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
     return {
       from: this.state.from,
       where: [...this.state.where],
+      groupBy: [...this.state.groupBy],
+      having: [...this.state.having],
       orderBy: [...this.state.orderBy],
       limit: this.state.limit,
       offset: this.state.offset,
@@ -170,10 +203,49 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
   reset(): this {
     this.state.from = undefined;
     this.state.where = [];
+    this.state.groupBy = [];
+    this.state.having = [];
     this.state.orderBy = [];
     this.state.limit = undefined;
     this.state.offset = undefined;
     return this;
+  }
+
+  private applyGroupBy(rows: EntityRow[]): EntityRow[] {
+    const groups = new Map<string, EntityRow[]>();
+
+    for (const row of rows) {
+      const keyValues = this.state.groupBy.map((field) => row[field]);
+      const key = JSON.stringify(keyValues);
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.push(row);
+      } else {
+        groups.set(key, [row]);
+      }
+    }
+
+    const groupedRows: EntityRow[] = [];
+
+    for (const grouped of groups.values()) {
+      const first = grouped[0];
+      if (!first) {
+        continue;
+      }
+
+      const projected: EntityRow = {
+        $count: grouped.length,
+      };
+
+      for (const field of this.state.groupBy) {
+        projected[field] = first[field];
+      }
+
+      groupedRows.push(projected);
+    }
+
+    return groupedRows;
   }
 
   private async hydrateRelations(rows: EntityRow[]): Promise<EntityRow[]> {
