@@ -5,3 +5,4 @@ build
 bun.lockb
 .DS_Store
 coverage
+data/
