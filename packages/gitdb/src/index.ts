@@ -1,4 +1,13 @@
 export { GitDB, gitDb } from './core/gitdb.ts';
+export { defineRelations } from './core/relations.ts';
+export type {
+	EntityRelations,
+	ManyRelationConfig,
+	OneRelationConfig,
+	RelationDefinition,
+	RelationHelpers,
+	RelationsRegistry,
+} from './core/relations.ts';
 export {
 	ColumnBuilder,
 	bigint,

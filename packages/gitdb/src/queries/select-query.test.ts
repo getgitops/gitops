@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defineRelations } from '../core/relations.ts';
 import { entity } from '../core/schema.ts';
 import { SelectQuery, and, eq, gte, ilike, lt, ne, not, or } from './select-query.ts';
 
@@ -22,6 +23,60 @@ const rows: UserRow[] = [
   { id: 3, name: 'Carla', age: 30, active: true },
   { id: 4, name: 'Daniel', age: 18, active: true },
 ];
+
+const roles = entity('roles', {
+  id: 'int',
+  label: 'string',
+});
+
+const posts = entity('posts', {
+  id: 'int',
+  userId: 'int',
+  title: 'string',
+});
+
+const usersWithRole = entity('users', {
+  id: 'int',
+  roleId: 'int',
+  name: 'string',
+});
+
+function createQueryWithRelations(includeRelations?: string[] | Record<string, boolean>) {
+  const relations = defineRelations();
+  relations.for(usersWithRole, ({ one, many }) => ({
+    role: one(roles, { fields: ['roleId'], references: ['id'] }),
+    posts: many(posts, { fields: ['id'], references: ['userId'] }),
+  }));
+
+  return new SelectQuery(async (entityName) => {
+    if (entityName === 'users') {
+      return [
+        { id: 1, roleId: 1, name: 'Ana' },
+        { id: 2, roleId: 2, name: 'Beto' },
+      ];
+    }
+
+    if (entityName === 'roles') {
+      return [
+        { id: 1, label: 'admin' },
+        { id: 2, label: 'developer' },
+      ];
+    }
+
+    if (entityName === 'posts') {
+      return [
+        { id: 10, userId: 1, title: 'a' },
+        { id: 11, userId: 1, title: 'b' },
+        { id: 12, userId: 2, title: 'c' },
+      ];
+    }
+
+    return [];
+  }, {
+    relationsRegistry: relations,
+    includeRelations: includeRelations ?? null,
+  });
+}
 
 function createQuery() {
   return new SelectQuery(async (entityName) => {
@@ -93,5 +148,23 @@ describe('SelectQuery', () => {
 
     const result = await query;
     expect(result.rows).toHaveLength(4);
+  });
+
+  it('hidrata relaciones con contexto de with', async () => {
+    const result = await createQueryWithRelations().from(usersWithRole).where({ id: 1 });
+
+    expect(result.rows).toHaveLength(1);
+    const row = result.rows[0] as Record<string, unknown>;
+    expect((row.role as Record<string, unknown>)?.label).toBe('admin');
+    expect((row.posts as Array<Record<string, unknown>>).map((post) => post.id).sort()).toEqual([10, 11]);
+  });
+
+  it('permite include selectivo con mapa booleano', async () => {
+    const result = await createQueryWithRelations({ role: true, posts: false }).from(usersWithRole).where({ id: 1 });
+
+    expect(result.rows).toHaveLength(1);
+    const row = result.rows[0] as Record<string, unknown>;
+    expect((row.role as Record<string, unknown>)?.label).toBe('admin');
+    expect('posts' in row).toBe(false);
   });
 });

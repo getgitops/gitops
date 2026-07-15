@@ -1,4 +1,5 @@
 import type { EntityDefinition } from '../core/schema.ts';
+import type { RelationDefinition, RelationsRegistry } from '../core/relations.ts';
 import type { EntityRow, WhereInput } from './where-operators.ts';
 import { toPredicates } from './where-operators.ts';
 export { and, eq, gte, ilike, lt, ne, not, or } from './where-operators.ts';
@@ -26,8 +27,16 @@ export type SelectExecutionResult = {
   state: SelectQueryState;
 };
 
+type SelectQueryOptions = {
+  relationsRegistry?: RelationsRegistry;
+  includeRelations?: string[] | Record<string, boolean> | null;
+};
+
 export class SelectQuery implements PromiseLike<SelectExecutionResult> {
-  constructor(private readonly loadEntityRows: LoadEntityRows) {}
+  constructor(
+    private readonly loadEntityRows: LoadEntityRows,
+    private readonly options: SelectQueryOptions = {},
+  ) {}
 
   private readonly state: SelectQueryState = {
     where: [],
@@ -112,6 +121,8 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
       rows = rows.slice(0, this.state.limit);
     }
 
+    rows = await this.hydrateRelations(rows);
+
     return {
       entity: this.state.from.name,
       rows,
@@ -153,5 +164,91 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
     this.state.limit = undefined;
     this.state.offset = undefined;
     return this;
+  }
+
+  private async hydrateRelations(rows: EntityRow[]): Promise<EntityRow[]> {
+    const source = this.state.from;
+    const registry = this.options.relationsRegistry;
+
+    if (!source || !registry) {
+      return rows;
+    }
+
+    const allRelations = registry.get(source.name);
+    const relationNames = this.resolveIncludedRelations(allRelations);
+    const selectedRelations = relationNames
+      .map((name) => [name, allRelations[name]] as const)
+      .filter(([, relation]) => relation !== undefined);
+
+    if (!selectedRelations.length) {
+      return rows;
+    }
+
+    const cache = new Map<string, Promise<EntityRow[]>>();
+    const getTargetRows = (entityName: string) => {
+      const cached = cache.get(entityName);
+      if (cached) {
+        return cached;
+      }
+
+      const loader = this.loadEntityRows(entityName);
+      cache.set(entityName, loader);
+      return loader;
+    };
+
+    const hydratedRows: EntityRow[] = [];
+
+    for (const row of rows) {
+      const hydrated: EntityRow = { ...row };
+
+      for (const [relationName, relation] of selectedRelations) {
+        hydrated[relationName] = await this.resolveRelation(row, relation, getTargetRows);
+      }
+
+      hydratedRows.push(hydrated);
+    }
+
+    return hydratedRows;
+  }
+
+  private resolveIncludedRelations(allRelations: Record<string, RelationDefinition>): string[] {
+    const include = this.options.includeRelations;
+    if (!include) {
+      return Object.keys(allRelations);
+    }
+
+    if (Array.isArray(include)) {
+      return include;
+    }
+
+    return Object.entries(include)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([relationName]) => relationName);
+  }
+
+  private async resolveRelation(
+    sourceRow: EntityRow,
+    relation: RelationDefinition,
+    getTargetRows: (entityName: string) => Promise<EntityRow[]>,
+  ): Promise<EntityRow | EntityRow[] | null> {
+    if (relation.fields.length === 0 || relation.references.length === 0) {
+      return relation.kind === 'many' ? [] : null;
+    }
+
+    const targetRows = await getTargetRows(relation.targetEntity);
+    const matches = targetRows.filter((targetRow) => {
+      return relation.fields.every((field, index) => {
+        const sourceValue = sourceRow[field];
+        const targetField = relation.references[index];
+        const targetValue = targetRow[targetField];
+        return sourceValue === targetValue;
+      });
+    });
+
+    if (relation.kind === 'one') {
+      return matches[0] ?? null;
+    }
+
+    return matches;
   }
 }
