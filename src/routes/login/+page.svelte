@@ -21,7 +21,7 @@
       const payload = await response.json().catch(() => ({}));
 
       if (response.ok && payload?.success) {
-        window.location.href = '/projects';
+        window.location.href = '/pulumi-state';
         return;
       }
 

@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import {
     BarChart3,
     ChevronDown,
     ChevronRight,
     Database,
     GitBranch,
+    HelpCircle,
     KeyRound,
     Lock,
     PanelLeftClose,
@@ -17,6 +19,8 @@
   export let pathname = '/';
   export let isConfigured = false;
   export let collapsed = false;
+
+  let currentPath = pathname;
 
   const sections = [
     {
@@ -44,10 +48,28 @@
       items: [
         {
           label: 'Pulumi State',
-          href: '/projects',
+          href: '/pulumi-state',
           icon: GitBranch,
         },
       ],
+    },
+  ];
+
+  const pulumiStateItems = [
+    {
+      label: 'Overview',
+      href: '/pulumi-state',
+      icon: GitBranch,
+    },
+    {
+      label: 'Storage Backends',
+      href: '/pulumi-state/backends',
+      icon: Database,
+    },
+    {
+      label: 'CLI Guide',
+      href: '/pulumi-state/cli-guide',
+      icon: HelpCircle,
     },
   ];
 
@@ -75,25 +97,52 @@
   ];
 
   let settingsMenuOpen = pathname.startsWith('/settings');
+  let pulumiStateMenuOpen = pathname.startsWith('/pulumi-state');
+
+  function getPulumiStateActiveItem() {
+    if (currentPath.startsWith('/pulumi-state/backends') || currentPath.startsWith('/settings/storage')) {
+      return '/pulumi-state/backends';
+    }
+
+    if (currentPath.startsWith('/pulumi-state/cli-guide')) {
+      return '/pulumi-state/cli-guide';
+    }
+
+    if (currentPath.startsWith('/pulumi-state') || currentPath.startsWith('/projects')) {
+      return '/pulumi-state';
+    }
+
+    return null;
+  }
+
+  function isPulumiStateSectionActive() {
+    return getPulumiStateActiveItem() !== null;
+  }
 
   function isActive(path: string) {
-    if (path === '/projects') {
-      return pathname.startsWith('/projects');
+    if (path.startsWith('/pulumi-state')) {
+      return getPulumiStateActiveItem() === path;
     }
 
     if (path.startsWith('/settings')) {
-      return pathname.startsWith('/settings');
+      return currentPath.startsWith('/settings');
     }
 
-    return pathname.startsWith(path);
+    return currentPath.startsWith(path);
   }
 
   function toggleCollapsed() {
     collapsed = !collapsed;
   }
 
-  $: if (pathname.startsWith('/settings')) {
+  $: currentPath = $page.url.pathname || pathname;
+
+  $: if (currentPath.startsWith('/settings')) {
     settingsMenuOpen = true;
+  }
+
+  $: if (currentPath.startsWith('/pulumi-state') || currentPath.startsWith('/projects')) {
+    pulumiStateMenuOpen = true;
   }
 </script>
 
@@ -125,7 +174,7 @@
 
   {#if !isConfigured}
     <a
-      href="/settings/storage"
+      href="/pulumi-state/backends"
       class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed ? 'justify-center' : 'items-start'}"
       title="Configure a storage backend"
     >
@@ -151,23 +200,70 @@
 
         <div class="space-y-2">
           {#each section.items as item}
-            <a
-              href={item.href}
-              class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed ? 'justify-center' : 'items-center'} {isActive(item.href)
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
-              title={item.label}
-            >
-              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive(item.href)
-                ? 'bg-white/10 text-white'
-                : 'bg-slate-100 text-slate-600'}">
-                <svelte:component this={item.icon} class="h-3.5 w-3.5" />
-              </div>
+            {#if item.href === '/pulumi-state' && !collapsed}
+              <div class="space-y-2">
+                <button
+                  type="button"
+                  class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isPulumiStateSectionActive()
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                  on:click={() => (pulumiStateMenuOpen = !pulumiStateMenuOpen)}
+                  aria-expanded={pulumiStateMenuOpen}
+                >
+                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isPulumiStateSectionActive()
+                    ? 'bg-white/10 text-white'
+                    : 'bg-slate-100 text-slate-600'}">
+                    <GitBranch class="h-3.5 w-3.5" />
+                  </div>
+                  <p class="min-w-0 flex-1 truncate text-sm font-medium">Pulumi State</p>
+                  {#if pulumiStateMenuOpen}
+                    <ChevronDown class="h-4 w-4 shrink-0" />
+                  {:else}
+                    <ChevronRight class="h-4 w-4 shrink-0" />
+                  {/if}
+                </button>
 
-              {#if !collapsed}
-                <p class="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</p>
-              {/if}
-            </a>
+                {#if pulumiStateMenuOpen}
+                  <div class="ml-4 border-l border-slate-200 pl-3">
+                    <div class="space-y-1">
+                      {#each pulumiStateItems as pulumiItem}
+                        <a
+                          href={pulumiItem.href}
+                          class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(pulumiItem.href)
+                            ? 'bg-slate-100 text-slate-900'
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+                        >
+                          <svelte:component this={pulumiItem.icon} class="h-3.5 w-3.5 shrink-0" />
+                          <span class="truncate">{pulumiItem.label}</span>
+                        </a>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <a
+                href={item.href}
+                class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed ? 'justify-center' : 'items-center'} {(item.href === '/pulumi-state'
+                  ? isPulumiStateSectionActive()
+                  : isActive(item.href))
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                title={item.label}
+              >
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {(item.href === '/pulumi-state'
+                  ? isPulumiStateSectionActive()
+                  : isActive(item.href))
+                  ? 'bg-white/10 text-white'
+                  : 'bg-slate-100 text-slate-600'}">
+                  <svelte:component this={item.icon} class="h-3.5 w-3.5" />
+                </div>
+
+                {#if !collapsed}
+                  <p class="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</p>
+                {/if}
+              </a>
+            {/if}
           {/each}
         </div>
       </section>

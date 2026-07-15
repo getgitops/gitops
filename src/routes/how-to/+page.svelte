@@ -22,7 +22,7 @@
         <h3 class="text-lg font-semibold">Configure storage</h3>
       </div>
       <p class="text-sm text-gray-600">
-        Add an S3 or GCS backend from Settings → Storage Backend to connect your Pulumi state
+        Add an S3 or GCS backend from Pulumi State → Storage Backends to connect your Pulumi state
         buckets.
       </p>
     </div>

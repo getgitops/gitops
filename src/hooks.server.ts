@@ -40,7 +40,7 @@ export async function handle({ event, resolve }) {
 
   if (event.url.pathname.startsWith('/settings') || event.url.pathname.startsWith('/api/system')) {
     if (currentUser?.role !== 'admin') {
-      return new Response(null, { status: 302, headers: { location: '/projects' } });
+      return new Response(null, { status: 302, headers: { location: '/pulumi-state' } });
     }
   }
 

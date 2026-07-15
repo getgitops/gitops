@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    ArrowLeft,
     Box,
     Package,
     Server,
@@ -11,6 +10,7 @@
     Clock,
     Settings,
   } from 'lucide-svelte';
+  import SubNavbar from '$lib/components/SubNavbar.svelte';
   import ResourceTree from '$lib/components/ResourceTree.svelte';
   import OutputsViewer from '$lib/components/OutputsViewer.svelte';
 
@@ -127,20 +127,24 @@
     if (!unixTimestamp) return '';
     return new Date(unixTimestamp * 1000).toLocaleString();
   }
+
+  function selectBackend(event: CustomEvent<{ id: string }>) {
+    document.cookie = `active_backend=${event.detail.id}; path=/; max-age=31536000`;
+    window.location.href = '/pulumi-state';
+  }
 </script>
 
 <svelte:head>
   <title>{getStackName(data.cleanId || '')} - Pulumi State UI</title>
 </svelte:head>
 
-<div class="mb-6">
-  <a
-    href="/projects"
-    class="inline-flex items-center text-sm text-gray-500 hover:text-gray-900 transition-colors font-medium"
-  >
-    <ArrowLeft class="w-4 h-4 mr-1" /> Back to Projects
-  </a>
-</div>
+<SubNavbar
+  label="State"
+  options={data.backends || []}
+  activeId={data.activeBackendId || ''}
+  path={`/${data.cleanId || ''}`}
+  on:change={selectBackend}
+/>
 
 {#if data.error}
   <div class="p-6 bg-red-50 text-red-700 rounded-xl border border-red-200">
@@ -163,7 +167,7 @@
         </div>
       </div>
       <a
-        href="/projects/{data.cleanId}"
+        href="/pulumi-state/{data.cleanId}"
         class="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 text-sm font-bold rounded-lg transition-colors whitespace-nowrap text-center"
         >Return to Current State</a
       >

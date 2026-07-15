@@ -3,7 +3,6 @@
     Search,
     Layers,
     ArrowRight,
-    Plus,
     X,
     Copy,
     Check,
@@ -12,6 +11,7 @@
     Edit2,
     Trash2,
   } from 'lucide-svelte';
+  import SubNavbar from '$lib/components/SubNavbar.svelte';
   import { invalidateAll } from '$app/navigation';
 
   export let data: any;
@@ -91,11 +91,6 @@
     return fileKey.split('/').pop()?.replace('.json', '') || fileKey;
   }
 
-  let showProjectModal = false;
-  let newProjectName = '';
-  let creatingProject = false;
-  let createdProject: any = null;
-  let copied = false;
   let actionModalType: 'rename' | 'delete' | 'unlock' | null = null;
   let actionProject: any = null;
   let actionStack: any = null;
@@ -114,40 +109,6 @@
     }
   }
 
-  async function createProject() {
-    if (!newProjectName.trim()) return;
-
-    creatingProject = true;
-    try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newProjectName }),
-      });
-
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
-      createdProject = result.project;
-    } catch {
-      alert('Failed to create project');
-    } finally {
-      creatingProject = false;
-    }
-  }
-
-  function copyCommand() {
-    let command = '';
-    if (data.provider === 's3') {
-      command = `pulumi login s3://${data.bucket}?region=${data.region || 'us-east-1'}\npulumi new typescript --name ${createdProject.id}\n# Or for an existing project:\n# pulumi stack init ${createdProject.id}/dev`;
-    } else {
-      command = `pulumi login gs://${data.bucket}\npulumi new typescript --name ${createdProject.id}\n# Or for an existing project:\n# pulumi stack init ${createdProject.id}/dev`;
-    }
-
-    navigator.clipboard.writeText(command);
-    copied = true;
-    setTimeout(() => (copied = false), 2000);
-  }
-
   function copyActionCommand() {
     let command = '';
     if (actionModalType === 'rename') {
@@ -163,18 +124,23 @@
     setTimeout(() => (copiedAction = false), 2000);
   }
 
-  function closeProjectModal() {
-    showProjectModal = false;
-    setTimeout(() => {
-      newProjectName = '';
-      createdProject = null;
-    }, 200);
+  function selectBackend(id: string) {
+    document.cookie = `active_backend=${id}; path=/; max-age=31536000`;
+    window.location.href = '/pulumi-state';
   }
 </script>
 
 <svelte:head>
   <title>Projects - Pulumi Open State</title>
 </svelte:head>
+
+<SubNavbar
+  label="State"
+  options={data.backends || []}
+  activeId={data.activeBackendId || ''}
+  path="/"
+  on:change={(event) => selectBackend(event.detail.id)}
+/>
 
 <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
   <div>
@@ -183,8 +149,7 @@
       <p class="text-red-500 text-sm mt-1">Error: {data.error}</p>
     {:else}
       <p class="text-gray-500 text-sm mt-1">
-        Found {Object.keys(computedProjects).length} projects across {data.files?.length || 0} states
-        in <span class="font-semibold text-gray-700">{data.bucket}</span>
+        Found {Object.keys(computedProjects).length} projects across {data.files?.length || 0} states.
       </p>
     {/if}
   </div>
@@ -200,12 +165,6 @@
       />
     </div>
     <button
-      on:click={() => (showProjectModal = true)}
-      class="w-full sm:w-auto bg-gray-900 hover:bg-black text-white font-semibold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors flex items-center justify-center gap-2 shrink-0"
-    >
-      <Plus class="w-4 h-4" /> New Project
-    </button>
-    <button
       on:click={syncProjects}
       disabled={isSyncing}
       class="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
@@ -215,7 +174,7 @@
       States
     </button>
     <a
-      href="/how-to"
+      href="/pulumi-state/cli-guide"
       class="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors flex items-center justify-center gap-2 shrink-0"
       title="How to connect"
     >
@@ -266,8 +225,8 @@
           <h4 class="text-sm font-semibold text-gray-700 mb-3">Stacks in this project:</h4>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {#each project.stacks as stack}
-              <a
-                href={`/projects/${stack.cleanId}`}
+                  <a
+                    href={`/pulumi-state/${stack.cleanId}`}
                 class="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 hover:shadow-sm transition-all group bg-white"
               >
                 <div class="min-w-0 flex-1">
@@ -364,124 +323,6 @@
     </div>
   {/if}
 </div>
-
-{#if showProjectModal}
-  <button
-    type="button"
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm"
-    on:click={closeProjectModal}
-  >
-    <div
-      class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-lg font-bold text-gray-900">Create New Project</h3>
-        <button
-          on:click={closeProjectModal}
-          class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <X class="w-5 h-5" />
-        </button>
-      </div>
-
-      <div class="p-6">
-        {#if !createdProject}
-          <p class="text-sm text-gray-600 mb-4">
-            Initialize a new Pulumi project in the local SQLite database. This prepares the backend
-            to receive states for this project.
-          </p>
-          <div class="mb-6">
-            <label for="proj-name" class="block text-sm font-semibold text-gray-700 mb-1.5"
-              >Project Name</label
-            >
-            <input
-              id="proj-name"
-              type="text"
-              bind:value={newProjectName}
-              class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="e.g. core-infrastructure"
-              on:keydown={(event) => event.key === 'Enter' && createProject()}
-            />
-          </div>
-          <div class="flex justify-end gap-3">
-            <button
-              on:click={closeProjectModal}
-              class="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-xl transition-colors"
-              >Cancel</button
-            >
-            <button
-              on:click={createProject}
-              disabled={creatingProject || !newProjectName.trim()}
-              class="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors flex items-center gap-2"
-              >Create Project</button
-            >
-          </div>
-        {:else}
-          <div class="text-center mb-6">
-            <div
-              class="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3"
-            >
-              <Check class="w-6 h-6" />
-            </div>
-            <h4 class="text-lg font-bold text-gray-900">Project Registered!</h4>
-            <p class="text-sm text-gray-500 mt-1">You can now initialize your stack locally.</p>
-          </div>
-
-          <div class="bg-gray-900 rounded-xl p-1 relative group overflow-hidden">
-            <div class="absolute top-3 right-3">
-              <button
-                on:click={copyCommand}
-                class="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-md transition-colors"
-                title="Copy"
-              >
-                {#if copied}
-                  <Check class="w-4 h-4 text-green-400" />
-                {:else}
-                  <Copy class="w-4 h-4" />
-                {/if}
-              </button>
-            </div>
-            <div class="p-4 text-sm font-mono text-gray-300 overflow-x-auto">
-              <div class="text-gray-500 italic"># 1. Point Pulumi to your remote bucket</div>
-              <div class="flex gap-2">
-                <span class="text-pink-400 select-none">❯</span><span
-                  ><span class="text-blue-400">pulumi</span> login {data.provider === 's3'
-                    ? `s3://${data.bucket}?region=${data.region || 'us-east-1'}`
-                    : `gs://${data.bucket}`}</span
-                >
-              </div>
-              <div class="flex gap-2">
-                <span class="text-pink-400 select-none">❯</span><span
-                  ><span class="text-blue-400">pulumi</span> new typescript
-                  <span class="text-gray-400">--name</span>
-                  {createdProject.id}</span
-                >
-              </div>
-              <div class="mt-2 text-gray-500 italic">
-                # Or if you already have a Pulumi project locally:
-              </div>
-              <div class="flex gap-2">
-                <span class="text-pink-400 select-none">❯</span><span
-                  ><span class="text-blue-400">pulumi</span> stack init {createdProject.id}/dev</span
-                >
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-6 flex justify-end">
-            <button
-              on:click={closeProjectModal}
-              class="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-              >Close</button
-            >
-          </div>
-        {/if}
-      </div>
-    </div>
-  </button>
-{/if}
 
 {#if actionModalType !== null && actionProject !== null}
   <button

@@ -1,9 +1,6 @@
 <script lang="ts">
   import { ChevronDown, LogOut, Layers, UserRound } from 'lucide-svelte';
 
-  export let isConfigured = false;
-  export let backends: { id: string; name: string }[] = [];
-  export let activeBackendId = '';
   export let user: { username: string; role: string } | null = null;
 
   let showUserDropdown = false;
@@ -16,11 +13,6 @@
     showUserDropdown = false;
   }
 
-  function selectBackend(event: Event) {
-    const id = (event.target as HTMLSelectElement).value;
-    document.cookie = `active_backend=${id}; path=/; max-age=31536000`;
-    window.location.href = '/projects';
-  }
 </script>
 
 <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
@@ -43,25 +35,6 @@
     </a>
 
     <div class="flex items-center gap-3 sm:gap-4">
-      {#if isConfigured && backends.length > 0}
-        {#if backends.length > 1}
-          <select
-            value={activeBackendId}
-            on:change={selectBackend}
-            class="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-200 sm:block"
-            aria-label="Select Storage Backend"
-          >
-            {#each backends as backend}
-              <option value={backend.id}>{backend.name}</option>
-            {/each}
-          </select>
-        {:else}
-          <span class="hidden rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700 sm:inline-flex">
-            {backends[0].name}
-          </span>
-        {/if}
-      {/if}
-
       {#if user}
         <div class="relative ml-1">
           <button

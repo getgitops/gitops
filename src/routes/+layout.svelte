@@ -26,12 +26,7 @@
   style={`--sidebar-width:${sidebarCollapsed ? '96px' : '340px'}`}
 >
   {#if $page.url.pathname !== '/login'}
-    <AppNavbar
-      isConfigured={data.isConfigured}
-      backends={data.backends}
-      activeBackendId={data.activeBackendId}
-      user={data.user}
-    />
+    <AppNavbar user={data.user} />
 
     <div class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 lg:block lg:px-0">
       <aside class="app-shell-sidebar w-full lg:fixed lg:left-0 lg:top-16 lg:z-20 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:border-r lg:border-slate-200 lg:bg-slate-50 lg:px-4 lg:py-6">
