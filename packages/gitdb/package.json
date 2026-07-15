@@ -34,7 +34,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "demo": "npm run build && node test.js",
+    "demo": "npm run build && node --experimental-strip-types test-git-db.ts",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "npm run clean && npm run build && npm run typecheck && npm run test && changeset publish",

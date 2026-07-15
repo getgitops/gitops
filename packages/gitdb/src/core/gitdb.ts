@@ -1,64 +1,37 @@
-import path from 'node:path';
-import type { EntityRecord, GitDBOptions, ModelOptions, ResolvedGitDBOptions } from '../domain/types';
-import { FileManager } from '../infrastructure/file-manager';
-import { GitRepository } from '../infrastructure/git-repository';
-import { GitDBModel } from './model';
-
-function resolveOptions(options: GitDBOptions): ResolvedGitDBOptions {
-  return {
-    repositoryPath: options.repositoryPath ?? path.resolve(process.cwd(), '.gitdb'),
-    autoCommitIntervalMs: options.autoCommitIntervalMs ?? 60_000,
-    immediateCommitDelayMs: options.immediateCommitDelayMs ?? 800,
-    gitUserName: options.gitUserName ?? 'gitdb-bot',
-    gitUserEmail: options.gitUserEmail ?? 'gitdb-bot@local',
-  };
-}
+import { GitRepository } from '../infrastructure/git-repository.ts';
+import { GitDbLogger } from '../infrastructure/logger.ts';
+import type { GitDbOptions } from '../types.ts';
+import { SelectQuery } from '../queries/select-query.ts';
 
 export class GitDB {
-  private readonly models = new Map<string, GitDBModel<any>>();
+  private readonly repository: GitRepository;
 
-  private constructor(
-    private readonly fileManager: FileManager,
-    private readonly repository: GitRepository,
-  ) {}
-
-  static async create(options: GitDBOptions = {}): Promise<GitDB> {
-    const config = resolveOptions(options);
-
-    const repository = new GitRepository(config);
-    await repository.initialize();
-
-    const fileManager = new FileManager(config.repositoryPath);
-    return new GitDB(fileManager, repository);
-  }
-
-  model<T extends EntityRecord>(entityName: string, options: ModelOptions = {}): GitDBModel<T> {
-    const key = entityName.toLowerCase();
-    const cached = this.models.get(key);
-    if (cached) {
-      return cached as unknown as GitDBModel<T>;
-    }
-
-    const model = new GitDBModel<T>(
-      this.repository,
-      this.fileManager,
-      key,
-      options.idField ?? 'id',
-    );
-
-    this.models.set(key, model as GitDBModel<any>);
-    return model;
-  }
-
-  async commitNow(reason?: string): Promise<void> {
-    await this.repository.commitNow(reason);
+  constructor(repository: GitRepository) {
+    this.repository = repository;
   }
 
   async close(): Promise<void> {
     await this.repository.shutdown();
   }
+
+  select(): SelectQuery {
+    return new SelectQuery();
+  }
 }
 
-export async function createGitDB(options: GitDBOptions = {}): Promise<GitDB> {
-  return GitDB.create(options);
+export function gitDb(repositoryUrl: string, options: Partial<Omit<GitDbOptions, 'repositoryUrl'>> = {}): GitDB {
+  const logger = new GitDbLogger(options.logger);
+
+  const repository = new GitRepository({
+    repositoryUrl,
+    autoCommitIntervalMs: options.autoCommitIntervalMs ?? 60_000,
+    immediateCommitDelayMs: options.immediateCommitDelayMs ?? 800,
+    gitUserName: options.gitUserName ?? 'gitdb-bot',
+    gitUserEmail: options.gitUserEmail ?? 'gitdb-bot@local',
+    logger: options.logger ?? logger,
+  });
+
+  void repository.initialize();
+
+  return new GitDB(repository);
 }
