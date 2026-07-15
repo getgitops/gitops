@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { EntityRecord, GitDBOptions, ModelOptions, ResolvedGitDBOptions } from '../domain/types';
+import { FileManager } from '../infrastructure/file-manager';
 import { GitRepository } from '../infrastructure/git-repository';
 import { GitDBModel } from './model';
 
@@ -17,7 +18,7 @@ export class GitDB {
   private readonly models = new Map<string, GitDBModel<any>>();
 
   private constructor(
-    private readonly repositoryPath: string,
+    private readonly fileManager: FileManager,
     private readonly repository: GitRepository,
   ) {}
 
@@ -27,7 +28,8 @@ export class GitDB {
     const repository = new GitRepository(config);
     await repository.initialize();
 
-    return new GitDB(config.repositoryPath, repository);
+    const fileManager = new FileManager(config.repositoryPath);
+    return new GitDB(fileManager, repository);
   }
 
   model<T extends EntityRecord>(entityName: string, options: ModelOptions = {}): GitDBModel<T> {
@@ -39,7 +41,7 @@ export class GitDB {
 
     const model = new GitDBModel<T>(
       this.repository,
-      this.repositoryPath,
+      this.fileManager,
       key,
       options.idField ?? 'id',
     );

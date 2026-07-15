@@ -1,26 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import type { EntityRecord, JsonValue, Predicate } from '../domain/types';
+import { FileManager } from '../infrastructure/file-manager';
 import { GitRepository } from '../infrastructure/git-repository';
+import { AsyncTaskQueue } from './async-task-queue';
 import { QueryBuilder } from './query-builder';
 
 export class GitDBModel<T extends EntityRecord> {
-  private writeQueue: Promise<void> = Promise.resolve();
-  private readonly filePath: string;
+  private readonly writeQueue = new AsyncTaskQueue();
 
   constructor(
     private readonly repository: GitRepository,
-    private readonly repositoryPath: string,
+    private readonly fileManager: FileManager,
     private readonly entityName: string,
     public readonly idField: string,
-  ) {
-    this.filePath = path.join(repositoryPath, `${entityName}.json`);
-  }
+  ) {}
 
   select(): QueryBuilder<T> {
-    return new QueryBuilder<T>(this);
+    return new QueryBuilder<T>(this.fileManager, this.entityName, this.idField);
   }
 
   where(criteria: Partial<T> | Predicate<T>): QueryBuilder<T> {
@@ -42,10 +38,10 @@ export class GitDBModel<T extends EntityRecord> {
       insertedRecord[this.idField] = randomUUID();
     }
 
-    await this.enqueueWrite(async () => {
-      const rows = await this.readAll();
+    await this.writeQueue.enqueue(async () => {
+      const rows = await this.fileManager.readEntityRows<T>(this.entityName);
       rows.push(inserted);
-      await this.writeAll(rows);
+      await this.fileManager.writeEntityRows<T>(this.entityName, rows);
     });
 
     this.repository.queueBackgroundCommit(`insert:${this.entityName}`);
@@ -62,41 +58,13 @@ export class GitDBModel<T extends EntityRecord> {
       return row;
     });
 
-    await this.enqueueWrite(async () => {
-      const rows = await this.readAll();
+    await this.writeQueue.enqueue(async () => {
+      const rows = await this.fileManager.readEntityRows<T>(this.entityName);
       rows.push(...inserted);
-      await this.writeAll(rows);
+      await this.fileManager.writeEntityRows<T>(this.entityName, rows);
     });
 
     this.repository.queueBackgroundCommit(`insertMany:${this.entityName}`);
     return inserted;
-  }
-
-  async readAll(): Promise<T[]> {
-    await this.ensureEntityFile();
-    const content = await readFile(this.filePath, 'utf8');
-    const parsed = JSON.parse(content) as unknown;
-    if (!Array.isArray(parsed)) {
-      throw new Error(`Entity file ${this.entityName}.json must contain a JSON array`);
-    }
-
-    return parsed as T[];
-  }
-
-  private async writeAll(rows: T[]): Promise<void> {
-    await writeFile(this.filePath, `${JSON.stringify(rows, null, 2)}\n`, 'utf8');
-  }
-
-  private async ensureEntityFile(): Promise<void> {
-    if (existsSync(this.filePath)) {
-      return;
-    }
-
-    await writeFile(this.filePath, '[]\n', 'utf8');
-  }
-
-  private enqueueWrite(task: () => Promise<void>): Promise<void> {
-    this.writeQueue = this.writeQueue.then(task);
-    return this.writeQueue;
   }
 }
