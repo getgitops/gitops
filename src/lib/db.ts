@@ -13,33 +13,12 @@ export const db = new Database(DB_PATH);
 
 db.pragma('journal_mode = WAL');
 
-try {
-  db.exec('ALTER TABLE config ADD COLUMN encryption_key TEXT');
-} catch {
-  // Ignore if column already exists
-}
-
-const migrations = [
-  'ALTER TABLE config ADD COLUMN public_access INTEGER DEFAULT 1',
-  'ALTER TABLE config ADD COLUMN google_sso_enabled INTEGER DEFAULT 0',
-  'ALTER TABLE config ADD COLUMN google_client_id TEXT',
-  'ALTER TABLE config ADD COLUMN google_client_secret TEXT',
-  "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'developer'",
-];
-
-for (const query of migrations) {
-  try {
-    db.exec(query);
-  } catch {
-    // Ignore if already applied
-  }
-}
-
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'developer',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -102,3 +81,25 @@ db.exec(`
     FOREIGN KEY (stack_id) REFERENCES stacks (id) ON DELETE CASCADE
   );
 `);
+
+try {
+  db.exec('ALTER TABLE config ADD COLUMN encryption_key TEXT');
+} catch {
+  // Ignore if column already exists
+}
+
+const migrations = [
+  'ALTER TABLE config ADD COLUMN public_access INTEGER DEFAULT 1',
+  'ALTER TABLE config ADD COLUMN google_sso_enabled INTEGER DEFAULT 0',
+  'ALTER TABLE config ADD COLUMN google_client_id TEXT',
+  'ALTER TABLE config ADD COLUMN google_client_secret TEXT',
+  "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'developer'",
+];
+
+for (const query of migrations) {
+  try {
+    db.exec(query);
+  } catch {
+    // Ignore if already applied
+  }
+}
