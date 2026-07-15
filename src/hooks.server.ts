@@ -18,7 +18,7 @@ export async function handle({ event, resolve }) {
 
   if (event.url.pathname.startsWith('/settings') || event.url.pathname.startsWith('/api/system')) {
     if (!canAccessAdminArea(currentUser)) {
-      return new Response(null, { status: 302, headers: { location: '/pulumi-state' } });
+      return new Response(null, { status: 302, headers: { location: '/vault' } });
     }
   }
 

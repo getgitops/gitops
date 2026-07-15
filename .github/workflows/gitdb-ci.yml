@@ -1,0 +1,44 @@
+name: GitDB CI
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'packages/gitdb/**'
+      - '.github/workflows/gitdb-ci.yml'
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'packages/gitdb/**'
+      - '.github/workflows/gitdb-ci.yml'
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: packages/gitdb
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/gitdb
+        run: npm run build
+
+      - name: Run typecheck
+        working-directory: packages/gitdb
+        run: npm run typecheck
+
+      - name: Run tests
+        working-directory: packages/gitdb
+        run: npm run test

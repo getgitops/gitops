@@ -1,0 +1,54 @@
+name: Publish @kettu/gitdb
+
+on:
+  push:
+    tags:
+      - 'gitdb-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish package to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        working-directory: packages/gitdb
+        run: npm ci
+
+      - name: Build
+        working-directory: packages/gitdb
+        run: npm run build
+
+      - name: Typecheck
+        working-directory: packages/gitdb
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: packages/gitdb
+        run: npm run test
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/gitdb-v')
+        working-directory: packages/gitdb
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#gitdb-v}"
+
+      - name: Publish to npm
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        working-directory: packages/gitdb
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
