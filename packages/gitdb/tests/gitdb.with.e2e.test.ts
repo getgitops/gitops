@@ -54,10 +54,20 @@ async function seedWithRelations(db: GitDB) {
     title: text().notNull(),
   });
 
+  const comments = entity('comments', {
+    id: integer().primaryKey().autoincrement(),
+    postId: integer().notNull(),
+    content: text().notNull(),
+  });
+
   const relations = defineRelations();
   relations.for(users, ({ one, many }) => ({
     roles: one(roles, { fields: ['roleId'], references: ['id'] }),
     posts: many(posts, { fields: ['id'], references: ['userId'] }),
+  }));
+
+  relations.for(posts, ({ many }) => ({
+    comments: many(comments, { fields: ['id'], references: ['postId'] }),
   }));
 
   await db.insert(roles).values([
@@ -74,6 +84,12 @@ async function seedWithRelations(db: GitDB) {
     { userId: 1, title: 'post-a' },
     { userId: 1, title: 'post-b' },
     { userId: 2, title: 'post-c' },
+  ]);
+
+  await db.insert(comments).values([
+    { postId: 1, content: 'comment-a1' },
+    { postId: 1, content: 'comment-a2' },
+    { postId: 2, content: 'comment-b1' },
   ]);
 
   return {
@@ -111,6 +127,37 @@ describe('GitDB with e2e', () => {
       const row = result.rows[0] as Record<string, unknown>;
       expect((row.roles as Record<string, unknown>)?.name).toBe('admin');
       expect('posts' in row).toBe(false);
+    } finally {
+      await rm(basePath, { recursive: true, force: true });
+    }
+  });
+
+  it('soporta with anidado con with({ posts: { comments: true } })', async () => {
+    const { db, basePath } = await createDb();
+
+    try {
+      const { users } = await seedWithRelations(db);
+      const result = await db.with({ posts: { comments: true } }).select().from(users).where({ id: 1 });
+
+      expect(result.rows).toHaveLength(1);
+      const row = result.rows[0] as Record<string, unknown>;
+      expect('roles' in row).toBe(false);
+
+      const userPosts = row.posts as Array<Record<string, unknown>>;
+      expect(userPosts).toHaveLength(2);
+
+      const postA = userPosts.find((post) => post.title === 'post-a');
+      expect(postA).toBeDefined();
+      expect((postA?.comments as Array<Record<string, unknown>>).map((comment) => comment.content).sort()).toEqual([
+        'comment-a1',
+        'comment-a2',
+      ]);
+
+      const postB = userPosts.find((post) => post.title === 'post-b');
+      expect(postB).toBeDefined();
+      expect((postB?.comments as Array<Record<string, unknown>>).map((comment) => comment.content)).toEqual([
+        'comment-b1',
+      ]);
     } finally {
       await rm(basePath, { recursive: true, force: true });
     }

@@ -27,9 +27,19 @@ export type SelectExecutionResult = {
   state: SelectQueryState;
 };
 
+export interface IncludeRelationsMap {
+  [relationName: string]: boolean | IncludeRelationsMap;
+}
+export type IncludeRelationsInput = string[] | IncludeRelationsMap | null;
+
+type IncludeRelationEntry = {
+  name: string;
+  nestedInclude?: IncludeRelationsInput;
+};
+
 type SelectQueryOptions = {
   relationsRegistry?: RelationsRegistry;
-  includeRelations?: string[] | Record<string, boolean> | null;
+  includeRelations?: IncludeRelationsInput;
 };
 
 export class SelectQuery implements PromiseLike<SelectExecutionResult> {
@@ -168,19 +178,7 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
 
   private async hydrateRelations(rows: EntityRow[]): Promise<EntityRow[]> {
     const source = this.state.from;
-    const registry = this.options.relationsRegistry;
-
-    if (!source || !registry) {
-      return rows;
-    }
-
-    const allRelations = registry.get(source.name);
-    const relationNames = this.resolveIncludedRelations(allRelations);
-    const selectedRelations = relationNames
-      .map((name) => [name, allRelations[name]] as const)
-      .filter(([, relation]) => relation !== undefined);
-
-    if (!selectedRelations.length) {
+    if (!source || !this.options.relationsRegistry) {
       return rows;
     }
 
@@ -196,13 +194,56 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
       return loader;
     };
 
+    return this.hydrateRowsForEntity(
+      rows,
+      source.name,
+      this.options.includeRelations ?? null,
+      getTargetRows,
+    );
+  }
+
+  private async hydrateRowsForEntity(
+    rows: EntityRow[],
+    sourceEntity: string,
+    includeRelations: IncludeRelationsInput,
+    getTargetRows: (entityName: string) => Promise<EntityRow[]>,
+  ): Promise<EntityRow[]> {
+    const registry = this.options.relationsRegistry;
+    if (!registry) {
+      return rows;
+    }
+
+    const allRelations = registry.get(sourceEntity);
+    const selectedRelations = this.resolveIncludedRelations(allRelations, includeRelations)
+      .map((entry) => ({
+        entry,
+        relation: allRelations[entry.name],
+      }))
+      .filter((item): item is { entry: IncludeRelationEntry; relation: RelationDefinition } => item.relation !== undefined);
+
+    if (!selectedRelations.length) {
+      return rows;
+    }
+
     const hydratedRows: EntityRow[] = [];
 
     for (const row of rows) {
       const hydrated: EntityRow = { ...row };
 
-      for (const [relationName, relation] of selectedRelations) {
-        hydrated[relationName] = await this.resolveRelation(row, relation, getTargetRows);
+      for (const { entry, relation } of selectedRelations) {
+        const relationResult = await this.resolveRelation(row, relation, getTargetRows);
+
+        if (entry.nestedInclude !== undefined && relationResult !== null) {
+          hydrated[entry.name] = await this.hydrateRelationValue(
+            relationResult,
+            relation.targetEntity,
+            entry.nestedInclude,
+            getTargetRows,
+          );
+          continue;
+        }
+
+        hydrated[entry.name] = relationResult;
       }
 
       hydratedRows.push(hydrated);
@@ -211,19 +252,50 @@ export class SelectQuery implements PromiseLike<SelectExecutionResult> {
     return hydratedRows;
   }
 
-  private resolveIncludedRelations(allRelations: Record<string, RelationDefinition>): string[] {
-    const include = this.options.includeRelations;
+  private async hydrateRelationValue(
+    relationValue: EntityRow | EntityRow[],
+    targetEntity: string,
+    includeRelations: IncludeRelationsInput,
+    getTargetRows: (entityName: string) => Promise<EntityRow[]>,
+  ): Promise<EntityRow | EntityRow[]> {
+    if (Array.isArray(relationValue)) {
+      return this.hydrateRowsForEntity(relationValue, targetEntity, includeRelations, getTargetRows);
+    }
+
+    const [hydrated] = await this.hydrateRowsForEntity(
+      [relationValue],
+      targetEntity,
+      includeRelations,
+      getTargetRows,
+    );
+
+    return hydrated ?? relationValue;
+  }
+
+  private resolveIncludedRelations(
+    allRelations: Record<string, RelationDefinition>,
+    include: IncludeRelationsInput,
+  ): IncludeRelationEntry[] {
     if (!include) {
-      return Object.keys(allRelations);
+      return Object.keys(allRelations).map((name) => ({ name }));
     }
 
     if (Array.isArray(include)) {
-      return include;
+      return include.map((name) => ({ name }));
     }
 
     return Object.entries(include)
-      .filter(([, enabled]) => Boolean(enabled))
-      .map(([relationName]) => relationName);
+      .filter(([, enabled]) => enabled !== false)
+      .map(([relationName, enabled]) => {
+        if (enabled && typeof enabled === 'object' && !Array.isArray(enabled)) {
+          return {
+            name: relationName,
+            nestedInclude: enabled as IncludeRelationsMap,
+          };
+        }
+
+        return { name: relationName };
+      });
   }
 
   private async resolveRelation(

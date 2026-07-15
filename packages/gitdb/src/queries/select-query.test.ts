@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defineRelations } from '../core/relations.ts';
 import { entity } from '../core/schema.ts';
 import { SelectQuery, and, eq, gte, ilike, lt, ne, not, or } from './select-query.ts';
+import type { IncludeRelationsInput } from './select-query.ts';
 
 type UserRow = {
   id: number;
@@ -35,17 +36,26 @@ const posts = entity('posts', {
   title: 'string',
 });
 
+const comments = entity('comments', {
+  id: 'int',
+  postId: 'int',
+  content: 'string',
+});
+
 const usersWithRole = entity('users', {
   id: 'int',
   roleId: 'int',
   name: 'string',
 });
 
-function createQueryWithRelations(includeRelations?: string[] | Record<string, boolean>) {
+function createQueryWithRelations(includeRelations?: IncludeRelationsInput) {
   const relations = defineRelations();
   relations.for(usersWithRole, ({ one, many }) => ({
     role: one(roles, { fields: ['roleId'], references: ['id'] }),
     posts: many(posts, { fields: ['id'], references: ['userId'] }),
+  }));
+  relations.for(posts, ({ many }) => ({
+    comments: many(comments, { fields: ['id'], references: ['postId'] }),
   }));
 
   return new SelectQuery(async (entityName) => {
@@ -68,6 +78,14 @@ function createQueryWithRelations(includeRelations?: string[] | Record<string, b
         { id: 10, userId: 1, title: 'a' },
         { id: 11, userId: 1, title: 'b' },
         { id: 12, userId: 2, title: 'c' },
+      ];
+    }
+
+    if (entityName === 'comments') {
+      return [
+        { id: 100, postId: 10, content: 'c1' },
+        { id: 101, postId: 10, content: 'c2' },
+        { id: 102, postId: 11, content: 'c3' },
       ];
     }
 
@@ -166,5 +184,24 @@ describe('SelectQuery', () => {
     const row = result.rows[0] as Record<string, unknown>;
     expect((row.role as Record<string, unknown>)?.label).toBe('admin');
     expect('posts' in row).toBe(false);
+  });
+
+  it('soporta include anidado con mapa de relaciones', async () => {
+    const result = await createQueryWithRelations({ posts: { comments: true } }).from(usersWithRole).where({ id: 1 });
+
+    expect(result.rows).toHaveLength(1);
+    const row = result.rows[0] as Record<string, unknown>;
+    expect('role' in row).toBe(false);
+
+    const rowPosts = row.posts as Array<Record<string, unknown>>;
+    expect(rowPosts).toHaveLength(2);
+
+    const post10 = rowPosts.find((post) => post.id === 10);
+    expect(post10).toBeDefined();
+    expect((post10?.comments as Array<Record<string, unknown>>).map((comment) => comment.id).sort()).toEqual([100, 101]);
+
+    const post11 = rowPosts.find((post) => post.id === 11);
+    expect(post11).toBeDefined();
+    expect((post11?.comments as Array<Record<string, unknown>>).map((comment) => comment.id)).toEqual([102]);
   });
 });

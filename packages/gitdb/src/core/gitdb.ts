@@ -7,12 +7,12 @@ import { getGlobalRelations, type RelationsRegistry } from './relations.ts';
 import type { GitDbOptions } from '../types.ts';
 import { DeleteQuery } from '../queries/delete-query.ts';
 import { InsertQuery } from '../queries/insert-query.ts';
-import { SelectQuery } from '../queries/select-query.ts';
+import { SelectQuery, type IncludeRelationsInput } from '../queries/select-query.ts';
 import { UpdateQuery } from '../queries/update-query.ts';
 
 type SelectWithContext = {
   relationsRegistry?: RelationsRegistry;
-  includeRelations?: string[] | Record<string, boolean> | null;
+  includeRelations?: IncludeRelationsInput;
 };
 
 export class GitDB {
@@ -47,11 +47,11 @@ export class GitDB {
     };
   }
 
-  with(relationsRegistry: RelationsRegistry, includeRelations?: string[] | Record<string, boolean>): GitDB;
-  with(includeRelations?: string[] | Record<string, boolean>): GitDB;
+  with(relationsRegistry: RelationsRegistry, includeRelations?: IncludeRelationsInput): GitDB;
+  with(includeRelations?: IncludeRelationsInput): GitDB;
   with(
-    relationsOrInclude?: RelationsRegistry | string[] | Record<string, boolean>,
-    includeRelationsMaybe?: string[] | Record<string, boolean>,
+    relationsOrInclude?: RelationsRegistry | IncludeRelationsInput,
+    includeRelationsMaybe?: IncludeRelationsInput,
   ): GitDB {
     const isRegistry =
       typeof relationsOrInclude === 'object' &&
@@ -66,7 +66,7 @@ export class GitDB {
 
     const includeRelations = isRegistry
       ? includeRelationsMaybe
-      : (relationsOrInclude as string[] | Record<string, boolean> | undefined);
+      : (relationsOrInclude as IncludeRelationsInput | undefined);
 
     return new GitDB(this.repository, this.fileManager, {
       relationsRegistry,
