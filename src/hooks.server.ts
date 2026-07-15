@@ -3,14 +3,6 @@ import crypto from 'crypto';
 import { ensureEncryptionKey } from '$lib/auth';
 
 export async function handle({ event, resolve }) {
-  if (
-    event.url.pathname.startsWith('/api/') &&
-    !event.url.pathname.startsWith('/api/auth/') &&
-    !event.url.pathname.startsWith('/api/system/')
-  ) {
-    return resolve(event);
-  }
-
   if (event.url.pathname === '/login' || event.url.pathname.startsWith('/api/auth/')) {
     return resolve(event);
   }

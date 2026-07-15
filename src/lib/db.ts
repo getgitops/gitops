@@ -107,6 +107,10 @@ const migrations = [
   'ALTER TABLE config ADD COLUMN google_sso_enabled INTEGER DEFAULT 0',
   'ALTER TABLE config ADD COLUMN google_client_id TEXT',
   'ALTER TABLE config ADD COLUMN google_client_secret TEXT',
+  'ALTER TABLE config ADD COLUMN saml_enabled INTEGER DEFAULT 0',
+  'ALTER TABLE config ADD COLUMN saml_entry_point TEXT',
+  'ALTER TABLE config ADD COLUMN saml_issuer TEXT',
+  'ALTER TABLE config ADD COLUMN saml_cert TEXT',
   "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'developer'",
 ];
 

@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
 
 export function load() {
-  throw redirect(302, '/settings/storage');
+  throw redirect(302, '/settings/authentication');
 }

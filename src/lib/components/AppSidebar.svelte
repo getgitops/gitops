@@ -1,12 +1,17 @@
 <script lang="ts">
   import {
     BarChart3,
+    ChevronDown,
+    ChevronRight,
+    Database,
     GitBranch,
+    KeyRound,
     Lock,
     PanelLeftClose,
     PanelLeftOpen,
     Settings,
     Shield,
+    Users,
   } from 'lucide-svelte';
 
   export let pathname = '/';
@@ -48,18 +53,35 @@
 
   const settingsItems = [
     {
-      label: 'Settings',
-      href: '/settings/storage',
-      icon: Settings,
+      label: 'Autentication',
+      href: '/settings/authentication',
+      icon: Shield,
+    },
+    {
+      label: 'Roles & Permissions',
+      href: '/settings/roles-permissions',
+      icon: Users,
+    },
+    {
+      label: 'System & Backup',
+      href: '/settings/system-backup',
+      icon: Database,
+    },
+    {
+      label: 'Server Access Keys',
+      href: '/settings/server-access-keys',
+      icon: KeyRound,
     },
   ];
+
+  let settingsMenuOpen = pathname.startsWith('/settings');
 
   function isActive(path: string) {
     if (path === '/projects') {
       return pathname.startsWith('/projects');
     }
 
-    if (path === '/settings/storage') {
+    if (path.startsWith('/settings')) {
       return pathname.startsWith('/settings');
     }
 
@@ -68,6 +90,10 @@
 
   function toggleCollapsed() {
     collapsed = !collapsed;
+  }
+
+  $: if (pathname.startsWith('/settings')) {
+    settingsMenuOpen = true;
   }
 </script>
 
@@ -154,27 +180,62 @@
         </div>
       {/if}
 
-      <div class="space-y-2">
-        {#each settingsItems as item}
-          <a
-            href={item.href}
-            class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed ? 'justify-center' : 'items-center'} {isActive(item.href)
+      {#if collapsed}
+        <a
+          href="/settings/authentication"
+          class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isActive('/settings')
+            ? 'border-slate-900 bg-slate-900 text-white'
+            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+          title="Settings"
+        >
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive('/settings')
+            ? 'bg-white/10 text-white'
+            : 'bg-slate-100 text-slate-600'}">
+            <Settings class="h-3.5 w-3.5" />
+          </div>
+        </a>
+      {:else}
+        <div class="space-y-2">
+          <button
+            type="button"
+            class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isActive('/settings')
               ? 'border-slate-900 bg-slate-900 text-white'
               : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
-            title={item.label}
+            on:click={() => (settingsMenuOpen = !settingsMenuOpen)}
+            aria-expanded={settingsMenuOpen}
           >
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive(item.href)
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive('/settings')
               ? 'bg-white/10 text-white'
               : 'bg-slate-100 text-slate-600'}">
-              <svelte:component this={item.icon} class="h-3.5 w-3.5" />
+              <Settings class="h-3.5 w-3.5" />
             </div>
-
-            {#if !collapsed}
-              <p class="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</p>
+            <p class="min-w-0 flex-1 truncate text-sm font-medium">Settings</p>
+            {#if settingsMenuOpen}
+              <ChevronDown class="h-4 w-4 shrink-0" />
+            {:else}
+              <ChevronRight class="h-4 w-4 shrink-0" />
             {/if}
-          </a>
-        {/each}
-      </div>
+          </button>
+
+          {#if settingsMenuOpen}
+            <div class="ml-4 border-l border-slate-200 pl-3">
+              <div class="space-y-1">
+                {#each settingsItems as item}
+                  <a
+                    href={item.href}
+                    class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(item.href)
+                      ? 'bg-slate-100 text-slate-900'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+                  >
+                    <svelte:component this={item.icon} class="h-3.5 w-3.5 shrink-0" />
+                    <span class="truncate">{item.label}</span>
+                  </a>
+                {/each}
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </section>
   </div>
 </aside>
