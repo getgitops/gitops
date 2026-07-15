@@ -1,8 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { getConfig, saveConfig, type InstanceConfig } from '$lib/config';
+import { configService } from '../../../modules/config';
+import type { InstanceConfig } from '../../../modules/config/domain/entities';
 
 export async function GET() {
-  const config = await getConfig();
+  const config = configService.getConfig();
 
   if (!config) {
     return json({ configured: false });
@@ -18,7 +19,7 @@ export async function GET() {
 export async function POST({ request }) {
   try {
     const newConfig = (await request.json()) as Partial<InstanceConfig>;
-    const existing = (await getConfig()) || null;
+    const existing = configService.getConfig();
 
     if (newConfig.googleClientSecret === '***') {
       newConfig.googleClientSecret = existing?.googleClientSecret || null;
@@ -28,7 +29,7 @@ export async function POST({ request }) {
       newConfig.samlCert = existing?.samlCert || null;
     }
 
-    await saveConfig(newConfig);
+    configService.saveConfig(newConfig);
     return json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to save config';

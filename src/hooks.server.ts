@@ -1,6 +1,4 @@
-import { db } from '$lib/db';
-import crypto from 'crypto';
-import { ensureEncryptionKey } from '$lib/auth';
+import { authService, canAccessAdminArea } from './modules/auth';
 
 export async function handle({ event, resolve }) {
   if (event.url.pathname === '/login' || event.url.pathname.startsWith('/api/auth/')) {
@@ -8,38 +6,18 @@ export async function handle({ event, resolve }) {
   }
 
   const sessionCookie = event.cookies.get('pos_session');
-  let isAuthenticated = false;
-  let currentUser: { id: string; username: string; email: string | null; role: string } | null = null;
+  const currentUser = authService.resolveAuthenticatedUser(sessionCookie);
 
-  if (sessionCookie) {
-    try {
-      const [userId, signature] = sessionCookie.split('.');
-      if (userId && signature) {
-        const salt = ensureEncryptionKey();
-        const expectedSignature = crypto.createHmac('sha256', salt).update(userId).digest('hex');
-
-        if (signature === expectedSignature) {
-          const user = db
-            .prepare('SELECT id, username, email, role FROM users WHERE id = ?')
-            .get(userId) as { id: string; username: string; email: string | null; role: string } | undefined;
-          if (user) {
-            isAuthenticated = true;
-            currentUser = user;
-            event.locals.user = user;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Session verification failed', error);
-    }
+  if (currentUser) {
+    event.locals.user = currentUser;
   }
 
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return new Response(null, { status: 302, headers: { location: '/login' } });
   }
 
   if (event.url.pathname.startsWith('/settings') || event.url.pathname.startsWith('/api/system')) {
-    if (currentUser?.role !== 'admin') {
+    if (!canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/pulumi-state' } });
     }
   }

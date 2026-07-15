@@ -1,9 +1,9 @@
-import { db } from '$lib/db';
-import { getStorageBackend, getStorageBackends } from '$lib/config';
-import { listPulumiStates, getPulumiState } from '$lib/storage';
+import { storageBackendService } from '../../modules/config';
+import { projectService } from '../../modules/projects';
+import { storageService } from '../../modules/storage';
 
 export async function load({ cookies }) {
-  const backends = getStorageBackends();
+  const backends = storageBackendService.list();
 
   if (!backends.length) {
     return {
@@ -13,7 +13,7 @@ export async function load({ cookies }) {
 
   const requestedActiveId = cookies.get('active_backend') || backends[0].id;
   const activeBackend =
-    getStorageBackend(requestedActiveId) || getStorageBackend(backends[0].id) || backends[0];
+    storageBackendService.getById(requestedActiveId) || storageBackendService.getById(backends[0].id) || backends[0];
   const config = activeBackend;
 
   if (!config) {
@@ -22,13 +22,10 @@ export async function load({ cookies }) {
     };
   }
 
-  const dbProjects = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all() as Array<{
-    id: string;
-    name: string;
-  }>;
+  const dbProjects = projectService.listProjects();
 
   try {
-    const { states: files, locks } = await listPulumiStates(config);
+    const { states: files, locks } = await storageService.listPulumiStates(config);
     const stateSummaries: Record<
       string,
       { version?: string; resourceCount: number; error?: boolean }
@@ -36,7 +33,7 @@ export async function load({ cookies }) {
 
     const fetchPromises = files.map(async (fileKey) => {
       try {
-        const state = await getPulumiState(config, fileKey);
+        const state = await storageService.getPulumiState(config, fileKey);
         stateSummaries[fileKey] = {
           version: state.version,
           resourceCount: state.checkpoint?.latest?.resources?.length || 0,

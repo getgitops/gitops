@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { SqliteDatabaseClient } from './database/sqlite.client';
 
 const DB_DIR = path.resolve(process.cwd(), 'data', 'db');
 const DB_PATH = path.join(DB_DIR, 'states.sqlite');
@@ -10,6 +11,7 @@ if (!fs.existsSync(DB_DIR)) {
 }
 
 export const db = new Database(DB_PATH);
+export const databaseClient = new SqliteDatabaseClient(db);
 
 db.pragma('journal_mode = WAL');
 

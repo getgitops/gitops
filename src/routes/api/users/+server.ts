@@ -1,15 +1,5 @@
-import crypto from 'crypto';
 import { json } from '@sveltejs/kit';
-import { db } from '$lib/db';
-import { hashPassword } from '$lib/auth';
-
-type UserRow = {
-  id: string;
-  username: string;
-  email: string | null;
-  role: string;
-  created_at: string;
-};
+import { userManagementService } from '../../../modules/auth';
 
 export async function GET({ locals }) {
   if (!locals.user || locals.user.role !== 'admin') {
@@ -17,9 +7,13 @@ export async function GET({ locals }) {
   }
 
   try {
-    const users = db
-      .prepare('SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC')
-      .all() as UserRow[];
+    const users = userManagementService.listUsers().map((user) => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      created_at: user.createdAt,
+    }));
 
     return json({ users });
   } catch (error: unknown) {
@@ -48,30 +42,16 @@ export async function POST({ request, locals }) {
       return json({ error: 'Password is required' }, { status: 400 });
     }
 
-    const id = crypto.randomUUID();
-    const passwordHash = hashPassword(password);
-
-    db.prepare(
-      `
-      INSERT INTO users (id, username, email, password_hash, role)
-      VALUES (@id, @username, @email, @password_hash, @role)
-    `,
-    ).run({
-      id,
+    const user = userManagementService.createUser({
       username,
-      email: null,
-      password_hash: passwordHash,
+      password,
       role,
+      email: null,
     });
 
     return json({
       success: true,
-      user: {
-        id,
-        username,
-        email: null,
-        role,
-      },
+      user,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create user';

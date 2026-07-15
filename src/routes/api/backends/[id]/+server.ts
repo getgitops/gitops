@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { db } from '$lib/db';
+import { storageBackendService } from '../../../../modules/config';
 
 export async function DELETE({ params }) {
   try {
-    db.prepare('DELETE FROM storage_backends WHERE id = ?').run(params.id);
+    storageBackendService.deleteById(params.id);
     return json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

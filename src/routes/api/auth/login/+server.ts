@@ -1,7 +1,5 @@
 import { json } from '@sveltejs/kit';
-import crypto from 'crypto';
-import { db } from '$lib/db';
-import { ensureEncryptionKey, verifyPassword } from '$lib/auth';
+import { authService } from '../../../../modules/auth';
 
 export async function POST({ request, cookies }) {
   try {
@@ -23,15 +21,12 @@ export async function POST({ request, cookies }) {
       throw new Error('Username and password are required');
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
-      { id: string; username: string; password_hash: string } | undefined;
-    if (!user || !verifyPassword(password, user.password_hash)) {
+    const user = authService.authenticate(username, password);
+    if (!user) {
       throw new Error('Invalid username or password');
     }
 
-    const salt = ensureEncryptionKey();
-    const signature = crypto.createHmac('sha256', salt).update(user.id).digest('hex');
-    const sessionToken = `${user.id}.${signature}`;
+    const sessionToken = authService.createSessionToken(user.id);
 
     cookies.set('pos_session', sessionToken, {
       path: '/',
