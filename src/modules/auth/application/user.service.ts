@@ -1,17 +1,18 @@
 import crypto from 'crypto';
 import type { Role, UpdateUserInput } from '../domain/entities';
-import type { AuthUserRepository } from '../domain/repositories';
+import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { PasswordService } from './password.service';
 
-export class UserManagementService {
+export class UserService {
   constructor(
-    private readonly userRepository: AuthUserRepository,
+    private readonly userRepository: UserRepository,
     private readonly roleRepository: any,
     private readonly passwordService: PasswordService,
   ) {}
 
   async listUsers(): Promise<any[]> {
-    return await this.userRepository.listUsers();
+    const users = await this.userRepository.listUsers();
+    return users.map((user) => user.toJson());
   }
 
   async createUser(input: {

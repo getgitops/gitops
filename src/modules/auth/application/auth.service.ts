@@ -1,12 +1,12 @@
 import crypto from 'crypto';
-import type { AuthenticatedUser } from '../domain/entities';
-import type { AuthUserRepository } from '../domain/repositories';
+
 import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
+import { UserRepository } from '../infrastructure/repositories/user.repository';
 
 export class AuthService {
   constructor(
-    private readonly userRepository: AuthUserRepository,
+    private readonly userRepository: UserRepository,
     private readonly passwordService: PasswordService,
     private readonly sessionService: SessionService,
   ) {}
@@ -64,7 +64,10 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
+      role: user.role ? {
+        id: user.role.id,
+        name: user.role.name,
+      } : null,
     };
   }
 }

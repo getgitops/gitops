@@ -2,33 +2,29 @@ import { getGitDb } from '$lib/server/gitdb';
 import { ApiKeyEntity, UserEntity, RoleEntity } from '$lib/database/schemas';
 import type { AuthUser, CreateUserInput, Role, UserView } from '../../domain/entities';
 
+import { UserDomain } from '../../domain/user.domain';
+
 
 
 export class UserRepository {
   private readonly db = getGitDb();
 
 
-  async findById(id: string): Promise<AuthUser | null> {
+  async findById(id: string): Promise<UserDomain | null> {
     const result = await this.db.with({ role: true }).select().from(UserEntity).where({ id }).limit(1);
     const row = result.rows[0];
-    return row ? this.toJSON(row) : null;
+    return row ? this.toDomain(row) : null;
   }
 
-  async findByUsername(username: string): Promise<AuthUser | null> {
+  async findByUsername(username: string): Promise<UserDomain | null> {
     const result = await this.db.with({ role: true }).select().from(UserEntity).where({ username }).limit(1);
     const row = result.rows[0];
-    return row ? this.toJSON(row) : null;
+    return row ? this.toDomain(row) : null;
   }
 
-  async listUsers(): Promise<any[]> {
+  async listUsers(): Promise<UserDomain[]> {
     const result = await this.db.with({ role: true }).select().from(UserEntity).orderBy('createdAt', 'desc');
-    return (result.rows).map((row) => ({
-      id: row.id,
-      username: row.username,
-      email: row.email ?? null,
-      role: row.role,
-      createdAt: row.createdAt,
-    }));
+    return (result.rows).map((row) => this.toDomain(row));
   }
 
   async createUser(input: CreateUserInput): Promise<void> {
@@ -77,7 +73,17 @@ export class UserRepository {
     // return (result.rows as UserRow[]).filter((row) => this.extractRole(row) === 'admin').length;
     return 0; // Placeholder until role extraction is implemented
   }
-
+  private toDomain(user: any): UserDomain {
+    return new UserDomain({
+      id: user.id,
+      username: user.username,
+      email: user.email ?? null,
+      password: user.passwordHash,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  }
 
   private toJSON(user: any) {
     return {

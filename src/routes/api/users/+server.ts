@@ -1,19 +1,13 @@
 import { json } from '@sveltejs/kit';
-import { userManagementService } from '../../../modules/auth';
+import { userService } from '../../../modules/auth';
 
 export async function GET({ locals }) {
-  if (!locals.user || locals.user.role !== 'admin') {
+  if (!locals.user) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
-    const users = (await userManagementService.listUsers()).map((user) => ({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      created_at: user.createdAt,
-    }));
+    const users = await userService.listUsers();
 
     return json({ users });
   } catch (error: unknown) {
@@ -42,7 +36,7 @@ export async function POST({ request, locals }) {
       return json({ error: 'Password is required' }, { status: 400 });
     }
 
-    const user = await userManagementService.createUser({
+    const user = await userService.createUser({
       username,
       password,
       role,

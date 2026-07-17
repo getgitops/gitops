@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { ApiKeyView, AuthenticatedUser } from '../domain/entities';
-import type { AuthUserRepository } from '../domain/repositories';
+import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { PasswordService } from './password.service';
 
 function hashApiKey(token: string): string {
@@ -9,7 +9,7 @@ function hashApiKey(token: string): string {
 
 export class ProfileService {
   constructor(
-    private readonly userRepository: AuthUserRepository,
+    private readonly userRepository: UserRepository,
     private readonly passwordService: PasswordService,
   ) {}
 
@@ -19,12 +19,7 @@ export class ProfileService {
       return null;
     }
 
-    return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-    };
+    return user.toJson();
   }
 
   async updateEmail(userId: string, email: string | null): Promise<void> {

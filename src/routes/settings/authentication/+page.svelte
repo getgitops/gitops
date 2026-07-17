@@ -13,13 +13,7 @@
     LockKeyhole,
   } from 'lucide-svelte';
 
-  type ManagedUser = {
-    id: string;
-    username: string;
-    email: string | null;
-    role: string;
-    created_at: string;
-  };
+
 
   let googleSsoEnabled = false;
   let googleClientId = '';
@@ -34,7 +28,7 @@
   let isSaving = false;
   let saveSuccess = false;
 
-  let users: ManagedUser[] = [];
+  let users = [];
   let usersLoading = false;
   let searchQuery = '';
 
@@ -46,11 +40,11 @@
 
   let userError = '';
   let userSuccess = '';
-  let passwordModalUser: ManagedUser | null = null;
+  let passwordModalUser = null;
   let passwordModalValue = '';
   let passwordModalLoading = false;
 
-  let deleteModalUser: ManagedUser | null = null;
+  let deleteModalUser = null;
   let deleteModalLoading = false;
 
   $: filteredUsers = users.filter((user) => {
@@ -502,12 +496,12 @@
               <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p class="text-sm font-semibold text-slate-900">{user.username}</p>
-                  <p class="mt-1 text-xs text-slate-500">{user.role} · created {user.created_at}</p>
+                  <p class="mt-1 text-xs text-slate-500">{user.role.name} · created {user.created_at}</p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
                   <select
-                    value={user.role}
+                    value={user.role.slug}
                     on:change={(event) => handleRoleChange(user.id, event)}
                     class="field-input rounded-md border bg-white px-2.5 py-2 text-xs font-medium outline-none transition"
                   >

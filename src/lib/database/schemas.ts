@@ -16,8 +16,8 @@ export const UserEntity = entity('users', {
 
 export const RoleEntity = entity('roles', {
   id: uuid().primaryKey(),
+  slug: text().notNull(),
   name: text().notNull(),
-  description: text().notNull().default(''),
   permissions: json().notNull().$defaultFn(() => []),
   createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),

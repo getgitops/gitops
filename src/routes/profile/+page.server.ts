@@ -18,7 +18,8 @@ export async function load({ locals, cookies }) {
   const activeBackend = backends.find((backend) => backend.id === activeBackendId) || null;
   const gcpConnected = activeBackend?.provider === 'gcs';
 
-  const apiKeys = await profileService.listActiveApiKeys(user.id);
+  // const apiKeys = await profileService.listActiveApiKeys(user.id);
+  const apiKeys = []
 
   return {
     user: {

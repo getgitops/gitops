@@ -41,7 +41,7 @@
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <Shield class="h-5 w-5 text-slate-900" />
         <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Role</p>
-        <p class="mt-1 text-base font-semibold text-slate-900 capitalize">{data.user.role}</p>
+        <p class="mt-1 text-base font-semibold text-slate-900 capitalize">{data.user.role.name}</p>
       </div>
 
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">

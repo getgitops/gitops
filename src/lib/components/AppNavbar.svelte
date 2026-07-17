@@ -52,7 +52,7 @@
             <div class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
               <div class="border-b border-slate-100 bg-slate-50 px-4 py-3">
                 <p class="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-                <p class="truncate text-xs text-slate-500 capitalize">{user.role} Account</p>
+                <p class="truncate text-xs text-slate-500 capitalize">{user.role.name} Account</p>
               </div>
                 <a
                   href="/profile"
