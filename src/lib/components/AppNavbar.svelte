@@ -16,7 +16,7 @@
 </script>
 
 <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-  <div class="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6">
+  <div class="mx-auto flex h-16 w-full items-center justify-between gap-4 px-4 sm:px-6">
     <a href="/" class="flex items-center">
       <img src="/gitops_logo.png" alt="GitOps" class="h-14 w-auto sm:h-16" />
     </a>
