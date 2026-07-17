@@ -1,4 +1,7 @@
 import { authService, canAccessAdminArea } from './modules/auth';
+import { ensureGitDbInitialized } from '$lib/server/gitdb';
+
+ensureGitDbInitialized();
 
 export async function handle({ event, resolve }) {
   if (event.url.pathname === '/login' || event.url.pathname.startsWith('/api/auth/')) {
