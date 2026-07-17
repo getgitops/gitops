@@ -7,7 +7,7 @@ export async function load({ locals, cookies }) {
     throw redirect(302, '/login');
   }
 
-  const user = profileService.getAuthenticatedUserProfile(locals.user.id);
+  const user = await profileService.getAuthenticatedUserProfile(locals.user.id);
 
   if (!user) {
     throw redirect(302, '/login');
@@ -18,7 +18,7 @@ export async function load({ locals, cookies }) {
   const activeBackend = backends.find((backend) => backend.id === activeBackendId) || null;
   const gcpConnected = activeBackend?.provider === 'gcs';
 
-  const apiKeys = profileService.listActiveApiKeys(user.id);
+  const apiKeys = await profileService.listActiveApiKeys(user.id);
 
   return {
     user: {
@@ -45,7 +45,7 @@ export const actions = {
     const formData = await request.formData();
     const email = String(formData.get('email') || '').trim() || null;
 
-    profileService.updateEmail(locals.user.id, email);
+    await profileService.updateEmail(locals.user.id, email);
 
     return { section: 'profile', message: 'Profile updated.' };
   },
@@ -70,7 +70,7 @@ export const actions = {
       return fail(400, { section: 'password', message: 'Passwords do not match.' });
     }
 
-    if (!profileService.changePassword(locals.user.id, currentPassword, newPassword)) {
+    if (!(await profileService.changePassword(locals.user.id, currentPassword, newPassword))) {
       return fail(400, { section: 'password', message: 'Current password is incorrect.' });
     }
 
@@ -87,7 +87,7 @@ export const actions = {
       return fail(400, { section: 'apiKeys', message: 'Key name is required.' });
     }
 
-    const { token } = profileService.createApiKey(locals.user.id, name);
+    const { token } = await profileService.createApiKey(locals.user.id, name);
 
     return { section: 'apiKeys', message: 'API key created.', createdKey: token };
   },
@@ -98,7 +98,7 @@ export const actions = {
     const formData = await request.formData();
     const keyId = String(formData.get('keyId') || '');
 
-    profileService.revokeApiKey(locals.user.id, keyId);
+    await profileService.revokeApiKey(locals.user.id, keyId);
 
     return { section: 'apiKeys', message: 'API key revoked.' };
   },

@@ -13,15 +13,24 @@ export type UserView = {
   id: string;
   username: string;
   email: string | null;
-  role: Role;
+  role: RoleView;
   createdAt: string;
 };
+
+export type RoleView = {
+  id: string;
+  name: string;
+  description: string;
+  permissions: object;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export type AuthenticatedUser = {
   id: string;
   username: string;
   email: string | null;
-  role: Role;
+  role: RoleView;
 };
 
 export type CreateUserInput = {
@@ -29,14 +38,14 @@ export type CreateUserInput = {
   username: string;
   email: string | null;
   passwordHash: string;
-  role: Role;
+  role: RoleView;
 };
 
 export type UpdateUserInput = {
   actorUserId: string;
   targetUserId: string;
   password?: string;
-  role?: Role;
+  role?: RoleView;
 };
 
 export type ApiKeyView = {

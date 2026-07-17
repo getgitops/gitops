@@ -1,30 +1,37 @@
 import crypto from 'crypto';
-import type { Role, UpdateUserInput, UserView } from '../domain/entities';
+import type { Role, UpdateUserInput } from '../domain/entities';
 import type { AuthUserRepository } from '../domain/repositories';
 import { PasswordService } from './password.service';
 
 export class UserManagementService {
   constructor(
     private readonly userRepository: AuthUserRepository,
+    private readonly roleRepository: any,
     private readonly passwordService: PasswordService,
   ) {}
 
-  listUsers(): UserView[] {
-    return this.userRepository.listUsers();
+  async listUsers(): Promise<any[]> {
+    return await this.userRepository.listUsers();
   }
 
-  createUser(input: { username: string; password: string; role: Role; email?: string | null }): UserView {
+  async createUser(input: {
+    username: string;
+    password: string;
+    role: Role;
+    email?: string | null;
+  }): Promise<any> {
     const userId = crypto.randomUUID();
+    const role = this.roleRepository.getRoleByName(input.role);
 
-    this.userRepository.createUser({
+    await this.userRepository.createUser({
       id: userId,
       username: input.username,
       email: input.email ?? null,
       passwordHash: this.passwordService.hashPassword(input.password),
-      role: input.role,
+      role: role,
     });
 
-    const created = this.userRepository.findById(userId);
+    const created = await this.userRepository.findById(userId);
     if (!created) {
       throw new Error('Failed to create user');
     }
@@ -38,39 +45,39 @@ export class UserManagementService {
     };
   }
 
-  updateUser(input: UpdateUserInput): void {
+  async updateUser(input: UpdateUserInput): Promise<void> {
     if (input.password) {
-      this.userRepository.updatePassword(
+      await this.userRepository.updatePassword(
         input.targetUserId,
         this.passwordService.hashPassword(input.password),
       );
     }
 
     if (input.role) {
-      if (input.targetUserId === input.actorUserId && input.role !== 'admin') {
-        throw new Error('You cannot remove your own admin role.');
-      }
+      // if (input.targetUserId === input.actorUserId && input.role !== 'admin') {
+      //   throw new Error('You cannot remove your own admin role.');
+      // }
 
-      if (input.role !== 'admin') {
-        this.ensureNotRemovingLastAdmin(input.targetUserId);
-      }
+      // if (input.role !== 'admin') {
+      //   await this.ensureNotRemovingLastAdmin(input.targetUserId);
+      // }
 
-      this.userRepository.updateRole(input.targetUserId, input.role);
+      // await this.userRepository.updateRole(input.targetUserId, input.role);
     }
   }
 
-  deleteUser(actorUserId: string, targetUserId: string): void {
+  async deleteUser(actorUserId: string, targetUserId: string): Promise<void> {
     if (actorUserId === targetUserId) {
       throw new Error('You cannot delete your own account.');
     }
 
-    this.ensureNotRemovingLastAdmin(targetUserId);
-    this.userRepository.deleteById(targetUserId);
+    await this.ensureNotRemovingLastAdmin(targetUserId);
+    await this.userRepository.deleteById(targetUserId);
   }
 
-  private ensureNotRemovingLastAdmin(targetUserId: string): void {
-    const targetUser = this.userRepository.findById(targetUserId);
-    const adminCount = this.userRepository.countAdmins();
+  private async ensureNotRemovingLastAdmin(targetUserId: string): Promise<void> {
+    const targetUser = await this.userRepository.findById(targetUserId);
+    const adminCount = await this.userRepository.countAdmins();
 
     if (targetUser?.role === 'admin' && adminCount <= 1) {
       throw new Error('At least one admin user is required.');

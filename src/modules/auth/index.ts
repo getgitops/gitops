@@ -6,10 +6,10 @@ import { ProfileService } from './application/profile.service';
 import { SessionService } from './application/session.service';
 import { UserManagementService } from './application/user-management.service';
 import { SqliteAuthConfigRepository } from './infrastructure/repositories/sqlite-auth-config.repository';
-import { SqliteAuthUserRepository } from './infrastructure/repositories/sqlite-auth-user.repository';
+import { UserRepository } from './infrastructure/repositories/user.repository';
 
 const authConfigRepository = new SqliteAuthConfigRepository(databaseClient);
-const authUserRepository = new SqliteAuthUserRepository(databaseClient);
+const authUserRepository = new UserRepository();
 
 export const passwordService = new PasswordService(authConfigRepository);
 const sessionService = new SessionService(passwordService);
@@ -21,4 +21,8 @@ export const profileService = new ProfileService(authUserRepository, passwordSer
 export { canAccessAdminArea, isAdmin };
 
 // Bootstrap auth primitives once at startup.
-authService.bootstrapDefaults();
+const authBootstrap = authService.bootstrapDefaults();
+
+export async function ensureAuthReady(): Promise<void> {
+	await authBootstrap;
+}

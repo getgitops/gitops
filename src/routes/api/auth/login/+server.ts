@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { authService } from '../../../../modules/auth';
+import { authService, ensureAuthReady } from '../../../../modules/auth';
 
 export async function POST({ request, cookies }) {
   try {
+    await ensureAuthReady();
+
     const contentType = request.headers.get('content-type') || '';
     let username = '';
     let password = '';
@@ -21,7 +23,7 @@ export async function POST({ request, cookies }) {
       throw new Error('Username and password are required');
     }
 
-    const user = authService.authenticate(username, password);
+    const user = await authService.authenticate(username, password);
     if (!user) {
       throw new Error('Invalid username or password');
     }

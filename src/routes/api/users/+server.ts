@@ -7,7 +7,7 @@ export async function GET({ locals }) {
   }
 
   try {
-    const users = userManagementService.listUsers().map((user) => ({
+    const users = (await userManagementService.listUsers()).map((user) => ({
       id: user.id,
       username: user.username,
       email: user.email,
@@ -42,7 +42,7 @@ export async function POST({ request, locals }) {
       return json({ error: 'Password is required' }, { status: 400 });
     }
 
-    const user = userManagementService.createUser({
+    const user = await userManagementService.createUser({
       username,
       password,
       role,

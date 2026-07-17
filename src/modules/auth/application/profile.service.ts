@@ -13,8 +13,8 @@ export class ProfileService {
     private readonly passwordService: PasswordService,
   ) {}
 
-  getAuthenticatedUserProfile(userId: string): AuthenticatedUser | null {
-    const user = this.userRepository.findById(userId);
+  async getAuthenticatedUserProfile(userId: string): Promise<any | null> {
+    const user = await this.userRepository.findById(userId);
     if (!user) {
       return null;
     }
@@ -27,12 +27,12 @@ export class ProfileService {
     };
   }
 
-  updateEmail(userId: string, email: string | null): void {
-    this.userRepository.updateEmail(userId, email);
+  async updateEmail(userId: string, email: string | null): Promise<void> {
+    await this.userRepository.updateEmail(userId, email);
   }
 
-  changePassword(userId: string, currentPassword: string, newPassword: string): boolean {
-    const user = this.userRepository.findById(userId);
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+    const user = await this.userRepository.findById(userId);
     if (!user) {
       return false;
     }
@@ -41,12 +41,13 @@ export class ProfileService {
       return false;
     }
 
-    this.userRepository.updatePassword(userId, this.passwordService.hashPassword(newPassword));
+    await this.userRepository.updatePassword(userId, this.passwordService.hashPassword(newPassword));
     return true;
   }
 
-  listActiveApiKeys(userId: string): ApiKeyView[] {
-    return this.userRepository.listActiveApiKeys(userId).map((key) => ({
+  async listActiveApiKeys(userId: string): Promise<ApiKeyView[]> {
+    const keys = await this.userRepository.listActiveApiKeys(userId);
+    return keys.map((key) => ({
       id: key.id,
       name: key.name,
       keyPrefix: key.keyPrefix,
@@ -55,11 +56,11 @@ export class ProfileService {
     }));
   }
 
-  createApiKey(userId: string, name: string): { token: string; key: ApiKeyView } {
+  async createApiKey(userId: string, name: string): Promise<{ token: string; key: ApiKeyView }> {
     const token = `gvs_${crypto.randomBytes(24).toString('hex')}`;
     const id = crypto.randomUUID();
 
-    this.userRepository.createApiKey({
+    await this.userRepository.createApiKey({
       id,
       userId,
       name,
@@ -79,7 +80,7 @@ export class ProfileService {
     };
   }
 
-  revokeApiKey(userId: string, keyId: string): void {
-    this.userRepository.revokeApiKey(userId, keyId);
+  async revokeApiKey(userId: string, keyId: string): Promise<void> {
+    await this.userRepository.revokeApiKey(userId, keyId);
   }
 }

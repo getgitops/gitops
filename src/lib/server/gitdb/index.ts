@@ -10,7 +10,7 @@ function resolveRepositoryUrl(): string {
   return env.GITDB_REPOSITORY_URL;
 }
 
-export function ensureGitDbInitialized(): GitDB {
+export function getGitDb(): GitDB {
   if (instance) {
     return instance;
   }

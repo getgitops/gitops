@@ -10,7 +10,7 @@ export async function PATCH({ request, params, locals }) {
     const data = (await request.json()) as { password?: string; role?: string };
     const id = params.id;
 
-    userManagementService.updateUser({
+    await userManagementService.updateUser({
       actorUserId: locals.user.id,
       targetUserId: id,
       password: data.password,
@@ -36,7 +36,7 @@ export async function DELETE({ params, locals }) {
   }
 
   try {
-    userManagementService.deleteUser(locals.user.id, id);
+    await userManagementService.deleteUser(locals.user.id, id);
     return json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to delete user';

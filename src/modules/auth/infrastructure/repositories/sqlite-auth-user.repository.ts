@@ -22,7 +22,7 @@ type ApiKeyRow = {
 export class SqliteAuthUserRepository implements AuthUserRepository {
   constructor(private readonly db: DatabaseClient) {}
 
-  findById(id: string): AuthUser | null {
+  async findById(id: string): Promise<AuthUser | null> {
     const row = this.db.get<UserRow>(
       'SELECT id, username, email, password_hash, role, created_at FROM users WHERE id = ?',
       [id],
@@ -31,7 +31,7 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     return row ? this.toAuthUser(row) : null;
   }
 
-  findByUsername(username: string): AuthUser | null {
+  async findByUsername(username: string): Promise<AuthUser | null> {
     const row = this.db.get<UserRow>(
       'SELECT id, username, email, password_hash, role, created_at FROM users WHERE username = ?',
       [username],
@@ -40,7 +40,7 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     return row ? this.toAuthUser(row) : null;
   }
 
-  listUsers(): UserView[] {
+  async listUsers(): Promise<UserView[]> {
     const rows = this.db.all<Array<Omit<UserRow, 'password_hash'>>[number]>(
       'SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC',
     );
@@ -54,7 +54,7 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     }));
   }
 
-  createUser(input: CreateUserInput): void {
+  async createUser(input: CreateUserInput): Promise<void> {
     this.db.run(
       `
       INSERT INTO users (id, username, email, password_hash, role)
@@ -70,35 +70,35 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     );
   }
 
-  updateEmail(userId: string, email: string | null): void {
+  async updateEmail(userId: string, email: string | null): Promise<void> {
     this.db.run('UPDATE users SET email = ? WHERE id = ?', [email, userId]);
   }
 
-  updatePassword(userId: string, passwordHash: string): void {
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
     this.db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, userId]);
   }
 
-  updateRole(userId: string, role: Role): void {
+  async updateRole(userId: string, role: Role): Promise<void> {
     this.db.run('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
   }
 
-  deleteById(userId: string): void {
+  async deleteById(userId: string): Promise<void> {
     this.db.run('DELETE FROM users WHERE id = ?', [userId]);
   }
 
-  countAdmins(): number {
+  async countAdmins(): Promise<number> {
     const row = this.db.get<{ count: number }>("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'");
 
     return row?.count ?? 0;
   }
 
-  listActiveApiKeys(userId: string): Array<{
+  async listActiveApiKeys(userId: string): Promise<Array<{
     id: string;
     name: string;
     keyPrefix: string;
     lastUsedAt: string | null;
     createdAt: string;
-  }> {
+  }>> {
     const rows = this.db.all<ApiKeyRow>(
       `
       SELECT id, name, key_prefix, last_used_at, created_at
@@ -118,13 +118,13 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     }));
   }
 
-  createApiKey(input: {
+  async createApiKey(input: {
     id: string;
     userId: string;
     name: string;
     keyPrefix: string;
     keyHash: string;
-  }): void {
+  }): Promise<void> {
     this.db.run(
       `
       INSERT INTO api_keys (id, user_id, name, key_prefix, key_hash)
@@ -134,7 +134,7 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
     );
   }
 
-  revokeApiKey(userId: string, keyId: string): void {
+  async revokeApiKey(userId: string, keyId: string): Promise<void> {
     this.db.run(
       `
       UPDATE api_keys
