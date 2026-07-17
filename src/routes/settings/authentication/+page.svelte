@@ -435,7 +435,7 @@
 
   <button
     type="button"
-    class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+    class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
     on:click={saveSettings}
     disabled={isSaving}
   >
@@ -458,14 +458,14 @@
               type="text"
               bind:value={searchQuery}
               placeholder="Search users or roles"
-              class="w-full rounded-md border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              class="field-input w-full rounded-md border bg-white py-2 pl-9 pr-3 text-sm outline-none transition"
             />
           </div>
 
           <button
             type="button"
             on:click={openCreateUserModal}
-            class="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+            class="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
             <Plus class="h-4 w-4" />
             Create user
@@ -509,7 +509,7 @@
                   <select
                     value={user.role}
                     on:change={(event) => handleRoleChange(user.id, event)}
-                    class="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    class="field-input rounded-md border bg-white px-2.5 py-2 text-xs font-medium outline-none transition"
                   >
                     <option value="developer">Developer</option>
                     <option value="admin">Admin</option>
@@ -517,7 +517,7 @@
 
                   <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
+                    class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                     on:click={() => openPasswordModal(user)}
                   >
                     <LockKeyhole class="h-3.5 w-3.5" />
@@ -526,7 +526,7 @@
 
                   <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-50"
+                    class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                     on:click={() => openDeleteModal(user)}
                   >
                     <Trash2 class="h-3.5 w-3.5" />
@@ -562,7 +562,7 @@
             id="new-user-username"
             type="text"
             bind:value={newUsername}
-            class="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
             placeholder="john"
           />
         </div>
@@ -573,7 +573,7 @@
             id="new-user-password"
             type="password"
             bind:value={newPassword}
-            class="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
             placeholder="••••••••"
           />
         </div>
@@ -583,7 +583,7 @@
           <select
             id="new-user-role"
             bind:value={newRole}
-            class="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border bg-white px-3 py-2 text-sm outline-none transition"
           >
             <option value="developer">Developer</option>
             <option value="admin">Admin</option>
@@ -595,7 +595,7 @@
         <button
           type="button"
           on:click={closeCreateUserModal}
-          class="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
         >
           Cancel
         </button>
@@ -603,7 +603,7 @@
           type="button"
           on:click={createUser}
           disabled={creatingUser}
-          class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
         >
           <Plus class="h-4 w-4" />
           {creatingUser ? 'Creating...' : 'Create user'}
@@ -641,7 +641,7 @@
             id="change-password-input"
             type="password"
             bind:value={passwordModalValue}
-            class="mt-2 w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
             placeholder="••••••••"
           />
         </div>
@@ -651,7 +651,7 @@
         <button
           type="button"
           on:click={closePasswordModal}
-          class="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
         >
           Cancel
         </button>
@@ -659,7 +659,7 @@
           type="button"
           on:click={submitChangePassword}
           disabled={passwordModalLoading}
-          class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+          class="btn-primary rounded-md px-3 py-2 text-sm font-medium"
         >
           {passwordModalLoading ? 'Saving...' : 'Save password'}
         </button>
@@ -697,7 +697,7 @@
         <button
           type="button"
           on:click={closeDeleteModal}
-          class="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
         >
           Cancel
         </button>
@@ -705,7 +705,7 @@
           type="button"
           on:click={confirmDeleteUser}
           disabled={deleteModalLoading}
-          class="rounded-md border border-red-200 bg-red-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:bg-red-300"
+          class="btn-danger rounded-md px-3 py-2 text-sm font-medium"
         >
           {deleteModalLoading ? 'Deleting...' : 'Delete user'}
         </button>

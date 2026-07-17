@@ -6,14 +6,113 @@ body {
 
 :root {
   color-scheme: light;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+
+  /* Colors */
+  --primary: #2457FF;
+  --primary-hover: #1d46cc;
+  --primary-active: #1738a3;
+  --primary-soft: #dbe6ff;
+  --focus-ring: rgba(36, 87, 255, 0.28);
+  --dark: #0F172A;
+  --surface: #F8FAFC;
+  --surface-hover: #F1F5F9;
+  --border: #E2E8F0;
+  --text-main: #111827;
+  --text-muted: #64748B;
+
+  /* Semantic */
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  /* Geometry */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  /* Typography */
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/*
+  Compact button system (loop-like pattern using CSS variables):
+  shared state rules + per-variant token values.
+*/
+:is(.btn-primary, .btn-secondary, .btn-danger, .btn-ghost) {
+  --btn-bg: transparent;
+  --btn-bg-hover: var(--surface-hover);
+  --btn-bg-active: var(--btn-bg-hover);
+  --btn-bg-disabled: var(--btn-bg);
+  --btn-color: var(--text-main);
+  --btn-color-disabled: var(--btn-color);
+  --btn-border: transparent;
+  --btn-border-hover: var(--btn-border);
+  --btn-border-disabled: var(--btn-border);
+  --btn-ring: var(--focus-ring);
+
+  background: var(--btn-bg);
+  color: var(--btn-color);
+  border: 1px solid var(--btn-border);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+:is(.btn-primary, .btn-secondary, .btn-danger, .btn-ghost):hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+  border-color: var(--btn-border-hover);
+}
+
+:is(.btn-primary, .btn-secondary, .btn-danger, .btn-ghost):active:not(:disabled) {
+  background: var(--btn-bg-active);
+}
+
+:is(.btn-primary, .btn-secondary, .btn-danger, .btn-ghost):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--btn-ring);
+}
+
+:is(.btn-primary, .btn-secondary, .btn-danger, .btn-ghost):disabled {
+  cursor: not-allowed;
+  background: var(--btn-bg-disabled);
+  color: var(--btn-color-disabled);
+  border-color: var(--btn-border-disabled);
+}
+
+.btn-primary {
+  --btn-bg: var(--primary);
+  --btn-bg-hover: var(--primary-hover);
+  --btn-bg-active: var(--primary-active);
+  --btn-bg-disabled: color-mix(in srgb, var(--primary) 58%, #ffffff);
+  --btn-color: #fff;
+}
+
+.btn-secondary {
+  --btn-bg: #fff;
+  --btn-bg-hover: var(--surface-hover);
+  --btn-color: var(--text-main);
+  --btn-border: var(--border);
+  --btn-border-hover: color-mix(in srgb, var(--border) 70%, var(--primary));
+}
+
+.btn-danger {
+  --btn-bg: var(--danger);
+  --btn-bg-hover: color-mix(in srgb, var(--danger) 84%, #000000);
+  --btn-bg-disabled: color-mix(in srgb, var(--danger) 58%, #ffffff);
+  --btn-color: #fff;
+  --btn-ring: color-mix(in srgb, var(--danger) 28%, #ffffff);
+}
+
+.btn-ghost {
+  --btn-bg: transparent;
+  --btn-bg-hover: var(--surface-hover);
+  --btn-color: var(--text-main);
+}
+
+.field-input {
+  border-color: var(--border);
+}
+
+.field-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 * {

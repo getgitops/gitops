@@ -167,7 +167,7 @@
     <button
       on:click={syncProjects}
       disabled={isSyncing}
-      class="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+      class="btn-secondary w-full sm:w-auto font-semibold py-2 px-4 rounded-lg text-sm shadow-sm flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
       title="Sync projects from backend"
     >
       <RefreshCw class="w-4 h-4 {isSyncing ? 'animate-spin text-blue-600' : 'text-gray-500'}" /> Sync
@@ -175,7 +175,7 @@
     </button>
     <a
       href="/pulumi-state/cli-guide"
-      class="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded-lg text-sm shadow-sm transition-colors flex items-center justify-center gap-2 shrink-0"
+      class="btn-secondary w-full sm:w-auto font-semibold py-2 px-4 rounded-lg text-sm shadow-sm flex items-center justify-center gap-2 shrink-0"
       title="How to connect"
     >
       <HelpCircle class="w-4 h-4 text-gray-500" /> CLI Setup
@@ -202,7 +202,7 @@
               actionProject = project;
               actionModalType = 'rename';
             }}
-            class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            class="btn-ghost p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
             title="Rename Project"
           >
             <Edit2 class="w-4 h-4" />
@@ -212,7 +212,7 @@
               actionProject = project;
               actionModalType = 'delete';
             }}
-            class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            class="btn-ghost p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
             title="Delete Project"
           >
             <Trash2 class="w-4 h-4" />
@@ -272,7 +272,7 @@
                       actionStack = stack;
                       actionModalType = 'unlock';
                     }}
-                    class="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors shrink-0 ml-2"
+                    class="btn-ghost p-1.5 text-red-600 rounded-md transition-colors shrink-0 ml-2"
                     title="Unlock Stack"
                   >
                     <svg
@@ -345,7 +345,7 @@
         </h3>
         <button
           on:click={() => (actionModalType = null)}
-          class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          class="btn-ghost p-1.5 text-gray-400 hover:text-gray-700 rounded-lg transition-colors"
         >
           <X class="w-5 h-5" />
         </button>
@@ -376,7 +376,7 @@
           <div class="absolute top-3 right-3">
             <button
               on:click={copyActionCommand}
-              class="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-md transition-colors"
+              class="btn-ghost p-1.5 bg-gray-800 text-gray-300 hover:text-white rounded-md transition-colors"
               title="Copy"
             >
               {#if copiedAction}

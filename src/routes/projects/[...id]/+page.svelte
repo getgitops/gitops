@@ -198,26 +198,26 @@
       <div class="flex items-center gap-6 border-b border-gray-200 overflow-x-auto">
         <button
           on:click={() => (activeTab = 'resources')}
-          class="pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'resources'
+          class="btn-ghost pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'resources'
             ? 'text-blue-600 border-b-2 border-blue-600'
             : 'text-gray-500 hover:text-gray-700'}"
           >{data.isHistorical ? 'Checkpoint State' : 'Current State'}</button
         >
         <button
           on:click={() => (activeTab = 'configuration')}
-          class="pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'configuration'
+          class="btn-ghost pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'configuration'
             ? 'text-blue-600 border-b-2 border-blue-600'
             : 'text-gray-500 hover:text-gray-700'}">Configuration</button
         >
         <button
           on:click={() => (activeTab = 'outputs')}
-          class="pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'outputs'
+          class="btn-ghost pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'outputs'
             ? 'text-blue-600 border-b-2 border-blue-600'
             : 'text-gray-500 hover:text-gray-700'}">Outputs</button
         >
         <button
           on:click={() => (activeTab = 'history')}
-          class="pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'history'
+          class="btn-ghost pb-3 text-sm font-semibold whitespace-nowrap {activeTab === 'history'
             ? 'text-blue-600 border-b-2 border-blue-600'
             : 'text-gray-500 hover:text-gray-700'} flex items-center gap-1.5"
           ><History class="w-4 h-4" /> Activity History</button

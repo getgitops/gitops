@@ -168,12 +168,12 @@
     </div>
     <button
       on:click={startCreate}
-      class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+      class="btn-primary font-semibold py-2 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2"
     >
       <Plus class="w-4 h-4" /> Add Backend
     </button>
   </div>
-
+                class="btn-ghost p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
   {#if isLoading}
     <div class="py-12 flex items-center justify-center text-gray-400">
       <RefreshCw class="w-8 h-8 animate-spin" />
@@ -183,7 +183,7 @@
       <Database class="w-12 h-12 mx-auto mb-3 text-gray-300" />
       <p class="font-medium text-gray-900 mb-1">No backends configured</p>
       <p class="text-sm mb-4">Add your first S3 or GCS bucket to start syncing states.</p>
-      <button on:click={startCreate} class="text-blue-600 font-semibold text-sm hover:underline"
+      <button on:click={startCreate} class="btn-ghost text-blue-600 font-semibold text-sm px-2 py-1 rounded-md"
         >Add Backend →</button
       >
     </div>
@@ -201,14 +201,14 @@
             <div class="flex items-center gap-1">
               <button
                 on:click={() => startEdit(backend)}
-                class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                class="btn-ghost p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors"
                 title="Edit"
               >
                 <Edit2 class="w-4 h-4" />
               </button>
               <button
                 on:click={() => openDeleteModal(backend)}
-                class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                class="btn-ghost p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
                 title="Delete"
               >
                 <Trash2 class="w-4 h-4" />
@@ -249,7 +249,7 @@
           <button
             type="button"
             on:click={cancelEdit}
-            class="p-2 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+            class="btn-ghost p-2 rounded-md text-gray-500 hover:text-gray-800 transition-colors"
             aria-label="Close modal"
           >
             <X class="w-5 h-5" />
@@ -399,13 +399,13 @@
       <div class="pt-6 border-t border-gray-100 flex gap-3">
         <button
           on:click={cancelEdit}
-          class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2.5 px-6 rounded-xl transition-all"
+          class="btn-secondary font-semibold py-2.5 px-6 rounded-xl"
           >Cancel</button
         >
         <button
           on:click={saveSettings}
           disabled={isConnecting}
-          class="bg-gray-900 hover:bg-black text-white font-semibold py-2.5 px-6 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+          class="btn-primary font-semibold py-2.5 px-6 rounded-xl shadow-md flex items-center justify-center gap-2"
         >
           {#if isConnecting}
             <RefreshCw class="w-5 h-5 animate-spin" /> Saving...
@@ -439,7 +439,7 @@
           <button
             type="button"
             on:click={closeDeleteModal}
-            class="p-2 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+            class="btn-ghost p-2 rounded-md text-gray-500 hover:text-gray-800 transition-colors"
             aria-label="Close modal"
           >
             <X class="w-5 h-5" />
@@ -459,7 +459,7 @@
               type="button"
               on:click={closeDeleteModal}
               disabled={isDeleting}
-              class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              class="btn-secondary font-semibold py-2 px-4 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
@@ -467,7 +467,7 @@
               type="button"
               on:click={confirmDeleteBackend}
               disabled={isDeleting}
-              class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+              class="btn-danger font-semibold py-2 px-4 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
             >
               {#if isDeleting}
                 <RefreshCw class="w-4 h-4 animate-spin" /> Deleting...

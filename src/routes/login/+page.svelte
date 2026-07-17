@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Layers, ShieldCheck } from 'lucide-svelte';
+  import { ShieldCheck } from 'lucide-svelte';
 
   let error = '';
   let isSubmitting = false;
@@ -42,14 +42,13 @@
   <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,#dbeafe_0%,transparent_45%),radial-gradient(circle_at_80%_0%,#e2e8f0_0%,transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]"></div>
 
   <div class="w-full max-w-md border border-slate-200 bg-white/90 p-8 shadow-xl backdrop-blur sm:rounded-2xl">
-    <div class="mb-8 flex items-start justify-between gap-4">
+    <div class="mb-8 flex flex-col items-center gap-4 text-center">
+      <img src="/gitops_logo.png" alt="GitOps" class="h-24 w-auto shrink-0 sm:h-32" />
+
       <div>
         <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Workspace</p>
         <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitVault Suite</h1>
         <p class="mt-2 text-sm text-slate-600">Continue with your private admin workspace.</p>
-      </div>
-      <div class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
-        <Layers class="h-6 w-6" />
       </div>
     </div>
 
@@ -72,7 +71,7 @@
           name="username"
           type="text"
           bind:value={username}
-          class="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          class="field-input w-full rounded-md border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition"
         />
       </div>
 
@@ -83,14 +82,14 @@
           name="password"
           type="password"
           bind:value={password}
-          class="w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+          class="field-input w-full rounded-md border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition"
         />
       </div>
 
       <button
         type="submit"
         disabled={isSubmitting}
-        class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-500"
+        class="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold"
       >
         <ShieldCheck class="h-4 w-4" />
         {isSubmitting ? 'Signing in...' : 'Sign in'}

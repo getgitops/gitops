@@ -29,7 +29,7 @@
 <div class="relative inline-block text-left">
   <button
     type="button"
-    class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-sm font-medium text-slate-800 outline-none transition hover:border-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+    class="btn-secondary inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium text-slate-800"
     aria-haspopup="listbox"
     aria-expanded={isOpen}
     aria-label={ariaLabel}
@@ -53,7 +53,7 @@
           <li>
             <button
               type="button"
-              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors {option.id === value
+              class="btn-ghost flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors {option.id === value
                 ? 'bg-slate-100 text-slate-900'
                 : 'text-slate-700 hover:bg-slate-50'}"
               role="option"

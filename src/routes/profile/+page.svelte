@@ -79,7 +79,7 @@
             name="email"
             type="email"
             bind:value={email}
-            class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
             placeholder="you@example.com"
           />
         </div>
@@ -96,7 +96,7 @@
 
         <button
           type="submit"
-          class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+          class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
         >
           <Save class="h-4 w-4" />
           Save changes
@@ -117,7 +117,7 @@
             id="currentPassword"
             name="currentPassword"
             type="password"
-            class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
           />
         </div>
 
@@ -127,7 +127,7 @@
             id="newPassword"
             name="newPassword"
             type="password"
-            class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
           />
         </div>
 
@@ -137,13 +137,13 @@
             id="confirmPassword"
             name="confirmPassword"
             type="password"
-            class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
           />
         </div>
 
         <button
           type="submit"
-          class="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 transition-colors hover:border-slate-300 hover:bg-slate-50"
+          class="btn-secondary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
         >
           Update password
         </button>
@@ -165,12 +165,12 @@
         <input
           name="name"
           type="text"
-          class="w-full min-w-0 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 sm:w-64"
+          class="field-input w-full min-w-0 rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition sm:w-64"
           placeholder="Key name"
         />
         <button
           type="submit"
-          class="inline-flex shrink-0 items-center gap-2 rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+          class="btn-primary inline-flex shrink-0 items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
         >
           <Plus class="h-4 w-4" />
           Create
@@ -204,7 +204,7 @@
               <input type="hidden" name="keyId" value={key.id} />
               <button
                 type="submit"
-                class="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
               >
                 <Trash2 class="h-4 w-4" />
                 Revoke

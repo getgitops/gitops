@@ -158,7 +158,7 @@
 
       <button
         type="button"
-        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+        class="btn-secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600"
         on:click={toggleCollapsed}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -205,8 +205,8 @@
                 <button
                   type="button"
                   class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isPulumiStateSectionActive()
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                    ? 'btn-primary text-white'
+                    : 'btn-secondary text-slate-700'}"
                   on:click={() => (pulumiStateMenuOpen = !pulumiStateMenuOpen)}
                   aria-expanded={pulumiStateMenuOpen}
                 >
@@ -295,8 +295,8 @@
           <button
             type="button"
             class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isActive('/settings')
-              ? 'border-slate-900 bg-slate-900 text-white'
-              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+              ? 'btn-primary text-white'
+              : 'btn-secondary text-slate-700'}"
             on:click={() => (settingsMenuOpen = !settingsMenuOpen)}
             aria-expanded={settingsMenuOpen}
           >
