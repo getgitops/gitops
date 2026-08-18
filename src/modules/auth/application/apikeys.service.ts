@@ -17,6 +17,15 @@ export class ApiKeysService {
     return this.apiKeyRepository.listByUser(userId);
   }
 
+  async validateApiKey(token: string): Promise<boolean> {
+    if (!token.trim()) {
+      return false;
+    }
+
+    const key = await this.apiKeyRepository.findValidByHash(hashApiKey(token));
+    return key !== null;
+  }
+
   async createApiKey(userId: string, name: string, expiresAt: string | null): Promise<{ token: string; key: ApiKeyView }> {
     const token = `gvs_${crypto.randomBytes(24).toString('hex')}`;
     const id = crypto.randomUUID();
@@ -39,6 +48,7 @@ export class ApiKeysService {
         keyPrefix,
         expiresAt,
         lastUsedAt: null,
+        revokedAt: null,
         createdAt: new Date().toISOString(),
       },
     };
@@ -86,6 +96,7 @@ export class ApiKeysService {
         keyPrefix,
         expiresAt: existing.expiresAt,
         lastUsedAt: null,
+        revokedAt: null,
         createdAt: new Date().toISOString(),
       },
     };

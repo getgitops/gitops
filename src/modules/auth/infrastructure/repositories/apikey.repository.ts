@@ -33,6 +33,21 @@ export class ApiKeyRepository extends Repository {
 		return this.toJSON(row);
 	}
 
+	async findValidByHash(keyHash: string): Promise<ApiKeyView | null> {
+		const result = await this.db.select().from(ApiKeyEntity).where({ keyHash }).limit(1);
+		const row = result.rows[0] as ApiKeyRow | undefined;
+
+		if (!row || row.revokedAt) {
+			return null;
+		}
+
+		if (row.expiresAt && row.expiresAt <= new Date().toISOString()) {
+			return null;
+		}
+
+		return this.toJSON(row);
+	}
+
 	async create(input: {
 		id: string;
 		userId: string;

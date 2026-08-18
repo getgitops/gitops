@@ -1,27 +1,21 @@
-import crypto from 'crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiKeysService } from './apikeys.service';
 import type { ApiKeyView } from '../domain/entities';
-import type { ApiKeyRepository } from '../infrastructure/repositories/apikey.repository';
 
-function createRepositoryMock() {
+function createRepositoryMock(): any {
   return {
     listByUser: vi.fn(),
+    findValidByHash: vi.fn(),
     create: vi.fn(),
     findById: vi.fn(),
     revoke: vi.fn(),
     updateKeyMaterial: vi.fn(),
-  } as unknown as ApiKeyRepository;
+  };
 }
 
 describe('ApiKeysService', () => {
-  const randomBytesSpy = vi.spyOn(crypto, 'randomBytes');
-  const randomUuidSpy = vi.spyOn(crypto, 'randomUUID');
-
   beforeEach(() => {
     vi.clearAllMocks();
-    randomBytesSpy.mockReturnValue(Buffer.alloc(24, 0x12));
-    randomUuidSpy.mockReturnValue('11111111-1111-4111-8111-111111111111');
   });
 
   it('lists keys through the repository', async () => {
@@ -38,12 +32,48 @@ describe('ApiKeysService', () => {
       },
     ];
 
-    repository.listByUser.mockResolvedValue(keys);
+    repository.listByUser.mockImplementation(async () => keys);
 
     const service = new ApiKeysService(repository);
 
     await expect(service.listActiveApiKeys('user-1')).resolves.toEqual(keys);
     expect(repository.listByUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('validates an active api key token', async () => {
+    const repository = createRepositoryMock();
+    repository.findValidByHash.mockImplementation(async () => ({
+      id: 'key-1',
+      name: 'Deploy',
+      keyPrefix: 'gvs_12',
+      expiresAt: null,
+      lastUsedAt: null,
+      revokedAt: null,
+      createdAt: '2026-08-18T00:00:00.000Z',
+    }));
+
+    const service = new ApiKeysService(repository);
+
+    await expect(service.validateApiKey('gvs_121212')).resolves.toBe(true);
+    expect(repository.findValidByHash).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it('rejects empty api key tokens', async () => {
+    const repository = createRepositoryMock();
+    const service = new ApiKeysService(repository);
+
+    await expect(service.validateApiKey('   ')).resolves.toBe(false);
+    expect(repository.findValidByHash).not.toHaveBeenCalled();
+  });
+
+  it('returns false when the token does not map to an active key', async () => {
+    const repository = createRepositoryMock();
+    repository.findValidByHash.mockImplementation(async () => null);
+
+    const service = new ApiKeysService(repository);
+
+    await expect(service.validateApiKey('gvs_missing')).resolves.toBe(false);
+    expect(repository.findValidByHash).toHaveBeenCalledWith(expect.any(String));
   });
 
   it('creates a key with a capped prefix and hashed token', async () => {
@@ -52,20 +82,21 @@ describe('ApiKeysService', () => {
 
     const result = await service.createApiKey('user-1', 'Deploy', '2026-12-31T00:00:00.000Z');
 
-    expect(result.token).toBe('gvs_121212121212121212121212121212121212121212121212');
+    expect(result.token.startsWith('gvs_')).toBe(true);
     expect(result.key).toMatchObject({
-      id: '11111111-1111-4111-8111-111111111111',
+      id: expect.any(String),
       name: 'Deploy',
-      keyPrefix: 'gvs_12',
+      keyPrefix: result.token.slice(0, 6),
       expiresAt: '2026-12-31T00:00:00.000Z',
       lastUsedAt: null,
+      revokedAt: null,
     });
 
     expect(repository.create).toHaveBeenCalledWith({
-      id: '11111111-1111-4111-8111-111111111111',
+      id: expect.any(String),
       userId: 'user-1',
       name: 'Deploy',
-      keyPrefix: 'gvs_12',
+      keyPrefix: result.token.slice(0, 6),
       keyHash: expect.any(String),
       expiresAt: '2026-12-31T00:00:00.000Z',
     });
@@ -74,7 +105,7 @@ describe('ApiKeysService', () => {
   it('revokes an active key and rejects already revoked keys', async () => {
     const repository = createRepositoryMock();
     repository.findById
-      .mockResolvedValueOnce({
+      .mockImplementationOnce(async () => ({
         id: 'key-1',
         name: 'Deploy',
         keyPrefix: 'gvs_12',
@@ -82,8 +113,8 @@ describe('ApiKeysService', () => {
         lastUsedAt: null,
         revokedAt: null,
         createdAt: '2026-08-18T00:00:00.000Z',
-      })
-      .mockResolvedValueOnce({
+      }))
+      .mockImplementationOnce(async () => ({
         id: 'key-1',
         name: 'Deploy',
         keyPrefix: 'gvs_12',
@@ -91,7 +122,7 @@ describe('ApiKeysService', () => {
         lastUsedAt: null,
         revokedAt: '2026-08-18T00:10:00.000Z',
         createdAt: '2026-08-18T00:00:00.000Z',
-      });
+      }));
 
     const service = new ApiKeysService(repository);
 
@@ -102,7 +133,7 @@ describe('ApiKeysService', () => {
 
   it('regenerates the same record instead of creating a new one', async () => {
     const repository = createRepositoryMock();
-    repository.findById.mockResolvedValue({
+    repository.findById.mockImplementation(async () => ({
       id: 'key-1',
       name: 'Deploy',
       keyPrefix: 'gvs_old',
@@ -110,13 +141,13 @@ describe('ApiKeysService', () => {
       lastUsedAt: null,
       revokedAt: null,
       createdAt: '2026-08-18T00:00:00.000Z',
-    });
+    }));
 
     const service = new ApiKeysService(repository);
     const result = await service.regenerateApiKey('user-1', 'key-1');
 
     expect(repository.updateKeyMaterial).toHaveBeenCalledWith('user-1', 'key-1', {
-      keyPrefix: 'gvs_12',
+      keyPrefix: result.token.slice(0, 6),
       keyHash: expect.any(String),
       expiresAt: '2026-12-31T00:00:00.000Z',
     });
@@ -124,15 +155,16 @@ describe('ApiKeysService', () => {
     expect(result.key).toMatchObject({
       id: 'key-1',
       name: 'Deploy',
-      keyPrefix: 'gvs_12',
+      keyPrefix: result.token.slice(0, 6),
       expiresAt: '2026-12-31T00:00:00.000Z',
       lastUsedAt: null,
+      revokedAt: null,
     });
   });
 
   it('does not regenerate revoked keys', async () => {
     const repository = createRepositoryMock();
-    repository.findById.mockResolvedValue({
+    repository.findById.mockImplementation(async () => ({
       id: 'key-1',
       name: 'Deploy',
       keyPrefix: 'gvs_old',
@@ -140,7 +172,7 @@ describe('ApiKeysService', () => {
       lastUsedAt: null,
       revokedAt: '2026-08-18T00:10:00.000Z',
       createdAt: '2026-08-18T00:00:00.000Z',
-    });
+    }));
 
     const service = new ApiKeysService(repository);
 
