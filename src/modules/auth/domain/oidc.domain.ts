@@ -1,8 +1,8 @@
 import { Domain } from './domain';
-import type { OidcProviderType } from './oidc';
+import type { OidcProvider } from './oidc';
 
 export class OidcProviderDomain extends Domain {
-  public type: OidcProviderType = 'github';
+  public type: 'github' | 'bitbucket' | 'custom' = 'github';
   public enabled: boolean = true;
   public audience: string = '';
   // GitHub-specific
@@ -32,27 +32,26 @@ export class OidcProviderDomain extends Domain {
     }
   }
 
-  toJson() {
+  toJson(): OidcProvider {
     const base = {
       id: this.id,
-      type: this.type,
       enabled: this.enabled,
       audience: this.audience,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
     };
     if (this.type === 'github') {
-      return { ...base, allowed_repos: this.allowed_repos };
+      return { ...base, type: 'github' as const, allowed_repos: this.allowed_repos };
     }
     if (this.type === 'bitbucket') {
       return {
         ...base,
+        type: 'bitbucket' as const,
         allowed_workspace_uuids: this.allowed_workspace_uuids,
         allowed_repository_uuids: this.allowed_repository_uuids,
       };
     }
     return {
       ...base,
+      type: 'custom' as const,
       issuer: this.issuer,
       jwks_uri: this.jwks_uri,
       required_claims: this.required_claims,

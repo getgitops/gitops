@@ -11,8 +11,15 @@
   </section>
 
   <section class="rounded-md border border-slate-200 bg-slate-50 p-4">
-    <p class="text-sm text-slate-600">
-      This section will host server key issuance, rotation, and revocation flows.
-    </p>
+    <ul class="space-y-2">
+      <li>
+        <a href="/settings/server-access-keys/oidc" class="text-sm font-medium text-blue-600 hover:underline">
+          OIDC Providers
+        </a>
+        <p class="text-xs text-slate-500">
+          Configure CI/CD OIDC providers (GitHub Actions, Bitbucket Pipelines, custom) for secretless authentication.
+        </p>
+      </li>
+    </ul>
   </section>
 </div>

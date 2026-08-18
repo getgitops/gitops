@@ -1,4 +1,5 @@
 import type { OidcProvider, OidcProviderType } from '../../domain/oidc';
+import { OidcProviderDomain } from '../../domain/oidc.domain';
 import { OidcProviderEntity } from '$lib/database/schemas';
 import { Repository } from './repository';
 
@@ -16,64 +17,62 @@ type OidcRow = {
 };
 
 export class OidcRepository extends Repository {
-  async findAll(): Promise<OidcProvider[]> {
+  async findAll(): Promise<OidcProviderDomain[]> {
     const result = await this.db.select().from(OidcProviderEntity).execute();
     return (result.rows as OidcRow[]).map((r) => this.toDomain(r));
   }
 
-  async save(provider: OidcProvider): Promise<void> {
-    const row = this.toRow(provider);
-    const existing = await this.db
-      .select()
-      .from(OidcProviderEntity)
-      .where({ id: provider.id })
-      .execute();
+  async create(provider: OidcProvider): Promise<OidcProviderDomain> {
+    const row = this.toJSON(provider);
+    await this.db.insert(OidcProviderEntity).values(row).execute();
+    return this.toDomain(row);
+  }
 
-    if (existing.rows.length > 0) {
-      await this.db.update(OidcProviderEntity).set(row).where({ id: provider.id }).execute();
-    } else {
-      await this.db.insert(OidcProviderEntity).values(row).execute();
-    }
+  async update(provider: OidcProvider): Promise<OidcProviderDomain> {
+    const row = this.toJSON(provider);
+    await this.db.update(OidcProviderEntity).set(row).where({ id: provider.id }).execute();
+    return this.toDomain(row);
   }
 
   async delete(id: string): Promise<void> {
     await this.db.delete(OidcProviderEntity).where({ id }).execute();
   }
 
-  protected override toDomain(row: OidcRow): OidcProvider {
-    const base = {
-      id: row.id,
-      enabled: row.enabled,
-      audience: row.audience,
-    };
+  protected toDomain(row: OidcRow): OidcProviderDomain {
     if (row.type === 'github') {
-      return {
-        ...base,
+      return new OidcProviderDomain({
+        id: row.id,
         type: 'github',
+        enabled: row.enabled,
+        audience: row.audience,
         allowed_repos: row.allowed_repos ?? [],
-      };
+      });
     }
     if (row.type === 'bitbucket') {
-      return {
-        ...base,
+      return new OidcProviderDomain({
+        id: row.id,
         type: 'bitbucket',
+        enabled: row.enabled,
+        audience: row.audience,
         allowed_workspace_uuids: row.allowed_workspace_uuids ?? [],
         allowed_repository_uuids: row.allowed_repository_uuids ?? [],
-      };
+      });
     }
     if (row.type === 'custom') {
-      return {
-        ...base,
+      return new OidcProviderDomain({
+        id: row.id,
         type: 'custom',
+        enabled: row.enabled,
+        audience: row.audience,
         issuer: row.issuer ?? '',
         jwks_uri: row.jwks_uri ?? '',
         required_claims: row.required_claims ?? {},
-      };
+      });
     }
     throw new Error(`Unknown OIDC provider type: '${row.type}'`);
   }
 
-  private toRow(provider: OidcProvider): OidcRow {
+  protected toJSON(provider: OidcProvider): OidcRow {
     const base: OidcRow = {
       id: provider.id,
       type: provider.type,

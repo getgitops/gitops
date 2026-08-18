@@ -16,7 +16,9 @@ export const actions = {
     if (!locals.user) throw redirect(302, '/login');
 
     const formData = await request.formData();
-    const id = String(formData.get('id') || '').trim() || crypto.randomUUID();
+    const id = String(formData.get('id') || '').trim();
+    const isUpdate = id.length > 0;
+    const providerId = isUpdate ? id : crypto.randomUUID();
     const type = String(formData.get('type') || '').trim();
     const enabled = formData.get('enabled') === 'true' || formData.get('enabled') === 'on';
     const audience = String(formData.get('audience') || '').trim();
@@ -36,7 +38,8 @@ export const actions = {
         .map((r) => r.trim())
         .filter(Boolean);
 
-      await oidcService.save({ id, type: 'github', enabled, audience, allowed_repos });
+      const provider = { id: providerId, type: 'github' as const, enabled, audience, allowed_repos };
+      isUpdate ? await oidcService.update(provider) : await oidcService.create(provider);
     } else if (type === 'bitbucket') {
       const rawWs = String(formData.get('allowed_workspace_uuids') || '');
       const rawRepo = String(formData.get('allowed_repository_uuids') || '');
@@ -49,14 +52,8 @@ export const actions = {
         .map((r) => r.trim())
         .filter(Boolean);
 
-      await oidcService.save({
-        id,
-        type: 'bitbucket',
-        enabled,
-        audience,
-        allowed_workspace_uuids,
-        allowed_repository_uuids,
-      });
+      const provider = { id: providerId, type: 'bitbucket' as const, enabled, audience, allowed_workspace_uuids, allowed_repository_uuids };
+      isUpdate ? await oidcService.update(provider) : await oidcService.create(provider);
     } else if (type === 'custom') {
       const issuer = String(formData.get('issuer') || '').trim();
       const jwks_uri = String(formData.get('jwks_uri') || '').trim();
@@ -74,7 +71,8 @@ export const actions = {
         if (k) required_claims[k] = v;
       }
 
-      await oidcService.save({ id, type: 'custom', enabled, audience, issuer, jwks_uri, required_claims });
+      const provider = { id: providerId, type: 'custom' as const, enabled, audience, issuer, jwks_uri, required_claims };
+      isUpdate ? await oidcService.update(provider) : await oidcService.create(provider);
     }
 
     return { message: 'OIDC provider saved.' };

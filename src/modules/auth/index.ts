@@ -21,7 +21,7 @@ export const authService = new AuthService(userRepository, passwordService, sess
 export const userService = new UserService(userRepository, roleRepository, passwordService);
 export const profileService = new ProfileService(userRepository, passwordService);
 export const oidcService = new OidcService(oidcRepository);
-export const oidcValidator = new OidcValidator(oidcService);
+export const oidcValidator = new OidcValidator(oidcRepository);
 
 export { canAccessAdminArea, isAdmin };
 

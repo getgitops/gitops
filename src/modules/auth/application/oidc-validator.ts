@@ -4,7 +4,7 @@ import type {
   BitbucketOidcProvider,
   CustomOidcProvider,
 } from '../domain/oidc';
-import type { OidcService } from '../application/oidc.service';
+import type { OidcRepository } from '../infrastructure/repositories/oidc.repository';
 
 const GITHUB_ISSUER = 'https://token.actions.githubusercontent.com';
 const BITBUCKET_ISSUER_PREFIX = 'https://api.bitbucket.org/';
@@ -201,7 +201,7 @@ async function validateCustomToken(payload: JwtPayload, provider: CustomOidcProv
 }
 
 export class OidcValidator {
-  constructor(private readonly oidcService: OidcService) {}
+  constructor(private readonly oidcRepository: OidcRepository) {}
 
   async validate(token: string): Promise<{ valid: true; payload: JwtPayload } | { valid: false; error: string }> {
     try {
@@ -218,7 +218,8 @@ export class OidcValidator {
       const issuer = payload.iss;
       if (!issuer) return { valid: false, error: 'Missing iss claim' };
 
-      const providers = await this.oidcService.list();
+      const domains = await this.oidcRepository.findAll();
+      const providers: OidcProvider[] = domains.map((d) => d.toJson());
       const enabledProviders = providers.filter((p) => p.enabled);
 
       const matchingProviders = enabledProviders.filter((p) => {
