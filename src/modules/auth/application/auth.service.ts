@@ -69,6 +69,8 @@ export class AuthService {
       role: user.role ? {
         id: user.role.id,
         name: user.role.name,
+        slug: user.role.slug,
+        permissions: Array.isArray(user.role.permissions) ? user.role.permissions : [],
       } : null,
     };
   }

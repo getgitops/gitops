@@ -32,6 +32,8 @@
   let usersLoading = false;
   let searchQuery = '';
 
+  let roleOptions: { slug: string; name: string }[] = [];
+
   let newUsername = '';
   let newPassword = '';
   let newRole = 'developer';
@@ -50,7 +52,10 @@
   $: filteredUsers = users.filter((user) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.trim().toLowerCase();
-    return user.username.toLowerCase().includes(q) || user.role.toLowerCase().includes(q);
+    return (
+      user.username.toLowerCase().includes(q) ||
+      (user.role?.name ?? '').toLowerCase().includes(q)
+    );
   });
 
   onMount(async () => {
@@ -73,7 +78,22 @@
     }
 
     await fetchUsers();
+    await fetchRoleOptions();
   });
+
+  async function fetchRoleOptions() {
+    try {
+      const res = await fetch('/api/roles');
+      const payload = await res.json();
+      if (payload.error) throw new Error(payload.error);
+      roleOptions = (payload.roles || []).map((role: { slug: string; name: string }) => ({
+        slug: role.slug,
+        name: role.name,
+      }));
+    } catch (error) {
+      console.error('Error fetching roles', error);
+    }
+  }
 
   async function fetchUsers() {
     usersLoading = true;
@@ -505,8 +525,9 @@
                     on:change={(event) => handleRoleChange(user.id, event)}
                     class="field-input rounded-md border bg-white px-2.5 py-2 text-xs font-medium outline-none transition"
                   >
-                    <option value="developer">Developer</option>
-                    <option value="admin">Admin</option>
+                    {#each roleOptions as roleOption}
+                      <option value={roleOption.slug}>{roleOption.name}</option>
+                    {/each}
                   </select>
 
                   <button
@@ -579,8 +600,9 @@
             bind:value={newRole}
             class="field-input mt-2 w-full rounded-md border bg-white px-3 py-2 text-sm outline-none transition"
           >
-            <option value="developer">Developer</option>
-            <option value="admin">Admin</option>
+            {#each roleOptions as roleOption}
+              <option value={roleOption.slug}>{roleOption.name}</option>
+            {/each}
           </select>
         </div>
       </div>

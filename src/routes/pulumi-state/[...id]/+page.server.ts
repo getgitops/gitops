@@ -1,9 +1,14 @@
 import { storageBackendService } from '../../../modules/config';
 import { storageService } from '../../../modules/storage';
-import { redirect } from '@sveltejs/kit';
+import { redirect, error } from '@sveltejs/kit';
+import { can } from '../../../modules/auth';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, url, cookies }) => {
+export const load: PageServerLoad = async ({ params, url, cookies, locals }) => {
+  if (!can(locals.user, 'stateiac:read')) {
+    throw error(403, 'Forbidden');
+  }
+
   const backends = storageBackendService.list();
   if (!backends.length) throw redirect(302, '/pulumi-state/backends');
 
