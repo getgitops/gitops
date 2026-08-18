@@ -4,7 +4,7 @@
   let error = '';
   let isSubmitting = false;
   let username = 'admin';
-  let password = 'admin';
+  let password = '12345678';
 
   async function submitLogin(event: SubmitEvent) {
     event.preventDefault();
@@ -97,7 +97,7 @@
     </form>
 
     <div class="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500">
-      Default credentials for first start: <span class="font-medium text-slate-700">admin / admin</span>
+      Default credentials for first start: <span class="font-medium text-slate-700">admin / 12345678</span>
     </div>
   </div>
 </div>

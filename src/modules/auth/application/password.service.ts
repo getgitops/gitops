@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { env } from '$env/dynamic/private';
 
 export class PasswordService {
   private static readonly HASH_PREFIX = 'scrypt';
@@ -6,7 +7,7 @@ export class PasswordService {
   private static readonly HASH_SALT_BYTES = 16;
 
   ensureEncryptionKey(): string {
-    const envKey = process.env.GITDB_ENCRYPTION_KEY?.trim();
+    const envKey = env.GITDB_ENCRYPTION_KEY?.trim();
     if (!envKey) {
       throw new Error('Missing GITDB_ENCRYPTION_KEY environment variable');
     }
