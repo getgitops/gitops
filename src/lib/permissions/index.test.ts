@@ -6,7 +6,7 @@ import {
   togglePermissionAction,
   toggleSectionAll,
   isSectionFullyGranted,
-} from './permissions';
+} from './index';
 
 // Fixture roles/users mirroring the RBAC spec: an admin with full access, a developer
 // with read/create/update (no delete), and a role scoped to a single section only.

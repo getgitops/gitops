@@ -1,3 +1,7 @@
+type PermissionAwareUser = {
+  role?: { slug?: string | null; permissions?: readonly string[] | null } | null;
+} | null | undefined;
+
 export const PERMISSION_SECTIONS = ['vault', 'openreport', 'stateiac'] as const;
 export type PermissionSection = (typeof PERMISSION_SECTIONS)[number];
 
@@ -43,10 +47,6 @@ export function hasPermission(
 
   return grants.includes(permission) || grants.includes(`${section}:all`);
 }
-
-type PermissionAwareUser = {
-  role?: { slug?: string | null; permissions?: readonly string[] | null } | null;
-} | null | undefined;
 
 export function can(user: PermissionAwareUser, permission: Permission): boolean {
   return hasPermission(user?.role?.permissions, permission);
