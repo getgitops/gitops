@@ -16,12 +16,14 @@ export class AuthService {
 
     const adminExists = await this.userRepository.findByUsername('admin');
     if (!adminExists) {
+      // const roleAdmin = await this.roleRepository
+      // console.error('No admin user found. Please create an admin user to access the system.');
       // await this.userRepository.createUser({
       //   id: crypto.randomUUID(),
       //   username: 'admin',
       //   email: null,
       //   passwordHash: this.passwordService.hashPassword('admin'),
-      //   role: 'admin',
+      //   role: '00000000-0000-0000-0000-000000000001',
       // });
       // console.log('Default admin user created (admin:admin)');
     }
@@ -33,7 +35,7 @@ export class AuthService {
       return null;
     }
 
-    if (!this.passwordService.verifyPassword(password, user.passwordHash)) {
+    if (!this.passwordService.verifyPassword(password, user.password)) {
       return null;
     }
 

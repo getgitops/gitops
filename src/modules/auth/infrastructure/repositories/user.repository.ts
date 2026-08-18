@@ -1,4 +1,4 @@
-import { getGitDb } from '$lib/server/gitdb';
+import { Repository } from './repository';
 import { ApiKeyEntity, UserEntity, RoleEntity } from '$lib/database/schemas';
 import type { AuthUser, CreateUserInput, Role, UserView } from '../../domain/entities';
 
@@ -6,8 +6,7 @@ import { UserDomain } from '../../domain/user.domain';
 
 
 
-export class UserRepository {
-  private readonly db = getGitDb();
+export class UserRepository extends Repository {
 
 
   async findById(id: string): Promise<UserDomain | null> {
@@ -73,7 +72,7 @@ export class UserRepository {
     // return (result.rows as UserRow[]).filter((row) => this.extractRole(row) === 'admin').length;
     return 0; // Placeholder until role extraction is implemented
   }
-  private toDomain(user: any): UserDomain {
+  protected toDomain(user: any): UserDomain {
     return new UserDomain({
       id: user.id,
       username: user.username,
@@ -85,7 +84,7 @@ export class UserRepository {
     });
   }
 
-  private toJSON(user: any) {
+  protected toJSON(user: any) {
     return {
       id: user.id,
       username: user.username,

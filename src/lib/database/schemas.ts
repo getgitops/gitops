@@ -36,6 +36,11 @@ export const ApiKeyEntity = entity('api_keys', {
 
 export const relations = defineRelations();
 
-relations.for(UserEntity, ({ one }) => ({
+relations.for(UserEntity, ({ one, many }) => ({
   role: one(RoleEntity, { fields: ['roleId'], references: ['id'] }),
+  apiKeys: many(ApiKeyEntity, { fields: ['id'], references: ['userId'] }),
+}));
+
+relations.for(ApiKeyEntity, ({ one }) => ({
+  user: one(UserEntity, { fields: ['userId'], references: ['id'] }),
 }));
