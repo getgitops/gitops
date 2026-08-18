@@ -237,7 +237,6 @@
                   bind:value={role.name}
                   class="field-input rounded-md border bg-white px-2 py-1 text-sm font-semibold outline-none transition"
                 />
-                <p class="mt-1 text-xs text-slate-500">slug: {role.slug}</p>
               </div>
             </div>
 
