@@ -1,22 +1,6 @@
-import { entity, text, boolean, json, uuid } from '@getgitops/gitdb';
 import type { OidcProvider, OidcProviderType } from '../../domain/oidc';
+import { OidcProviderEntity } from '$lib/database/schemas';
 import { Repository } from './repository';
-
-export const oidcProviderEntity = entity('server_oidc', {
-  id: uuid().primaryKey(),
-  type: text().notNull(),
-  enabled: boolean().notNull().default(true),
-  audience: text().notNull(),
-  // GitHub-specific
-  allowed_repos: json(),
-  // Bitbucket-specific
-  allowed_workspace_uuids: json(),
-  allowed_repository_uuids: json(),
-  // Custom-specific
-  issuer: text(),
-  jwks_uri: text(),
-  required_claims: json(),
-});
 
 type OidcRow = {
   id: string;
@@ -33,7 +17,7 @@ type OidcRow = {
 
 export class OidcRepository extends Repository {
   async findAll(): Promise<OidcProvider[]> {
-    const result = await this.db.select().from(oidcProviderEntity).execute();
+    const result = await this.db.select().from(OidcProviderEntity).execute();
     return (result.rows as OidcRow[]).map((r) => this.toDomain(r));
   }
 
@@ -41,19 +25,19 @@ export class OidcRepository extends Repository {
     const row = this.toRow(provider);
     const existing = await this.db
       .select()
-      .from(oidcProviderEntity)
+      .from(OidcProviderEntity)
       .where({ id: provider.id })
       .execute();
 
     if (existing.rows.length > 0) {
-      await this.db.update(oidcProviderEntity).set(row).where({ id: provider.id }).execute();
+      await this.db.update(OidcProviderEntity).set(row).where({ id: provider.id }).execute();
     } else {
-      await this.db.insert(oidcProviderEntity).values(row).execute();
+      await this.db.insert(OidcProviderEntity).values(row).execute();
     }
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.delete(oidcProviderEntity).where({ id }).execute();
+    await this.db.delete(OidcProviderEntity).where({ id }).execute();
   }
 
   protected override toDomain(row: OidcRow): OidcProvider {

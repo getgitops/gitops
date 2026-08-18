@@ -34,6 +34,22 @@ export const ApiKeyEntity = entity('api_keys', {
   createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
 });
 
+export const OidcProviderEntity = entity('server_oidc', {
+  id: uuid().primaryKey(),
+  type: text().notNull(),
+  enabled: bool().notNull().default(true),
+  audience: text().notNull(),
+  // GitHub-specific
+  allowed_repos: json(),
+  // Bitbucket-specific
+  allowed_workspace_uuids: json(),
+  allowed_repository_uuids: json(),
+  // Custom-specific
+  issuer: text(),
+  jwks_uri: text(),
+  required_claims: json(),
+});
+
 export const relations = defineRelations();
 
 relations.for(UserEntity, ({ one, many }) => ({

@@ -11,7 +11,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   await ensureAuthReady();
 
-  // Allow OIDC JWT bearer tokens on protected API routes
+  // On API routes, a valid OIDC bearer token is an accepted alternative to a session cookie.
   if (event.url.pathname.startsWith('/api/')) {
     const authHeader = event.request.headers.get('authorization');
     if (authHeader?.startsWith('Bearer ')) {
