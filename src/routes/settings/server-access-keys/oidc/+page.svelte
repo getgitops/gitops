@@ -139,7 +139,7 @@
 
       <!-- Provider Type -->
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700">Provider Type</label>
+        <span class="mb-1 block text-sm font-medium text-slate-700">Provider Type</span>
         <div class="flex gap-4">
           {#each [['github', 'GitHub Actions'], ['bitbucket', 'Bitbucket Pipelines'], ['custom', 'Custom']] as [val, label]}
             <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
@@ -256,7 +256,7 @@
         </div>
         <div>
           <div class="mb-2 flex items-center justify-between">
-            <label class="text-sm font-medium text-slate-700">Required Claims</label>
+            <span class="text-sm font-medium text-slate-700">Required Claims</span>
             <button type="button" on:click={addClaim} class="text-xs text-slate-500 hover:text-slate-700 hover:underline">
               + Add claim
             </button>

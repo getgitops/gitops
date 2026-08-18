@@ -39,7 +39,11 @@ export const actions = {
         .filter(Boolean);
 
       const provider = { id: providerId, type: 'github' as const, enabled, audience, allowed_repos };
-      isUpdate ? await oidcService.update(provider) : await oidcService.create(provider);
+      if (isUpdate) {
+        await oidcService.update(provider);
+      } else {
+        await oidcService.create(provider);
+      }
     } else if (type === 'bitbucket') {
       const rawWs = String(formData.get('allowed_workspace_uuids') || '');
       const rawRepo = String(formData.get('allowed_repository_uuids') || '');
@@ -53,7 +57,11 @@ export const actions = {
         .filter(Boolean);
 
       const provider = { id: providerId, type: 'bitbucket' as const, enabled, audience, allowed_workspace_uuids, allowed_repository_uuids };
-      isUpdate ? await oidcService.update(provider) : await oidcService.create(provider);
+      if (isUpdate) {
+        await oidcService.update(provider);
+      } else {
+        await oidcService.create(provider);
+      }
     } else if (type === 'custom') {
       const issuer = String(formData.get('issuer') || '').trim();
       const jwks_uri = String(formData.get('jwks_uri') || '').trim();
@@ -72,7 +80,11 @@ export const actions = {
       }
 
       const provider = { id: providerId, type: 'custom' as const, enabled, audience, issuer, jwks_uri, required_claims };
-      isUpdate ? await oidcService.update(provider) : await oidcService.create(provider);
+      if (isUpdate) {
+        await oidcService.update(provider);
+      } else {
+        await oidcService.create(provider);
+      }
     }
 
     return { message: 'OIDC provider saved.' };

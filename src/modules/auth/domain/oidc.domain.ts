@@ -15,7 +15,7 @@ export class OidcProviderDomain extends Domain {
   public jwks_uri: string = '';
   public required_claims: Record<string, string> = {};
 
-  constructor(data: any) {
+  constructor(data: OidcProvider) {
     super(data);
     this.type = data.type;
     this.enabled = data.enabled;

@@ -76,6 +76,7 @@ async function importRsaPublicKey(key: JwkKey, alg: string): Promise<CryptoKey> 
   const hash = alg === 'RS384' ? 'SHA-384' : alg === 'RS512' ? 'SHA-512' : 'SHA-256';
   return crypto.subtle.importKey(
     'jwk',
+    // eslint-disable-next-line no-undef
     key as JsonWebKey,
     { name: 'RSASSA-PKCS1-v1_5', hash },
     false,
@@ -87,6 +88,7 @@ async function importEcPublicKey(key: JwkKey): Promise<CryptoKey> {
   const namedCurve = key.crv ?? 'P-256';
   return crypto.subtle.importKey(
     'jwk',
+    // eslint-disable-next-line no-undef
     key as JsonWebKey,
     { name: 'ECDSA', namedCurve },
     false,
