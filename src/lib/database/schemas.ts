@@ -29,6 +29,7 @@ export const ApiKeyEntity = entity('api_keys', {
   name: text().notNull(),
   keyPrefix: text().notNull(),
   keyHash: text().notNull(),
+  expiresAt: timestamp(),
   lastUsedAt: timestamp(),
   revokedAt: timestamp(),
   createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),

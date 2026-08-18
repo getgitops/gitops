@@ -2,6 +2,21 @@ import { fail, redirect } from '@sveltejs/kit';
 import { profileService } from '../../modules/auth';
 import { storageBackendService } from '../../modules/config';
 
+function expiresAtFromDays(expiresInDays: string | null): string | null {
+  if (!expiresInDays) {
+    return null;
+  }
+
+  const days = Number(expiresInDays);
+  if (!Number.isFinite(days) || days <= 0) {
+    return null;
+  }
+
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
 export async function load({ locals, cookies }) {
   if (!locals.user) {
     throw redirect(302, '/login');
@@ -18,8 +33,7 @@ export async function load({ locals, cookies }) {
   const activeBackend = backends.find((backend) => backend.id === activeBackendId) || null;
   const gcpConnected = activeBackend?.provider === 'gcs';
 
-  // const apiKeys = await profileService.listActiveApiKeys(user.id);
-  const apiKeys = []
+  const apiKeys = await profileService.listActiveApiKeys(user.id);
 
   return {
     user: {
@@ -29,13 +43,7 @@ export async function load({ locals, cookies }) {
       role: user.role,
     },
     gcpConnected,
-    apiKeys: apiKeys.map((key) => ({
-      id: key.id,
-      name: key.name,
-      keyPrefix: key.keyPrefix,
-      lastUsedAt: key.lastUsedAt,
-      createdAt: key.createdAt,
-    })),
+    apiKeys,
   };
 }
 
@@ -83,14 +91,32 @@ export const actions = {
 
     const formData = await request.formData();
     const name = String(formData.get('name') || '').trim();
+    const expiresInDays = String(formData.get('expiresInDays') || '').trim();
 
     if (!name) {
       return fail(400, { section: 'apiKeys', message: 'Key name is required.' });
     }
 
-    const { token } = await profileService.createApiKey(locals.user.id, name);
+    const expiresAt = expiresAtFromDays(expiresInDays || null);
+
+    const { token } = await profileService.createApiKey(locals.user.id, name, expiresAt);
 
     return { section: 'apiKeys', message: 'API key created.', createdKey: token };
+  },
+
+  regenerateApiKey: async ({ request, locals }) => {
+    if (!locals.user) throw redirect(302, '/login');
+
+    const formData = await request.formData();
+    const keyId = String(formData.get('keyId') || '');
+
+    if (!keyId) {
+      return fail(400, { section: 'apiKeys', message: 'Key id is required.' });
+    }
+
+    const { token } = await profileService.regenerateApiKey(locals.user.id, keyId);
+
+    return { section: 'apiKeys', message: 'API key regenerated.', createdKey: token };
   },
 
   revokeApiKey: async ({ request, locals }) => {

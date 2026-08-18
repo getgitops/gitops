@@ -1,16 +1,13 @@
-import crypto from 'crypto';
-import type { ApiKeyView, AuthenticatedUser } from '../domain/entities';
+import type { ApiKeyView } from '../domain/entities';
 import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { PasswordService } from './password.service';
-
-function hashApiKey(token: string): string {
-  return crypto.createHash('sha256').update(token).digest('hex');
-}
+import { ApiKeysService } from './apikeys.service';
 
 export class ProfileService {
   constructor(
     private readonly userRepository: UserRepository,
     private readonly passwordService: PasswordService,
+    private readonly apiKeysService: ApiKeysService,
   ) {}
 
   async getAuthenticatedUserProfile(userId: string): Promise<any | null> {
@@ -41,41 +38,18 @@ export class ProfileService {
   }
 
   async listActiveApiKeys(userId: string): Promise<ApiKeyView[]> {
-    const keys = await this.userRepository.listActiveApiKeys(userId);
-    return keys.map((key) => ({
-      id: key.id,
-      name: key.name,
-      keyPrefix: key.keyPrefix,
-      lastUsedAt: key.lastUsedAt,
-      createdAt: key.createdAt,
-    }));
+    return this.apiKeysService.listActiveApiKeys(userId);
   }
 
-  async createApiKey(userId: string, name: string): Promise<{ token: string; key: ApiKeyView }> {
-    const token = `gvs_${crypto.randomBytes(24).toString('hex')}`;
-    const id = crypto.randomUUID();
-
-    await this.userRepository.createApiKey({
-      id,
-      userId,
-      name,
-      keyPrefix: token.slice(0, 10),
-      keyHash: hashApiKey(token),
-    });
-
-    return {
-      token,
-      key: {
-        id,
-        name,
-        keyPrefix: token.slice(0, 10),
-        lastUsedAt: null,
-        createdAt: new Date().toISOString(),
-      },
-    };
+  async createApiKey(userId: string, name: string, expiresAt: string | null): Promise<{ token: string; key: ApiKeyView }> {
+    return this.apiKeysService.createApiKey(userId, name, expiresAt);
   }
 
   async revokeApiKey(userId: string, keyId: string): Promise<void> {
-    await this.userRepository.revokeApiKey(userId, keyId);
+    await this.apiKeysService.revokeApiKey(userId, keyId);
+  }
+
+  async regenerateApiKey(userId: string, keyId: string): Promise<{ token: string; key: ApiKeyView }> {
+    return this.apiKeysService.regenerateApiKey(userId, keyId);
   }
 }
