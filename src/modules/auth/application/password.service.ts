@@ -5,6 +5,11 @@ export class PasswordService {
   constructor(private readonly configRepository: AuthConfigRepository) {}
 
   ensureEncryptionKey(): string {
+    const envKey = process.env.KEY_DB;
+    if (envKey) {
+      return envKey;
+    }
+
     const existingKey = this.configRepository.findEncryptionKey();
     if (existingKey) {
       return existingKey;
