@@ -61,13 +61,16 @@ export class OidcRepository extends Repository {
         allowed_repository_uuids: row.allowed_repository_uuids ?? [],
       };
     }
-    return {
-      ...base,
-      type: 'custom',
-      issuer: row.issuer ?? '',
-      jwks_uri: row.jwks_uri ?? '',
-      required_claims: row.required_claims ?? {},
-    };
+    if (row.type === 'custom') {
+      return {
+        ...base,
+        type: 'custom',
+        issuer: row.issuer ?? '',
+        jwks_uri: row.jwks_uri ?? '',
+        required_claims: row.required_claims ?? {},
+      };
+    }
+    throw new Error(`Unknown OIDC provider type: '${row.type}'`);
   }
 
   private toRow(provider: OidcProvider): OidcRow {

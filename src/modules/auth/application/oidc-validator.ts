@@ -69,13 +69,7 @@ async function resolveJwksUri(issuer: string): Promise<string> {
 }
 
 function base64urlToBuffer(value: string): Uint8Array {
-  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
+  return new Uint8Array(Buffer.from(value, 'base64url'));
 }
 
 async function importRsaPublicKey(key: JwkKey, alg: string): Promise<CryptoKey> {
@@ -213,8 +207,11 @@ export class OidcValidator {
     try {
       const { header, payload, signingInput, signatureB64 } = parseJwt(token);
 
-      // Check expiration
-      if (payload.exp && Date.now() / 1000 > payload.exp) {
+      // Require and validate expiration
+      if (!payload.exp) {
+        return { valid: false, error: 'Missing exp claim' };
+      }
+      if (Date.now() / 1000 > payload.exp) {
         return { valid: false, error: 'Token has expired' };
       }
 

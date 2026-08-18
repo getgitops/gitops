@@ -1,5 +1,4 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { randomUUID } from 'crypto';
 import { oidcService } from '../../../../modules/auth';
 
 export async function load({ locals }) {
@@ -17,7 +16,7 @@ export const actions = {
     if (!locals.user) throw redirect(302, '/login');
 
     const formData = await request.formData();
-    const id = String(formData.get('id') || '').trim() || randomUUID();
+    const id = String(formData.get('id') || '').trim() || crypto.randomUUID();
     const type = String(formData.get('type') || '').trim();
     const enabled = formData.get('enabled') === 'true' || formData.get('enabled') === 'on';
     const audience = String(formData.get('audience') || '').trim();

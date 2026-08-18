@@ -12,12 +12,20 @@ export const handle: Handle = async ({ event, resolve }) => {
   await ensureAuthReady();
 
   // On API routes, a valid OIDC bearer token is an accepted alternative to a session cookie.
+  // Session-cookie auth and future API-key auth remain fully operational alongside this.
   if (event.url.pathname.startsWith('/api/')) {
     const authHeader = event.request.headers.get('authorization');
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.slice(7);
       const result = await oidcValidator.validate(token);
       if (result.valid) {
+        event.locals.oidc = result.payload as Record<string, unknown>;
+        event.locals.user = {
+          id: String(result.payload.sub ?? 'oidc-service'),
+          username: String(result.payload.sub ?? 'oidc-service'),
+          email: null,
+          role: 'admin',
+        };
         return resolve(event);
       }
     }
