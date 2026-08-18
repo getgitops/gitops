@@ -78,11 +78,12 @@ function base64urlToBuffer(value: string): Uint8Array {
   return bytes;
 }
 
-async function importRsaPublicKey(key: JwkKey): Promise<CryptoKey> {
+async function importRsaPublicKey(key: JwkKey, alg: string): Promise<CryptoKey> {
+  const hash = alg === 'RS384' ? 'SHA-384' : alg === 'RS512' ? 'SHA-512' : 'SHA-256';
   return crypto.subtle.importKey(
     'jwk',
     key as JsonWebKey,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    { name: 'RSASSA-PKCS1-v1_5', hash },
     false,
     ['verify'],
   );
@@ -109,7 +110,7 @@ async function verifySignature(
   const signature = base64urlToBuffer(signatureB64);
 
   if (header.alg.startsWith('RS')) {
-    const cryptoKey = await importRsaPublicKey(key);
+    const cryptoKey = await importRsaPublicKey(key, header.alg);
     return crypto.subtle.verify('RSASSA-PKCS1-v1_5', cryptoKey, signature as unknown as ArrayBuffer, data);
   }
 
@@ -146,7 +147,7 @@ async function validateTokenSignature(
   kid?: string,
 ): Promise<void> {
   const keys = await fetchJwks(jwksUri);
-  const candidates = kid ? keys.filter((k) => !k.kid || k.kid === kid) : keys;
+  const candidates = kid ? keys.filter((k) => k.kid === kid) : keys;
 
   if (candidates.length === 0) {
     throw new Error('No matching JWK found for token');

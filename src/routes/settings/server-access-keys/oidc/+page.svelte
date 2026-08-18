@@ -1,20 +1,53 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { PageData, ActionData } from './$types';
+  import type { OidcProvider } from '../../../../modules/auth/domain/oidc';
 
   export let data: PageData;
   export let form: ActionData;
 
   type ProviderType = 'github' | 'bitbucket' | 'custom';
 
-  let selectedType: ProviderType = 'github';
-  let customClaims: { key: string; value: string }[] = [{ key: '', value: '' }];
   let editingId: string | null = null;
+  let selectedType: ProviderType = 'github';
+  let enabled = true;
+  let audience = '';
+  let allowedRepos = '';
+  let allowedWorkspaceUuids = '';
+  let allowedRepositoryUuids = '';
+  let issuer = '';
+  let jwksUri = '';
+  let customClaims: { key: string; value: string }[] = [{ key: '', value: '' }];
 
-  function startNew() {
+  function resetForm() {
     editingId = null;
     selectedType = 'github';
+    enabled = true;
+    audience = '';
+    allowedRepos = '';
+    allowedWorkspaceUuids = '';
+    allowedRepositoryUuids = '';
+    issuer = '';
+    jwksUri = '';
     customClaims = [{ key: '', value: '' }];
+  }
+
+  function startEdit(provider: OidcProvider) {
+    editingId = provider.id;
+    selectedType = provider.type;
+    enabled = provider.enabled;
+    audience = provider.audience;
+    allowedRepos = provider.type === 'github' ? provider.allowed_repos.join('\n') : '';
+    allowedWorkspaceUuids =
+      provider.type === 'bitbucket' ? provider.allowed_workspace_uuids.join('\n') : '';
+    allowedRepositoryUuids =
+      provider.type === 'bitbucket' ? provider.allowed_repository_uuids.join('\n') : '';
+    issuer = provider.type === 'custom' ? provider.issuer : '';
+    jwksUri = provider.type === 'custom' ? provider.jwks_uri : '';
+    customClaims =
+      provider.type === 'custom' && Object.keys(provider.required_claims).length > 0
+        ? Object.entries(provider.required_claims).map(([key, value]) => ({ key, value }))
+        : [{ key: '', value: '' }];
   }
 
   function addClaim() {
@@ -63,20 +96,24 @@
               <span class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Disabled</span>
             {/if}
           </div>
-          <form
-            method="POST"
-            action="?/delete"
-            use:enhance
-            on:submit={(e) => { if (!confirm('Delete this provider?')) e.preventDefault(); }}
-          >
-            <input type="hidden" name="id" value={provider.id} />
+          <div class="flex gap-3">
             <button
-              type="submit"
-              class="text-sm text-red-600 hover:underline"
+              type="button"
+              class="text-sm text-slate-600 hover:underline"
+              on:click={() => startEdit(provider)}
             >
-              Delete
+              Edit
             </button>
-          </form>
+            <form
+              method="POST"
+              action="?/delete"
+              use:enhance
+              on:submit={(e) => { if (!confirm('Delete this provider?')) e.preventDefault(); }}
+            >
+              <input type="hidden" name="id" value={provider.id} />
+              <button type="submit" class="text-sm text-red-600 hover:underline">Delete</button>
+            </form>
+          </div>
         </div>
       {/each}
     </section>
@@ -84,9 +121,16 @@
 
   <!-- Add / Edit Form -->
   <section class="rounded-md border border-slate-200 bg-slate-50 p-6">
-    <h4 class="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
-      Add OIDC Provider
-    </h4>
+    <div class="mb-4 flex items-center justify-between">
+      <h4 class="text-sm font-semibold uppercase tracking-wide text-slate-500">
+        {editingId ? 'Edit OIDC Provider' : 'Add OIDC Provider'}
+      </h4>
+      {#if editingId}
+        <button type="button" class="text-xs text-slate-500 hover:underline" on:click={resetForm}>
+          Cancel
+        </button>
+      {/if}
+    </div>
 
     <form method="POST" action="?/save" use:enhance class="space-y-5">
       {#if editingId}
@@ -114,7 +158,14 @@
 
       <!-- Enabled toggle -->
       <div class="flex items-center gap-2">
-        <input type="checkbox" id="enabled" name="enabled" value="on" checked class="accent-slate-700" />
+        <input
+          type="checkbox"
+          id="enabled"
+          name="enabled"
+          value="on"
+          bind:checked={enabled}
+          class="accent-slate-700"
+        />
         <label for="enabled" class="text-sm text-slate-700">Enabled</label>
       </div>
 
@@ -126,6 +177,7 @@
           id="audience"
           name="audience"
           required
+          bind:value={audience}
           placeholder="https://api.mycompany.com"
           class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
         />
@@ -141,6 +193,7 @@
             id="allowed_repos"
             name="allowed_repos"
             rows="4"
+            bind:value={allowedRepos}
             placeholder="my-org/my-repo"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
           ></textarea>
@@ -157,6 +210,7 @@
             id="allowed_workspace_uuids"
             name="allowed_workspace_uuids"
             rows="3"
+            bind:value={allowedWorkspaceUuids}
             placeholder="{'{'}workspace-uuid{'}'}"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
           ></textarea>
@@ -169,6 +223,7 @@
             id="allowed_repository_uuids"
             name="allowed_repository_uuids"
             rows="3"
+            bind:value={allowedRepositoryUuids}
             placeholder="{'{'}repository-uuid{'}'}"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
           ></textarea>
@@ -183,6 +238,7 @@
             type="url"
             id="issuer"
             name="issuer"
+            bind:value={issuer}
             placeholder="https://custom-auth.example.com"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
           />
@@ -193,6 +249,7 @@
             type="url"
             id="jwks_uri"
             name="jwks_uri"
+            bind:value={jwksUri}
             placeholder="https://custom-auth.example.com/.well-known/jwks.json"
             class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
           />
