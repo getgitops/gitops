@@ -1,32 +1,51 @@
 import crypto from 'crypto';
-import type { AuthConfigRepository } from '../domain/repositories';
+import { env } from '$env/dynamic/private';
 
 export class PasswordService {
-  constructor(private readonly configRepository: AuthConfigRepository) {}
+  private static readonly HASH_PREFIX = 'scrypt';
+  private static readonly HASH_KEY_LEN = 64;
+  private static readonly HASH_SALT_BYTES = 16;
 
   ensureEncryptionKey(): string {
-    const envKey = process.env.KEY_DB;
-    if (envKey) {
-      return envKey;
+    const envKey = env.GITDB_ENCRYPTION_KEY?.trim();
+    if (!envKey) {
+      throw new Error('Missing GITDB_ENCRYPTION_KEY environment variable');
     }
 
-    const existingKey = this.configRepository.findEncryptionKey();
-    if (existingKey) {
-      return existingKey;
-    }
-
-    const newKey = crypto.randomBytes(32).toString('hex');
-    this.configRepository.saveEncryptionKey(newKey);
-
-    return newKey;
+    return envKey;
   }
 
   hashPassword(password: string): string {
-    const salt = this.ensureEncryptionKey();
-    return crypto.scryptSync(password, salt, 64).toString('hex');
+    const salt = crypto.randomBytes(PasswordService.HASH_SALT_BYTES).toString('hex');
+    const hash = crypto
+      .scryptSync(this.applyPepper(password), salt, PasswordService.HASH_KEY_LEN)
+      .toString('hex');
+
+    return `${PasswordService.HASH_PREFIX}$${salt}$${hash}`;
   }
 
   verifyPassword(password: string, hash: string): boolean {
-    return this.hashPassword(password) === hash;
+    const [, salt, storedHash] = hash.split('$');
+    const computed = crypto
+      .scryptSync(this.applyPepper(password), salt, PasswordService.HASH_KEY_LEN)
+      .toString('hex');
+
+    return this.safeEqualHex(storedHash, computed);
+  }
+
+  private applyPepper(password: string): string {
+    const pepper = this.ensureEncryptionKey();
+    return `${password}:${pepper}`;
+  }
+
+  private safeEqualHex(leftHex: string, rightHex: string): boolean {
+    const left = Buffer.from(leftHex, 'hex');
+    const right = Buffer.from(rightHex, 'hex');
+
+    if (left.length !== right.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(left, right);
   }
 }
