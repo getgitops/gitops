@@ -91,7 +91,7 @@
 
         <div class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           <span>Role</span>
-          <span class="font-medium text-slate-900 capitalize">{data.user.role}</span>
+          <span class="font-medium text-slate-900 capitalize">{data.user.role.name}</span>
         </div>
 
         <button
