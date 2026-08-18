@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { db } from '$lib/db';
+import { projectService } from '../../../modules/projects';
 
 export async function GET() {
   try {
-    const projects = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all();
+    const projects = projectService.listProjects();
     return json({ projects });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -14,23 +14,8 @@ export async function GET() {
 export async function POST({ request }) {
   try {
     const { name } = await request.json();
-    if (!name || name.trim() === '') {
-      throw new Error('Project name is required');
-    }
-
-    const id = name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]/g, '-');
-
-    db.prepare(
-      'INSERT INTO projects (id, name) VALUES (@id, @name) ON CONFLICT(id) DO NOTHING',
-    ).run({
-      id,
-      name: name.trim(),
-    });
-
-    return json({ success: true, project: { id, name: name.trim() } });
+    const project = projectService.createProject(String(name || ''));
+    return json({ success: true, project });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return json({ error: message }, { status: 400 });

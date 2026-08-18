@@ -1,8 +1,8 @@
-import { getConfig, getStorageBackends } from '$lib/config';
+import { configService, storageBackendService } from '../modules/config';
 
 export async function load({ cookies, locals }) {
-  const config = await getConfig();
-  const backends = getStorageBackends();
+  const config = configService.getConfig();
+  const backends = storageBackendService.list();
 
   let activeBackendId = cookies.get('active_backend');
   let activeBackend = backends.find((backend) => backend.id === activeBackendId);

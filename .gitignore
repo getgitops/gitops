@@ -6,4 +6,4 @@ bun.lockb
 .DS_Store
 coverage
 data/
-.gitdb
+.gitdb/
