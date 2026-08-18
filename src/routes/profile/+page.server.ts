@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { profileService } from '../../modules/auth';
+import { apiKeysService, profileService } from '../../modules/auth';
 import { storageBackendService } from '../../modules/config';
 
 function expiresAtFromDays(expiresInDays: string | null): string | null {
@@ -33,7 +33,7 @@ export async function load({ locals, cookies }) {
   const activeBackend = backends.find((backend) => backend.id === activeBackendId) || null;
   const gcpConnected = activeBackend?.provider === 'gcs';
 
-  const apiKeys = await profileService.listActiveApiKeys(user.id);
+  const apiKeys = await apiKeysService.listActiveApiKeys(user.id);
 
   return {
     user: {
@@ -99,7 +99,7 @@ export const actions = {
 
     const expiresAt = expiresAtFromDays(expiresInDays || null);
 
-    const { token } = await profileService.createApiKey(locals.user.id, name, expiresAt);
+    const { token } = await apiKeysService.createApiKey(locals.user.id, name, expiresAt);
 
     return { section: 'apiKeys', message: 'API key created.', createdKey: token };
   },
@@ -114,7 +114,7 @@ export const actions = {
       return fail(400, { section: 'apiKeys', message: 'Key id is required.' });
     }
 
-    const { token } = await profileService.regenerateApiKey(locals.user.id, keyId);
+    const { token } = await apiKeysService.regenerateApiKey(locals.user.id, keyId);
 
     return { section: 'apiKeys', message: 'API key regenerated.', createdKey: token };
   },
@@ -125,7 +125,7 @@ export const actions = {
     const formData = await request.formData();
     const keyId = String(formData.get('keyId') || '');
 
-    await profileService.revokeApiKey(locals.user.id, keyId);
+    await apiKeysService.revokeApiKey(locals.user.id, keyId);
 
     return { section: 'apiKeys', message: 'API key revoked.' };
   },
