@@ -1,8 +1,14 @@
+import { error } from '@sveltejs/kit';
 import { storageBackendService } from '../../modules/config';
 import { projectService } from '../../modules/projects';
 import { storageService } from '../../modules/storage';
+import { can } from '../../modules/auth';
 
-export async function load({ cookies }) {
+export async function load({ cookies, locals }) {
+  if (!can(locals.user, 'stateiac:read')) {
+    throw error(403, 'Forbidden');
+  }
+
   const backends = storageBackendService.list();
 
   if (!backends.length) {

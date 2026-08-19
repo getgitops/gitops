@@ -20,17 +20,25 @@ export type UserView = {
 export type RoleView = {
   id: string;
   name: string;
-  description: string;
-  permissions: object;
+  slug: string;
+  description?: string;
+  permissions: string[];
   createdAt: string;
   updatedAt: string;
 }
+
+export type SessionRole = {
+  id: string;
+  name: string;
+  slug: string;
+  permissions: string[];
+};
 
 export type AuthenticatedUser = {
   id: string;
   username: string;
   email: string | null;
-  role: RoleView;
+  role: SessionRole | null;
 };
 
 export type CreateUserInput = {

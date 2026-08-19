@@ -2,8 +2,13 @@ import { json } from '@sveltejs/kit';
 import { storageBackendService } from '../../../../modules/config';
 import { projectService } from '../../../../modules/projects';
 import { storageService } from '../../../../modules/storage';
+import { can } from '../../../../modules/auth';
 
-export async function POST({ cookies }) {
+export async function POST({ cookies, locals }) {
+  if (!can(locals.user, 'stateiac:update')) {
+    return json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const backends = storageBackendService.list();
     if (!backends.length) throw new Error('No storage configured');

@@ -67,6 +67,11 @@ export class UserRepository extends Repository {
     await this.db.delete(UserEntity).where({ id: userId });
   }
 
+  async countByRoleId(roleId: string): Promise<number> {
+    const result = await this.db.select().from(UserEntity).where({ roleId });
+    return result.rows.length;
+  }
+
   async countAdmins(): Promise<number> {
     const result = await this.db.with({ role: true }).select().from(UserEntity);
     // return (result.rows as UserRow[]).filter((row) => this.extractRole(row) === 'admin').length;

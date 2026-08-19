@@ -3,13 +3,13 @@ import { Domain } from './domain';
 export class RoleDomain extends Domain {
     public name: string = ''
     public slug: string = ''
-    public permissions: object = {}
+    public permissions: string[] = []
 
     constructor(data: any) {
         super(data);
         this.name = data.name
         this.slug = data.slug
-        this.permissions = data.permissions
+        this.permissions = Array.isArray(data.permissions) ? data.permissions : []
     }
 
     toJson() {
