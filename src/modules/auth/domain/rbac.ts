@@ -1,8 +1,8 @@
 import type { AuthenticatedUser } from './entities';
+import { isAdmin } from '$lib/permissions';
 
-export function isAdmin(user: AuthenticatedUser | null | undefined): boolean {
-  return user?.role === 'admin';
-}
+export { can, hasPermission, isAdmin } from '$lib/permissions';
+export type { Permission, PermissionGrant, PermissionSection, PermissionAction } from '$lib/permissions';
 
 export function canAccessAdminArea(user: AuthenticatedUser | null | undefined): boolean {
   return isAdmin(user);
