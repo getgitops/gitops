@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { ChevronDown, FolderKanban, LogOut, UserRound } from 'lucide-svelte';
 
-  export let user: { username: string; role: string } | null = null;
+  type NavbarUser = { username: string; role: { name: string } | string | null };
+
+  export let user: NavbarUser | null = null;
   export let projects: { id: string; name: string; slug: string }[] = [];
   export let organizationSlug = 'gitops';
   export let projectSlug = '';
@@ -11,6 +14,20 @@
 
   let userMenuRef: HTMLDivElement | undefined;
   let projectMenuRef: HTMLDivElement | undefined;
+  let isDarkMode = false;
+
+  onMount(() => {
+    const updateLogoTheme = () => {
+      isDarkMode = document.documentElement.classList.contains('dark');
+    };
+
+    updateLogoTheme();
+
+    const observer = new MutationObserver(updateLogoTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => observer.disconnect();
+  });
 
   function toggleUserDropdown() {
     showUserDropdown = !showUserDropdown;
@@ -43,6 +60,9 @@
   }
 
   $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
+  $: logoSrc = isDarkMode ? '/gitops_logo_white.png' : '/gitops_logo.png';
+  $: logoClass = isDarkMode ? 'h-8 w-auto' : 'h-14 w-auto sm:h-16';
+  $: roleName = typeof user?.role === 'string' ? user.role : user?.role?.name;
 </script>
 
 <svelte:window on:click={handleWindowClick} />
@@ -50,7 +70,7 @@
 <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
   <div class="mx-auto flex h-16 w-full items-center gap-4 px-4 sm:px-6">
     <a href="/" class="flex items-center">
-      <img src="/gitops_logo.png" alt="GitOps" class="h-14 w-auto sm:h-16" />
+      <img src={logoSrc} alt="GitOps" class={logoClass} />
     </a>
 
     {#if user}
@@ -129,7 +149,7 @@
             >
               <div class="border-b border-slate-100 bg-slate-50 px-4 py-3">
                 <p class="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-                <p class="truncate text-xs text-slate-500 capitalize">{user.role.name} Account</p>
+                <p class="truncate text-xs text-slate-500 capitalize">{roleName} Account</p>
               </div>
               <a
                 href="/profile"

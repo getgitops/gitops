@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import {
     Cloud,
     KeyRound,
@@ -13,6 +14,8 @@
     RotateCcw,
     Copy,
     Check,
+    Moon,
+    Sun,
   } from 'lucide-svelte';
 
   export let data: any;
@@ -23,6 +26,13 @@
   let apiKeyName = '';
   let apiKeyExpiresInDays = '';
   let copiedCreatedKey = false;
+  let darkMode = false;
+  let themeReady = false;
+
+  onMount(() => {
+    darkMode = document.documentElement.classList.contains('dark');
+    themeReady = true;
+  });
 
   $: if (data.user.email !== email && form?.section !== 'profile') {
     email = data.user.email || '';
@@ -68,6 +78,12 @@
     copiedCreatedKey = true;
     setTimeout(() => (copiedCreatedKey = false), 2000);
   }
+
+  function toggleDarkMode() {
+    darkMode = !darkMode;
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('gitvault-theme', darkMode ? 'dark' : 'light');
+  }
 </script>
 
 <svelte:head>
@@ -76,12 +92,37 @@
 
 <div class="mx-auto max-w-6xl space-y-6">
   <section class="overflow-hidden border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
-    <div class="bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 px-6 py-8 text-white sm:px-8">
-      <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-300">Account</p>
-      <h1 class="mt-2 text-3xl font-bold tracking-tight">Profile</h1>
-      <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-        Manage your identity, password and API access from one place.
-      </p>
+    <div
+      class="bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 px-6 py-8 text-white sm:px-8"
+    >
+      <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-300">
+            Account
+          </p>
+          <h1 class="mt-2 text-3xl font-bold tracking-tight">Profile</h1>
+          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+            Manage your identity, password and API access from one place.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          on:click={toggleDarkMode}
+          class="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15"
+          aria-pressed={themeReady ? darkMode : undefined}
+          aria-label={darkMode ? 'Disable dark mode' : 'Enable dark mode'}
+          title={darkMode ? 'Disable dark mode' : 'Enable dark mode'}
+        >
+          {#if darkMode}
+            <Sun class="h-4 w-4" />
+            Light mode
+          {:else}
+            <Moon class="h-4 w-4" />
+            Dark mode
+          {/if}
+        </button>
+      </div>
     </div>
 
     <div class="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:grid-cols-4 sm:px-8">
@@ -118,7 +159,9 @@
   </section>
 
   {#if form?.message}
-    <div class="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:rounded-xl">
+    <div
+      class="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:rounded-xl"
+    >
       {form.message}
     </div>
   {/if}
@@ -143,12 +186,16 @@
           />
         </div>
 
-        <div class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div
+          class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
           <span>Username</span>
           <span class="font-medium text-slate-900">{data.user.username}</span>
         </div>
 
-        <div class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <div
+          class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
           <span>Role</span>
           <span class="font-medium text-slate-900 capitalize">{data.user.role.name}</span>
         </div>
@@ -171,7 +218,9 @@
 
       <form method="POST" action="?/updatePassword" class="mt-6 space-y-4">
         <div>
-          <label for="currentPassword" class="block text-sm font-medium text-slate-700">Current password</label>
+          <label for="currentPassword" class="block text-sm font-medium text-slate-700"
+            >Current password</label
+          >
           <input
             id="currentPassword"
             name="currentPassword"
@@ -181,7 +230,9 @@
         </div>
 
         <div>
-          <label for="newPassword" class="block text-sm font-medium text-slate-700">New password</label>
+          <label for="newPassword" class="block text-sm font-medium text-slate-700"
+            >New password</label
+          >
           <input
             id="newPassword"
             name="newPassword"
@@ -191,7 +242,9 @@
         </div>
 
         <div>
-          <label for="confirmPassword" class="block text-sm font-medium text-slate-700">Confirm password</label>
+          <label for="confirmPassword" class="block text-sm font-medium text-slate-700"
+            >Confirm password</label
+          >
           <input
             id="confirmPassword"
             name="confirmPassword"
@@ -231,11 +284,15 @@
     </div>
 
     {#if form?.createdKey}
-      <div class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div
+        class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      >
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="font-medium">Copy this token now. It will not be shown again.</p>
-            <code class="mt-2 block break-all rounded bg-white px-3 py-2 text-xs text-slate-900">{form.createdKey}</code>
+            <code class="mt-2 block break-all rounded bg-white px-3 py-2 text-xs text-slate-900"
+              >{form.createdKey}</code
+            >
           </div>
 
           <button
@@ -259,18 +316,28 @@
 
     <div class="mt-6 space-y-3">
       {#if data.apiKeys.length === 0}
-        <div class="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+        <div
+          class="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500"
+        >
           No API keys created yet.
         </div>
       {:else}
         {#each data.apiKeys as key}
-          <div class="flex flex-col gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            class="flex flex-col gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          >
             <div>
               <p class="text-sm font-medium text-slate-900">{key.name}</p>
               <p class="mt-1 text-xs text-slate-500">
-                Prefix: {key.keyPrefix} · Created {key.createdAt} · Expires {formatDateTime(key.expiresAt)}
+                Prefix: {key.keyPrefix} · Created {key.createdAt} · Expires {formatDateTime(
+                  key.expiresAt,
+                )}
               </p>
-              <p class="mt-1 text-xs font-medium {key.revokedAt ? 'text-rose-700' : 'text-emerald-700'}">
+              <p
+                class="mt-1 text-xs font-medium {key.revokedAt
+                  ? 'text-rose-700'
+                  : 'text-emerald-700'}"
+              >
                 Status: {getKeyState(key)}
                 {#if key.revokedAt}
                   · Revoked {formatDateTime(key.revokedAt)}
@@ -302,7 +369,9 @@
                   </button>
                 </form>
               {:else}
-                <div class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                <div
+                  class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"
+                >
                   Actions unavailable for revoked keys.
                 </div>
               {/if}
@@ -322,11 +391,18 @@
     aria-label="Close create api key modal"
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl" role="dialog" aria-modal="true" aria-label="Create API key modal">
+    <div
+      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create API key modal"
+    >
       <div class="border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div>
           <h5 class="text-sm font-semibold text-slate-900">Create API key</h5>
-          <p class="mt-1 text-xs text-slate-500">Set a name and an expiration before creating it.</p>
+          <p class="mt-1 text-xs text-slate-500">
+            Set a name and an expiration before creating it.
+          </p>
         </div>
         <button
           type="button"
@@ -353,7 +429,9 @@
         </div>
 
         <div>
-          <label for="api-key-expiration" class="block text-sm font-medium text-slate-700">Expiration</label>
+          <label for="api-key-expiration" class="block text-sm font-medium text-slate-700"
+            >Expiration</label
+          >
           <select
             id="api-key-expiration"
             name="expiresInDays"
