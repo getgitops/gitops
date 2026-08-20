@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-
 import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
 import { UserRepository } from '../infrastructure/repositories/user.repository';

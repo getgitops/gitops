@@ -195,7 +195,7 @@
     updateRole(userId, select.value);
   }
 
-  function openPasswordModal(user: ManagedUser) {
+  function openPasswordModal(user) {
     passwordModalUser = user;
     passwordModalValue = '';
     userError = '';
@@ -238,7 +238,7 @@
     }
   }
 
-  function openDeleteModal(user: ManagedUser) {
+  function openDeleteModal(user) {
     deleteModalUser = user;
     userError = '';
   }
