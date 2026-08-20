@@ -1,6 +1,15 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { ChevronRight, Info, LayoutDashboard, ScrollText, Shield, Users } from 'lucide-svelte';
+  import {
+    BarChart3,
+    ChevronRight,
+    GitBranch,
+    Info,
+    LayoutDashboard,
+    ScrollText,
+    Shield,
+    Users,
+  } from 'lucide-svelte';
 
   export let data: { project: { id: string; name: string; slug: string } };
 
@@ -15,6 +24,24 @@
       href: overviewHref,
       icon: LayoutDashboard,
       subtitle: 'Resumen general del proyecto.',
+    },
+    {
+      label: 'Vault',
+      href: `/org/${orgSlug}/projects/${project.slug}/vault`,
+      icon: Shield,
+      subtitle: 'Secretos, credenciales y controles de acceso del proyecto.',
+    },
+    {
+      label: 'Open Report',
+      href: `/org/${orgSlug}/projects/${project.slug}/report`,
+      icon: BarChart3,
+      subtitle: 'Reportes de vulnerabilidades y dependencias del proyecto.',
+    },
+    {
+      label: 'State IaC',
+      href: `/org/${orgSlug}/projects/${project.slug}/state-iac`,
+      icon: GitBranch,
+      subtitle: 'Estado de Pulumi y backends de almacenamiento del proyecto.',
     },
     {
       label: 'Información',

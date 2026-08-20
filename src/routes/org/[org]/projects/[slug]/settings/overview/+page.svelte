@@ -54,9 +54,24 @@
     icon: typeof Shield;
     href: string;
   }[] = [
-    { key: 'vault', label: 'Vault', icon: Shield, href: '/vault' },
-    { key: 'openreport', label: 'Open Report', icon: BarChart3, href: '/open-report' },
-    { key: 'stateiac', label: 'State IaC', icon: GitBranch, href: '/how-to' },
+    {
+      key: 'vault',
+      label: 'Vault',
+      icon: Shield,
+      href: `/org/${$page.params.org}/projects/${data.project.slug}/vault`,
+    },
+    {
+      key: 'openreport',
+      label: 'Open Report',
+      icon: BarChart3,
+      href: `/org/${$page.params.org}/projects/${data.project.slug}/report`,
+    },
+    {
+      key: 'stateiac',
+      label: 'State IaC',
+      icon: GitBranch,
+      href: `/org/${$page.params.org}/projects/${data.project.slug}/state-iac`,
+    },
   ];
 
   const integrationCards = [

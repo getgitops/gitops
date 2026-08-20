@@ -30,6 +30,7 @@
       user={data.user}
       projects={data.projects}
       organizationSlug={data.organization.slug}
+      projectSlug={$page.params.slug ?? ''}
     />
 
     <div
@@ -42,6 +43,7 @@
           pathname={$page.url.pathname}
           isConfigured={data.isConfigured}
           organizationSlug={data.organization.slug}
+          projects={data.projects}
           bind:collapsed={sidebarCollapsed}
         />
       </aside>

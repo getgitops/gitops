@@ -21,7 +21,7 @@
       const payload = await response.json().catch(() => ({}));
 
       if (response.ok && payload?.success) {
-        window.location.href = '/vault';
+        window.location.href = '/';
         return;
       }
 
@@ -38,15 +38,23 @@
   <title>Login - GitVault Suite</title>
 </svelte:head>
 
-<div class="relative grid min-h-[calc(100vh-2rem)] place-items-center overflow-hidden px-4 py-10 sm:px-6">
-  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,#dbeafe_0%,transparent_45%),radial-gradient(circle_at_80%_0%,#e2e8f0_0%,transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]"></div>
+<div
+  class="relative grid min-h-[calc(100vh-2rem)] place-items-center overflow-hidden px-4 py-10 sm:px-6"
+>
+  <div
+    class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,#dbeafe_0%,transparent_45%),radial-gradient(circle_at_80%_0%,#e2e8f0_0%,transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)]"
+  ></div>
 
-  <div class="w-full max-w-md border border-slate-200 bg-white/90 p-8 shadow-xl backdrop-blur sm:rounded-2xl">
+  <div
+    class="w-full max-w-md border border-slate-200 bg-white/90 p-8 shadow-xl backdrop-blur sm:rounded-2xl"
+  >
     <div class="mb-8 flex flex-col items-center gap-4 text-center">
       <img src="/gitops_logo.png" alt="GitOps" class="h-24 w-auto shrink-0 sm:h-32" />
 
       <div>
-        <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Workspace</p>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+          Workspace
+        </p>
         <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitVault Suite</h1>
         <p class="mt-2 text-sm text-slate-600">Continue with your private admin workspace.</p>
       </div>
@@ -58,14 +66,11 @@
       </div>
     {/if}
 
-    <form
-      method="POST"
-      action="/api/auth/login"
-      on:submit={submitLogin}
-      class="space-y-4"
-    >
+    <form method="POST" action="/api/auth/login" on:submit={submitLogin} class="space-y-4">
       <div>
-        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="username">Username</label>
+        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="username"
+          >Username</label
+        >
         <input
           id="username"
           name="username"
@@ -76,7 +81,9 @@
       </div>
 
       <div>
-        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="password">Password</label>
+        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="password"
+          >Password</label
+        >
         <input
           id="password"
           name="password"
@@ -97,7 +104,9 @@
     </form>
 
     <div class="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500">
-      Default credentials for first start: <span class="font-medium text-slate-700">admin / 12345678</span>
+      Default credentials for first start: <span class="font-medium text-slate-700"
+        >admin / 12345678</span
+      >
     </div>
   </div>
 </div>

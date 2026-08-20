@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import { ChevronDown, FolderKanban, LogOut, UserRound } from 'lucide-svelte';
 
   export let user: { username: string; role: string } | null = null;
   export let projects: { id: string; name: string; slug: string }[] = [];
   export let organizationSlug = 'gitops';
+  export let projectSlug = '';
 
   let showUserDropdown = false;
   let showProjectDropdown = false;
@@ -42,7 +42,7 @@
     }
   }
 
-  $: currentProject = projects.find((project) => project.slug === $page.params.slug) ?? null;
+  $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
 </script>
 
 <svelte:window on:click={handleWindowClick} />

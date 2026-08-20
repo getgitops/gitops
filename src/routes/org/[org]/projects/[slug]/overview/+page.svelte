@@ -8,6 +8,7 @@
     Shield,
     UserPlus,
   } from 'lucide-svelte';
+  import { page } from '$app/stores';
 
   type ProjectModules = {
     vault: boolean;
@@ -24,39 +25,42 @@
     modules: ProjectModules;
   };
 
-  export let data: { project: ProjectRow };
-
-  $: project = data.project;
-
-  const moduleInfo: {
+  type ModuleInfo = {
     key: keyof ProjectModules;
     label: string;
     description: string;
     href: string;
     icon: typeof Shield;
-  }[] = [
+  };
+
+  export let data: { project: ProjectRow };
+
+  $: project = data.project;
+  $: orgSlug = $page.params.org;
+
+  $: moduleInfo = [
     {
       key: 'vault',
       label: 'Vault',
       description: 'Secretos, credenciales y controles de acceso.',
-      href: '/vault',
+      href: `/org/${orgSlug}/projects/${project.slug}/vault`,
       icon: Shield,
     },
     {
       key: 'openreport',
       label: 'Open Report',
       description: 'Reportes de vulnerabilidades y dependencias.',
-      href: '/open-report',
+      href: `/org/${orgSlug}/projects/${project.slug}/report`,
       icon: BarChart3,
     },
     {
       key: 'stateiac',
       label: 'State IaC',
       description: 'Estado y backends de Pulumi.',
-      href: '/how-to',
+      href: `/org/${orgSlug}/projects/${project.slug}/state-iac`,
       icon: GitBranch,
     },
-  ];
+  ] satisfies ModuleInfo[];
 
   $: activeModules = moduleInfo.filter((module) => project.modules[module.key]);
 
