@@ -4,12 +4,15 @@
   import {
     Archive,
     BarChart3,
+    Bot,
     Building2,
     CheckCircle,
     Copy,
+    ExternalLink,
     GitBranch,
     Save,
     Shield,
+    Terminal,
     Trash2,
   } from 'lucide-svelte';
 
@@ -45,10 +48,28 @@
   let editDescription = data.project.description ?? '';
   let editModules: ProjectModules = { ...data.project.modules };
 
-  const moduleOptions: { key: keyof ProjectModules; label: string; icon: typeof Shield }[] = [
-    { key: 'vault', label: 'Vault', icon: Shield },
-    { key: 'openreport', label: 'Open Report', icon: BarChart3 },
-    { key: 'stateiac', label: 'State IaC', icon: GitBranch },
+  const moduleOptions: {
+    key: keyof ProjectModules;
+    label: string;
+    icon: typeof Shield;
+    href: string;
+  }[] = [
+    { key: 'vault', label: 'Vault', icon: Shield, href: '/vault' },
+    { key: 'openreport', label: 'Open Report', icon: BarChart3, href: '/open-report' },
+    { key: 'stateiac', label: 'State IaC', icon: GitBranch, href: '/how-to' },
+  ];
+
+  const integrationCards = [
+    {
+      label: 'GitOps CLI',
+      description: `Conecta este proyecto con gitops project use ${data.project.slug}.`,
+      icon: Terminal,
+    },
+    {
+      label: 'GitOps Bot',
+      description: 'Automatiza análisis y PRs para este proyecto.',
+      icon: Bot,
+    },
   ];
 
   let deleteModalOpen = false;
@@ -175,15 +196,6 @@
       deleteLoading = false;
     }
   }
-
-  function formatDate(value?: string) {
-    if (!value) return '-';
-    try {
-      return new Date(value).toLocaleString();
-    } catch {
-      return value;
-    }
-  }
 </script>
 
 <svelte:head>
@@ -206,11 +218,7 @@
   {/if}
 
   <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
-    <div
-      class="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <p class="text-xs text-slate-500">Fecha de creación: {formatDate(project.createdAt)}</p>
-
+    <div class="flex items-center justify-end border-b border-slate-200 px-4 py-4">
       <button
         type="button"
         on:click={copySlug}
@@ -270,16 +278,18 @@
 
       <div class="mt-3 grid gap-3 sm:grid-cols-3">
         {#each moduleOptions as option (option.key)}
-          <button
-            type="button"
-            on:click={() => toggleModule(option.key)}
+          <div
             class="flex flex-col gap-3 rounded-md border px-4 py-3 text-left transition-colors {editModules[
               option.key
             ]
               ? 'border-slate-200 bg-white'
               : 'border-slate-200 bg-slate-100 text-slate-400'}"
           >
-            <div class="flex items-center justify-between">
+            <button
+              type="button"
+              on:click={() => toggleModule(option.key)}
+              class="flex items-center justify-between text-left"
+            >
               <span
                 class="flex items-center gap-2 text-sm font-medium {editModules[option.key]
                   ? 'text-slate-900'
@@ -291,17 +301,30 @@
                 />
                 {option.label}
               </span>
+            </button>
+
+            <div class="flex items-center justify-between gap-2">
+              <span
+                class="inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium {editModules[
+                  option.key
+                ]
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-slate-200 text-slate-500'}"
+              >
+                {editModules[option.key] ? 'Activo' : 'Desactivado'}
+              </span>
+
+              {#if editModules[option.key]}
+                <a
+                  href={option.href}
+                  class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                >
+                  Abrir
+                  <ExternalLink class="h-3 w-3" />
+                </a>
+              {/if}
             </div>
-            <span
-              class="inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium {editModules[
-                option.key
-              ]
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-slate-200 text-slate-500'}"
-            >
-              {editModules[option.key] ? 'Activo' : 'Desactivado'}
-            </span>
-          </button>
+          </div>
         {/each}
       </div>
     </div>
@@ -316,6 +339,38 @@
         <Save class="h-4 w-4" />
         {saving ? 'Saving...' : 'Save changes'}
       </button>
+    </div>
+  </section>
+
+  <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
+    <div class="border-b border-slate-200 px-4 py-3">
+      <h3 class="text-sm font-semibold text-slate-900">Integraciones</h3>
+      <p class="mt-1 text-xs text-slate-500">Conecta este proyecto con las herramientas GitOps.</p>
+    </div>
+
+    <div class="grid gap-4 p-4 sm:grid-cols-2">
+      {#each integrationCards as card (card.label)}
+        <div
+          class="flex items-start gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 opacity-75"
+        >
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600"
+          >
+            <svelte:component this={card.icon} class="h-4 w-4" />
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <p class="text-sm font-semibold text-slate-900">{card.label}</p>
+              <span
+                class="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
+              >
+                Próximamente
+              </span>
+            </div>
+            <p class="mt-1 text-xs leading-5 text-slate-600">{card.description}</p>
+          </div>
+        </div>
+      {/each}
     </div>
   </section>
 
