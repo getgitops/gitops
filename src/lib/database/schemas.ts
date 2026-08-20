@@ -7,9 +7,15 @@ export const UserEntity = entity('users', {
   passwordHash: text().notNull(),
   roleId: uuid().notNull(),
   status: text().notNull().default('active'),
-  authProviders: json().notNull().$defaultFn(() => []),
-  createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
+  authProviders: json()
+    .notNull()
+    .$defaultFn(() => []),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
   lastLoginAt: timestamp(),
   disabled: bool().notNull().default(false),
 });
@@ -18,9 +24,15 @@ export const RoleEntity = entity('roles', {
   id: uuid().primaryKey(),
   slug: text().notNull(),
   name: text().notNull(),
-  permissions: json().notNull().$defaultFn(() => []),
-  createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
+  permissions: json()
+    .notNull()
+    .$defaultFn(() => []),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
 });
 
 export const ApiKeyEntity = entity('api_keys', {
@@ -32,7 +44,9 @@ export const ApiKeyEntity = entity('api_keys', {
   expiresAt: timestamp(),
   lastUsedAt: timestamp(),
   revokedAt: timestamp(),
-  createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
 });
 
 export const relations = defineRelations();
@@ -46,15 +60,21 @@ relations.for(ApiKeyEntity, ({ one }) => ({
   user: one(UserEntity, { fields: ['userId'], references: ['id'] }),
 }));
 
-
 export const ProjectEntity = entity('projects', {
   id: uuid().primaryKey(),
   slug: text().notNull(),
   name: text().notNull(),
   description: text(),
   status: text().notNull().default('active'),
-  createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
+  modules: json()
+    .notNull()
+    .$defaultFn(() => ({ vault: true, openreport: true, stateiac: true })),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
 });
 
 export const ProjectRoleEntity = entity('project_roles', {
@@ -62,9 +82,15 @@ export const ProjectRoleEntity = entity('project_roles', {
   projectId: uuid().notNull(),
   slug: text().notNull(),
   name: text().notNull(),
-  permissions: json().notNull().$defaultFn(() => []),
-  createdAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: timestamp().notNull().$defaultFn(() => new Date().toISOString()),
+  permissions: json()
+    .notNull()
+    .$defaultFn(() => []),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
 });
 
 relations.for(ProjectEntity, ({ many }) => ({

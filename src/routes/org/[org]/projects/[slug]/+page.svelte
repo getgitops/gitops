@@ -1,7 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { CheckCircle, Save, Trash2 } from 'lucide-svelte';
+  import { BarChart3, CheckCircle, GitBranch, Save, Shield, Trash2 } from 'lucide-svelte';
+
+  type ProjectModules = {
+    vault: boolean;
+    openreport: boolean;
+    stateiac: boolean;
+  };
 
   type ProjectRow = {
     id: string;
@@ -9,6 +15,7 @@
     slug: string;
     description?: string | null;
     status: 'active' | 'inactive';
+    modules: ProjectModules;
     createdAt: string;
     updatedAt: string;
   };
@@ -26,6 +33,13 @@
   let editSlug = project.slug;
   let editDescription = project.description ?? '';
   let editStatus: 'active' | 'inactive' = project.status;
+  let editModules: ProjectModules = { ...project.modules };
+
+  const moduleOptions: { key: keyof ProjectModules; label: string; icon: typeof Shield }[] = [
+    { key: 'vault', label: 'Vault', icon: Shield },
+    { key: 'openreport', label: 'Open Report', icon: BarChart3 },
+    { key: 'stateiac', label: 'State IaC', icon: GitBranch },
+  ];
 
   let deleteModalOpen = false;
   let deleteLoading = false;
@@ -54,6 +68,7 @@
           slug: editSlug.trim(),
           description: editDescription.trim(),
           status: editStatus,
+          modules: editModules,
         }),
       });
 
@@ -61,6 +76,7 @@
       if (payload.error) throw new Error(payload.error);
 
       project = payload.project;
+      editModules = { ...project.modules };
       flashSuccess('Project updated.');
 
       if (payload.project.slug !== project.slug) {
@@ -197,6 +213,31 @@
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
+      </div>
+    </div>
+
+    <div class="border-t border-slate-200 px-4 py-4">
+      <p class="text-sm font-medium text-slate-700">Modules</p>
+      <p class="mt-1 text-xs text-slate-500">
+        Activa o desactiva los módulos disponibles para este proyecto.
+      </p>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        {#each moduleOptions as option (option.key)}
+          <label
+            class="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2.5"
+          >
+            <span class="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <svelte:component this={option.icon} class="h-4 w-4 text-slate-500" />
+              {option.label}
+            </span>
+            <input
+              type="checkbox"
+              bind:checked={editModules[option.key]}
+              class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+            />
+          </label>
+        {/each}
       </div>
     </div>
 

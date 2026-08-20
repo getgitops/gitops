@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { ProjectRepository } from '../infrastructure/repositories/project.repostitory';
+import { DEFAULT_PROJECT_MODULES, type ProjectModules } from '../domain/project.domain';
 
 export type ProjectStatusValue = 'active' | 'inactive';
 
@@ -32,6 +33,7 @@ export class ProjectService {
     slug?: string;
     description?: string;
     status?: string;
+    modules?: Partial<ProjectModules>;
   }) {
     const name = input.name.trim();
     if (!name) {
@@ -54,6 +56,7 @@ export class ProjectService {
       name,
       description: input.description?.trim() || undefined,
       status: this.sanitizeStatus(input.status),
+      modules: this.sanitizeModules(input.modules),
     });
 
     const created = await this.repository.findBySlug(slug);
@@ -66,14 +69,26 @@ export class ProjectService {
 
   async updateProject(
     id: string,
-    changes: { name?: string; slug?: string; description?: string; status?: string },
+    changes: {
+      name?: string;
+      slug?: string;
+      description?: string;
+      status?: string;
+      modules?: Partial<ProjectModules>;
+    },
   ) {
     const project = await this.repository.findById(id);
     if (!project) {
       throw new Error('Project not found');
     }
 
-    const patch: { name?: string; slug?: string; description?: string; status?: string } = {};
+    const patch: {
+      name?: string;
+      slug?: string;
+      description?: string;
+      status?: string;
+      modules?: ProjectModules;
+    } = {};
 
     if (changes.name !== undefined) {
       const name = changes.name.trim();
@@ -102,6 +117,10 @@ export class ProjectService {
 
     if (changes.status !== undefined) {
       patch.status = this.sanitizeStatus(changes.status);
+    }
+
+    if (changes.modules !== undefined) {
+      patch.modules = this.sanitizeModules({ ...project.modules, ...changes.modules });
     }
 
     await this.repository.update(id, patch);
@@ -133,5 +152,13 @@ export class ProjectService {
 
   private sanitizeStatus(status?: string): ProjectStatusValue {
     return status === 'inactive' ? 'inactive' : 'active';
+  }
+
+  private sanitizeModules(modules?: Partial<ProjectModules>): ProjectModules {
+    return {
+      vault: modules?.vault ?? DEFAULT_PROJECT_MODULES.vault,
+      openreport: modules?.openreport ?? DEFAULT_PROJECT_MODULES.openreport,
+      stateiac: modules?.stateiac ?? DEFAULT_PROJECT_MODULES.stateiac,
+    };
   }
 }

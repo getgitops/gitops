@@ -1,13 +1,11 @@
-
 import { Repository } from '$lib/server/infra/repository';
-import { ProjectDomain } from '../../domain/project.domain';
+import { ProjectDomain, type ProjectModules } from '../../domain/project.domain';
 import { ProjectEntity } from '$lib/database/schemas';
 
 export class ProjectRepository extends Repository {
-
   async findByName(name: string): Promise<ProjectDomain | null> {
     const role = await this.db.select().from(ProjectEntity).where({ name }).limit(1);
-    return role.rows[0]  ? new ProjectDomain(role.rows[0]) : null;
+    return role.rows[0] ? new ProjectDomain(role.rows[0]) : null;
   }
 
   async findAll(): Promise<ProjectDomain[]> {
@@ -27,19 +25,36 @@ export class ProjectRepository extends Repository {
     return row ? new ProjectDomain(row) : null;
   }
 
-  async create(input: { id: string; slug: string; name: string; description?: string, status: string }): Promise<void> {
+  async create(input: {
+    id: string;
+    slug: string;
+    name: string;
+    description?: string;
+    status: string;
+    modules: ProjectModules;
+  }): Promise<void> {
     await this.db.insert(ProjectEntity).values({
       id: input.id,
       slug: input.slug,
       name: input.name,
       description: input.description,
       status: input.status,
+      modules: input.modules,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
   }
 
-  async update(id: string, changes: { name?: string; slug?: string; description?: string; status?: string }): Promise<void> {
+  async update(
+    id: string,
+    changes: {
+      name?: string;
+      slug?: string;
+      description?: string;
+      status?: string;
+      modules?: ProjectModules;
+    },
+  ): Promise<void> {
     await this.db
       .update(ProjectEntity)
       .set({ ...changes, updatedAt: new Date().toISOString() })

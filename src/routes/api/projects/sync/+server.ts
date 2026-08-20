@@ -14,7 +14,8 @@ export async function POST({ cookies, locals }) {
     if (!backends.length) throw new Error('No storage configured');
 
     const activeId = cookies.get('active_backend') || backends[0].id;
-    const config = storageBackendService.getById(activeId) || storageBackendService.getById(backends[0].id);
+    const config =
+      storageBackendService.getById(activeId) || storageBackendService.getById(backends[0].id);
 
     if (!config) throw new Error('No storage configured');
 

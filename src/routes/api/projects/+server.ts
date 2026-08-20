@@ -27,6 +27,7 @@ export async function POST({ request, locals }) {
       slug?: string;
       description?: string;
       status?: string;
+      modules?: { vault?: boolean; openreport?: boolean; stateiac?: boolean };
     };
 
     const project = await projectService.createProject({
@@ -34,6 +35,7 @@ export async function POST({ request, locals }) {
       slug: data.slug ? String(data.slug) : undefined,
       description: data.description ? String(data.description) : undefined,
       status: data.status ? String(data.status) : undefined,
+      modules: data.modules,
     });
 
     return json({ success: true, project });

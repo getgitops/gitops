@@ -27,6 +27,7 @@ export async function PATCH({ request, params, locals }) {
       slug?: string;
       description?: string;
       status?: string;
+      modules?: { vault?: boolean; openreport?: boolean; stateiac?: boolean };
     };
 
     const project = await projectService.updateProject(params.id, {
@@ -34,6 +35,7 @@ export async function PATCH({ request, params, locals }) {
       slug: data.slug,
       description: data.description,
       status: data.status,
+      modules: data.modules,
     });
 
     return json({ success: true, project });
