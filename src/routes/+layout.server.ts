@@ -1,3 +1,5 @@
+import { projectService } from '../modules/projects';
+import { can } from '../modules/auth';
 // import { configService, storageBackendService } from '../modules/config';
 
 export async function load({ cookies, locals }) {
@@ -12,11 +14,17 @@ export async function load({ cookies, locals }) {
   //   activeBackendId = activeBackend.id;
   // }
 
+  const projects =
+    locals.user && can(locals.user, 'stateiac:read')
+      ? (await projectService.listProjects()).filter((project) => project.status === 'active')
+      : [];
+
   return {
     // isConfigured: !!config && backends.length > 0,
     isConfigured: true,
     // backends,
     // activeBackendId,
     user: locals.user,
+    projects,
   };
 }
