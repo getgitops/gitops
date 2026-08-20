@@ -3,7 +3,7 @@ import { organizationService } from '../modules/organization';
 import { can } from '../modules/auth';
 // import { configService, storageBackendService } from '../modules/config';
 
-export async function load({ cookies, locals }) {
+export async function load({ locals }) {
   // const config = configService.getConfig();
   // const backends = storageBackendService.list();
 

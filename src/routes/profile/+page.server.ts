@@ -16,7 +16,7 @@ function expiresAtFromDays(expiresInDays: string | null): string | null {
   return date.toISOString();
 }
 
-export async function load({ locals, cookies }) {
+export async function load({ locals }) {
   if (!locals.user) {
     throw redirect(302, '/login');
   }
