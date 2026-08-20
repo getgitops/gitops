@@ -47,7 +47,6 @@
     "@aws-sdk/client-s3": "^3.500.0",
     "@getgitops/gitdb": "^0.2.0",
     "@google-cloud/storage": "^7.21.0",
-    "better-sqlite3": "^12.11.1",
     "lucide-svelte": "^0.320.0"
   }
 }
