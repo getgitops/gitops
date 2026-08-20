@@ -13,8 +13,6 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
-    "test:watch": "vitest",
     "prepare": "husky"
   },
   "devDependencies": {

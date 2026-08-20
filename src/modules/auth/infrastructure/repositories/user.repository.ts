@@ -1,6 +1,6 @@
 import { Repository } from './repository';
-import { ApiKeyEntity, UserEntity, RoleEntity } from '$lib/database/schemas';
-import type { AuthUser, CreateUserInput, Role, UserView } from '../../domain/entities';
+import { ApiKeyEntity, UserEntity } from '$lib/database/schemas';
+import type { CreateUserInput } from '../../domain/entities';
 
 import { UserDomain } from '../../domain/user.domain';
 
@@ -73,7 +73,7 @@ export class UserRepository extends Repository {
   }
 
   async countAdmins(): Promise<number> {
-    const result = await this.db.with({ role: true }).select().from(UserEntity);
+    // const result = await this.db.with({ role: true }).select().from(UserEntity);
     // return (result.rows as UserRow[]).filter((row) => this.extractRole(row) === 'admin').length;
     return 0; // Placeholder until role extraction is implemented
   }
