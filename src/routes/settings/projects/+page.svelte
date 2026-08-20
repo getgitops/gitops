@@ -267,7 +267,7 @@
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-2">
                     <a
-                      href={`/org/${data.organization.slug}/projects/${project.slug}`}
+                      href={`/org/${data.organization.slug}/projects/${project.slug}/settings/overview`}
                       class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                       title="View project"
                     >

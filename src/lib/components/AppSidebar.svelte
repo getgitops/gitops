@@ -126,31 +126,29 @@
     ? [
         {
           label: 'Información',
-          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/overview`,
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/settings/overview`,
           icon: Info,
         },
         {
           label: 'Users and Groups',
-          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/users-groups`,
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/settings/users-groups`,
           icon: Users,
         },
         {
           label: 'Roles and Permissions',
-          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/roles-permissions`,
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/settings/roles-permissions`,
           icon: Shield,
         },
         {
           label: 'Audit',
-          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/audit`,
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/settings/audit`,
           icon: ScrollText,
         },
       ]
     : [];
 
   function isProjectSettingsItemActive(href: string) {
-    return href === `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`
-      ? currentPath === href
-      : currentPath.startsWith(href);
+    return currentPath.startsWith(href);
   }
 
   function getPulumiStateActiveItem() {
@@ -354,7 +352,7 @@
 
         {#if collapsed}
           <a
-            href={`/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`}
+            href={`/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/settings/overview`}
             class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             title="Project Settings"
           >

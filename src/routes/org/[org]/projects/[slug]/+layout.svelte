@@ -1,85 +1,63 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import {
-    ArrowLeft,
-    FolderKanban,
-    Info,
-    LayoutDashboard,
-    ScrollText,
-    Shield,
-    Users,
-  } from 'lucide-svelte';
+  import { ChevronRight, Info, LayoutDashboard, ScrollText, Shield, Users } from 'lucide-svelte';
 
   export let data: { project: { id: string; name: string; slug: string } };
 
   $: project = data.project;
   $: orgSlug = $page.params.org;
 
+  $: overviewHref = `/org/${orgSlug}/projects/${project.slug}/overview`;
+
   $: tabs = [
     {
       label: 'Overview',
-      href: `/org/${orgSlug}/projects/${project.slug}/overview`,
+      href: overviewHref,
       icon: LayoutDashboard,
+      subtitle: 'Resumen general del proyecto.',
     },
-    { label: 'Información', href: `/org/${orgSlug}/projects/${project.slug}`, icon: Info },
+    {
+      label: 'Información',
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/overview`,
+      icon: Info,
+      subtitle: 'Datos generales, módulos y zona de peligro del proyecto.',
+    },
     {
       label: 'Usuarios y Grupos',
-      href: `/org/${orgSlug}/projects/${project.slug}/users-groups`,
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/users-groups`,
       icon: Users,
+      subtitle: 'Gestiona qué usuarios y grupos tienen acceso a este proyecto.',
     },
     {
       label: 'Roles y Permisos',
-      href: `/org/${orgSlug}/projects/${project.slug}/roles-permissions`,
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/roles-permissions`,
       icon: Shield,
+      subtitle: 'Define roles y permisos específicos para este proyecto.',
     },
     {
       label: 'Auditoría',
-      href: `/org/${orgSlug}/projects/${project.slug}/audit`,
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/audit`,
       icon: ScrollText,
+      subtitle: 'Historial de cambios y actividad relevante del proyecto.',
     },
   ];
 
   $: currentPath = $page.url.pathname;
-
-  function isTabActive(href: string) {
-    return currentPath === href;
-  }
+  $: currentTab = tabs.find((tab) => tab.href === currentPath) ?? tabs[0];
 </script>
 
-<div class="mx-auto w-full max-w-7xl">
-  <div class="min-h-130 overflow-hidden border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
-    <div class="border-b border-slate-200 px-6 py-4 sm:px-8">
-      <a
-        href={`/org/${orgSlug}/overview`}
-        class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
-      >
-        <ArrowLeft class="h-4 w-4" />
-        Back to projects
+<div class="mx-auto w-full max-w-7xl space-y-4">
+  <div class="w-full rounded-md border border-slate-200 bg-white px-6 py-4 shadow-sm sm:px-8">
+    <div class="flex items-center gap-1.5 text-sm">
+      <a href={overviewHref} class="font-medium text-slate-900 hover:underline">
+        {project.name}
       </a>
-
-      <div class="mt-3 flex items-center gap-2">
-        <FolderKanban class="h-5 w-5 text-slate-900" />
-        <h2 class="text-lg font-semibold text-slate-900">{project.name}</h2>
-      </div>
-
-      <nav class="mt-4 flex flex-wrap gap-2">
-        {#each tabs as tab}
-          <a
-            href={tab.href}
-            class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {isTabActive(
-              tab.href,
-            )
-              ? 'bg-slate-900 text-white'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}"
-          >
-            <svelte:component this={tab.icon} class="h-3.5 w-3.5" />
-            {tab.label}
-          </a>
-        {/each}
-      </nav>
+      <ChevronRight class="h-3.5 w-3.5 shrink-0 text-slate-400" />
+      <span class="text-slate-600">{currentTab.label}</span>
     </div>
-    <div class="p-6 sm:p-8">
-      <slot />
-    </div>
+
+    <p class="mt-1 text-sm text-slate-500">{currentTab.subtitle}</p>
   </div>
+
+  <slot />
 </div>
