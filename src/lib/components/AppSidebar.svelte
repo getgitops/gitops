@@ -9,6 +9,7 @@
     GitBranch,
     HelpCircle,
     KeyRound,
+    LayoutDashboard,
     Lock,
     PanelLeftClose,
     PanelLeftOpen,
@@ -23,6 +24,16 @@
   let currentPath = pathname;
 
   const sections = [
+    {
+      title: 'Inicio',
+      items: [
+        {
+          label: 'Overview',
+          href: '/overview',
+          icon: LayoutDashboard,
+        },
+      ],
+    },
     {
       title: 'Seguridad',
       items: [
@@ -75,6 +86,11 @@
 
   const settingsItems = [
     {
+      label: 'Projects',
+      href: '/settings/projects',
+      icon: FolderKanban,
+    },
+    {
       label: 'Autentication',
       href: '/settings/authentication',
       icon: Shield,
@@ -83,11 +99,6 @@
       label: 'Roles & Permissions',
       href: '/settings/roles-permissions',
       icon: Users,
-    },
-    {
-      label: 'Projects',
-      href: '/settings/projects',
-      icon: FolderKanban,
     },
     {
       label: 'System & Backup',
@@ -116,7 +127,7 @@
       return '/pulumi-state/cli-guide';
     }
 
-    if (currentPath.startsWith('/pulumi-state') || currentPath.startsWith('/projects')) {
+    if (currentPath.startsWith('/pulumi-state')) {
       return '/pulumi-state';
     }
 
@@ -149,7 +160,7 @@
     settingsMenuOpen = true;
   }
 
-  $: if (currentPath.startsWith('/pulumi-state') || currentPath.startsWith('/projects')) {
+  $: if (currentPath.startsWith('/pulumi-state')) {
     pulumiStateMenuOpen = true;
   }
 </script>

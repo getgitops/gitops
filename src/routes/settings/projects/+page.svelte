@@ -161,9 +161,7 @@
   <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <h3 class="text-xl font-semibold text-slate-900">Projects</h3>
-      <p class="mt-2 text-sm text-slate-600">
-        Create, organize and manage the projects used across State IaC.
-      </p>
+      <p class="mt-2 text-sm text-slate-600">Create, organize and manage the projects.</p>
     </div>
 
     <button
@@ -267,7 +265,7 @@
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-2">
                     <a
-                      href={`/settings/projects/${project.id}`}
+                      href={`/project/${project.slug}`}
                       class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                       title="View project"
                     >

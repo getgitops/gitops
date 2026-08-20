@@ -19,6 +19,14 @@ export class ProjectService {
     return project.toJson();
   }
 
+  async getProjectBySlug(slug: string) {
+    const project = await this.repository.findBySlug(slug);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+    return project.toJson();
+  }
+
   async createProject(input: {
     name: string;
     slug?: string;
