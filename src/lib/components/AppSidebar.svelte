@@ -5,6 +5,7 @@
     ChevronDown,
     ChevronRight,
     Database,
+    FolderKanban,
     GitBranch,
     HelpCircle,
     KeyRound,
@@ -15,7 +16,6 @@
     Shield,
     Users,
   } from 'lucide-svelte';
-
   export let pathname = '/';
   export let isConfigured = false;
   export let collapsed = false;
@@ -85,6 +85,11 @@
       icon: Users,
     },
     {
+      label: 'Projects',
+      href: '/settings/projects',
+      icon: FolderKanban,
+    },
+    {
       label: 'System & Backup',
       href: '/settings/system-backup',
       icon: Database,
@@ -100,7 +105,10 @@
   let pulumiStateMenuOpen = pathname.startsWith('/pulumi-state');
 
   function getPulumiStateActiveItem() {
-    if (currentPath.startsWith('/pulumi-state/backends') || currentPath.startsWith('/settings/storage')) {
+    if (
+      currentPath.startsWith('/pulumi-state/backends') ||
+      currentPath.startsWith('/settings/storage')
+    ) {
       return '/pulumi-state/backends';
     }
 
@@ -151,7 +159,9 @@
     <div class="flex items-center justify-between gap-3">
       {#if !collapsed}
         <div class="min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Modules</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Modules
+          </p>
           <h2 class="mt-1 text-sm font-semibold text-slate-900">Navigation</h2>
         </div>
       {/if}
@@ -175,7 +185,9 @@
   {#if !isConfigured}
     <a
       href="/pulumi-state/backends"
-      class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed ? 'justify-center' : 'items-start'}"
+      class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
+        ? 'justify-center'
+        : 'items-start'}"
       title="Configure a storage backend"
     >
       <div class="flex h-8 w-8 items-center justify-center rounded-md bg-amber-200 text-amber-900">
@@ -194,7 +206,9 @@
       <section>
         {#if !collapsed}
           <div class="mb-2 px-1">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{section.title}</p>
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              {section.title}
+            </p>
           </div>
         {/if}
 
@@ -210,9 +224,11 @@
                   on:click={() => (pulumiStateMenuOpen = !pulumiStateMenuOpen)}
                   aria-expanded={pulumiStateMenuOpen}
                 >
-                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isPulumiStateSectionActive()
-                    ? 'bg-white/10 text-white'
-                    : 'bg-slate-100 text-slate-600'}">
+                  <div
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isPulumiStateSectionActive()
+                      ? 'bg-white/10 text-white'
+                      : 'bg-slate-100 text-slate-600'}"
+                  >
                     <GitBranch class="h-3.5 w-3.5" />
                   </div>
                   <p class="min-w-0 flex-1 truncate text-sm font-medium">Pulumi State</p>
@@ -229,7 +245,9 @@
                       {#each pulumiStateItems as pulumiItem}
                         <a
                           href={pulumiItem.href}
-                          class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(pulumiItem.href)
+                          class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(
+                            pulumiItem.href,
+                          )
                             ? 'bg-slate-100 text-slate-900'
                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
                         >
@@ -244,18 +262,24 @@
             {:else}
               <a
                 href={item.href}
-                class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed ? 'justify-center' : 'items-center'} {(item.href === '/pulumi-state'
-                  ? isPulumiStateSectionActive()
-                  : isActive(item.href))
+                class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed
+                  ? 'justify-center'
+                  : 'items-center'} {(
+                  item.href === '/pulumi-state' ? isPulumiStateSectionActive() : isActive(item.href)
+                )
                   ? 'border-slate-900 bg-slate-900 text-white'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
                 title={item.label}
               >
-                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {(item.href === '/pulumi-state'
-                  ? isPulumiStateSectionActive()
-                  : isActive(item.href))
-                  ? 'bg-white/10 text-white'
-                  : 'bg-slate-100 text-slate-600'}">
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {(
+                    item.href === '/pulumi-state'
+                      ? isPulumiStateSectionActive()
+                      : isActive(item.href)
+                  )
+                    ? 'bg-white/10 text-white'
+                    : 'bg-slate-100 text-slate-600'}"
+                >
                   <svelte:component this={item.icon} class="h-3.5 w-3.5" />
                 </div>
 
@@ -272,21 +296,29 @@
     <section class="border-t border-slate-200 pt-4">
       {#if !collapsed}
         <div class="mb-2 px-1">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Sistema</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Sistema
+          </p>
         </div>
       {/if}
 
       {#if collapsed}
         <a
           href="/settings/authentication"
-          class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isActive('/settings')
+          class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isActive(
+            '/settings',
+          )
             ? 'border-slate-900 bg-slate-900 text-white'
             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
           title="Settings"
         >
-          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive('/settings')
-            ? 'bg-white/10 text-white'
-            : 'bg-slate-100 text-slate-600'}">
+          <div
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive(
+              '/settings',
+            )
+              ? 'bg-white/10 text-white'
+              : 'bg-slate-100 text-slate-600'}"
+          >
             <Settings class="h-3.5 w-3.5" />
           </div>
         </a>
@@ -294,15 +326,21 @@
         <div class="space-y-2">
           <button
             type="button"
-            class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isActive('/settings')
+            class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isActive(
+              '/settings',
+            )
               ? 'btn-primary text-white'
               : 'btn-secondary text-slate-700'}"
             on:click={() => (settingsMenuOpen = !settingsMenuOpen)}
             aria-expanded={settingsMenuOpen}
           >
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive('/settings')
-              ? 'bg-white/10 text-white'
-              : 'bg-slate-100 text-slate-600'}">
+            <div
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive(
+                '/settings',
+              )
+                ? 'bg-white/10 text-white'
+                : 'bg-slate-100 text-slate-600'}"
+            >
               <Settings class="h-3.5 w-3.5" />
             </div>
             <p class="min-w-0 flex-1 truncate text-sm font-medium">Settings</p>
@@ -319,7 +357,9 @@
                 {#each settingsItems as item}
                   <a
                     href={item.href}
-                    class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(item.href)
+                    class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(
+                      item.href,
+                    )
                       ? 'bg-slate-100 text-slate-900'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
                   >

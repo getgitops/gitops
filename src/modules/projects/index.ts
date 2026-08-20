@@ -1,7 +1,6 @@
-import { databaseClient } from '$lib/db';
 import { ProjectService } from './application/project.service';
-import { SqliteProjectRepository } from './infrastructure/repositories/sqlite-project.repository';
+import { ProjectRepository } from './infrastructure/repositories/project.repostitory';
 
-const projectRepository = new SqliteProjectRepository(databaseClient);
+const projectRepository = new ProjectRepository();
 
 export const projectService = new ProjectService(projectRepository);

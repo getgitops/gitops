@@ -8,7 +8,7 @@ export async function GET({ locals }) {
   }
 
   try {
-    const projects = projectService.listProjects();
+    const projects = await projectService.listProjects();
     return json({ projects });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -22,8 +22,20 @@ export async function POST({ request, locals }) {
   }
 
   try {
-    const { name } = await request.json();
-    const project = projectService.createProject(String(name || ''));
+    const data = (await request.json()) as {
+      name?: string;
+      slug?: string;
+      description?: string;
+      status?: string;
+    };
+
+    const project = await projectService.createProject({
+      name: String(data.name || ''),
+      slug: data.slug ? String(data.slug) : undefined,
+      description: data.description ? String(data.description) : undefined,
+      status: data.status ? String(data.status) : undefined,
+    });
+
     return json({ success: true, project });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

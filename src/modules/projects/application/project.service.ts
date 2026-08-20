@@ -1,6 +1,8 @@
-
+import crypto from 'crypto';
 import { ProjectRepository } from '../infrastructure/repositories/project.repostitory';
-import { ProjectDomain } from '../domain/project.domain';
+
+export type ProjectStatusValue = 'active' | 'inactive';
+
 export class ProjectService {
   constructor(private readonly repository: ProjectRepository) {}
 
@@ -9,31 +11,119 @@ export class ProjectService {
     return projects.map((project) => project.toJson());
   }
 
+  async getProject(id: string) {
+    const project = await this.repository.findById(id);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+    return project.toJson();
+  }
 
+  async createProject(input: {
+    name: string;
+    slug?: string;
+    description?: string;
+    status?: string;
+  }) {
+    const name = input.name.trim();
+    if (!name) {
+      throw new Error('Project name is required');
+    }
 
-  // syncFromPulumiStateKeys(keys: string[]): number {
-  //   const projects = new Set<string>();
+    const slug = this.normalizeSlug(input.slug || name);
+    if (!slug) {
+      throw new Error('Project slug is required');
+    }
 
-  //   for (const key of keys) {
-  //     let id = key;
-  //     if (id.startsWith('.pulumi/stacks/')) {
-  //       id = id.replace('.pulumi/stacks/', '');
-  //     }
-  //     if (id.endsWith('.json')) {
-  //       id = id.slice(0, -5);
-  //     }
+    const existing = await this.repository.findBySlug(slug);
+    if (existing) {
+      throw new Error('A project with this slug already exists');
+    }
 
-  //     const parts = id.split('/');
-  //     projects.add(parts.length > 1 ? parts[0] : 'default');
-  //   }
+    await this.repository.create({
+      id: crypto.randomUUID(),
+      slug,
+      name,
+      description: input.description?.trim() || undefined,
+      status: this.sanitizeStatus(input.status),
+    });
 
-  //   this.repository.upsertManyIfMissing(
-  //     Array.from(projects).map((project) => ({
-  //       id: project,
-  //       name: project,
-  //     })),
-  //   );
+    const created = await this.repository.findBySlug(slug);
+    if (!created) {
+      throw new Error('Failed to create project');
+    }
 
-  //   return projects.size;
-  // }
+    return created.toJson();
+  }
+
+  async updateProject(
+    id: string,
+    changes: { name?: string; slug?: string; description?: string; status?: string },
+  ) {
+    const project = await this.repository.findById(id);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    const patch: { name?: string; slug?: string; description?: string; status?: string } = {};
+
+    if (changes.name !== undefined) {
+      const name = changes.name.trim();
+      if (!name) {
+        throw new Error('Project name is required');
+      }
+      patch.name = name;
+    }
+
+    if (changes.slug !== undefined) {
+      const slug = this.normalizeSlug(changes.slug);
+      if (!slug) {
+        throw new Error('Project slug is required');
+      }
+
+      const existing = await this.repository.findBySlug(slug);
+      if (existing && existing.id !== id) {
+        throw new Error('A project with this slug already exists');
+      }
+      patch.slug = slug;
+    }
+
+    if (changes.description !== undefined) {
+      patch.description = changes.description.trim();
+    }
+
+    if (changes.status !== undefined) {
+      patch.status = this.sanitizeStatus(changes.status);
+    }
+
+    await this.repository.update(id, patch);
+
+    const updated = await this.repository.findById(id);
+    if (!updated) {
+      throw new Error('Failed to update project');
+    }
+
+    return updated.toJson();
+  }
+
+  async deleteProject(id: string) {
+    const project = await this.repository.findById(id);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    await this.repository.deleteById(id);
+  }
+
+  private normalizeSlug(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  private sanitizeStatus(status?: string): ProjectStatusValue {
+    return status === 'inactive' ? 'inactive' : 'active';
+  }
 }
