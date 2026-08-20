@@ -8,11 +8,13 @@
     FolderKanban,
     GitBranch,
     HelpCircle,
+    Info,
     KeyRound,
     LayoutDashboard,
     Lock,
     PanelLeftClose,
     PanelLeftOpen,
+    ScrollText,
     Settings,
     Shield,
     Users,
@@ -114,6 +116,32 @@
 
   let settingsMenuOpen = pathname.startsWith('/settings');
   let pulumiStateMenuOpen = pathname.startsWith('/pulumi-state');
+  let projectSettingsMenuOpen = true;
+
+  $: currentProjectSlug = $page.params.slug as string | undefined;
+
+  $: projectSettingsItems = currentProjectSlug
+    ? [
+        { label: 'Información', href: `/project/${currentProjectSlug}/overview`, icon: Info },
+        {
+          label: 'Users and Groups',
+          href: `/project/${currentProjectSlug}/users-groups`,
+          icon: Users,
+        },
+        {
+          label: 'Roles and Permissions',
+          href: `/project/${currentProjectSlug}/roles-permissions`,
+          icon: Shield,
+        },
+        { label: 'Audit', href: `/project/${currentProjectSlug}/audit`, icon: ScrollText },
+      ]
+    : [];
+
+  function isProjectSettingsItemActive(href: string) {
+    return href === `/project/${currentProjectSlug}`
+      ? currentPath === href
+      : currentPath.startsWith(href);
+  }
 
   function getPulumiStateActiveItem() {
     if (
@@ -171,9 +199,9 @@
       {#if !collapsed}
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Modules
+            Organization
           </p>
-          <h2 class="mt-1 text-sm font-semibold text-slate-900">Navigation</h2>
+          <h2 class="mt-1 text-sm font-semibold text-slate-900">GitOps</h2>
         </div>
       {/if}
 
@@ -303,6 +331,73 @@
         </div>
       </section>
     {/each}
+
+    {#if currentProjectSlug}
+      <section>
+        {#if !collapsed}
+          <div class="mb-2 px-1">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Proyecto
+            </p>
+          </div>
+        {/if}
+
+        {#if collapsed}
+          <a
+            href={`/project/${currentProjectSlug}`}
+            class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            title="Project Settings"
+          >
+            <div
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600"
+            >
+              <FolderKanban class="h-3.5 w-3.5" />
+            </div>
+          </a>
+        {:else}
+          <div class="space-y-2">
+            <button
+              type="button"
+              class="btn-secondary group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left text-slate-700 transition-colors"
+              on:click={() => (projectSettingsMenuOpen = !projectSettingsMenuOpen)}
+              aria-expanded={projectSettingsMenuOpen}
+            >
+              <div
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600"
+              >
+                <FolderKanban class="h-3.5 w-3.5" />
+              </div>
+              <p class="min-w-0 flex-1 truncate text-sm font-medium">Project Settings</p>
+              {#if projectSettingsMenuOpen}
+                <ChevronDown class="h-4 w-4 shrink-0" />
+              {:else}
+                <ChevronRight class="h-4 w-4 shrink-0" />
+              {/if}
+            </button>
+
+            {#if projectSettingsMenuOpen}
+              <div class="ml-4 border-l border-slate-200 pl-3">
+                <div class="space-y-1">
+                  {#each projectSettingsItems as item}
+                    <a
+                      href={item.href}
+                      class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isProjectSettingsItemActive(
+                        item.href,
+                      )
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+                    >
+                      <svelte:component this={item.icon} class="h-3.5 w-3.5 shrink-0" />
+                      <span class="truncate">{item.label}</span>
+                    </a>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </section>
+    {/if}
 
     <section class="border-t border-slate-200 pt-4">
       {#if !collapsed}
