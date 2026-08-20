@@ -1,148 +1,180 @@
 <script lang="ts">
+  import type { ComponentType } from 'svelte';
   import { page } from '$app/stores';
   import {
     BarChart3,
     ChevronDown,
     ChevronRight,
     Database,
+    FolderKanban,
     GitBranch,
-    HelpCircle,
+    Info,
     KeyRound,
+    LayoutDashboard,
     Lock,
     PanelLeftClose,
     PanelLeftOpen,
+    ScrollText,
     Settings,
     Shield,
     Users,
+    Layers,
+    HardDrive,
+    Bot
   } from 'lucide-svelte';
+
+  type NavItem = { label: string; href: string; icon: ComponentType };
+  type NavModule = { name: string; icon: ComponentType; items: NavItem[] };
+  type NavCategory = { name: string; modules: NavModule[] };
 
   export let pathname = '/';
   export let isConfigured = false;
   export let collapsed = false;
+  export let organizationSlug = 'gitops';
+  export let projects: {
+    slug: string;
+    modules?: { vault: boolean; openreport: boolean; stateiac: boolean };
+  }[] = [];
 
   let currentPath = pathname;
+  let openModules: Record<string, boolean> = {};
 
-  const sections = [
+  $: currentPath = $page.url.pathname || pathname;
+  $: currentProjectOrgSlug = ($page.params.org as string | undefined) ?? organizationSlug;
+  $: currentProjectSlug = $page.params.slug as string | undefined;
+  $: currentProject = projects.find((project) => project.slug === currentProjectSlug) ?? null;
+
+  $: projectBase = `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`;
+
+  // one JSON-like tree drives the whole sidebar: category > module > items
+  $: categories = [
     {
-      title: 'Seguridad',
-      items: [
+      name: 'Inicio',
+      modules: [
         {
-          label: 'Vault',
-          href: '/vault',
-          icon: Shield,
+          name: 'Overview',
+          icon: LayoutDashboard,
+          items: [
+            {
+              label: 'Overview',
+              href: `/org/${organizationSlug}/overview`,
+              icon: LayoutDashboard,
+            },
+          ],
         },
       ],
     },
+    ...(currentProject?.modules?.vault
+      ? [
+          {
+            name: 'Seguridad',
+            modules: [
+              {
+                name: 'Vault',
+                icon: Shield,
+                items: [{ label: 'Vault', href: `${projectBase}/vault`, icon: Shield }],
+              },
+            ],
+          },
+        ]
+      : []),
+    ...(currentProject?.modules?.openreport
+      ? [
+          {
+            name: 'Analisis',
+            modules: [
+              {
+                name: 'Code Report',
+                icon: BarChart3,
+                items: [
+                  { label: 'Services', href: `${projectBase}/report/services`, icon: Layers },
+                  { label: 'History', href: `${projectBase}/report/history`, icon: GitBranch },
+                  { label: 'GitOps Report Bot', href: `${projectBase}/report/bot`, icon: Bot },
+                  { label: 'Settings', href: `${projectBase}/report/settings`, icon: Settings },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
+    ...(currentProject?.modules?.stateiac
+      ? [
+          {
+            name: 'GitOps',
+            modules: [
+              {
+                name: 'State IaC',
+                icon: GitBranch,
+                items: [
+                  { label: 'Stacks', href: `${projectBase}/state-iac/stacks`, icon: Layers },
+                  { label: 'Backends', href: `${projectBase}/state-iac/backends`, icon: HardDrive },
+                  { label: 'Deployments', href: `${projectBase}/state-iac/deployments`, icon: GitBranch }
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
+    ...(currentProjectSlug
+      ? [
+          {
+            name: 'Proyecto',
+            modules: [
+              {
+                name: 'Project Settings',
+                icon: FolderKanban,
+                items: [
+                  { label: 'Información', href: `${projectBase}/settings/overview`, icon: Info },
+                  {
+                    label: 'Users and Groups',
+                    href: `${projectBase}/settings/users-groups`,
+                    icon: Users,
+                  },
+                  {
+                    label: 'Roles and Permissions',
+                    href: `${projectBase}/settings/roles-permissions`,
+                    icon: Shield,
+                  },
+                  { label: 'Audit', href: `${projectBase}/settings/audit`, icon: ScrollText },
+                  { label: 'Server Keys', href: `${projectBase}/settings/server-keys`, icon: Shield },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
     {
-      title: 'Analisis',
-      items: [
+      name: 'Sistema',
+      modules: [
         {
-          label: 'Open Report',
-          href: '/open-report',
-          icon: BarChart3,
+          name: 'Settings',
+          icon: Settings,
+          items: [
+            { label: 'Projects', href: '/settings/projects', icon: FolderKanban },
+            { label: 'Autentication', href: '/settings/authentication', icon: Shield },
+            { label: 'Roles & Permissions', href: '/settings/roles-permissions', icon: Users },
+            { label: 'System & Backup', href: '/settings/system-backup', icon: Database },
+            { label: 'Server Access Keys', href: '/settings/server-access-keys', icon: KeyRound },
+          ],
         },
       ],
     },
-    {
-      title: 'GitOps',
-      items: [
-        {
-          label: 'Pulumi State',
-          href: '/pulumi-state',
-          icon: GitBranch,
-        },
-      ],
-    },
-  ];
+  ] satisfies NavCategory[];
 
-  const pulumiStateItems = [
-    {
-      label: 'Overview',
-      href: '/pulumi-state',
-      icon: GitBranch,
-    },
-    {
-      label: 'Storage Backends',
-      href: '/pulumi-state/backends',
-      icon: Database,
-    },
-    {
-      label: 'CLI Guide',
-      href: '/pulumi-state/cli-guide',
-      icon: HelpCircle,
-    },
-  ];
-
-  const settingsItems = [
-    {
-      label: 'Autentication',
-      href: '/settings/authentication',
-      icon: Shield,
-    },
-    {
-      label: 'Roles & Permissions',
-      href: '/settings/roles-permissions',
-      icon: Users,
-    },
-    {
-      label: 'System & Backup',
-      href: '/settings/system-backup',
-      icon: Database,
-    },
-    {
-      label: 'Server Access Keys',
-      href: '/settings/server-access-keys',
-      icon: KeyRound,
-    },
-  ];
-
-  let settingsMenuOpen = pathname.startsWith('/settings');
-  let pulumiStateMenuOpen = pathname.startsWith('/pulumi-state');
-
-  function getPulumiStateActiveItem() {
-    if (currentPath.startsWith('/pulumi-state/backends') || currentPath.startsWith('/settings/storage')) {
-      return '/pulumi-state/backends';
-    }
-
-    if (currentPath.startsWith('/pulumi-state/cli-guide')) {
-      return '/pulumi-state/cli-guide';
-    }
-
-    if (currentPath.startsWith('/pulumi-state') || currentPath.startsWith('/projects')) {
-      return '/pulumi-state';
-    }
-
-    return null;
+  function isItemActive(href: string) {
+    return currentPath.startsWith(href);
   }
 
-  function isPulumiStateSectionActive() {
-    return getPulumiStateActiveItem() !== null;
+  function isModuleActive(navModule: NavModule) {
+    return navModule.items.some((item) => isItemActive(item.href));
   }
 
-  function isActive(path: string) {
-    if (path.startsWith('/pulumi-state')) {
-      return getPulumiStateActiveItem() === path;
-    }
-
-    if (path.startsWith('/settings')) {
-      return currentPath.startsWith('/settings');
-    }
-
-    return currentPath.startsWith(path);
+  function toggleModule(navModule: NavModule) {
+    openModules = { ...openModules, [navModule.name]: !(openModules[navModule.name] ?? true) };
   }
 
   function toggleCollapsed() {
     collapsed = !collapsed;
-  }
-
-  $: currentPath = $page.url.pathname || pathname;
-
-  $: if (currentPath.startsWith('/settings')) {
-    settingsMenuOpen = true;
-  }
-
-  $: if (currentPath.startsWith('/pulumi-state') || currentPath.startsWith('/projects')) {
-    pulumiStateMenuOpen = true;
   }
 </script>
 
@@ -151,8 +183,10 @@
     <div class="flex items-center justify-between gap-3">
       {#if !collapsed}
         <div class="min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Modules</p>
-          <h2 class="mt-1 text-sm font-semibold text-slate-900">Navigation</h2>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+            Organization
+          </p>
+          <h2 class="mt-1 text-sm font-semibold text-slate-900">GitOps</h2>
         </div>
       {/if}
 
@@ -174,8 +208,10 @@
 
   {#if !isConfigured}
     <a
-      href="/pulumi-state/backends"
-      class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed ? 'justify-center' : 'items-start'}"
+      href="/settings/storage"
+      class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
+        ? 'justify-center'
+        : 'items-start'}"
       title="Configure a storage backend"
     >
       <div class="flex h-8 w-8 items-center justify-center rounded-md bg-amber-200 text-amber-900">
@@ -190,148 +226,120 @@
   {/if}
 
   <div class="space-y-4">
-    {#each sections as section}
-      <section>
+    {#each categories as category (category.name)}
+      <section
+        class:border-t={category.name === 'Sistema'}
+        class:pt-4={category.name === 'Sistema'}
+        class="border-slate-200"
+      >
         {#if !collapsed}
           <div class="mb-2 px-1">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">{section.title}</p>
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              {category.name}
+            </p>
           </div>
         {/if}
 
         <div class="space-y-2">
-          {#each section.items as item}
-            {#if item.href === '/pulumi-state' && !collapsed}
+          {#each category.modules as navModule (navModule.name)}
+            {#if navModule.items.length === 1}
+              {@const item = navModule.items[0]}
+              <a
+                href={item.href}
+                class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed
+                  ? 'justify-center'
+                  : 'items-center'} {isItemActive(item.href)
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                title={navModule.name}
+              >
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isItemActive(
+                    item.href,
+                  )
+                    ? 'bg-white/10 text-white'
+                    : 'bg-slate-100 text-slate-600'}"
+                >
+                  <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
+                </div>
+
+                {#if !collapsed}
+                  <p class="min-w-0 flex-1 truncate text-sm font-medium">{navModule.name}</p>
+                {/if}
+              </a>
+            {:else if collapsed}
+              <a
+                href={navModule.items[0].href}
+                class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isModuleActive(
+                  navModule,
+                )
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                title={navModule.name}
+              >
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isModuleActive(
+                    navModule,
+                  )
+                    ? 'bg-white/10 text-white'
+                    : 'bg-slate-100 text-slate-600'}"
+                >
+                  <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
+                </div>
+              </a>
+            {:else}
               <div class="space-y-2">
                 <button
                   type="button"
-                  class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isPulumiStateSectionActive()
+                  class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isModuleActive(
+                    navModule,
+                  )
                     ? 'btn-primary text-white'
                     : 'btn-secondary text-slate-700'}"
-                  on:click={() => (pulumiStateMenuOpen = !pulumiStateMenuOpen)}
-                  aria-expanded={pulumiStateMenuOpen}
+                  on:click={() => toggleModule(navModule)}
+                  aria-expanded={openModules[navModule.name] ?? true}
                 >
-                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isPulumiStateSectionActive()
-                    ? 'bg-white/10 text-white'
-                    : 'bg-slate-100 text-slate-600'}">
-                    <GitBranch class="h-3.5 w-3.5" />
+                  <div
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isModuleActive(
+                      navModule,
+                    )
+                      ? 'bg-white/10 text-white'
+                      : 'bg-slate-100 text-slate-600'}"
+                  >
+                    <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
                   </div>
-                  <p class="min-w-0 flex-1 truncate text-sm font-medium">Pulumi State</p>
-                  {#if pulumiStateMenuOpen}
+                  <p class="min-w-0 flex-1 truncate text-sm font-medium">{navModule.name}</p>
+                  {#if openModules[navModule.name] ?? true}
                     <ChevronDown class="h-4 w-4 shrink-0" />
                   {:else}
                     <ChevronRight class="h-4 w-4 shrink-0" />
                   {/if}
                 </button>
 
-                {#if pulumiStateMenuOpen}
+                {#if openModules[navModule.name] ?? true}
                   <div class="ml-4 border-l border-slate-200 pl-3">
                     <div class="space-y-1">
-                      {#each pulumiStateItems as pulumiItem}
+                      {#each navModule.items as item (item.href)}
                         <a
-                          href={pulumiItem.href}
-                          class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(pulumiItem.href)
+                          href={item.href}
+                          class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isItemActive(
+                            item.href,
+                          )
                             ? 'bg-slate-100 text-slate-900'
                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
                         >
-                          <svelte:component this={pulumiItem.icon} class="h-3.5 w-3.5 shrink-0" />
-                          <span class="truncate">{pulumiItem.label}</span>
+                          <svelte:component this={item.icon} class="h-3.5 w-3.5 shrink-0" />
+                          <span class="truncate">{item.label}</span>
                         </a>
                       {/each}
                     </div>
                   </div>
                 {/if}
               </div>
-            {:else}
-              <a
-                href={item.href}
-                class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed ? 'justify-center' : 'items-center'} {(item.href === '/pulumi-state'
-                  ? isPulumiStateSectionActive()
-                  : isActive(item.href))
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
-                title={item.label}
-              >
-                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {(item.href === '/pulumi-state'
-                  ? isPulumiStateSectionActive()
-                  : isActive(item.href))
-                  ? 'bg-white/10 text-white'
-                  : 'bg-slate-100 text-slate-600'}">
-                  <svelte:component this={item.icon} class="h-3.5 w-3.5" />
-                </div>
-
-                {#if !collapsed}
-                  <p class="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</p>
-                {/if}
-              </a>
             {/if}
           {/each}
         </div>
       </section>
     {/each}
-
-    <section class="border-t border-slate-200 pt-4">
-      {#if !collapsed}
-        <div class="mb-2 px-1">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Sistema</p>
-        </div>
-      {/if}
-
-      {#if collapsed}
-        <a
-          href="/settings/authentication"
-          class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isActive('/settings')
-            ? 'border-slate-900 bg-slate-900 text-white'
-            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
-          title="Settings"
-        >
-          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive('/settings')
-            ? 'bg-white/10 text-white'
-            : 'bg-slate-100 text-slate-600'}">
-            <Settings class="h-3.5 w-3.5" />
-          </div>
-        </a>
-      {:else}
-        <div class="space-y-2">
-          <button
-            type="button"
-            class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isActive('/settings')
-              ? 'btn-primary text-white'
-              : 'btn-secondary text-slate-700'}"
-            on:click={() => (settingsMenuOpen = !settingsMenuOpen)}
-            aria-expanded={settingsMenuOpen}
-          >
-            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isActive('/settings')
-              ? 'bg-white/10 text-white'
-              : 'bg-slate-100 text-slate-600'}">
-              <Settings class="h-3.5 w-3.5" />
-            </div>
-            <p class="min-w-0 flex-1 truncate text-sm font-medium">Settings</p>
-            {#if settingsMenuOpen}
-              <ChevronDown class="h-4 w-4 shrink-0" />
-            {:else}
-              <ChevronRight class="h-4 w-4 shrink-0" />
-            {/if}
-          </button>
-
-          {#if settingsMenuOpen}
-            <div class="ml-4 border-l border-slate-200 pl-3">
-              <div class="space-y-1">
-                {#each settingsItems as item}
-                  <a
-                    href={item.href}
-                    class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isActive(item.href)
-                      ? 'bg-slate-100 text-slate-900'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
-                  >
-                    <svelte:component this={item.icon} class="h-3.5 w-3.5 shrink-0" />
-                    <span class="truncate">{item.label}</span>
-                  </a>
-                {/each}
-              </div>
-            </div>
-          {/if}
-        </div>
-      {/if}
-    </section>
   </div>
 </aside>

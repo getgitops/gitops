@@ -1,6 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { apiKeysService, profileService } from '../../modules/auth';
-import { storageBackendService } from '../../modules/config';
 
 function expiresAtFromDays(expiresInDays: string | null): string | null {
   if (!expiresInDays) {
@@ -17,7 +16,7 @@ function expiresAtFromDays(expiresInDays: string | null): string | null {
   return date.toISOString();
 }
 
-export async function load({ locals, cookies }) {
+export async function load({ locals }) {
   if (!locals.user) {
     throw redirect(302, '/login');
   }
@@ -28,10 +27,6 @@ export async function load({ locals, cookies }) {
     throw redirect(302, '/login');
   }
 
-  const backends = storageBackendService.list();
-  const activeBackendId = cookies.get('active_backend') || backends[0]?.id || null;
-  const activeBackend = backends.find((backend) => backend.id === activeBackendId) || null;
-  const gcpConnected = activeBackend?.provider === 'gcs';
 
   const apiKeys = await apiKeysService.listActiveApiKeys(user.id);
 
@@ -42,7 +37,7 @@ export async function load({ locals, cookies }) {
       email: user.email,
       role: user.role,
     },
-    gcpConnected,
+    gcpConnected: false,
     apiKeys,
   };
 }

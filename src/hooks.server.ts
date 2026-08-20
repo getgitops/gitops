@@ -24,7 +24,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   if (event.url.pathname.startsWith('/settings') || event.url.pathname.startsWith('/api/system')) {
     if (!canAccessAdminArea(currentUser)) {
-      return new Response(null, { status: 302, headers: { location: '/vault' } });
+      return new Response(null, { status: 302, headers: { location: '/' } });
     }
   }
 
