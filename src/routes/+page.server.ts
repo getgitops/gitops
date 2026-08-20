@@ -1,5 +1,7 @@
 import { redirect } from '@sveltejs/kit';
+import { organizationService } from '../modules/organization';
 
-export function load() {
-  throw redirect(302, '/overview');
+export async function load() {
+  const organization = await organizationService.findBySlug('gitops');
+  throw redirect(302, `/org/${organization.slug}/overview`);
 }

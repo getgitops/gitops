@@ -26,7 +26,11 @@
   style={`--sidebar-width:${sidebarCollapsed ? '96px' : '340px'}`}
 >
   {#if $page.url.pathname !== '/login'}
-    <AppNavbar user={data.user} projects={data.projects} />
+    <AppNavbar
+      user={data.user}
+      projects={data.projects}
+      organizationSlug={data.organization.slug}
+    />
 
     <div
       class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 lg:block lg:px-0"
@@ -37,6 +41,7 @@
         <AppSidebar
           pathname={$page.url.pathname}
           isConfigured={data.isConfigured}
+          organizationSlug={data.organization.slug}
           bind:collapsed={sidebarCollapsed}
         />
       </aside>

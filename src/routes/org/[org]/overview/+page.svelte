@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import {
     ArrowRight,
     BarChart3,
@@ -22,6 +23,8 @@
   };
 
   export let data: { projects: ProjectRow[] };
+
+  $: orgSlug = $page.params.org;
 
   let searchQuery = '';
 
@@ -151,7 +154,7 @@
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each filteredProjects as project (project.id)}
         <a
-          href={`/project/${project.slug}/overview`}
+          href={`/org/${orgSlug}/projects/${project.slug}/overview`}
           class="group flex flex-col justify-between rounded-md border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-slate-300 hover:shadow-md"
         >
           <div>

@@ -1,4 +1,5 @@
 import { projectService } from '../modules/projects';
+import { organizationService } from '../modules/organization';
 import { can } from '../modules/auth';
 // import { configService, storageBackendService } from '../modules/config';
 
@@ -14,6 +15,8 @@ export async function load({ cookies, locals }) {
   //   activeBackendId = activeBackend.id;
   // }
 
+  const organization = await organizationService.findBySlug('gitops');
+
   const projects =
     locals.user && can(locals.user, 'stateiac:read')
       ? (await projectService.listProjects()).filter((project) => project.status === 'active')
@@ -25,6 +28,7 @@ export async function load({ cookies, locals }) {
     // backends,
     // activeBackendId,
     user: locals.user,
+    organization,
     projects,
   };
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   import { CheckCircle, Save, Trash2 } from 'lucide-svelte';
 
   type ProjectRow = {
@@ -15,6 +16,7 @@
   export let data: { project: ProjectRow };
 
   $: project = data.project;
+  $: orgSlug = $page.params.org;
 
   let saving = false;
   let error = '';
@@ -62,7 +64,7 @@
       flashSuccess('Project updated.');
 
       if (payload.project.slug !== project.slug) {
-        await goto(`/project/${payload.project.slug}`, { invalidateAll: true });
+        await goto(`/org/${orgSlug}/projects/${payload.project.slug}`, { invalidateAll: true });
       }
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : 'Failed to update project.';

@@ -13,13 +13,30 @@
   export let data: { project: { id: string; name: string; slug: string } };
 
   $: project = data.project;
+  $: orgSlug = $page.params.org;
 
   $: tabs = [
-    { label: 'Overview', href: `/project/${project.slug}/overview`, icon: LayoutDashboard },
-    { label: 'Información', href: `/project/${project.slug}`, icon: Info },
-    { label: 'Usuarios y Grupos', href: `/project/${project.slug}/users-groups`, icon: Users },
-    { label: 'Roles y Permisos', href: `/project/${project.slug}/roles-permissions`, icon: Shield },
-    { label: 'Auditoría', href: `/project/${project.slug}/audit`, icon: ScrollText },
+    {
+      label: 'Overview',
+      href: `/org/${orgSlug}/projects/${project.slug}/overview`,
+      icon: LayoutDashboard,
+    },
+    { label: 'Información', href: `/org/${orgSlug}/projects/${project.slug}`, icon: Info },
+    {
+      label: 'Usuarios y Grupos',
+      href: `/org/${orgSlug}/projects/${project.slug}/users-groups`,
+      icon: Users,
+    },
+    {
+      label: 'Roles y Permisos',
+      href: `/org/${orgSlug}/projects/${project.slug}/roles-permissions`,
+      icon: Shield,
+    },
+    {
+      label: 'Auditoría',
+      href: `/org/${orgSlug}/projects/${project.slug}/audit`,
+      icon: ScrollText,
+    },
   ];
 
   $: currentPath = $page.url.pathname;
@@ -33,7 +50,7 @@
   <div class="min-h-130 overflow-hidden border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
     <div class="border-b border-slate-200 px-6 py-4 sm:px-8">
       <a
-        href="/overview"
+        href={`/org/${orgSlug}/overview`}
         class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
       >
         <ArrowLeft class="h-4 w-4" />

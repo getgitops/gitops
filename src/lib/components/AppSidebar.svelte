@@ -22,16 +22,17 @@
   export let pathname = '/';
   export let isConfigured = false;
   export let collapsed = false;
+  export let organizationSlug = 'gitops';
 
   let currentPath = pathname;
 
-  const sections = [
+  $: sections = [
     {
       title: 'Inicio',
       items: [
         {
           label: 'Overview',
-          href: '/overview',
+          href: `/org/${organizationSlug}/overview`,
           icon: LayoutDashboard,
         },
       ],
@@ -118,27 +119,36 @@
   let pulumiStateMenuOpen = pathname.startsWith('/pulumi-state');
   let projectSettingsMenuOpen = true;
 
+  $: currentProjectOrgSlug = ($page.params.org as string | undefined) ?? organizationSlug;
   $: currentProjectSlug = $page.params.slug as string | undefined;
 
   $: projectSettingsItems = currentProjectSlug
     ? [
-        { label: 'Información', href: `/project/${currentProjectSlug}/overview`, icon: Info },
+        {
+          label: 'Información',
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/overview`,
+          icon: Info,
+        },
         {
           label: 'Users and Groups',
-          href: `/project/${currentProjectSlug}/users-groups`,
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/users-groups`,
           icon: Users,
         },
         {
           label: 'Roles and Permissions',
-          href: `/project/${currentProjectSlug}/roles-permissions`,
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/roles-permissions`,
           icon: Shield,
         },
-        { label: 'Audit', href: `/project/${currentProjectSlug}/audit`, icon: ScrollText },
+        {
+          label: 'Audit',
+          href: `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}/audit`,
+          icon: ScrollText,
+        },
       ]
     : [];
 
   function isProjectSettingsItemActive(href: string) {
-    return href === `/project/${currentProjectSlug}`
+    return href === `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`
       ? currentPath === href
       : currentPath.startsWith(href);
   }
@@ -344,7 +354,7 @@
 
         {#if collapsed}
           <a
-            href={`/project/${currentProjectSlug}`}
+            href={`/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`}
             class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
             title="Project Settings"
           >
