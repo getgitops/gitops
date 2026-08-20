@@ -24,6 +24,7 @@
 
   let createModalOpen = false;
   let creating = false;
+  let createError = '';
   let newName = '';
   let newSlug = '';
   let newDescription = '';
@@ -31,6 +32,7 @@
 
   let deleteModalProject: ProjectRow | null = null;
   let deleteLoading = false;
+  let deleteError = '';
 
   onMount(fetchProjects);
 
@@ -69,7 +71,7 @@
   });
 
   function openCreateModal() {
-    error = '';
+    createError = '';
     newName = '';
     newSlug = '';
     newDescription = '';
@@ -82,10 +84,10 @@
   }
 
   async function createProject() {
-    error = '';
+    createError = '';
 
     if (!newName.trim()) {
-      error = 'Project name is required.';
+      createError = 'Project name is required.';
       return;
     }
 
@@ -109,7 +111,7 @@
       flashSuccess('Project created.');
       await fetchProjects();
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to create project.';
+      createError = err instanceof Error ? err.message : 'Failed to create project.';
     } finally {
       creating = false;
     }
@@ -117,7 +119,7 @@
 
   function openDeleteModal(project: ProjectRow) {
     deleteModalProject = project;
-    error = '';
+    deleteError = '';
   }
 
   function closeDeleteModal() {
@@ -127,7 +129,7 @@
   async function confirmDelete() {
     if (!deleteModalProject) return;
 
-    error = '';
+    deleteError = '';
     deleteLoading = true;
 
     try {
@@ -139,7 +141,7 @@
       flashSuccess('Project deleted.');
       await fetchProjects();
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to delete project.';
+      deleteError = err instanceof Error ? err.message : 'Failed to delete project.';
     } finally {
       deleteLoading = false;
     }
@@ -313,6 +315,12 @@
       </div>
 
       <div class="space-y-4 px-4 py-4">
+        {#if createError}
+          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {createError}
+          </div>
+        {/if}
+
         <div>
           <label class="block text-sm font-medium text-slate-700" for="new-project-name">Name</label
           >
@@ -404,6 +412,14 @@
       <div class="border-b border-slate-200 px-4 py-3">
         <h5 class="text-sm font-semibold text-slate-900">Delete project</h5>
       </div>
+
+      {#if deleteError}
+        <div class="px-4 pt-4">
+          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {deleteError}
+          </div>
+        </div>
+      {/if}
 
       <div class="px-4 py-4 text-sm text-slate-600">
         Are you sure you want to delete <span class="font-medium text-slate-900"

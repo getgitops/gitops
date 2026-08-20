@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import {
     Archive,
+    ArchiveRestore,
     BarChart3,
     Bot,
     Building2,
@@ -37,6 +38,7 @@
 
   $: project = data.project;
   $: orgSlug = $page.params.org;
+  $: isArchived = project.status === 'inactive';
 
   let saving = false;
   let error = '';
@@ -168,10 +170,11 @@
     archiveLoading = true;
 
     try {
+      const nextStatus = isArchived ? 'active' : 'inactive';
       const res = await fetch(`/api/projects/${project.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'inactive' }),
+        body: JSON.stringify({ status: nextStatus }),
       });
 
       const payload = await res.json();
@@ -179,9 +182,9 @@
 
       project = payload.project;
       closeArchiveModal();
-      flashSuccess('Project archived.');
+      flashSuccess(isArchived ? 'Project reactivated.' : 'Project archived.');
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to archive project.';
+      error = err instanceof Error ? err.message : 'Failed to update project status.';
     } finally {
       archiveLoading = false;
     }
@@ -233,7 +236,16 @@
   {/if}
 
   <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
-    <div class="flex items-center justify-end border-b border-slate-200 px-4 py-4">
+    <div class="flex items-center justify-end gap-3 border-b border-slate-200 px-4 py-4">
+      {#if isArchived}
+        <span
+          class="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
+        >
+          <span class="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+          Archivado
+        </span>
+      {/if}
+
       <button
         type="button"
         on:click={copySlug}
@@ -413,9 +425,13 @@
 
       <div class="flex items-center justify-between gap-4 px-4 py-4">
         <div>
-          <p class="text-sm font-medium text-slate-900">Archivar proyecto</p>
+          <p class="text-sm font-medium text-slate-900">
+            {isArchived ? 'Activar proyecto' : 'Archivar proyecto'}
+          </p>
           <p class="mt-1 text-xs text-slate-500">
-            El proyecto pasará a estado inactivo y dejará de listarse como activo.
+            {isArchived
+              ? 'El proyecto volverá a estado activo y se listará de nuevo.'
+              : 'El proyecto pasará a estado inactivo y dejará de listarse como activo.'}
           </p>
         </div>
         <button
@@ -423,8 +439,13 @@
           on:click={openArchiveModal}
           class="btn-secondary inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
         >
-          <Archive class="h-3.5 w-3.5" />
-          Archivar
+          {#if isArchived}
+            <ArchiveRestore class="h-3.5 w-3.5" />
+            Activar
+          {:else}
+            <Archive class="h-3.5 w-3.5" />
+            Archivar
+          {/if}
         </button>
       </div>
 
@@ -461,13 +482,21 @@
       aria-label="Archive project modal"
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">Archive project</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {isArchived ? 'Activate project' : 'Archive project'}
+        </h5>
       </div>
 
       <div class="px-4 py-4 text-sm text-slate-600">
-        Are you sure you want to archive <span class="font-medium text-slate-900"
-          >{project.name}</span
-        >? It will be marked as inactive.
+        {#if isArchived}
+          Are you sure you want to activate <span class="font-medium text-slate-900"
+            >{project.name}</span
+          >? It will be marked as active again.
+        {:else}
+          Are you sure you want to archive <span class="font-medium text-slate-900"
+            >{project.name}</span
+          >? It will be marked as inactive.
+        {/if}
       </div>
 
       <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
@@ -484,8 +513,13 @@
           disabled={archiveLoading}
           class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
         >
-          <Archive class="h-4 w-4" />
-          {archiveLoading ? 'Archiving...' : 'Archive project'}
+          {#if isArchived}
+            <ArchiveRestore class="h-4 w-4" />
+            {archiveLoading ? 'Activating...' : 'Activate project'}
+          {:else}
+            <Archive class="h-4 w-4" />
+            {archiveLoading ? 'Archiving...' : 'Archive project'}
+          {/if}
         </button>
       </div>
     </div>
