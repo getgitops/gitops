@@ -1,7 +1,16 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { deserialize } from '$app/forms';
-  import { CheckCircle, Plus, Search, UserPlus, Users as UsersIcon } from 'lucide-svelte';
+  import {
+    ChevronDown,
+    CheckCircle,
+    Plus,
+    Search,
+    Send,
+    Trash2,
+    UserPlus,
+    Users as UsersIcon,
+  } from 'lucide-svelte';
 
   type UserScope = 'cluster' | 'organization' | 'project';
 
@@ -17,6 +26,7 @@
     username: string;
     email: string | null;
     role: RoleRow | null;
+    status: 'active' | 'invited';
     createdAt: string;
   };
 
@@ -40,6 +50,11 @@
   let success = '';
   let addModalOpen = false;
   let adding = false;
+  let savingAccessId: string | null = null;
+  let removingAccessId: string | null = null;
+  let resendingAccessId: string | null = null;
+  let openRoleMenuId: string | null = null;
+  let removeModalUser: AccessUserRow | null = null;
 
   let newUsername = '';
   let newEmail = '';
@@ -101,7 +116,7 @@
       return;
     }
 
-    if (scope === 'organization' && (!newUsername.trim() || !newPassword.trim())) {
+    if (scope !== 'project' && (!newUsername.trim() || !newPassword.trim())) {
       error = 'Username and password are required.';
       return;
     }
@@ -121,11 +136,83 @@
         userId: selectedUserId,
       });
       addModalOpen = false;
-      flashSuccess(scope === 'organization' ? 'User created.' : 'User assigned.');
+      flashSuccess(scope === 'project' ? 'User assigned.' : 'User created.');
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : 'Failed to add user.';
     } finally {
       adding = false;
+    }
+  }
+
+  async function selectRole(user: AccessUserRow, role: RoleRow) {
+    if (user.role?.id === role.id) {
+      openRoleMenuId = null;
+      return;
+    }
+
+    const previousRole = user.role;
+    user.role = role;
+    users = users;
+    openRoleMenuId = null;
+
+    error = '';
+    success = '';
+    savingAccessId = user.id;
+    try {
+      await submitAction('updateUserAccess', {
+        accessId: user.id,
+        roleId: role.id,
+        status: user.status,
+      });
+      flashSuccess('Role updated.');
+    } catch (err: unknown) {
+      user.role = previousRole;
+      users = users;
+      error = err instanceof Error ? err.message : 'Failed to update user access.';
+    } finally {
+      savingAccessId = null;
+    }
+  }
+
+  function openRemoveModal(user: AccessUserRow) {
+    error = '';
+    removeModalUser = user;
+  }
+
+  async function confirmRemoveAccess() {
+    if (!removeModalUser) return;
+
+    error = '';
+    success = '';
+    removingAccessId = removeModalUser.id;
+    try {
+      await submitAction('removeUserAccess', { accessId: removeModalUser.id });
+      removeModalUser = null;
+      flashSuccess('User access removed.');
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Failed to remove user access.';
+    } finally {
+      removingAccessId = null;
+    }
+  }
+
+  function statusClasses(status: AccessUserRow['status']) {
+    return status === 'invited'
+      ? 'border-amber-200 bg-amber-50 text-amber-800'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-800';
+  }
+
+  async function resendInvitation(user: AccessUserRow) {
+    error = '';
+    success = '';
+    resendingAccessId = user.id;
+    try {
+      await submitAction('resendInvitation', { accessId: user.id });
+      flashSuccess('Invitation resent.');
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Failed to resend invitation.';
+    } finally {
+      resendingAccessId = null;
     }
   }
 
@@ -143,7 +230,7 @@
   <title>{title}</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="flex min-h-[calc(100dvh-22rem)] flex-col gap-6">
   <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <h3 class="text-xl font-semibold text-slate-900">{title}</h3>
@@ -155,7 +242,7 @@
       class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
     >
       <Plus class="h-4 w-4" />
-      {scope === 'organization' ? 'New user' : 'Add user'}
+      {scope === 'project' ? 'Add user' : 'New user'}
     </button>
   </section>
 
@@ -197,8 +284,8 @@
       </p>
     </div>
   {:else}
-    <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
-      <div class="overflow-x-auto">
+    <div class="relative flex-1 overflow-visible rounded-md border border-slate-200 bg-white">
+      <div class="overflow-x-auto overflow-y-visible pb-24">
         <table class="w-full min-w-160 text-sm">
           <thead>
             <tr
@@ -207,7 +294,9 @@
               <th class="px-4 py-3">User</th>
               <th class="px-4 py-3">Email</th>
               <th class="px-4 py-3">Role</th>
+              <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3">Added</th>
+              <th class="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -215,8 +304,78 @@
               <tr class="border-t border-slate-100">
                 <td class="px-4 py-3 font-medium text-slate-900">{user.username}</td>
                 <td class="px-4 py-3 text-slate-600">{user.email || '-'}</td>
-                <td class="px-4 py-3 text-slate-600">{user.role?.name ?? '-'}</td>
+                <td class="px-4 py-3 text-slate-600">
+                  <div class="relative inline-block text-left">
+                    <button
+                      type="button"
+                      on:click={() =>
+                        (openRoleMenuId = openRoleMenuId === user.id ? null : user.id)}
+                      disabled={savingAccessId === user.id || roles.length === 0}
+                      class="btn-secondary inline-flex min-w-44 items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium"
+                    >
+                      <span class="truncate">{user.role?.name ?? 'Select role'}</span>
+                      <ChevronDown class="h-4 w-4 shrink-0" />
+                    </button>
+                    {#if openRoleMenuId === user.id}
+                      <div
+                        class="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+                      >
+                        {#each roles as role (role.id)}
+                          <button
+                            type="button"
+                            on:click={() => selectRole(user, role)}
+                            class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50 {user
+                              .role?.id === role.id
+                              ? 'font-medium text-slate-950'
+                              : 'text-slate-600'}"
+                          >
+                            <span class="truncate">{role.name}</span>
+                            {#if user.role?.id === role.id}
+                              <CheckCircle class="h-4 w-4 text-emerald-600" />
+                            {/if}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-slate-600">
+                  <span
+                    class={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
+                      user.status,
+                    )}`}
+                  >
+                    <span
+                      class={`h-2 w-2 rounded-full ${user.status === 'invited' ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                    ></span>
+                    {user.status === 'invited' ? 'Invited' : 'Active'}
+                  </span>
+                </td>
                 <td class="px-4 py-3 text-slate-600">{formatDate(user.createdAt)}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center justify-end gap-2">
+                    {#if user.status === 'invited'}
+                      <button
+                        type="button"
+                        on:click={() => resendInvitation(user)}
+                        disabled={resendingAccessId === user.id}
+                        class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                      >
+                        <Send class="h-3.5 w-3.5" />
+                        {resendingAccessId === user.id ? 'Sending...' : 'Resend Invitation'}
+                      </button>
+                    {/if}
+                    <button
+                      type="button"
+                      on:click={() => openRemoveModal(user)}
+                      disabled={removingAccessId === user.id}
+                      class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                    >
+                      <Trash2 class="h-3.5 w-3.5" />
+                      {removingAccessId === user.id ? 'Removing...' : 'Remove access'}
+                    </button>
+                  </div>
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -242,11 +401,11 @@
     >
       <div class="border-b border-slate-200 px-4 py-3">
         <h5 class="text-sm font-semibold text-slate-900">
-          {scope === 'organization' ? 'New user' : 'Add user'}
+          {scope === 'project' ? 'Add user' : 'New user'}
         </h5>
       </div>
       <div class="space-y-4 px-4 py-4">
-        {#if scope === 'organization'}
+        {#if scope !== 'project'}
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label class="block text-sm font-medium text-slate-700" for="new-user-name">
@@ -332,6 +491,52 @@
         >
           <UserPlus class="h-4 w-4" />
           {adding ? 'Adding...' : 'Add user'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if removeModalUser}
+  <button
+    type="button"
+    class="fixed inset-0 z-40 bg-slate-900/50"
+    on:click={() => (removeModalUser = null)}
+    aria-label="Close remove access confirmation"
+  ></button>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Remove access confirmation"
+    >
+      <div class="border-b border-slate-200 px-4 py-3">
+        <h5 class="text-sm font-semibold text-slate-900">Remove access</h5>
+      </div>
+      <div class="px-4 py-4">
+        <p class="text-sm text-slate-700">
+          Remove access for <span class="font-semibold text-slate-900"
+            >{removeModalUser.username}</span
+          >? This will revoke this scope assignment.
+        </p>
+      </div>
+      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+        <button
+          type="button"
+          on:click={() => (removeModalUser = null)}
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          on:click={confirmRemoveAccess}
+          disabled={removingAccessId === removeModalUser.id}
+          class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+        >
+          <Trash2 class="h-4 w-4" />
+          {removingAccessId === removeModalUser.id ? 'Removing...' : 'Remove access'}
         </button>
       </div>
     </div>

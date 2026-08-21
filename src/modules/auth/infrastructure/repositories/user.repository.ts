@@ -78,6 +78,13 @@ export class UserRepository extends Repository {
       .where({ id: userId });
   }
 
+  async updateStatus(userId: string, status: 'active' | 'invited'): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where({ id: userId });
+  }
+
   async deleteById(userId: string): Promise<void> {
     await this.db.delete(ApiKeyEntity).where({ userId });
     await this.db.delete(UserEntity).where({ id: userId });
@@ -99,6 +106,7 @@ export class UserRepository extends Repository {
       username: user.username,
       email: user.email ?? null,
       password: user.passwordHash,
+      status: user.status,
       role: user.role,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

@@ -1,13 +1,11 @@
 import { fail } from '@sveltejs/kit';
-import { canManageOrganization, roleService, userAccessService } from '../../../modules/auth';
-import { organizationService } from '../../../modules/organization';
+import { isAdmin, roleService, userAccessService } from '../../../modules/auth';
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
 }
 
-export async function load({ parent }) {
-  const { organization } = await parent();
+export async function load() {
   const [users, roles] = await Promise.all([
     userAccessService.listUsers('cluster'),
     roleService.listRoles('cluster'),
@@ -16,20 +14,63 @@ export async function load({ parent }) {
 }
 
 export const actions = {
-  async addUser({ request, locals, params }) {
-    const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
-      return fail(403, { error: 'Forbidden' });
-    }
+  async addUser({ request, locals }) {
+    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
-      const user = await userAccessService.createOrganizationUser({
-        organizationId: organization.id,
+      const user = await userAccessService.createClusterUser({
         username: String(form.get('username') ?? ''),
         email: String(form.get('email') ?? '') || null,
         password: String(form.get('password') ?? ''),
         roleId: String(form.get('roleId') ?? ''),
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async updateUserAccess({ request, locals }) {
+    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+
+    try {
+      const form = await request.formData();
+      const user = await userAccessService.updateAccess({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'cluster',
+        roleId: String(form.get('roleId') ?? ''),
+        status: String(form.get('status') ?? ''),
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async removeUserAccess({ request, locals }) {
+    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+
+    try {
+      const form = await request.formData();
+      await userAccessService.removeAccess({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'cluster',
+      });
+      return { success: true };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async resendInvitation({ request, locals }) {
+    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+
+    try {
+      const form = await request.formData();
+      const user = await userAccessService.resendInvitation({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'cluster',
       });
       return { success: true, user };
     } catch (error: unknown) {

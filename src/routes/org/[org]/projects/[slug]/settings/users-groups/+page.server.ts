@@ -33,4 +33,57 @@ export const actions = {
       return errorResponse(error);
     }
   },
+
+  async updateUserAccess({ request, locals, params }) {
+    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+
+    try {
+      const form = await request.formData();
+      const project = await projectService.getProjectBySlug(params.slug);
+      const user = await userAccessService.updateAccess({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'project',
+        scopeId: project.id,
+        roleId: String(form.get('roleId') ?? ''),
+        status: String(form.get('status') ?? ''),
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async removeUserAccess({ request, locals, params }) {
+    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+
+    try {
+      const form = await request.formData();
+      const project = await projectService.getProjectBySlug(params.slug);
+      await userAccessService.removeAccess({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'project',
+        scopeId: project.id,
+      });
+      return { success: true };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async resendInvitation({ request, locals, params }) {
+    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+
+    try {
+      const form = await request.formData();
+      const project = await projectService.getProjectBySlug(params.slug);
+      const user = await userAccessService.resendInvitation({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'project',
+        scopeId: project.id,
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
 };

@@ -100,6 +100,10 @@ class FakeUserAccessRepository {
     );
   }
 
+  async findById(id: string) {
+    return this.rows.find((entry) => entry.id === id) ?? null;
+  }
+
   async create(input: {
     id: string;
     userId: string;
@@ -107,6 +111,7 @@ class FakeUserAccessRepository {
     scope: 'cluster' | 'organization' | 'project';
     organizationId?: string;
     projectId?: string;
+    status?: 'active' | 'invited';
   }) {
     const userRow = await this.userRepository.findById(input.userId);
     const roleRow = await this.roleRepository.findById(input.roleId);
@@ -115,10 +120,26 @@ class FakeUserAccessRepository {
         ...input,
         user: userRow?.toJson(),
         role: roleRow?.toJson(),
+        status: input.status,
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       }),
     );
+  }
+
+  async update(id: string, changes: { roleId?: string; status?: 'active' | 'invited' }) {
+    const existing = this.rows.find((entry) => entry.id === id);
+    if (!existing) return;
+    if (changes.roleId) {
+      const roleRow = await this.roleRepository.findById(changes.roleId);
+      existing.roleId = changes.roleId;
+      existing.role = roleRow;
+    }
+    if (changes.status) existing.status = changes.status;
+  }
+
+  async deleteById(id: string) {
+    this.rows = this.rows.filter((entry) => entry.id !== id);
   }
 }
 
@@ -180,6 +201,74 @@ describe('UserAccessService', () => {
 
     expect(assigned.username).toBe('jose');
     expect(assigned.role?.slug).toBe('project-admin');
+    expect(assigned.status).toBe('active');
+  });
+
+  it('updates the role and status for an access row', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'project-developer-id', slug: 'developer', scope: 'project', projectId: 'kettu' }),
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+    );
+    await userAccessRepository.create({
+      id: 'access-id',
+      userId: 'jose-id',
+      roleId: 'project-developer-id',
+      scope: 'project',
+      projectId: 'kettu',
+    });
+
+    const updated = await service.updateAccess({
+      accessId: 'access-id',
+      scope: 'project',
+      scopeId: 'kettu',
+      roleId: 'project-admin-id',
+      status: 'invited',
+    });
+
+    expect(updated.role?.slug).toBe('project-admin');
+    expect(updated.status).toBe('invited');
+  });
+
+  it('removes an access row', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+    );
+    await userAccessRepository.create({
+      id: 'access-id',
+      userId: 'jose-id',
+      roleId: 'project-admin-id',
+      scope: 'project',
+      projectId: 'kettu',
+    });
+
+    await service.removeAccess({ accessId: 'access-id', scope: 'project', scopeId: 'kettu' });
+
+    expect(userAccessRepository.rows).toEqual([]);
+  });
+
+  it('resends invitations only for invited access rows', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+    );
+    await userAccessRepository.create({
+      id: 'access-id',
+      userId: 'jose-id',
+      roleId: 'project-admin-id',
+      scope: 'project',
+      projectId: 'kettu',
+      status: 'invited',
+    });
+
+    const resent = await service.resendInvitation({
+      accessId: 'access-id',
+      scope: 'project',
+      scopeId: 'kettu',
+    });
+
+    expect(resent.status).toBe('invited');
   });
 
   it('rejects a project role from a different project', async () => {

@@ -59,6 +59,7 @@ export const UserAccessEntity = entity('user_access', {
   scope: text().notNull(),
   organizationId: uuid(),
   projectId: uuid(),
+  status: text().notNull().default('active'),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

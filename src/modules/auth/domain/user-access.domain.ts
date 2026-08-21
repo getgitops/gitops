@@ -5,6 +5,7 @@ import { RoleDomain, type RoleScope } from './role.domain';
 import { UserDomain } from './user.domain';
 
 export type UserAccessScope = RoleScope;
+export type UserAccessStatus = 'active' | 'invited';
 
 export class UserAccessDomain extends Domain {
   public userId: string = '';
@@ -12,6 +13,7 @@ export class UserAccessDomain extends Domain {
   public scope: UserAccessScope = 'cluster';
   public organizationId: string | null = null;
   public projectId: string | null = null;
+  public status: UserAccessStatus = 'active';
   public user: UserDomain | null = null;
   public role: RoleDomain | null = null;
   public organization: OrganizationDomain | null = null;
@@ -24,6 +26,7 @@ export class UserAccessDomain extends Domain {
     this.scope = data.scope === 'organization' || data.scope === 'project' ? data.scope : 'cluster';
     this.organizationId = data.organizationId ?? null;
     this.projectId = data.projectId ?? null;
+    this.status = data.status === 'invited' ? 'invited' : 'active';
     this.user = data.user ? new UserDomain(data.user) : null;
     this.role = data.role ? new RoleDomain(data.role) : null;
     this.organization = data.organization ? new OrganizationDomain(data.organization) : null;
@@ -38,6 +41,7 @@ export class UserAccessDomain extends Domain {
       scope: this.scope,
       organizationId: this.organizationId,
       projectId: this.projectId,
+      status: this.status,
       user: this.user ? this.user.toJson() : null,
       role: this.role ? this.role.toJson() : null,
       organization: this.organization ? this.organization.toJson() : null,

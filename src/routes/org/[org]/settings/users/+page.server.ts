@@ -36,4 +36,63 @@ export const actions = {
       return errorResponse(error);
     }
   },
+
+  async updateUserAccess({ request, locals, params }) {
+    const organization = await organizationService.findBySlug(params.org);
+    if (!canManageOrganization(locals.user, organization.id)) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
+    try {
+      const form = await request.formData();
+      const user = await userAccessService.updateAccess({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'organization',
+        scopeId: organization.id,
+        roleId: String(form.get('roleId') ?? ''),
+        status: String(form.get('status') ?? ''),
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async removeUserAccess({ request, locals, params }) {
+    const organization = await organizationService.findBySlug(params.org);
+    if (!canManageOrganization(locals.user, organization.id)) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
+    try {
+      const form = await request.formData();
+      await userAccessService.removeAccess({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'organization',
+        scopeId: organization.id,
+      });
+      return { success: true };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async resendInvitation({ request, locals, params }) {
+    const organization = await organizationService.findBySlug(params.org);
+    if (!canManageOrganization(locals.user, organization.id)) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
+    try {
+      const form = await request.formData();
+      const user = await userAccessService.resendInvitation({
+        accessId: String(form.get('accessId') ?? ''),
+        scope: 'organization',
+        scopeId: organization.id,
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
 };
