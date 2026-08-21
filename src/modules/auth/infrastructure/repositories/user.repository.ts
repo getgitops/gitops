@@ -4,26 +4,36 @@ import type { CreateUserInput } from '../../domain/entities';
 
 import { UserDomain } from '../../domain/user.domain';
 
-
-
 export class UserRepository extends Repository {
-
-
   async findById(id: string): Promise<UserDomain | null> {
-    const result = await this.db.with({ role: true }).select().from(UserEntity).where({ id }).limit(1);
+    const result = await this.db
+      .with({ role: true })
+      .select()
+      .from(UserEntity)
+      .where({ id })
+      .limit(1);
     const row = result.rows[0];
     return row ? this.toDomain(row) : null;
   }
 
   async findByUsername(username: string): Promise<UserDomain | null> {
-    const result = await this.db.with({ role: true }).select().from(UserEntity).where({ username }).limit(1);
+    const result = await this.db
+      .with({ role: true })
+      .select()
+      .from(UserEntity)
+      .where({ username })
+      .limit(1);
     const row = result.rows[0];
     return row ? this.toDomain(row) : null;
   }
 
   async listUsers(): Promise<UserDomain[]> {
-    const result = await this.db.with({ role: true }).select().from(UserEntity).orderBy('createdAt', 'desc');
-    return (result.rows).map((row) => this.toDomain(row));
+    const result = await this.db
+      .with({ role: true })
+      .select()
+      .from(UserEntity)
+      .orderBy('createdAt', 'desc');
+    return result.rows.map((row) => this.toDomain(row));
   }
 
   async createUser(input: CreateUserInput): Promise<void> {
@@ -61,6 +71,12 @@ export class UserRepository extends Repository {
       .where({ id: userId });
   }
 
+  async updateRoleId(userId: string, roleId: string): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({ roleId, updatedAt: new Date().toISOString() })
+      .where({ id: userId });
+  }
 
   async deleteById(userId: string): Promise<void> {
     await this.db.delete(ApiKeyEntity).where({ userId });
@@ -99,6 +115,4 @@ export class UserRepository extends Repository {
       createdAt: user.createdAt,
     };
   }
-
-  
 }

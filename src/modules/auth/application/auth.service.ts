@@ -1,16 +1,23 @@
+import crypto from 'crypto';
 import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
 import { UserRepository } from '../infrastructure/repositories/user.repository';
+import { RoleRepository } from '../infrastructure/repositories/role.repository';
+
+const CLUSTER_ADMIN_PERMISSIONS = ['vault:all', 'openreport:all', 'stateiac:all'];
 
 export class AuthService {
   constructor(
     private readonly userRepository: UserRepository,
+    private readonly roleRepository: RoleRepository,
     private readonly passwordService: PasswordService,
     private readonly sessionService: SessionService,
   ) {}
 
   async bootstrapDefaults(): Promise<void> {
     this.passwordService.ensureEncryptionKey();
+
+    const clusterAdminRole = await this.ensureClusterAdminRole();
 
     const adminExists = await this.userRepository.findByUsername('admin');
     if (!adminExists) {
@@ -24,7 +31,38 @@ export class AuthService {
       //   role: '00000000-0000-0000-0000-000000000001',
       // });
       // console.log('Default admin user created (admin:admin)');
+      return;
     }
+
+    if (adminExists.role?.id !== clusterAdminRole.id) {
+      await this.userRepository.updateRoleId(adminExists.id, clusterAdminRole.id);
+    }
+  }
+
+  private async ensureClusterAdminRole(): Promise<any> {
+    const existing = await this.roleRepository.findBySlug('cluster-admin', 'cluster');
+
+    if (existing) {
+      await this.roleRepository.update(existing.id, {
+        name: 'Cluster Admin',
+        permissions: CLUSTER_ADMIN_PERMISSIONS,
+      });
+      const updated = await this.roleRepository.findById(existing.id);
+      if (!updated) throw new Error('Failed to load cluster-admin role');
+      return updated;
+    }
+
+    await this.roleRepository.create({
+      id: crypto.randomUUID(),
+      slug: 'cluster-admin',
+      name: 'Cluster Admin',
+      scope: 'cluster',
+      permissions: CLUSTER_ADMIN_PERMISSIONS,
+    });
+
+    const created = await this.roleRepository.findBySlug('cluster-admin', 'cluster');
+    if (!created) throw new Error('Failed to create cluster-admin role');
+    return created;
   }
 
   async authenticate(username: string, password: string): Promise<any> {

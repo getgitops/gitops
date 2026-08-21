@@ -28,7 +28,12 @@ export const passwordService = new PasswordService();
 const sessionService = new SessionService(passwordService);
 export const apiKeysService = new ApiKeysService(apiKeyRepository);
 
-export const authService = new AuthService(userRepository, passwordService, sessionService);
+export const authService = new AuthService(
+  userRepository,
+  roleRepository,
+  passwordService,
+  sessionService,
+);
 export const userService = new UserService(userRepository, roleRepository, passwordService);
 export const profileService = new ProfileService(userRepository, passwordService);
 export const roleService = new RoleService(roleRepository, userRepository);
