@@ -11,6 +11,7 @@ import { PasswordService } from './application/password.service';
 import { ProfileService } from './application/profile.service';
 import { SessionService } from './application/session.service';
 import { UserService } from './application/user.service';
+import { UserAccessService } from './application/user-access.service';
 import { CanCanService } from './application/cancan.service';
 import { RoleService } from './application/role.service';
 import { UserRepository } from './infrastructure/repositories/user.repository';
@@ -37,6 +38,12 @@ export const authService = new AuthService(
 export const userService = new UserService(userRepository, roleRepository, passwordService);
 export const profileService = new ProfileService(userRepository, passwordService);
 export const roleService = new RoleService(roleRepository, userRepository);
+export const userAccessService = new UserAccessService(
+  userRepository,
+  roleRepository,
+  userAccessRepository,
+  passwordService,
+);
 export const cancanService = new CanCanService(
   userRepository,
   userAccessRepository,

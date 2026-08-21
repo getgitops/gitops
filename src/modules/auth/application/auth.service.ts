@@ -5,6 +5,7 @@ import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { RoleRepository } from '../infrastructure/repositories/role.repository';
 
 const CLUSTER_ADMIN_PERMISSIONS = ['vault:all', 'openreport:all', 'stateiac:all'];
+const CLUSTER_USER_PERMISSIONS: string[] = [];
 
 export class AuthService {
   constructor(
@@ -18,6 +19,7 @@ export class AuthService {
     this.passwordService.ensureEncryptionKey();
 
     const clusterAdminRole = await this.ensureClusterAdminRole();
+    await this.ensureClusterUserRole();
 
     const adminExists = await this.userRepository.findByUsername('admin');
     if (!adminExists) {
@@ -62,6 +64,32 @@ export class AuthService {
 
     const created = await this.roleRepository.findBySlug('cluster-admin', 'cluster');
     if (!created) throw new Error('Failed to create cluster-admin role');
+    return created;
+  }
+
+  private async ensureClusterUserRole(): Promise<any> {
+    const existing = await this.roleRepository.findBySlug('cluster-user', 'cluster');
+
+    if (existing) {
+      await this.roleRepository.update(existing.id, {
+        name: 'Cluster User',
+        permissions: CLUSTER_USER_PERMISSIONS,
+      });
+      const updated = await this.roleRepository.findById(existing.id);
+      if (!updated) throw new Error('Failed to load cluster-user role');
+      return updated;
+    }
+
+    await this.roleRepository.create({
+      id: crypto.randomUUID(),
+      slug: 'cluster-user',
+      name: 'Cluster User',
+      scope: 'cluster',
+      permissions: CLUSTER_USER_PERMISSIONS,
+    });
+
+    const created = await this.roleRepository.findBySlug('cluster-user', 'cluster');
+    if (!created) throw new Error('Failed to create cluster-user role');
     return created;
   }
 

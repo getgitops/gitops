@@ -48,7 +48,7 @@
 
   $: projectBase = `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`;
   $: usersSettingsHref = organizationSlug
-    ? `/org/${organizationSlug}/settings/authentication`
+    ? `/org/${organizationSlug}/settings/users`
     : '/cluster-settings/orgs';
 
   // one JSON-like tree drives the whole sidebar: category > module > items
@@ -184,6 +184,11 @@
                     icon: Shield,
                   },
                   {
+                    label: 'Users',
+                    href: `/org/${organizationSlug}/settings/users`,
+                    icon: Users,
+                  },
+                  {
                     label: 'Roles & Permissions',
                     href: `/org/${organizationSlug}/settings/roles-permissions`,
                     icon: Users,
@@ -212,7 +217,7 @@
               href: '/cluster-settings/roles-permissions',
               icon: Shield,
             },
-            { label: 'Users', href: usersSettingsHref, icon: Users },
+            { label: 'Users', href: '/cluster-settings/users', icon: Users },
           ],
         },
       ],

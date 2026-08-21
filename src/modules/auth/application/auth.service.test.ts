@@ -110,7 +110,9 @@ describe('AuthService bootstrapDefaults', () => {
     await service.bootstrapDefaults();
 
     const clusterAdmin = roleRepository.rows.find((entry) => entry.slug === 'cluster-admin');
+    const clusterUser = roleRepository.rows.find((entry) => entry.slug === 'cluster-user');
     expect(clusterAdmin?.permissions).toEqual(['vault:all', 'openreport:all', 'stateiac:all']);
+    expect(clusterUser?.permissions).toEqual([]);
     expect(userRepository.updatedRoleIds).toEqual([
       { userId: 'admin-user', roleId: clusterAdmin?.id },
     ]);
