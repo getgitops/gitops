@@ -100,3 +100,16 @@ relations.for(ProjectEntity, ({ many }) => ({
 relations.for(ProjectRoleEntity, ({ one }) => ({
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
 }));
+
+export const OrganizationEntity = entity('organizations', {
+  id: uuid().primaryKey(),
+  slug: text().notNull(),
+  name: text().notNull(),
+  description: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});

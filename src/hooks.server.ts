@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 import { authService, canAccessAdminArea, ensureAuthReady } from './modules/auth';
+import { ensureOrganizationReady } from './modules/organization';
 import { getGitDb } from '$lib/server/gitdb';
 
 getGitDb();
@@ -10,6 +11,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   await ensureAuthReady();
+  await ensureOrganizationReady();
+
 
   const sessionCookie = event.cookies.get('pos_session');
   const currentUser = await authService.resolveAuthenticatedUser(sessionCookie);
