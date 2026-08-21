@@ -1,0 +1,14 @@
+<svelte:head>
+  <title>Cluster Settings - GitVault Suite</title>
+</svelte:head>
+
+<div class="mx-auto w-full max-w-[1280px]">
+  <div class="min-h-[520px] overflow-hidden border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
+    <div class="border-b border-slate-200 px-6 py-4 sm:px-8">
+      <h2 class="text-lg font-semibold text-slate-900">Cluster Settings</h2>
+    </div>
+    <div class="p-6 sm:p-8">
+      <slot />
+    </div>
+  </div>
+</div>

@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import {
     BarChart3,
+    Building2,
     ChevronDown,
     ChevronRight,
     Database,
@@ -156,6 +157,11 @@
             { label: 'System & Backup', href: '/settings/system-backup', icon: Database },
             { label: 'Server Access Keys', href: '/settings/server-access-keys', icon: KeyRound },
           ],
+        },
+        {
+          name: 'Cluster Settings',
+          icon: Building2,
+          items: [{ label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 }],
         },
       ],
     },

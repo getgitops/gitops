@@ -25,7 +25,12 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/login' } });
   }
 
-  if (event.url.pathname.startsWith('/settings') || event.url.pathname.startsWith('/api/system')) {
+  if (
+    event.url.pathname.startsWith('/settings') ||
+    event.url.pathname.startsWith('/cluster-settings') ||
+    event.url.pathname.startsWith('/api/system') ||
+    event.url.pathname.startsWith('/api/organizations')
+  ) {
     if (!canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
