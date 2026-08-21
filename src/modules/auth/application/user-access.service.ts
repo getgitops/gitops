@@ -14,6 +14,7 @@ type UserAccessRow = {
   username: string;
   email: string | null;
   role: ReturnType<NonNullable<UserAccessDomain['role']>['toJson']> | null;
+  organizations: Array<{ id: string; name: string; slug: string; role: string | null }>;
   scope: RoleScope;
   organizationId: string | null;
   projectId: string | null;
@@ -293,6 +294,7 @@ export class UserAccessService {
       username: entry.user?.username ?? 'Unknown user',
       email: entry.user?.email ?? null,
       role: entry.role ? entry.role.toJson() : null,
+      organizations: [],
       scope: entry.scope,
       organizationId: entry.organizationId,
       projectId: entry.projectId,
@@ -311,17 +313,28 @@ export class UserAccessService {
   }
 
   private async listClusterUsers(): Promise<UserAccessRow[]> {
-    const users = await this.userRepository.listUsers();
-    return users.map((user) => this.toClusterRow(user));
+    const [users, organizationAccess] = await Promise.all([
+      this.userRepository.listUsers(),
+      this.userAccessRepository.findByScope('organization'),
+    ]);
+    return users.map((user) => this.toClusterRow(user, organizationAccess));
   }
 
-  private toClusterRow(user: UserDomain): UserAccessRow {
+  private toClusterRow(user: UserDomain, access: UserAccessDomain[] = []): UserAccessRow {
     return {
       id: user.id,
       userId: user.id,
       username: user.username,
       email: user.email,
       role: user.role ? user.role.toJson() : null,
+      organizations: access
+        .filter((entry) => entry.userId === user.id && entry.organization)
+        .map((entry) => ({
+          id: entry.organization?.id ?? '',
+          name: entry.organization?.name ?? 'Unknown organization',
+          slug: entry.organization?.slug ?? '',
+          role: entry.role?.name ?? null,
+        })),
       scope: 'cluster',
       organizationId: null,
       projectId: null,
@@ -355,6 +368,7 @@ export class UserAccessService {
         status: user.status,
         user: user.toJson(),
         role: user.role ? user.role.toJson() : null,
+        organizations: [],
         organization: null,
         project: null,
         createdAt: user.createdAt,

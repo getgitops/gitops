@@ -45,6 +45,7 @@ export class UserAccessRepository extends Repository {
     const access = await this.findByUserId(userId);
     return access.filter((entry) => {
       if (entry.scope !== scope) return false;
+      if (!scopeId) return true;
       if (scope === 'organization') return entry.organizationId === scopeId;
       if (scope === 'project') return entry.projectId === scopeId;
       return true;
@@ -55,6 +56,7 @@ export class UserAccessRepository extends Repository {
     const access = await this.findAll();
     return access.filter((entry) => {
       if (entry.scope !== scope) return false;
+      if (!scopeId) return true;
       if (scope === 'organization') return entry.organizationId === scopeId;
       if (scope === 'project') return entry.projectId === scopeId;
       return true;

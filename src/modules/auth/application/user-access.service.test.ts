@@ -36,6 +36,14 @@ function user(input: { id: string; username: string; role: RoleDomain | null }) 
   });
 }
 
+function organization(input: { id: string; name: string; slug: string }) {
+  return {
+    ...input,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+  };
+}
+
 class FakeUserRepository {
   rows: UserDomain[] = [];
 
@@ -78,6 +86,7 @@ class FakeUserAccessRepository {
   async findByScope(scope: 'cluster' | 'organization' | 'project', scopeId?: string) {
     return this.rows.filter((entry) => {
       if (entry.scope !== scope) return false;
+      if (!scopeId) return true;
       if (scope === 'organization') return entry.organizationId === scopeId;
       if (scope === 'project') return entry.projectId === scopeId;
       return true;
@@ -269,6 +278,38 @@ describe('UserAccessService', () => {
     });
 
     expect(resent.status).toBe('invited');
+  });
+
+  it('includes organization labels when listing cluster users', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({
+        id: 'org-developer-id',
+        slug: 'developer',
+        scope: 'organization',
+        organizationId: 'gitops',
+      }),
+    );
+    userAccessRepository.rows.push(
+      new UserAccessDomain({
+        id: 'access-id',
+        userId: 'jose-id',
+        roleId: 'org-developer-id',
+        scope: 'organization',
+        organizationId: 'gitops',
+        user: userRepository.rows[0].toJson(),
+        role: roleRepository.rows[1].toJson(),
+        organization: organization({ id: 'gitops', name: 'GitOps', slug: 'gitops' }),
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      }),
+    );
+
+    const users = await service.listUsers('cluster');
+
+    expect(users[0].organizations).toEqual([
+      { id: 'gitops', name: 'GitOps', slug: 'gitops', role: 'developer' },
+    ]);
   });
 
   it('rejects a project role from a different project', async () => {

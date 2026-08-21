@@ -26,6 +26,7 @@
     username: string;
     email: string | null;
     role: RoleRow | null;
+    organizations?: Array<{ id: string; name: string; slug: string; role: string | null }>;
     status: 'active' | 'invited';
     createdAt: string;
   };
@@ -70,7 +71,13 @@
       user.username.toLowerCase().includes(query) ||
       (user.email ?? '').toLowerCase().includes(query) ||
       (user.role?.name ?? '').toLowerCase().includes(query) ||
-      (user.role?.slug ?? '').toLowerCase().includes(query)
+      (user.role?.slug ?? '').toLowerCase().includes(query) ||
+      (user.organizations ?? []).some(
+        (organization) =>
+          organization.name.toLowerCase().includes(query) ||
+          organization.slug.toLowerCase().includes(query) ||
+          (organization.role ?? '').toLowerCase().includes(query),
+      )
     );
   });
   $: availableUsers = assignableUsers.filter(
@@ -293,6 +300,9 @@
             >
               <th class="px-4 py-3">User</th>
               <th class="px-4 py-3">Email</th>
+              {#if scope === 'cluster'}
+                <th class="px-4 py-3">Organizations</th>
+              {/if}
               <th class="px-4 py-3">Role</th>
               <th class="px-4 py-3">Status</th>
               <th class="px-4 py-3">Added</th>
@@ -304,6 +314,30 @@
               <tr class="border-t border-slate-100">
                 <td class="px-4 py-3 font-medium text-slate-900">{user.username}</td>
                 <td class="px-4 py-3 text-slate-600">{user.email || '-'}</td>
+                {#if scope === 'cluster'}
+                  <td class="px-4 py-3 text-slate-600">
+                    {#if user.organizations?.length}
+                      <div class="flex max-w-md flex-wrap gap-1.5">
+                        {#each user.organizations as organization (organization.id)}
+                          <span
+                            class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
+                            title={organization.role
+                              ? `${organization.name}: ${organization.role}`
+                              : organization.name}
+                          >
+                            {organization.name}
+                            {#if organization.role}
+                              <span class="text-slate-400">·</span>
+                              <span class="text-slate-500">{organization.role}</span>
+                            {/if}
+                          </span>
+                        {/each}
+                      </div>
+                    {:else}
+                      <span class="text-slate-400">-</span>
+                    {/if}
+                  </td>
+                {/if}
                 <td class="px-4 py-3 text-slate-600">
                   <div class="relative inline-block text-left">
                     <button
