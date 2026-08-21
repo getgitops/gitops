@@ -1,9 +1,19 @@
 import { fail } from '@sveltejs/kit';
-import { can, roleService, userAccessService } from '../../../../../../../modules/auth';
+import { cancanService, roleService, userAccessService } from '../../../../../../../modules/auth';
 import { projectService } from '../../../../../../../modules/projects';
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
+}
+
+async function canUpdateProjectUsers(user: App.Locals['user'], projectSlug: string) {
+  const project = await projectService.getProjectBySlug(projectSlug);
+  const allowed = await cancanService.canSessionUser(user, 'stateiac:update', {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+  return { project, allowed };
 }
 
 export async function load({ parent }) {
@@ -18,11 +28,11 @@ export async function load({ parent }) {
 
 export const actions = {
   async addUser({ request, locals, params }) {
-    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
-      const project = await projectService.getProjectBySlug(params.slug);
       const user = await userAccessService.assignProjectUser({
         projectId: project.id,
         userId: String(form.get('userId') ?? ''),
@@ -35,11 +45,11 @@ export const actions = {
   },
 
   async updateUserAccess({ request, locals, params }) {
-    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
-      const project = await projectService.getProjectBySlug(params.slug);
       const user = await userAccessService.updateAccess({
         accessId: String(form.get('accessId') ?? ''),
         scope: 'project',
@@ -54,11 +64,11 @@ export const actions = {
   },
 
   async removeUserAccess({ request, locals, params }) {
-    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
-      const project = await projectService.getProjectBySlug(params.slug);
       await userAccessService.removeAccess({
         accessId: String(form.get('accessId') ?? ''),
         scope: 'project',
@@ -71,11 +81,11 @@ export const actions = {
   },
 
   async resendInvitation({ request, locals, params }) {
-    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
-      const project = await projectService.getProjectBySlug(params.slug);
       const user = await userAccessService.resendInvitation({
         accessId: String(form.get('accessId') ?? ''),
         scope: 'project',

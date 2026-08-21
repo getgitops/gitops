@@ -1,5 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
-import { authService, canAccessAdminArea, canManageOrganization, ensureAuthReady } from './modules/auth';
+import { authService, cancanService, ensureAuthReady } from './modules/auth';
 import { ensureOrganizationReady, organizationService } from './modules/organization';
 import { getGitDb } from '$lib/server/gitdb';
 
@@ -28,7 +28,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   const organizationSettingsMatch = event.url.pathname.match(/^\/org\/([^/]+)\/settings/);
   if (organizationSettingsMatch) {
     const organization = await organizationService.tryFindBySlug(organizationSettingsMatch[1]);
-    if (!organization || !canManageOrganization(currentUser, organization.id)) {
+    if (!organization || !(await cancanService.canManageOrganization(currentUser, organization.id))) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
   } else if (
@@ -36,7 +36,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.url.pathname.startsWith('/api/system') ||
     event.url.pathname.startsWith('/api/organizations')
   ) {
-    if (!canAccessAdminArea(currentUser)) {
+    if (!cancanService.canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
   }

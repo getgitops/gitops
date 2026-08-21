@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { can, roleService } from '../../../../../../../modules/auth';
+import { cancanService, roleService } from '../../../../../../../modules/auth';
+import { projectService } from '../../../../../../../modules/projects';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -12,6 +13,20 @@ function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'Role action failed.' });
 }
 
+async function canManageProjectRole(
+  user: App.Locals['user'],
+  projectSlug: string,
+  permission: 'stateiac:create' | 'stateiac:update' | 'stateiac:delete',
+) {
+  const project = await projectService.getProjectBySlug(projectSlug);
+  const allowed = await cancanService.canSessionUser(user, permission, {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+  return { project, allowed };
+}
+
 export async function load({ parent }) {
   const { project } = await parent();
   const roles = await roleService.listRoles('project', project.id);
@@ -20,12 +35,15 @@ export async function load({ parent }) {
 
 export const actions = {
   async createRole({ request, locals, params }) {
-    if (!can(locals.user, 'stateiac:create')) return fail(403, { error: 'Forbidden' });
+    const { project, allowed } = await canManageProjectRole(
+      locals.user,
+      params.slug,
+      'stateiac:create',
+    );
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
-      const { projectService } = await import('../../../../../../../modules/projects');
-      const project = await projectService.getProjectBySlug(params.slug);
       const role = await roleService.createRole({
         name: String(form.get('name') ?? ''),
         slug: String(form.get('slug') ?? ''),
@@ -39,8 +57,9 @@ export const actions = {
     }
   },
 
-  async updateRole({ request, locals }) {
-    if (!can(locals.user, 'stateiac:update')) return fail(403, { error: 'Forbidden' });
+  async updateRole({ request, locals, params }) {
+    const { allowed } = await canManageProjectRole(locals.user, params.slug, 'stateiac:update');
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
@@ -54,8 +73,9 @@ export const actions = {
     }
   },
 
-  async deleteRole({ request, locals }) {
-    if (!can(locals.user, 'stateiac:delete')) return fail(403, { error: 'Forbidden' });
+  async deleteRole({ request, locals, params }) {
+    const { allowed } = await canManageProjectRole(locals.user, params.slug, 'stateiac:delete');
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();

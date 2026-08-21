@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { organizationService } from '../../../../modules/organization';
-import { isAdmin } from '../../../../modules/auth';
+import { cancanService } from '../../../../modules/auth';
 
 export async function GET({ params, locals }) {
-  if (!isAdmin(locals.user)) {
+  if (!cancanService.canAccessAdminArea(locals.user)) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -17,7 +17,7 @@ export async function GET({ params, locals }) {
 }
 
 export async function PATCH({ request, params, locals }) {
-  if (!isAdmin(locals.user)) {
+  if (!cancanService.canAccessAdminArea(locals.user)) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -42,7 +42,7 @@ export async function PATCH({ request, params, locals }) {
 }
 
 export async function DELETE({ params, locals }) {
-  if (!isAdmin(locals.user)) {
+  if (!cancanService.canAccessAdminArea(locals.user)) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 

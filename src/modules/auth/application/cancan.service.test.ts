@@ -87,6 +87,16 @@ describe('CanCanService', () => {
     service = new CanCanService(userRepository, userAccessRepository, projectLookup);
   });
 
+  it('matches explicit grants and section:all shortcuts', () => {
+    expect(CanCanService.hasPermission([], 'vault:read')).toBe(false);
+    expect(CanCanService.hasPermission(null, 'vault:read')).toBe(false);
+    expect(CanCanService.hasPermission(undefined, 'vault:read')).toBe(false);
+    expect(CanCanService.hasPermission(['vault:read'], 'vault:read')).toBe(true);
+    expect(CanCanService.hasPermission(['vault:read'], 'vault:delete')).toBe(false);
+    expect(CanCanService.hasPermission(['vault:all'], 'vault:delete')).toBe(true);
+    expect(CanCanService.hasPermission(['vault:all'], 'openreport:read')).toBe(false);
+  });
+
   it('allows a cluster admin without organization or project access rows', async () => {
     userRepository.rows.set(
       'jose',

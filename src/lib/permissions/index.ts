@@ -1,12 +1,3 @@
-type PermissionAwareUser = {
-  role?: {
-    slug?: string | null;
-    scope?: 'cluster' | 'organization' | 'project' | null;
-    organizationId?: string | null;
-    permissions?: readonly string[] | null;
-  } | null;
-} | null | undefined;
-
 export const PERMISSION_SECTIONS = ['vault', 'openreport', 'stateiac'] as const;
 export type PermissionSection = (typeof PERMISSION_SECTIONS)[number];
 
@@ -42,32 +33,16 @@ export function isValidPermissionGrant(value: string): value is PermissionGrant 
   return ALL_PERMISSION_GRANTS_SET.has(value);
 }
 
-export function hasPermission(
-  grants: readonly string[] | null | undefined,
-  permission: Permission,
+export function isPermissionActionSelected(
+  grants: readonly string[],
+  section: PermissionSection,
+  action: PermissionAction,
 ): boolean {
   if (!grants || grants.length === 0) return false;
 
-  const [section] = permission.split(':') as [PermissionSection, PermissionAction];
+  const permission: Permission = `${section}:${action}`;
 
   return grants.includes(permission) || grants.includes(`${section}:all`);
-}
-
-export function can(user: PermissionAwareUser, permission: Permission): boolean {
-  return hasPermission(user?.role?.permissions, permission);
-}
-
-export function isAdmin(user: PermissionAwareUser): boolean {
-  return user?.role?.slug?.endsWith('-admin') ?? false;
-}
-
-export function canManageOrganization(user: PermissionAwareUser, organizationId: string): boolean {
-  return (
-    isAdmin(user) ||
-    (user?.role?.scope === 'organization' &&
-      user.role.organizationId === organizationId &&
-      hasPermission(user.role.permissions, 'stateiac:read')) // TODO: Poner permissions como tocan.
-  );
 }
 
 export function isSectionFullyGranted(

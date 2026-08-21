@@ -1,9 +1,8 @@
 <script lang="ts">
   import { Shield, KeyRound, Lock, Plus } from 'lucide-svelte';
   import { page } from '$app/stores';
-  import { can } from '$lib/permissions';
 
-  $: canCreate = can($page.data.user, 'vault:create');
+  $: canCreate = Boolean($page.data.canCreateVault);
 </script>
 
 <svelte:head>

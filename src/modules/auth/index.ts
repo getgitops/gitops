@@ -1,10 +1,3 @@
-import {
-  canAccessAdminArea,
-  canManageOrganization,
-  isAdmin,
-  can,
-  hasPermission,
-} from './domain/rbac';
 import { AuthService } from './application/auth.service';
 import { ApiKeysService } from './application/apikeys.service';
 import { PasswordService } from './application/password.service';
@@ -49,8 +42,6 @@ export const cancanService = new CanCanService(
   userAccessRepository,
   projectService,
 );
-
-export { canAccessAdminArea, canManageOrganization, isAdmin, can, hasPermission };
 
 // Bootstrap auth primitives once at startup.
 const authBootstrap = authService.bootstrapDefaults();

@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { roleService, isAdmin } from '../../../../modules/auth';
+import { roleService, cancanService } from '../../../../modules/auth';
 
 export async function PATCH({ request, params, locals }) {
-  if (!locals.user || !isAdmin(locals.user)) {
+  if (!cancanService.canAccessAdminArea(locals.user)) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -22,7 +22,7 @@ export async function PATCH({ request, params, locals }) {
 }
 
 export async function DELETE({ params, locals }) {
-  if (!locals.user || !isAdmin(locals.user)) {
+  if (!cancanService.canAccessAdminArea(locals.user)) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 

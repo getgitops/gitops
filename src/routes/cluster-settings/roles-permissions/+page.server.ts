@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { isAdmin, roleService } from '../../../modules/auth';
+import { cancanService, roleService } from '../../../modules/auth';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -19,7 +19,7 @@ export async function load() {
 
 export const actions = {
   async createRole({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
@@ -36,7 +36,7 @@ export const actions = {
   },
 
   async updateRole({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
@@ -51,7 +51,7 @@ export const actions = {
   },
 
   async deleteRole({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();

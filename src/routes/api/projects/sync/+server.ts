@@ -2,10 +2,10 @@ import { json } from '@sveltejs/kit';
 import { storageBackendService } from '../../../../modules/config';
 import { projectService } from '../../../../modules/projects';
 import { storageService } from '../../../../modules/storage';
-import { can } from '../../../../modules/auth';
+import { cancanService } from '../../../../modules/auth';
 
 export async function POST({ cookies, locals }) {
-  if (!can(locals.user, 'stateiac:update')) {
+  if (!(await cancanService.canSessionUser(locals.user, 'stateiac:update', { scope: 'cluster' }))) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 

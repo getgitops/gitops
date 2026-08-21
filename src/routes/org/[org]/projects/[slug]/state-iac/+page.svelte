@@ -1,9 +1,8 @@
 <script lang="ts">
   import { GitBranch, HardDrive, Terminal, Layers } from 'lucide-svelte';
   import { page } from '$app/stores';
-  import { can } from '$lib/permissions';
 
-  $: canCreate = can($page.data.user, 'stateiac:create');
+  $: canCreate = Boolean($page.data.canCreateStateIac);
 </script>
 
 <svelte:head>

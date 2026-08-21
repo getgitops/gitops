@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { canManageOrganization, roleService, userAccessService } from '../../../../../modules/auth';
+import { cancanService, roleService, userAccessService } from '../../../../../modules/auth';
 import { organizationService } from '../../../../../modules/organization';
 
 function errorResponse(error: unknown) {
@@ -18,7 +18,7 @@ export async function load({ parent }) {
 export const actions = {
   async addUser({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -39,7 +39,7 @@ export const actions = {
 
   async updateUserAccess({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -60,7 +60,7 @@ export const actions = {
 
   async removeUserAccess({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -79,7 +79,7 @@ export const actions = {
 
   async resendInvitation({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 

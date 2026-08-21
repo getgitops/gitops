@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { isAdmin, roleService, userAccessService } from '../../../modules/auth';
+import { cancanService, roleService, userAccessService } from '../../../modules/auth';
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
@@ -15,7 +15,7 @@ export async function load() {
 
 export const actions = {
   async addUser({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
@@ -32,7 +32,7 @@ export const actions = {
   },
 
   async updateUserAccess({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
@@ -49,7 +49,7 @@ export const actions = {
   },
 
   async removeUserAccess({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();
@@ -64,7 +64,7 @@ export const actions = {
   },
 
   async resendInvitation({ request, locals }) {
-    if (!isAdmin(locals.user)) return fail(403, { error: 'Forbidden' });
+    if (!cancanService.canAccessAdminArea(locals.user)) return fail(403, { error: 'Forbidden' });
 
     try {
       const form = await request.formData();

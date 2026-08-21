@@ -7,7 +7,7 @@
     PERMISSION_ACTIONS,
     PERMISSION_SECTION_LABELS,
     PERMISSION_ACTION_LABELS,
-    hasPermission,
+    isPermissionActionSelected,
     isSectionFullyGranted,
     togglePermissionAction,
     toggleSectionAll,
@@ -258,7 +258,7 @@
                       <td class="py-2 pr-4"
                         ><input
                           type="checkbox"
-                          checked={hasPermission(role.permissions, `${section}:${action}`)}
+                          checked={isPermissionActionSelected(role.permissions, section, action)}
                           disabled={isSectionFullyGranted(role.permissions, section)}
                           on:change={() => onToggleAction(role, section, action)}
                           class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
@@ -342,7 +342,7 @@
                   {#each PERMISSION_ACTIONS as action}<td class="py-2 pr-4"
                       ><input
                         type="checkbox"
-                        checked={hasPermission(newRolePermissions, `${section}:${action}`)}
+                        checked={isPermissionActionSelected(newRolePermissions, section, action)}
                         disabled={isSectionFullyGranted(newRolePermissions, section)}
                         on:change={() => onToggleNewAction(section, action)}
                         class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"

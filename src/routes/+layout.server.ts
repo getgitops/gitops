@@ -1,6 +1,6 @@
 import { projectService } from '../modules/projects';
 import { organizationService } from '../modules/organization';
-import { can } from '../modules/auth';
+import { cancanService } from '../modules/auth';
 // import { configService, storageBackendService } from '../modules/config';
 
 export async function load({ locals, url }) {
@@ -20,10 +20,24 @@ export async function load({ locals, url }) {
     ? await organizationService.tryFindBySlug(orgSlugFromUrl)
     : await organizationService.getDefaultOrganization();
 
-  const projects =
-    locals.user && can(locals.user, 'stateiac:read')
-      ? (await projectService.listProjects()).filter((project) => project.status === 'active')
-      : [];
+  const projects = locals.user
+    ? (
+        await Promise.all(
+          (await projectService.listProjects())
+            .filter((project) => project.status === 'active')
+            .map(async (project) => ({
+              project,
+              allowed: await cancanService.canSessionUser(locals.user, 'stateiac:read', {
+                scope: 'project',
+                projectId: project.id,
+                organizationId: project.organization?.id,
+              }),
+            })),
+        )
+      )
+        .filter(({ allowed }) => allowed)
+        .map(({ project }) => project)
+    : [];
 
   return {
     // isConfigured: !!config && backends.length > 0,

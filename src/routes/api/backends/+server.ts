@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { storageBackendService } from '../../../modules/config';
-import { can } from '../../../modules/auth';
+import { cancanService } from '../../../modules/auth';
 
 export async function GET({ locals }) {
-  if (!can(locals.user, 'stateiac:read')) {
+  if (!(await cancanService.canSessionUser(locals.user, 'stateiac:read', { scope: 'cluster' }))) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -14,7 +14,13 @@ export async function POST({ request, locals }) {
   try {
     const data = await request.json();
 
-    if (!can(locals.user, data.id ? 'stateiac:update' : 'stateiac:create')) {
+    if (
+      !(await cancanService.canSessionUser(
+        locals.user,
+        data.id ? 'stateiac:update' : 'stateiac:create',
+        { scope: 'cluster' },
+      ))
+    ) {
       return json({ error: 'Forbidden' }, { status: 403 });
     }
 

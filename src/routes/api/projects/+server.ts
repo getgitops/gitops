@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { projectService } from '../../../modules/projects';
-import { can } from '../../../modules/auth';
+import { cancanService } from '../../../modules/auth';
 
 export async function GET({ url, locals }) {
-  if (!can(locals.user, 'stateiac:read')) {
+  if (!(await cancanService.canSessionUser(locals.user, 'stateiac:read', { scope: 'cluster' }))) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -20,10 +20,6 @@ export async function GET({ url, locals }) {
 }
 
 export async function POST({ request, locals }) {
-  if (!can(locals.user, 'stateiac:create')) {
-    return json({ error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
     const data = (await request.json()) as {
       organizationId?: string;
@@ -33,6 +29,17 @@ export async function POST({ request, locals }) {
       status?: string;
       modules?: { vault?: boolean; openreport?: boolean; stateiac?: boolean };
     };
+
+    const canCreate = data.organizationId
+      ? await cancanService.canSessionUser(locals.user, 'stateiac:create', {
+          scope: 'organization',
+          organizationId: data.organizationId,
+        })
+      : await cancanService.canSessionUser(locals.user, 'stateiac:create', { scope: 'cluster' });
+
+    if (!canCreate) {
+      return json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const project = await projectService.createProject({
       organizationId: String(data.organizationId || ''),

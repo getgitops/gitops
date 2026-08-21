@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { roleService, isAdmin } from '../../../modules/auth';
+import { roleService, cancanService } from '../../../modules/auth';
 
 export async function GET({ locals, url }) {
   if (!locals.user) {
@@ -20,7 +20,7 @@ export async function GET({ locals, url }) {
 }
 
 export async function POST({ request, locals }) {
-  if (!locals.user || !isAdmin(locals.user)) {
+  if (!cancanService.canAccessAdminArea(locals.user)) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 

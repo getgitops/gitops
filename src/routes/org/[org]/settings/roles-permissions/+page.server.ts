@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { canManageOrganization, roleService } from '../../../../../modules/auth';
+import { cancanService, roleService } from '../../../../../modules/auth';
 import { organizationService } from '../../../../../modules/organization';
 
 function parsePermissions(value: unknown): string[] {
@@ -22,7 +22,7 @@ export async function load({ parent }) {
 export const actions = {
   async createRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -43,7 +43,7 @@ export const actions = {
 
   async updateRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -61,7 +61,7 @@ export const actions = {
 
   async deleteRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!canManageOrganization(locals.user, organization.id)) {
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
     }
 
