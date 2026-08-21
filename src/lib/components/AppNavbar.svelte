@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ChevronDown, FolderKanban, LogOut, UserRound } from 'lucide-svelte';
+  import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from 'lucide-svelte';
 
   type NavbarUser = { username: string; role: { name: string } | string | null };
 
@@ -166,6 +166,14 @@
               >
                 <UserRound class="h-4 w-4" />
                 Profile
+              </a>
+              <a
+                href="/org"
+                on:click={closeUserDropdown}
+                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                <Building2 class="h-4 w-4" />
+                Change Organization
               </a>
               <form action="/api/auth/logout" method="POST" on:submit={closeUserDropdown}>
                 <button
