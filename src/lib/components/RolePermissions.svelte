@@ -15,8 +15,8 @@
     type PermissionAction,
   } from '$lib/permissions';
 
-  export let scope: 'organization' | 'project';
-  export let scopeId: string;
+  export let scope: 'cluster' | 'organization' | 'project';
+  export let scopeId = '';
   export let initialRoles: RoleRow[] = [];
   export let title = 'Roles & Permissions';
   export let description =
@@ -119,13 +119,18 @@
 
     creatingRole = true;
     try {
-      const idParameter = scope === 'organization' ? 'organizationId' : 'projectId';
-      await submitAction('createRole', {
+      const values: Record<string, string> = {
         name: newRoleName.trim(),
         slug: newRoleSlug.trim(),
         permissions: JSON.stringify(newRolePermissions),
         scope,
-        [idParameter]: scopeId,
+      };
+
+      if (scope === 'organization') values.organizationId = scopeId;
+      if (scope === 'project') values.projectId = scopeId;
+
+      await submitAction('createRole', {
+        ...values,
       });
       createModalOpen = false;
       flashSuccess('Role created.');
@@ -235,7 +240,7 @@
             </div>
           </div>
           <div class="overflow-x-auto p-4">
-            <table class="w-full min-w-[480px] text-sm">
+            <table class="w-full min-w-120 text-sm">
               <thead
                 ><tr class="text-left text-xs font-medium uppercase tracking-wide text-slate-500"
                   ><th class="pb-2 pr-4">Section</th>{#each PERMISSION_ACTIONS as action}<th
@@ -320,7 +325,7 @@
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[440px] text-sm">
+          <table class="w-full min-w-110 text-sm">
             <thead
               ><tr class="text-left text-xs font-medium uppercase tracking-wide text-slate-500"
                 ><th class="pb-2 pr-4">Section</th>{#each PERMISSION_ACTIONS as action}<th

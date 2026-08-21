@@ -21,7 +21,7 @@
     Users,
     Layers,
     HardDrive,
-    Bot
+    Bot,
   } from 'lucide-svelte';
 
   type NavItem = { label: string; href: string; icon: ComponentType };
@@ -47,6 +47,9 @@
   $: currentProject = projects.find((project) => project.slug === currentProjectSlug) ?? null;
 
   $: projectBase = `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`;
+  $: usersSettingsHref = organizationSlug
+    ? `/org/${organizationSlug}/settings/authentication`
+    : '/cluster-settings/orgs';
 
   // one JSON-like tree drives the whole sidebar: category > module > items
   $: categories = [
@@ -118,7 +121,11 @@
                 items: [
                   { label: 'Stacks', href: `${projectBase}/state-iac/stacks`, icon: Layers },
                   { label: 'Backends', href: `${projectBase}/state-iac/backends`, icon: HardDrive },
-                  { label: 'Deployments', href: `${projectBase}/state-iac/deployments`, icon: GitBranch }
+                  {
+                    label: 'Deployments',
+                    href: `${projectBase}/state-iac/deployments`,
+                    icon: GitBranch,
+                  },
                 ],
               },
             ],
@@ -146,7 +153,11 @@
                     icon: Shield,
                   },
                   { label: 'Audit', href: `${projectBase}/settings/audit`, icon: ScrollText },
-                  { label: 'Server Keys', href: `${projectBase}/settings/server-keys`, icon: Shield },
+                  {
+                    label: 'Server Keys',
+                    href: `${projectBase}/settings/server-keys`,
+                    icon: Shield,
+                  },
                 ],
               },
             ],
@@ -194,7 +205,15 @@
         {
           name: 'Cluster Settings',
           icon: Building2,
-          items: [{ label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 }],
+          items: [
+            { label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 },
+            {
+              label: 'Roles & Permissions',
+              href: '/cluster-settings/roles-permissions',
+              icon: Shield,
+            },
+            { label: 'Users', href: usersSettingsHref, icon: Users },
+          ],
         },
       ],
     },
@@ -247,7 +266,9 @@
 
   {#if !isConfigured}
     <a
-      href={organizationSlug ? `/org/${organizationSlug}/settings/storage` : '/cluster-settings/orgs'}
+      href={organizationSlug
+        ? `/org/${organizationSlug}/settings/storage`
+        : '/cluster-settings/orgs'}
       class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
         ? 'justify-center'
         : 'items-start'}"
