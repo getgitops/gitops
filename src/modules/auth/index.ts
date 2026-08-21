@@ -1,4 +1,4 @@
-import { canAccessAdminArea, isAdmin, can, hasPermission } from './domain/rbac';
+import { canAccessAdminArea, canManageOrganization, isAdmin, can, hasPermission } from './domain/rbac';
 import { AuthService } from './application/auth.service';
 import { ApiKeysService } from './application/apikeys.service';
 import { PasswordService } from './application/password.service';
@@ -23,7 +23,7 @@ export const userService = new UserService(userRepository, roleRepository, passw
 export const profileService = new ProfileService(userRepository, passwordService);
 export const roleService = new RoleService(roleRepository, userRepository);
 
-export { canAccessAdminArea, isAdmin, can, hasPermission };
+export { canAccessAdminArea, canManageOrganization, isAdmin, can, hasPermission };
 
 // Bootstrap auth primitives once at startup.
 const authBootstrap = authService.bootstrapDefaults();

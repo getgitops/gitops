@@ -1,6 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
-import { authService, canAccessAdminArea, ensureAuthReady } from './modules/auth';
-import { ensureOrganizationReady } from './modules/organization';
+import { authService, canAccessAdminArea, canManageOrganization, ensureAuthReady } from './modules/auth';
+import { ensureOrganizationReady, organizationService } from './modules/organization';
 import { getGitDb } from '$lib/server/gitdb';
 
 getGitDb();
@@ -25,8 +25,13 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/login' } });
   }
 
-  if (
-    /^\/org\/[^/]+\/settings/.test(event.url.pathname) ||
+  const organizationSettingsMatch = event.url.pathname.match(/^\/org\/([^/]+)\/settings/);
+  if (organizationSettingsMatch) {
+    const organization = await organizationService.tryFindBySlug(organizationSettingsMatch[1]);
+    if (!organization || !canManageOrganization(currentUser, organization.id)) {
+      return new Response(null, { status: 302, headers: { location: '/' } });
+    }
+  } else if (
     event.url.pathname.startsWith('/cluster-settings') ||
     event.url.pathname.startsWith('/api/system') ||
     event.url.pathname.startsWith('/api/organizations')

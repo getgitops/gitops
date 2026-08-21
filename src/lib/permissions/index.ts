@@ -1,5 +1,10 @@
 type PermissionAwareUser = {
-  role?: { slug?: string | null; permissions?: readonly string[] | null } | null;
+  role?: {
+    slug?: string | null;
+    scope?: 'cluster' | 'organization' | 'project' | null;
+    organizationId?: string | null;
+    permissions?: readonly string[] | null;
+  } | null;
 } | null | undefined;
 
 export const PERMISSION_SECTIONS = ['vault', 'openreport', 'stateiac'] as const;
@@ -53,7 +58,16 @@ export function can(user: PermissionAwareUser, permission: Permission): boolean 
 }
 
 export function isAdmin(user: PermissionAwareUser): boolean {
-  return user?.role?.slug === 'admin';
+  return user?.role?.slug?.endsWith('-admin') ?? false;
+}
+
+export function canManageOrganization(user: PermissionAwareUser, organizationId: string): boolean {
+  return (
+    isAdmin(user) ||
+    (user?.role?.scope === 'organization' &&
+      user.role.organizationId === organizationId &&
+      hasPermission(user.role.permissions, 'stateiac:read')) // TODO: Poner permissions como tocan.
+  );
 }
 
 export function isSectionFullyGranted(
