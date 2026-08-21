@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { CheckCircle, Eye, FolderKanban, Plus, Search, Trash2 } from 'lucide-svelte';
 
-  export let data: { organization: { slug: string } | null };
+  export let data: { organization: { id: string; slug: string } | null };
 
   type ProjectRow = {
     id: string;
@@ -41,7 +41,11 @@
     error = '';
 
     try {
-      const res = await fetch('/api/projects');
+      const organizationId = data.organization?.id;
+      const url = organizationId
+        ? `/api/projects?organizationId=${organizationId}`
+        : '/api/projects';
+      const res = await fetch(url);
       const payload = await res.json();
       if (payload.error) throw new Error(payload.error);
       projects = payload.projects || [];
@@ -91,12 +95,18 @@
       return;
     }
 
+    if (!data.organization) {
+      createError = 'No organization selected.';
+      return;
+    }
+
     creating = true;
     try {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          organizationId: data.organization.id,
           name: newName.trim(),
           slug: newSlug.trim() || undefined,
           description: newDescription.trim() || undefined,

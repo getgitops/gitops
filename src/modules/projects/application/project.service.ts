@@ -4,11 +4,23 @@ import { DEFAULT_PROJECT_MODULES, type ProjectModules } from '../domain/project.
 
 export type ProjectStatusValue = 'active' | 'inactive';
 
+export interface OrganizationLookup {
+  getOrganization(id: string): Promise<unknown>;
+}
+
 export class ProjectService {
-  constructor(private readonly repository: ProjectRepository) {}
+  constructor(
+    private readonly repository: ProjectRepository,
+    private readonly organizationLookup: OrganizationLookup,
+  ) {}
 
   async listProjects() {
     const projects = await this.repository.findAll();
+    return projects.map((project) => project.toJson());
+  }
+
+  async listProjectsByOrganization(organizationId: string) {
+    const projects = await this.repository.findByOrganizationId(organizationId);
     return projects.map((project) => project.toJson());
   }
 
@@ -29,12 +41,19 @@ export class ProjectService {
   }
 
   async createProject(input: {
+    organizationId: string;
     name: string;
     slug?: string;
     description?: string;
     status?: string;
     modules?: Partial<ProjectModules>;
   }) {
+    const organizationId = input.organizationId?.trim();
+    if (!organizationId) {
+      throw new Error('Organization is required');
+    }
+    await this.organizationLookup.getOrganization(organizationId);
+
     const name = input.name.trim();
     if (!name) {
       throw new Error('Project name is required');
@@ -52,6 +71,7 @@ export class ProjectService {
 
     await this.repository.create({
       id: crypto.randomUUID(),
+      organizationId,
       slug,
       name,
       description: input.description?.trim() || undefined,
@@ -75,6 +95,7 @@ export class ProjectService {
       description?: string;
       status?: string;
       modules?: Partial<ProjectModules>;
+      organizationId?: string;
     },
   ) {
     const project = await this.repository.findById(id);
@@ -88,7 +109,17 @@ export class ProjectService {
       description?: string;
       status?: string;
       modules?: ProjectModules;
+      organizationId?: string;
     } = {};
+
+    if (changes.organizationId !== undefined) {
+      const organizationId = changes.organizationId.trim();
+      if (!organizationId) {
+        throw new Error('Organization is required');
+      }
+      await this.organizationLookup.getOrganization(organizationId);
+      patch.organizationId = organizationId;
+    }
 
     if (changes.name !== undefined) {
       const name = changes.name.trim();

@@ -1,4 +1,5 @@
 import { Domain } from '$lib/server/domain/domain';
+import { OrganizationDomain } from '../../organization/domain/organization.domain';
 
 export interface ProjectStatus {
   ACTIVE: 'active';
@@ -23,6 +24,7 @@ export class ProjectDomain extends Domain {
   public description?: string | null = null;
   public status: ProjectStatus[keyof ProjectStatus] = 'active';
   public modules: ProjectModules = { ...DEFAULT_PROJECT_MODULES };
+  public organization: OrganizationDomain | null = null;
   constructor(data: any) {
     super(data);
     this.name = data.name;
@@ -30,6 +32,7 @@ export class ProjectDomain extends Domain {
     this.description = data.description;
     this.status = data.status;
     this.modules = { ...DEFAULT_PROJECT_MODULES, ...(data.modules ?? {}) };
+    this.organization = data.organization ? new OrganizationDomain(data.organization) : null;
   }
 
   toJson() {
@@ -42,6 +45,7 @@ export class ProjectDomain extends Domain {
       status: this.status,
       modules: this.modules,
       updatedAt: this.updatedAt,
+      organization: this.organization ? this.organization.toJson() : null,
     };
   }
 }

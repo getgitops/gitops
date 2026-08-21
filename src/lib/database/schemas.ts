@@ -60,8 +60,22 @@ relations.for(ApiKeyEntity, ({ one }) => ({
   user: one(UserEntity, { fields: ['userId'], references: ['id'] }),
 }));
 
+export const OrganizationEntity = entity('organizations', {
+  id: uuid().primaryKey(),
+  slug: text().notNull(),
+  name: text().notNull(),
+  description: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const ProjectEntity = entity('projects', {
   id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
   slug: text().notNull(),
   name: text().notNull(),
   description: text(),
@@ -93,23 +107,15 @@ export const ProjectRoleEntity = entity('project_roles', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
-relations.for(ProjectEntity, ({ many }) => ({
+relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(ProjectRoleEntity, { fields: ['id'], references: ['projectId'] }),
+  organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
 }));
 
 relations.for(ProjectRoleEntity, ({ one }) => ({
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
 }));
 
-export const OrganizationEntity = entity('organizations', {
-  id: uuid().primaryKey(),
-  slug: text().notNull(),
-  name: text().notNull(),
-  description: text(),
-  createdAt: timestamp()
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: timestamp()
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-});
+relations.for(OrganizationEntity, ({ many }) => ({
+  projects: many(ProjectEntity, { fields: ['id'], references: ['organizationId'] }),
+}));

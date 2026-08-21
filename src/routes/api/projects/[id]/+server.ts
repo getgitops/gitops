@@ -23,6 +23,7 @@ export async function PATCH({ request, params, locals }) {
 
   try {
     const data = (await request.json()) as {
+      organizationId?: string;
       name?: string;
       slug?: string;
       description?: string;
@@ -31,6 +32,7 @@ export async function PATCH({ request, params, locals }) {
     };
 
     const project = await projectService.updateProject(params.id, {
+      organizationId: data.organizationId,
       name: data.name,
       slug: data.slug,
       description: data.description,

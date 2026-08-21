@@ -2,6 +2,8 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { ProjectService } from './project.service';
 import { ProjectDomain } from '../domain/project.domain';
 
+const DEFAULT_ORGANIZATION_ID = 'org-1';
+
 class FakeProjectRepository {
   rows: ProjectDomain[] = [];
 
@@ -19,6 +21,7 @@ class FakeProjectRepository {
 
   async create(input: {
     id: string;
+    organizationId: string;
     slug: string;
     name: string;
     description?: string;
@@ -28,6 +31,7 @@ class FakeProjectRepository {
     this.rows.push(
       new ProjectDomain({
         id: input.id,
+        organization: { id: input.organizationId, name: 'Org', slug: 'org' },
         slug: input.slug,
         name: input.name,
         description: input.description,
@@ -47,6 +51,7 @@ class FakeProjectRepository {
       description?: string;
       status?: string;
       modules?: { vault: boolean; openreport: boolean; stateiac: boolean };
+      organizationId?: string;
     },
   ) {
     const project = this.rows.find((p) => p.id === id);
@@ -56,10 +61,19 @@ class FakeProjectRepository {
     if (changes.description !== undefined) project.description = changes.description;
     if (changes.status !== undefined) project.status = changes.status as 'active' | 'inactive';
     if (changes.modules !== undefined) project.modules = changes.modules;
+    if (changes.organizationId !== undefined) {
+      project.organization = { id: changes.organizationId, name: 'Org', slug: 'org' } as any;
+    }
   }
 
   async deleteById(id: string) {
     this.rows = this.rows.filter((p) => p.id !== id);
+  }
+}
+
+class FakeOrganizationLookup {
+  async getOrganization(id: string) {
+    return { id, name: 'Org', slug: 'org' };
   }
 }
 
@@ -69,8 +83,16 @@ describe('ProjectService', () => {
 
   beforeEach(() => {
     repository = new FakeProjectRepository();
-    service = new ProjectService(repository as any);
+    service = new ProjectService(repository as any, new FakeOrganizationLookup());
   });
+
+  function withOrg(input: Record<string, unknown> = {}) {
+    return { organizationId: DEFAULT_ORGANIZATION_ID, ...input };
+  }
+
+  function createProject(input: Record<string, unknown>) {
+    return service.createProject(withOrg(input) as any);
+  }
 
   describe('listProjects', () => {
     it('returns an empty list when there are no projects', async () => {
@@ -78,7 +100,7 @@ describe('ProjectService', () => {
     });
 
     it('lists created projects', async () => {
-      await service.createProject({ name: 'Platform Core' });
+      await createProject({ name: 'Platform Core' });
       const projects = await service.listProjects();
       expect(projects).toHaveLength(1);
       expect(projects[0].slug).toBe('platform-core');
@@ -92,7 +114,7 @@ describe('ProjectService', () => {
     });
 
     it('returns the project by id and by slug', async () => {
-      const created = await service.createProject({ name: 'Kettu Studio' });
+      const created = await createProject({ name: 'Kettu Studio' });
 
       const byId = await service.getProject(created.id);
       expect(byId.slug).toBe('kettu-studio');
@@ -104,43 +126,41 @@ describe('ProjectService', () => {
 
   describe('createProject', () => {
     it('requires a non-empty name', async () => {
-      await expect(service.createProject({ name: '   ' })).rejects.toThrow(/name is required/);
+      await expect(createProject({ name: '   ' })).rejects.toThrow(/name is required/);
     });
 
     it('auto-generates a normalized slug from the name when none is provided', async () => {
-      const project = await service.createProject({ name: 'Kettu Studio!!' });
+      const project = await createProject({ name: 'Kettu Studio!!' });
       expect(project.slug).toBe('kettu-studio');
     });
 
     it('uses the provided slug, normalized', async () => {
-      const project = await service.createProject({ name: 'Kettu Studio', slug: 'Custom Slug' });
+      const project = await createProject({ name: 'Kettu Studio', slug: 'Custom Slug' });
       expect(project.slug).toBe('custom-slug');
     });
 
     it('rejects creating a project with a duplicate slug', async () => {
-      await service.createProject({ name: 'Kettu Studio' });
-      await expect(service.createProject({ name: 'Kettu Studio' })).rejects.toThrow(
-        /already exists/,
-      );
+      await createProject({ name: 'Kettu Studio' });
+      await expect(createProject({ name: 'Kettu Studio' })).rejects.toThrow(/already exists/);
     });
 
     it('defaults status to active for missing or invalid values', async () => {
-      const project = await service.createProject({ name: 'Project A' });
+      const project = await createProject({ name: 'Project A' });
       expect(project.status).toBe('active');
     });
 
     it('accepts an explicit inactive status', async () => {
-      const project = await service.createProject({ name: 'Project B', status: 'inactive' });
+      const project = await createProject({ name: 'Project B', status: 'inactive' });
       expect(project.status).toBe('inactive');
     });
 
     it('defaults all modules to enabled when none are provided', async () => {
-      const project = await service.createProject({ name: 'Project C' });
+      const project = await createProject({ name: 'Project C' });
       expect(project.modules).toEqual({ vault: true, openreport: true, stateiac: true });
     });
 
     it('accepts a partial modules override, defaulting the rest to enabled', async () => {
-      const project = await service.createProject({
+      const project = await createProject({
         name: 'Project D',
         modules: { vault: false },
       });
@@ -154,7 +174,7 @@ describe('ProjectService', () => {
     });
 
     it('updates only the fields provided', async () => {
-      const created = await service.createProject({ name: 'Original Name' });
+      const created = await createProject({ name: 'Original Name' });
 
       const updated = await service.updateProject(created.id, { description: 'New description' });
       expect(updated.name).toBe('Original Name');
@@ -162,21 +182,21 @@ describe('ProjectService', () => {
     });
 
     it('rejects clearing the name', async () => {
-      const created = await service.createProject({ name: 'Original Name' });
+      const created = await createProject({ name: 'Original Name' });
       await expect(service.updateProject(created.id, { name: '   ' })).rejects.toThrow(
         /name is required/,
       );
     });
 
     it('normalizes the slug when updating it', async () => {
-      const created = await service.createProject({ name: 'Original Name' });
+      const created = await createProject({ name: 'Original Name' });
       const updated = await service.updateProject(created.id, { slug: 'New Slug!!' });
       expect(updated.slug).toBe('new-slug');
     });
 
     it('rejects updating to a slug already used by another project', async () => {
-      await service.createProject({ name: 'Project A', slug: 'taken' });
-      const created = await service.createProject({ name: 'Project B' });
+      await createProject({ name: 'Project A', slug: 'taken' });
+      const created = await createProject({ name: 'Project B' });
 
       await expect(service.updateProject(created.id, { slug: 'taken' })).rejects.toThrow(
         /already exists/,
@@ -184,13 +204,13 @@ describe('ProjectService', () => {
     });
 
     it('allows keeping the same slug on the same project', async () => {
-      const created = await service.createProject({ name: 'Project A', slug: 'same-slug' });
+      const created = await createProject({ name: 'Project A', slug: 'same-slug' });
       const updated = await service.updateProject(created.id, { slug: 'same-slug' });
       expect(updated.slug).toBe('same-slug');
     });
 
     it('merges partial module updates with the existing modules', async () => {
-      const created = await service.createProject({ name: 'Project A' });
+      const created = await createProject({ name: 'Project A' });
 
       const updated = await service.updateProject(created.id, { modules: { vault: false } });
       expect(updated.modules).toEqual({ vault: false, openreport: true, stateiac: true });
@@ -202,7 +222,7 @@ describe('ProjectService', () => {
     });
 
     it('updates the status', async () => {
-      const created = await service.createProject({ name: 'Project A' });
+      const created = await createProject({ name: 'Project A' });
       const updated = await service.updateProject(created.id, { status: 'inactive' });
       expect(updated.status).toBe('inactive');
     });
@@ -214,7 +234,7 @@ describe('ProjectService', () => {
     });
 
     it('deletes an existing project', async () => {
-      const created = await service.createProject({ name: 'Project A' });
+      const created = await createProject({ name: 'Project A' });
 
       await service.deleteProject(created.id);
 

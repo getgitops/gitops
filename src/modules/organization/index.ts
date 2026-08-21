@@ -5,6 +5,7 @@ const organizationRepository = new OrganizationRepository();
 
 export const organizationService = new OrganizationService(organizationRepository);
 export type { Organization } from './application/organization.service';
+export { OrganizationDomain } from './domain/organization.domain';
 
 // Bootstrap the default org once at startup.
 const organizationBootstrap = organizationService.bootstrapDefaults();
