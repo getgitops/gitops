@@ -52,11 +52,27 @@ export const ApiKeyEntity = entity('api_keys', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const UserAccessEntity = entity('user_access', {
+  id: uuid().primaryKey(),
+  userId: uuid().notNull(),
+  roleId: uuid().notNull(),
+  scope: text().notNull(),
+  organizationId: uuid(),
+  projectId: uuid(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const relations = defineRelations();
 
 relations.for(UserEntity, ({ one, many }) => ({
   role: one(RoleEntity, { fields: ['roleId'], references: ['id'] }),
   apiKeys: many(ApiKeyEntity, { fields: ['id'], references: ['userId'] }),
+  access: many(UserAccessEntity, { fields: ['id'], references: ['userId'] }),
 }));
 
 relations.for(ApiKeyEntity, ({ one }) => ({
@@ -97,9 +113,18 @@ export const ProjectEntity = entity('projects', {
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
+  access: many(UserAccessEntity, { fields: ['id'], references: ['projectId'] }),
 }));
 
-relations.for(RoleEntity, ({ one }) => ({
+relations.for(RoleEntity, ({ one, many }) => ({
+  organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  access: many(UserAccessEntity, { fields: ['id'], references: ['roleId'] }),
+}));
+
+relations.for(UserAccessEntity, ({ one }) => ({
+  user: one(UserEntity, { fields: ['userId'], references: ['id'] }),
+  role: one(RoleEntity, { fields: ['roleId'], references: ['id'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
 }));
@@ -107,4 +132,5 @@ relations.for(RoleEntity, ({ one }) => ({
 relations.for(OrganizationEntity, ({ many }) => ({
   projects: many(ProjectEntity, { fields: ['id'], references: ['organizationId'] }),
   roles: many(RoleEntity, { fields: ['id'], references: ['organizationId'] }),
+  access: many(UserAccessEntity, { fields: ['id'], references: ['organizationId'] }),
 }));
