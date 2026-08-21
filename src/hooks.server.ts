@@ -26,7 +26,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   if (
-    event.url.pathname.startsWith('/settings') ||
+    /^\/org\/[^/]+\/settings/.test(event.url.pathname) ||
     event.url.pathname.startsWith('/cluster-settings') ||
     event.url.pathname.startsWith('/api/system') ||
     event.url.pathname.startsWith('/api/organizations')

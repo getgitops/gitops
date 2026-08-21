@@ -30,7 +30,7 @@
 
   export let pathname = '/';
   export let isConfigured = false;
-  export let collapsed = false;
+  export let collapsed = true;
   export let organizationSlug: string | null = null;
   export let organizationName: string | null = null;
   export let projects: {
@@ -156,17 +156,41 @@
     {
       name: 'Sistema',
       modules: [
-        {
-          name: 'Settings',
-          icon: Settings,
-          items: [
-            { label: 'Projects', href: '/settings/projects', icon: FolderKanban },
-            { label: 'Autentication', href: '/settings/authentication', icon: Shield },
-            { label: 'Roles & Permissions', href: '/settings/roles-permissions', icon: Users },
-            { label: 'System & Backup', href: '/settings/system-backup', icon: Database },
-            { label: 'Server Access Keys', href: '/settings/server-access-keys', icon: KeyRound },
-          ],
-        },
+        ...(organizationSlug
+          ? [
+              {
+                name: 'Organization Settings',
+                icon: Settings,
+                items: [
+                  {
+                    label: 'Projects',
+                    href: `/org/${organizationSlug}/settings/projects`,
+                    icon: FolderKanban,
+                  },
+                  {
+                    label: 'Autentication',
+                    href: `/org/${organizationSlug}/settings/authentication`,
+                    icon: Shield,
+                  },
+                  {
+                    label: 'Roles & Permissions',
+                    href: `/org/${organizationSlug}/settings/roles-permissions`,
+                    icon: Users,
+                  },
+                  {
+                    label: 'System & Backup',
+                    href: `/org/${organizationSlug}/settings/system-backup`,
+                    icon: Database,
+                  },
+                  {
+                    label: 'Server Access Keys',
+                    href: `/org/${organizationSlug}/settings/server-access-keys`,
+                    icon: KeyRound,
+                  },
+                ],
+              },
+            ]
+          : []),
         {
           name: 'Cluster Settings',
           icon: Building2,
@@ -223,7 +247,7 @@
 
   {#if !isConfigured}
     <a
-      href="/settings/storage"
+      href={organizationSlug ? `/org/${organizationSlug}/settings/storage` : '/cluster-settings/orgs'}
       class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
         ? 'justify-center'
         : 'items-start'}"

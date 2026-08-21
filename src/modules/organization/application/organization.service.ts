@@ -42,7 +42,7 @@ export class OrganizationService {
     return organization ? organization.toJson() : null;
   }
 
-  // resolves the org to use when no slug is present in the route (e.g. bare '/', '/settings/*')
+  // resolves the org to use when no slug is present in the route (e.g. bare '/')
   // returns null when no organization exists yet, instead of throwing
   async getDefaultOrganization() {
     const organizations = await this.repository.findAll();
