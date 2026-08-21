@@ -47,9 +47,6 @@
   $: currentProject = projects.find((project) => project.slug === currentProjectSlug) ?? null;
 
   $: projectBase = `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`;
-  $: usersSettingsHref = organizationSlug
-    ? `/org/${organizationSlug}/settings/users`
-    : '/cluster-settings/orgs';
 
   // one JSON-like tree drives the whole sidebar: category > module > items
   $: categories = [
@@ -179,8 +176,8 @@
                     icon: FolderKanban,
                   },
                   {
-                    label: 'Autentication',
-                    href: `/org/${organizationSlug}/settings/authentication`,
+                    label: 'Global',
+                    href: `/org/${organizationSlug}/settings/global`,
                     icon: Shield,
                   },
                   {
