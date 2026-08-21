@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { isValidPermissionGrant } from '$lib/permissions';
 import type { RoleRepository } from '../infrastructure/repositories/role.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
+import type { RoleScope } from '../domain/role.domain';
 
 export class RoleService {
   constructor(
@@ -12,12 +13,29 @@ export class RoleService {
     private readonly userRepository: Pick<UserRepository, 'countByRoleId'>,
   ) {}
 
-  async listRoles(): Promise<any[]> {
-    const roles = await this.roleRepository.findAll();
-    return roles.map((role) => role.toJson());
+  async listRoles(scope: RoleScope = 'cluster', scopeId?: string): Promise<any[]> {
+    this.validateScope(scope, scopeId);
+    const roles = await this.roleRepository.findAll(scope, scopeId);
+    return roles
+      .filter((role) => {
+        if (role.scope !== scope) return false;
+        if (scope === 'organization') return role.organizationId === scopeId;
+        if (scope === 'project') return role.projectId === scopeId;
+        return true;
+      })
+      .map((role) => role.toJson());
   }
 
-  async createRole(input: { name: string; slug: string; permissions: string[] }): Promise<any> {
+  async createRole(input: {
+    name: string;
+    slug: string;
+    permissions: string[];
+    scope?: RoleScope;
+    organizationId?: string;
+    projectId?: string;
+  }): Promise<any> {
+    const scope = input.scope ?? 'cluster';
+    this.validateScope(scope, scope === 'organization' ? input.organizationId : input.projectId);
     const name = input.name.trim();
     const slug = input.slug.trim().toLowerCase();
 
@@ -29,16 +47,32 @@ export class RoleService {
       throw new Error('Role slug is required');
     }
 
-    const existing = await this.roleRepository.findBySlug(slug);
+    const scopeId =
+      scope === 'organization'
+        ? input.organizationId
+        : scope === 'project'
+          ? input.projectId
+          : undefined;
+    const existing = await this.roleRepository.findBySlug(slug, scope, scopeId);
     if (existing) {
       throw new Error('A role with this slug already exists');
     }
 
     const permissions = this.sanitizePermissions(input.permissions);
+    const organizationId = scope === 'organization' ? input.organizationId : null;
+    const projectId = scope === 'project' ? input.projectId : null;
 
-    await this.roleRepository.create({ id: crypto.randomUUID(), slug, name, permissions });
+    await this.roleRepository.create({
+      id: crypto.randomUUID(),
+      slug,
+      name,
+      scope,
+      organizationId,
+      projectId,
+      permissions,
+    });
 
-    const created = await this.roleRepository.findBySlug(slug);
+    const created = await this.roleRepository.findBySlug(slug, scope, scopeId);
     if (!created) {
       throw new Error('Failed to create role');
     }
@@ -103,5 +137,15 @@ export class RoleService {
     }
 
     return unique;
+  }
+
+  private validateScope(scope?: RoleScope, scopeId?: string): void {
+    if (!scope || !['cluster', 'organization', 'project'].includes(scope)) {
+      throw new Error('Role scope must be cluster, organization, or project');
+    }
+
+    if (scope !== 'cluster' && !scopeId?.trim()) {
+      throw new Error(`A ${scope} role requires its ID`);
+    }
   }
 }

@@ -24,6 +24,9 @@ export const RoleEntity = entity('roles', {
   id: uuid().primaryKey(),
   slug: text().notNull(),
   name: text().notNull(),
+  scope: text().notNull().default('cluster'),
+  organizationId: uuid(),
+  projectId: uuid(),
   permissions: json()
     .notNull()
     .$defaultFn(() => []),
@@ -91,31 +94,17 @@ export const ProjectEntity = entity('projects', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
-export const ProjectRoleEntity = entity('project_roles', {
-  id: uuid().primaryKey(),
-  projectId: uuid().notNull(),
-  slug: text().notNull(),
-  name: text().notNull(),
-  permissions: json()
-    .notNull()
-    .$defaultFn(() => []),
-  createdAt: timestamp()
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedAt: timestamp()
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-});
-
 relations.for(ProjectEntity, ({ one, many }) => ({
-  roles: many(ProjectRoleEntity, { fields: ['id'], references: ['projectId'] }),
+  roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
 }));
 
-relations.for(ProjectRoleEntity, ({ one }) => ({
+relations.for(RoleEntity, ({ one }) => ({
+  organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
 }));
 
 relations.for(OrganizationEntity, ({ many }) => ({
   projects: many(ProjectEntity, { fields: ['id'], references: ['organizationId'] }),
+  roles: many(RoleEntity, { fields: ['id'], references: ['organizationId'] }),
 }));

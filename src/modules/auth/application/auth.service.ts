@@ -64,12 +64,17 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role ? {
-        id: user.role.id,
-        name: user.role.name,
-        slug: user.role.slug,
-        permissions: Array.isArray(user.role.permissions) ? user.role.permissions : [],
-      } : null,
+      role: user.role
+        ? {
+            id: user.role.id,
+            name: user.role.name,
+            slug: user.role.slug,
+            scope: user.role.scope,
+            organizationId: user.role.organizationId,
+            projectId: user.role.projectId,
+            permissions: Array.isArray(user.role.permissions) ? user.role.permissions : [],
+          }
+        : null,
     };
   }
 }

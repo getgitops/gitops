@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { page } from '$app/stores';
   import { CheckCircle, Plus, Save, Shield, Trash2 } from 'lucide-svelte';
   import {
     PERMISSION_SECTIONS,
@@ -45,7 +46,10 @@
     rolesError = '';
 
     try {
-      const res = await fetch('/api/roles');
+      const organizationId = $page.data.organization?.id;
+      if (!organizationId) throw new Error('No organization selected.');
+
+      const res = await fetch(`/api/roles?scope=organization&organizationId=${organizationId}`);
       const payload = await res.json();
       if (payload.error) throw new Error(payload.error);
       roles = payload.roles || [];
@@ -134,6 +138,8 @@
           name: newRoleName.trim(),
           slug: newRoleSlug.trim(),
           permissions: newRolePermissions,
+          scope: 'organization',
+          organizationId: $page.data.organization?.id,
         }),
       });
 
@@ -211,8 +217,12 @@
   {/if}
 
   {#if rolesSuccess}
-    <div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {rolesSuccess}</span>
+    <div
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+    >
+      <span class="inline-flex items-center gap-2"
+        ><CheckCircle class="h-4 w-4" /> {rolesSuccess}</span
+      >
     </div>
   {/if}
 
@@ -221,14 +231,18 @@
       Loading roles...
     </div>
   {:else if roles.length === 0}
-    <div class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600">
+    <div
+      class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
+    >
       No roles found.
     </div>
   {:else}
     <div class="space-y-4">
       {#each roles as role (role.id)}
         <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
-          <div class="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            class="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
+          >
             <div class="flex items-center gap-2">
               <Shield class="h-5 w-5 text-slate-900" />
               <div>
@@ -255,7 +269,9 @@
                 type="button"
                 on:click={() => openDeleteModal(role)}
                 disabled={role.slug === 'admin'}
-                title={role.slug === 'admin' ? 'The built-in admin role cannot be deleted.' : 'Delete role'}
+                title={role.slug === 'admin'
+                  ? 'The built-in admin role cannot be deleted.'
+                  : 'Delete role'}
                 class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
               >
                 <Trash2 class="h-3.5 w-3.5" />
@@ -278,7 +294,9 @@
               <tbody>
                 {#each PERMISSION_SECTIONS as section}
                   <tr class="border-t border-slate-100">
-                    <td class="py-2 pr-4 font-medium text-slate-900">{PERMISSION_SECTION_LABELS[section]}</td>
+                    <td class="py-2 pr-4 font-medium text-slate-900"
+                      >{PERMISSION_SECTION_LABELS[section]}</td
+                    >
                     {#each PERMISSION_ACTIONS as action}
                       <td class="py-2 pr-4">
                         <input
@@ -317,7 +335,12 @@
     aria-label="Close create role modal"
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl" role="dialog" aria-modal="true" aria-label="Create role modal">
+    <div
+      class="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create role modal"
+    >
       <div class="border-b border-slate-200 px-4 py-3">
         <h5 class="text-sm font-semibold text-slate-900">New role</h5>
       </div>
@@ -361,7 +384,9 @@
             <tbody>
               {#each PERMISSION_SECTIONS as section}
                 <tr class="border-t border-slate-100">
-                  <td class="py-2 pr-4 font-medium text-slate-900">{PERMISSION_SECTION_LABELS[section]}</td>
+                  <td class="py-2 pr-4 font-medium text-slate-900"
+                    >{PERMISSION_SECTION_LABELS[section]}</td
+                  >
                   {#each PERMISSION_ACTIONS as action}
                     <td class="py-2 pr-4">
                       <input
@@ -389,7 +414,11 @@
       </div>
 
       <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button type="button" on:click={closeCreateModal} class="btn-secondary rounded-md px-3 py-2 text-sm font-medium">
+        <button
+          type="button"
+          on:click={closeCreateModal}
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+        >
           Cancel
         </button>
         <button
@@ -414,7 +443,12 @@
     aria-label="Close delete role confirmation"
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl" role="dialog" aria-modal="true" aria-label="Delete role confirmation">
+    <div
+      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Delete role confirmation"
+    >
       <div class="border-b border-slate-200 px-4 py-3">
         <h5 class="text-sm font-semibold text-slate-900">Delete role</h5>
       </div>
@@ -427,7 +461,11 @@
       </div>
 
       <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button type="button" on:click={closeDeleteModal} class="btn-secondary rounded-md px-3 py-2 text-sm font-medium">
+        <button
+          type="button"
+          on:click={closeDeleteModal}
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+        >
           Cancel
         </button>
         <button
