@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { CheckCircle, Eye, FolderKanban, Plus, Search, Trash2 } from 'lucide-svelte';
 
-  export let data: { organization: { slug: string } };
+  export let data: { organization: { slug: string } | null };
 
   type ProjectRow = {
     id: string;
@@ -269,7 +269,9 @@
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-2">
                     <a
-                      href={`/org/${data.organization.slug}/projects/${project.slug}/settings/overview`}
+                      href={data.organization
+                        ? `/org/${data.organization.slug}/projects/${project.slug}/settings/overview`
+                        : '/cluster-settings/orgs'}
                       class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                       title="View project"
                     >

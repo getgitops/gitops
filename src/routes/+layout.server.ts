@@ -3,7 +3,7 @@ import { organizationService } from '../modules/organization';
 import { can } from '../modules/auth';
 // import { configService, storageBackendService } from '../modules/config';
 
-export async function load({ locals }) {
+export async function load({ locals, url }) {
   // const config = configService.getConfig();
   // const backends = storageBackendService.list();
 
@@ -15,7 +15,10 @@ export async function load({ locals }) {
   //   activeBackendId = activeBackend.id;
   // }
 
-  const organization = await organizationService.findBySlug('gitops');
+  const orgSlugFromUrl = url.pathname.match(/^\/org\/([^/]+)/)?.[1];
+  const organization = orgSlugFromUrl
+    ? await organizationService.tryFindBySlug(orgSlugFromUrl)
+    : await organizationService.getDefaultOrganization();
 
   const projects =
     locals.user && can(locals.user, 'stateiac:read')

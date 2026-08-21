@@ -29,7 +29,7 @@
     <AppNavbar
       user={data.user}
       projects={data.projects}
-      organizationSlug={data.organization.slug}
+      organizationSlug={data.organization?.slug ?? null}
       projectSlug={$page.params.slug ?? ''}
     />
 
@@ -42,7 +42,8 @@
         <AppSidebar
           pathname={$page.url.pathname}
           isConfigured={data.isConfigured}
-          organizationSlug={data.organization.slug}
+          organizationSlug={data.organization?.slug ?? null}
+          organizationName={data.organization?.name ?? null}
           projects={data.projects}
           bind:collapsed={sidebarCollapsed}
         />

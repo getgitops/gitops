@@ -6,5 +6,5 @@ export async function load({ params }) {
   if (!organization) {
     throw redirect(302, '/org?error=organization-not-found');
   }
-  return { organization };
+  throw redirect(302, `/org/${organization.slug}/overview`);
 }

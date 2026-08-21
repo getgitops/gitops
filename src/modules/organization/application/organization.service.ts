@@ -36,6 +36,19 @@ export class OrganizationService {
     return organization.toJson();
   }
 
+  // non-throwing variant, for callers that should degrade gracefully (e.g. the root layout)
+  async tryFindBySlug(slug: string) {
+    const organization = await this.repository.findBySlug(slug);
+    return organization ? organization.toJson() : null;
+  }
+
+  // resolves the org to use when no slug is present in the route (e.g. bare '/', '/settings/*')
+  // returns null when no organization exists yet, instead of throwing
+  async getDefaultOrganization() {
+    const organizations = await this.repository.findAll();
+    return organizations.length > 0 ? organizations[0].toJson() : null;
+  }
+
   async createOrganization(input: { name: string; slug?: string; description?: string }) {
     const name = input.name.trim();
     if (!name) {

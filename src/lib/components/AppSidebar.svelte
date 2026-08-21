@@ -31,7 +31,8 @@
   export let pathname = '/';
   export let isConfigured = false;
   export let collapsed = false;
-  export let organizationSlug = 'gitops';
+  export let organizationSlug: string | null = null;
+  export let organizationName: string | null = null;
   export let projects: {
     slug: string;
     modules?: { vault: boolean; openreport: boolean; stateiac: boolean };
@@ -55,13 +56,21 @@
         {
           name: 'Overview',
           icon: LayoutDashboard,
-          items: [
-            {
-              label: 'Overview',
-              href: `/org/${organizationSlug}/overview`,
-              icon: LayoutDashboard,
-            },
-          ],
+          items: organizationSlug
+            ? [
+                {
+                  label: 'Overview',
+                  href: `/org/${organizationSlug}/overview`,
+                  icon: LayoutDashboard,
+                },
+              ]
+            : [
+                {
+                  label: 'Seleccionar organización',
+                  href: '/cluster-settings/orgs',
+                  icon: Building2,
+                },
+              ],
         },
       ],
     },
@@ -187,12 +196,12 @@
 <aside class="flex h-full flex-col gap-4">
   <div class="border-b border-slate-200 px-1 pb-4">
     <div class="flex items-center justify-between gap-3">
-      {#if !collapsed}
+      {#if !collapsed && organizationName}
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
             Organization
           </p>
-          <h2 class="mt-1 text-sm font-semibold text-slate-900">GitOps</h2>
+          <h2 class="mt-1 truncate text-sm font-semibold text-slate-900">{organizationName}</h2>
         </div>
       {/if}
 

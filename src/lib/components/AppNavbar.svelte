@@ -6,7 +6,7 @@
 
   export let user: NavbarUser | null = null;
   export let projects: { id: string; name: string; slug: string }[] = [];
-  export let organizationSlug = 'gitops';
+  export let organizationSlug: string | null = 'gitops';
   export let projectSlug = '';
 
   let showUserDropdown = false;
@@ -89,7 +89,13 @@
           <div
             class="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
           >
-            {#if projects.length === 0}
+            {#if !organizationSlug}
+              <p class="px-4 py-3 text-sm text-slate-500">
+                No organization selected. <a href="/cluster-settings/orgs" class="underline"
+                  >Choose one</a
+                >.
+              </p>
+            {:else if projects.length === 0}
               <p class="px-4 py-3 text-sm text-slate-500">No hay proyectos activos.</p>
             {:else}
               <div class="max-h-72 overflow-y-auto py-1">
@@ -109,13 +115,15 @@
               </div>
             {/if}
 
-            <a
-              href={`/org/${organizationSlug}/overview`}
-              on:click={closeProjectDropdown}
-              class="block border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              View all projects
-            </a>
+            {#if organizationSlug}
+              <a
+                href={`/org/${organizationSlug}/overview`}
+                on:click={closeProjectDropdown}
+                class="block border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                View all projects
+              </a>
+            {/if}
           </div>
         {/if}
       </div>
