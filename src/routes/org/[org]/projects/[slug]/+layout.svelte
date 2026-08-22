@@ -33,7 +33,7 @@
     },
     {
       label: 'Open Report',
-      href: `/org/${orgSlug}/projects/${project.slug}/report`,
+      href: `/org/${orgSlug}/projects/${project.slug}/code-report/services`,
       icon: BarChart3,
       subtitle: 'Reportes de vulnerabilidades y dependencias del proyecto.',
     },

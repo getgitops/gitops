@@ -111,10 +111,57 @@ export const ProjectEntity = entity('projects', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const CodeReportServiceEntity = entity('code_report_services', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  slug: text().notNull().unique(),
+  name: text().notNull(),
+  description: text(),
+  tags: json()
+    .notNull()
+    .$defaultFn(() => []),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const CodeReportAnalysisEntity = entity('code_report_analyses', {
+  id: uuid().primaryKey(),
+  serviceId: uuid().notNull(),
+  tool: text().notNull(),
+  status: text().notNull().default('in_progress'),
+  result: json(),
+  summary: json(),
+  error: text(),
+  gitInfo: json(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
   access: many(UserAccessEntity, { fields: ['id'], references: ['projectId'] }),
+  codeReportServices: many(CodeReportServiceEntity, {
+    fields: ['id'],
+    references: ['projectId'],
+  }),
+}));
+
+relations.for(CodeReportServiceEntity, ({ one, many }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  analyses: many(CodeReportAnalysisEntity, { fields: ['id'], references: ['serviceId'] }),
+}));
+
+relations.for(CodeReportAnalysisEntity, ({ one }) => ({
+  service: one(CodeReportServiceEntity, { fields: ['serviceId'], references: ['id'] }),
 }));
 
 relations.for(RoleEntity, ({ one, many }) => ({
