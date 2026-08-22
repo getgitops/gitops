@@ -55,6 +55,7 @@
 
   $: permissionRows = getPermissionRows(scope);
   $: visiblePermissionRows = permissionRows.filter((row) => isRowVisible(row));
+  $: selectedPermissionsKey = selectedPermissions.join('|');
 
   function sectionChildren(section: PermissionSection): PermissionSection[] {
     if (!section.sections) return [];
@@ -392,7 +393,24 @@
   <title>{title}</title>
 </svelte:head>
 
-<div class="rounded-md bg-[#0f1014] p-4 text-slate-200 sm:p-6">
+<div class="">
+  {#if detailError}
+    <div
+      class="w-full rounded-md border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200"
+    >
+      {detailError}
+    </div>
+  {/if}
+  {#if detailSuccess}
+    <div
+      class="w-full rounded-md border border-emerald-500/40 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100"
+    >
+      <span class="inline-flex items-center gap-2"
+        ><CheckCircle class="h-4 w-4" /> {detailSuccess}</span
+      >
+    </div>
+  {/if}
+
   <div class="grid gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,4fr)]">
     <aside class="self-start rounded-md border border-[#34363d] bg-[#1a1b1f] p-4 shadow-sm">
       <div class="flex items-center justify-between gap-3 border-b border-[#5c5f66] pb-4">
@@ -445,23 +463,6 @@
         </div>
       </div>
     </aside>
-
-    {#if detailError}
-      <div
-        class="rounded-md border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200 lg:col-span-2"
-      >
-        {detailError}
-      </div>
-    {/if}
-    {#if detailSuccess}
-      <div
-        class="rounded-md border border-emerald-500/40 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100 lg:col-span-2"
-      >
-        <span class="inline-flex items-center gap-2"
-          ><CheckCircle class="h-4 w-4" /> {detailSuccess}</span
-        >
-      </div>
-    {/if}
 
     <section class="min-w-0 rounded-md border border-[#34363d] bg-[#1a1b1f] shadow-sm">
       <div class="flex items-center justify-between gap-4 border-b border-[#5c5f66] px-4 py-4">
@@ -572,19 +573,21 @@
                     >
                       {#each visibleRowPermissions(permissionRow) as permission}
                         {@const action = actionFrom(permission)}
-                        <label
-                          class="inline-flex items-center gap-3 text-sm font-medium text-slate-300"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isVisiblePermissionSelected(permissionRow, permission)}
-                            disabled={isPermissionDisabled(permissionRow, permission)}
-                            on:change={() => togglePermission(permissionRow, permission)}
-                            class="h-4 w-4 rounded border-[#636772] bg-[#15171c] text-[#dfff22] focus:ring-[#dfff22] disabled:opacity-50"
-                            title={inheritedPermission(permissionRow, action) ?? permission}
-                          />
-                          <span class="capitalize">{action}</span>
-                        </label>
+                        {#key `${permission}:${selectedPermissionsKey}`}
+                          <label
+                            class="inline-flex items-center gap-3 text-sm font-medium text-slate-300"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isVisiblePermissionSelected(permissionRow, permission)}
+                              disabled={isPermissionDisabled(permissionRow, permission)}
+                              on:change={() => togglePermission(permissionRow, permission)}
+                              class="h-4 w-4 rounded border-[#636772] bg-[#15171c] text-[#dfff22] focus:ring-[#dfff22] disabled:opacity-50"
+                              title={inheritedPermission(permissionRow, action) ?? permission}
+                            />
+                            <span class="capitalize">{action}</span>
+                          </label>
+                        {/key}
                       {/each}
                     </div>
                   </td>
