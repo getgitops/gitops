@@ -1,9 +1,8 @@
 <script lang="ts">
   import { BarChart3, TrendingUp, Search, Plus } from 'lucide-svelte';
   import { page } from '$app/stores';
-  import { can } from '$lib/permissions';
 
-  $: canCreate = can($page.data.user, 'openreport:create');
+  $: canCreate = Boolean($page.data.canCreateOpenReport);
 </script>
 
 <svelte:head>

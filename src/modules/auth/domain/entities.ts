@@ -21,16 +21,22 @@ export type RoleView = {
   id: string;
   name: string;
   slug: string;
+  scope: 'cluster' | 'organization' | 'project';
+  organizationId: string | null;
+  projectId: string | null;
   description?: string;
   permissions: string[];
   createdAt: string;
   updatedAt: string;
-}
+};
 
 export type SessionRole = {
   id: string;
   name: string;
   slug: string;
+  scope: 'cluster' | 'organization' | 'project';
+  organizationId: string | null;
+  projectId: string | null;
   permissions: string[];
 };
 

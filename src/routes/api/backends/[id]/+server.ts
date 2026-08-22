@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { storageBackendService } from '../../../../modules/config';
-import { can } from '../../../../modules/auth';
+import { cancanService } from '../../../../modules/auth';
 
 export async function DELETE({ params, locals }) {
-  if (!can(locals.user, 'stateiac:delete')) {
+  if (!(await cancanService.canSessionUser(locals.user, 'stateiac:delete', { scope: 'cluster' }))) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 

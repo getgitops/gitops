@@ -1,9 +1,9 @@
 import { projectService } from '../modules/projects';
 import { organizationService } from '../modules/organization';
-import { can } from '../modules/auth';
+import { cancanService } from '../modules/auth';
 // import { configService, storageBackendService } from '../modules/config';
 
-export async function load({ locals }) {
+export async function load({ locals, url }) {
   // const config = configService.getConfig();
   // const backends = storageBackendService.list();
 
@@ -15,12 +15,29 @@ export async function load({ locals }) {
   //   activeBackendId = activeBackend.id;
   // }
 
-  const organization = await organizationService.findBySlug('gitops');
+  const orgSlugFromUrl = url.pathname.match(/^\/org\/([^/]+)/)?.[1];
+  const organization = orgSlugFromUrl
+    ? await organizationService.tryFindBySlug(orgSlugFromUrl)
+    : await organizationService.getDefaultOrganization();
 
-  const projects =
-    locals.user && can(locals.user, 'stateiac:read')
-      ? (await projectService.listProjects()).filter((project) => project.status === 'active')
-      : [];
+  const projects = locals.user
+    ? (
+        await Promise.all(
+          (await projectService.listProjects())
+            .filter((project) => project.status === 'active')
+            .map(async (project) => ({
+              project,
+              allowed: await cancanService.canSessionUser(locals.user, 'stateiac:read', {
+                scope: 'project',
+                projectId: project.id,
+                organizationId: project.organization?.id,
+              }),
+            })),
+        )
+      )
+        .filter(({ allowed }) => allowed)
+        .map(({ project }) => project)
+    : [];
 
   return {
     // isConfigured: !!config && backends.length > 0,

@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import {
     BarChart3,
+    Building2,
     ChevronDown,
     ChevronRight,
     Database,
@@ -20,7 +21,7 @@
     Users,
     Layers,
     HardDrive,
-    Bot
+    Bot,
   } from 'lucide-svelte';
 
   type NavItem = { label: string; href: string; icon: ComponentType };
@@ -29,8 +30,9 @@
 
   export let pathname = '/';
   export let isConfigured = false;
-  export let collapsed = false;
-  export let organizationSlug = 'gitops';
+  export let collapsed = true;
+  export let organizationSlug: string | null = null;
+  export let organizationName: string | null = null;
   export let projects: {
     slug: string;
     modules?: { vault: boolean; openreport: boolean; stateiac: boolean };
@@ -54,13 +56,21 @@
         {
           name: 'Overview',
           icon: LayoutDashboard,
-          items: [
-            {
-              label: 'Overview',
-              href: `/org/${organizationSlug}/overview`,
-              icon: LayoutDashboard,
-            },
-          ],
+          items: organizationSlug
+            ? [
+                {
+                  label: 'Overview',
+                  href: `/org/${organizationSlug}/overview`,
+                  icon: LayoutDashboard,
+                },
+              ]
+            : [
+                {
+                  label: 'Seleccionar organización',
+                  href: '/cluster-settings/orgs',
+                  icon: Building2,
+                },
+              ],
         },
       ],
     },
@@ -108,7 +118,11 @@
                 items: [
                   { label: 'Stacks', href: `${projectBase}/state-iac/stacks`, icon: Layers },
                   { label: 'Backends', href: `${projectBase}/state-iac/backends`, icon: HardDrive },
-                  { label: 'Deployments', href: `${projectBase}/state-iac/deployments`, icon: GitBranch }
+                  {
+                    label: 'Deployments',
+                    href: `${projectBase}/state-iac/deployments`,
+                    icon: GitBranch,
+                  },
                 ],
               },
             ],
@@ -136,7 +150,11 @@
                     icon: Shield,
                   },
                   { label: 'Audit', href: `${projectBase}/settings/audit`, icon: ScrollText },
-                  { label: 'Server Keys', href: `${projectBase}/settings/server-keys`, icon: Shield },
+                  {
+                    label: 'Server Keys',
+                    href: `${projectBase}/settings/server-keys`,
+                    icon: Shield,
+                  },
                 ],
               },
             ],
@@ -146,15 +164,57 @@
     {
       name: 'Sistema',
       modules: [
+        ...(organizationSlug
+          ? [
+              {
+                name: 'Organization Settings',
+                icon: Settings,
+                items: [
+                  {
+                    label: 'Projects',
+                    href: `/org/${organizationSlug}/settings/projects`,
+                    icon: FolderKanban,
+                  },
+                  {
+                    label: 'Global',
+                    href: `/org/${organizationSlug}/settings/global`,
+                    icon: Shield,
+                  },
+                  {
+                    label: 'Users',
+                    href: `/org/${organizationSlug}/settings/users`,
+                    icon: Users,
+                  },
+                  {
+                    label: 'Roles & Permissions',
+                    href: `/org/${organizationSlug}/settings/roles-permissions`,
+                    icon: Users,
+                  },
+                  {
+                    label: 'System & Backup',
+                    href: `/org/${organizationSlug}/settings/system-backup`,
+                    icon: Database,
+                  },
+                  {
+                    label: 'Server Access Keys',
+                    href: `/org/${organizationSlug}/settings/server-access-keys`,
+                    icon: KeyRound,
+                  },
+                ],
+              },
+            ]
+          : []),
         {
-          name: 'Settings',
-          icon: Settings,
+          name: 'Cluster Settings',
+          icon: Building2,
           items: [
-            { label: 'Projects', href: '/settings/projects', icon: FolderKanban },
-            { label: 'Autentication', href: '/settings/authentication', icon: Shield },
-            { label: 'Roles & Permissions', href: '/settings/roles-permissions', icon: Users },
-            { label: 'System & Backup', href: '/settings/system-backup', icon: Database },
-            { label: 'Server Access Keys', href: '/settings/server-access-keys', icon: KeyRound },
+            { label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 },
+            {
+              label: 'Roles & Permissions',
+              href: '/cluster-settings/roles-permissions',
+              icon: Shield,
+            },
+            { label: 'Users', href: '/cluster-settings/users', icon: Users },
           ],
         },
       ],
@@ -181,12 +241,12 @@
 <aside class="flex h-full flex-col gap-4">
   <div class="border-b border-slate-200 px-1 pb-4">
     <div class="flex items-center justify-between gap-3">
-      {#if !collapsed}
+      {#if !collapsed && organizationName}
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
             Organization
           </p>
-          <h2 class="mt-1 text-sm font-semibold text-slate-900">GitOps</h2>
+          <h2 class="mt-1 truncate text-sm font-semibold text-slate-900">{organizationName}</h2>
         </div>
       {/if}
 
@@ -208,7 +268,9 @@
 
   {#if !isConfigured}
     <a
-      href="/settings/storage"
+      href={organizationSlug
+        ? `/org/${organizationSlug}/settings/storage`
+        : '/cluster-settings/orgs'}
       class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
         ? 'justify-center'
         : 'items-start'}"

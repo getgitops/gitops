@@ -208,7 +208,7 @@
       const payload = await res.json();
       if (payload.error) throw new Error(payload.error);
 
-      await goto('/settings/projects');
+      await goto(`/org/${orgSlug}/settings/projects`);
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : 'Failed to delete project.';
       deleteLoading = false;

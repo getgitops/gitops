@@ -1,9 +1,16 @@
 import { error } from '@sveltejs/kit';
 import { projectService } from '../../../../modules/projects';
-import { can } from '../../../../modules/auth';
+import { cancanService } from '../../../../modules/auth';
 
-export async function load({ locals }) {
-  if (!can(locals.user, 'stateiac:read')) {
+export async function load({ locals, parent }) {
+  const { organization } = await parent();
+
+  if (
+    !(await cancanService.canSessionUser(locals.user, 'stateiac:read', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }))
+  ) {
     throw error(403, 'Forbidden');
   }
 

@@ -1,5 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
-import { authService, canAccessAdminArea, ensureAuthReady } from './modules/auth';
+import { authService, cancanService, ensureAuthReady } from './modules/auth';
+import { ensureOrganizationReady, organizationService } from './modules/organization';
 import { getGitDb } from '$lib/server/gitdb';
 
 getGitDb();
@@ -10,6 +11,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   await ensureAuthReady();
+  await ensureOrganizationReady();
+
 
   const sessionCookie = event.cookies.get('pos_session');
   const currentUser = await authService.resolveAuthenticatedUser(sessionCookie);
@@ -22,8 +25,18 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/login' } });
   }
 
-  if (event.url.pathname.startsWith('/settings') || event.url.pathname.startsWith('/api/system')) {
-    if (!canAccessAdminArea(currentUser)) {
+  const organizationSettingsMatch = event.url.pathname.match(/^\/org\/([^/]+)\/settings/);
+  if (organizationSettingsMatch) {
+    const organization = await organizationService.tryFindBySlug(organizationSettingsMatch[1]);
+    if (!organization || !(await cancanService.canManageOrganization(currentUser, organization.id))) {
+      return new Response(null, { status: 302, headers: { location: '/' } });
+    }
+  } else if (
+    event.url.pathname.startsWith('/cluster-settings') ||
+    event.url.pathname.startsWith('/api/system') ||
+    event.url.pathname.startsWith('/api/organizations')
+  ) {
+    if (!cancanService.canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
   }

@@ -23,6 +23,9 @@ class FakeRoleRepository {
         id: input.id,
         slug: input.slug,
         name: input.name,
+        scope: (input as any).scope,
+        organizationId: (input as any).organizationId,
+        projectId: (input as any).projectId,
         permissions: input.permissions,
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
@@ -75,6 +78,53 @@ describe('RoleService', () => {
     expect(roles[0].slug).toBe('admin');
   });
 
+  it('lists only roles owned by the requested organization', async () => {
+    await service.createRole({
+      name: 'Organization role',
+      slug: 'organization-role',
+      permissions: [],
+      scope: 'organization',
+      organizationId: 'org-1',
+    });
+    await service.createRole({
+      name: 'Other organization role',
+      slug: 'other-organization-role',
+      permissions: [],
+      scope: 'organization',
+      organizationId: 'org-2',
+    });
+    await service.createRole({
+      name: 'Project role',
+      slug: 'project-role',
+      permissions: [],
+      scope: 'project',
+      projectId: 'project-1',
+    });
+
+    const roles = await service.listRoles('organization', 'org-1');
+
+    expect(roles.map((role) => role.slug)).toEqual(['organization-role']);
+  });
+
+  it('requires an owner ID for organization and project roles', async () => {
+    await expect(
+      service.createRole({
+        name: 'Organization role',
+        slug: 'org-role',
+        permissions: [],
+        scope: 'organization',
+      }),
+    ).rejects.toThrow(/organization role requires its ID/);
+    await expect(
+      service.createRole({
+        name: 'Project role',
+        slug: 'project-role',
+        permissions: [],
+        scope: 'project',
+      }),
+    ).rejects.toThrow(/project role requires its ID/);
+  });
+
   it('creates a role accepting the section:all shortcut', async () => {
     const role = await service.createRole({
       name: 'Auditor',
@@ -109,7 +159,11 @@ describe('RoleService', () => {
   });
 
   it('updates only the fields provided', async () => {
-    const created = await service.createRole({ name: 'Auditor', slug: 'auditor', permissions: ['vault:read'] });
+    const created = await service.createRole({
+      name: 'Auditor',
+      slug: 'auditor',
+      permissions: ['vault:read'],
+    });
 
     const updated = await service.updateRole(created.id, { permissions: ['vault:all'] });
     expect(updated.name).toBe('Auditor');
