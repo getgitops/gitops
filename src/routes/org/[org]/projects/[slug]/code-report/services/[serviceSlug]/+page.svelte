@@ -9,12 +9,17 @@
     Github,
     Gitlab,
     History,
+    Search,
     ShieldAlert,
     Trash2,
     Upload,
     X,
   } from 'lucide-svelte';
-  import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
+  import {
+    extractVulnerabilities,
+    summarizeAnalysisResult,
+    type VulnerabilityFinding,
+  } from '$lib/code-report/analysis-summary';
 
   type ServiceRow = {
     id: string;
@@ -60,6 +65,53 @@
   $: analysisSummary = data.latestAnalysis
     ? summarizeAnalysisResult(data.latestAnalysis.result)
     : null;
+  $: vulnerabilities = data.latestAnalysis
+    ? extractVulnerabilities(data.latestAnalysis.result)
+    : [];
+
+  let vulnerabilityQuery = '';
+  let severityFilter = 'all';
+  let statusFilter = 'all';
+
+  const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+
+  $: filteredVulnerabilities = vulnerabilities
+    .filter((vulnerability) => {
+      const query = vulnerabilityQuery.trim().toLowerCase();
+      const matchesQuery =
+        !query ||
+        [
+          vulnerability.id,
+          vulnerability.packageName,
+          vulnerability.target,
+          vulnerability.title,
+        ].some((value) => value.toLowerCase().includes(query));
+      const matchesSeverity = severityFilter === 'all' || vulnerability.severity === severityFilter;
+      const matchesStatus = statusFilter === 'all' || vulnerability.status === statusFilter;
+      return matchesQuery && matchesSeverity && matchesStatus;
+    })
+    .sort((a, b) => {
+      const severityDifference = (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0);
+      return (
+        severityDifference || (b.cvssScore ?? 0) - (a.cvssScore ?? 0) || a.id.localeCompare(b.id)
+      );
+    });
+
+  $: statuses = [...new Set(vulnerabilities.map((vulnerability) => vulnerability.status))];
+
+  function findingStatus(vulnerability: VulnerabilityFinding) {
+    if (vulnerability.status === 'fixed' || vulnerability.fixedVersion) return 'Actualizar';
+    if (vulnerability.status === 'will_not_fix') return 'Excepción';
+    return vulnerability.status === 'unknown' ? 'Revisar' : 'Afectada';
+  }
+
+  function findingStatusClass(vulnerability: VulnerabilityFinding) {
+    if (vulnerability.status === 'fixed' || vulnerability.fixedVersion) {
+      return 'bg-emerald-50 text-emerald-700';
+    }
+    if (vulnerability.status === 'will_not_fix') return 'bg-slate-100 text-slate-600';
+    return 'bg-red-50 text-red-700';
+  }
 
   $: repositoryUrl = data.latestAnalysis?.gitInfo?.repositoryUrl ?? null;
 
@@ -83,6 +135,7 @@
     high: 'bg-orange-50 text-orange-700 border-orange-200',
     medium: 'bg-amber-50 text-amber-700 border-amber-200',
     low: 'bg-slate-50 text-slate-600 border-slate-200',
+    unknown: 'bg-slate-50 text-slate-600 border-slate-200',
   };
 
   let deleteModalOpen = false;
@@ -344,13 +397,204 @@
           <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
           <span>{data.latestAnalysis.error}</span>
         </div>
+      {:else if vulnerabilities.length > 0}
+        <div class="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+          <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-4 lg:flex-row">
+            <label class="relative min-w-0 flex-1">
+              <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <span class="sr-only">Buscar vulnerabilidades</span>
+              <input
+                bind:value={vulnerabilityQuery}
+                placeholder="Buscar CVE, paquete, título o archivo..."
+                class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+              />
+            </label>
+            <select
+              bind:value={severityFilter}
+              aria-label="Filtrar por severidad"
+              class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+            >
+              <option value="all">Todas las severidades</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <select
+              bind:value={statusFilter}
+              aria-label="Filtrar por estado"
+              class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
+            >
+              <option value="all">Todos los estados</option>
+              {#each statuses as status}
+                <option value={status}>{status}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="flex items-center justify-between px-4 py-3 text-xs text-slate-500">
+            <span>
+              Mostrando <strong class="text-slate-900">{filteredVulnerabilities.length}</strong> de
+              {vulnerabilities.length} CVEs
+            </span>
+            <span class="hidden sm:inline">Ordenado por severidad y CVSS</span>
+          </div>
+
+          {#if filteredVulnerabilities.length === 0}
+            <p class="border-t border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
+              No hay vulnerabilidades que coincidan con esos filtros.
+            </p>
+          {:else}
+            <div class="divide-y divide-slate-200">
+              {#each filteredVulnerabilities as vulnerability (vulnerability.id + vulnerability.target)}
+                <details class="group bg-white">
+                  <summary
+                    class="grid cursor-pointer list-none gap-3 px-4 py-4 text-left transition hover:bg-slate-50 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.4fr)_auto_auto_auto_auto] lg:items-center [&::-webkit-details-marker]:hidden"
+                  >
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span
+                          class={`rounded-md px-2 py-0.5 text-[11px] font-bold uppercase ${severityStyles[vulnerability.severity]}`}
+                        >
+                          {vulnerability.severity}
+                        </span>
+                        <span class="font-mono text-sm font-semibold text-slate-900"
+                          >{vulnerability.id}</span
+                        >
+                      </div>
+                      <p class="mt-1 truncate text-sm text-slate-600">{vulnerability.title}</p>
+                    </div>
+                    <div class="min-w-0 text-xs">
+                      <p class="truncate font-semibold text-slate-800">
+                        {vulnerability.packageName}
+                      </p>
+                      <p class="mt-1 truncate text-slate-500">{vulnerability.target}</p>
+                    </div>
+                    <span class="font-mono text-xs text-slate-500"
+                      >{vulnerability.installedVersion}</span
+                    >
+                    <span
+                      class={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${findingStatusClass(vulnerability)}`}
+                    >
+                      {findingStatus(vulnerability)}
+                    </span>
+                    <span class="text-xs font-semibold text-slate-500">
+                      {vulnerability.cvssScore !== null
+                        ? `CVSS ${vulnerability.cvssScore.toFixed(1)}`
+                        : 'Sin CVSS'}
+                    </span>
+                    <a
+                      href={vulnerability.cveUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      on:click|stopPropagation
+                      class="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                    >
+                      CVE ↗
+                    </a>
+                  </summary>
+
+                  <div class="border-t border-slate-100 bg-slate-50 px-4 py-4 text-sm">
+                    <div class="grid gap-4 lg:grid-cols-[1fr_auto]">
+                      <div>
+                        <p class="font-semibold text-slate-900">Por qué no cumple</p>
+                        <p class="mt-1 leading-6 text-slate-600">
+                          {vulnerability.description || vulnerability.title}
+                        </p>
+                        <div class="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                          <p
+                            class="text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                          >
+                            Ubicación detectada
+                          </p>
+                          <p class="mt-1 break-all font-mono text-xs text-slate-800">
+                            {vulnerability.packagePath}
+                          </p>
+                          {#if vulnerability.packageIdentifier}
+                            <p class="mt-1 break-all text-xs text-slate-500">
+                              Identificador: {vulnerability.packageIdentifier}
+                            </p>
+                          {/if}
+                          {#if vulnerability.lineStart !== null}
+                            <p class="mt-2 text-xs font-semibold text-slate-700">
+                              Línea{vulnerability.lineEnd !== null &&
+                              vulnerability.lineEnd !== vulnerability.lineStart
+                                ? `s ${vulnerability.lineStart}-${vulnerability.lineEnd}`
+                                : ` ${vulnerability.lineStart}`}
+                            </p>
+                          {:else}
+                            <p class="mt-2 text-xs text-slate-500">
+                              Este informe no incluye línea ni fragmento de código.
+                            </p>
+                          {/if}
+                          {#if vulnerability.codeSnippet}
+                            <pre
+                              class="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs leading-5 text-slate-100">{vulnerability.codeSnippet}</pre>
+                          {/if}
+                        </div>
+                      </div>
+                      <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs lg:min-w-64">
+                        <div>
+                          <dt class="text-slate-500">Versión instalada</dt>
+                          <dd class="mt-0.5 font-mono font-semibold text-red-700">
+                            {vulnerability.installedVersion}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt class="text-slate-500">Versión corregida</dt>
+                          <dd class="mt-0.5 font-mono font-semibold text-emerald-700">
+                            {vulnerability.fixedVersion || 'No indicada'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt class="text-slate-500">CWE</dt>
+                          <dd class="mt-0.5 font-semibold text-slate-800">
+                            {vulnerability.cweIds.length > 0
+                              ? vulnerability.cweIds.join(', ')
+                              : 'No indicado'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt class="text-slate-500">Estado Trivy</dt>
+                          <dd class="mt-0.5 font-semibold text-slate-800">
+                            {vulnerability.status}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                    <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <a
+                        href={vulnerability.cveUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        class="inline-flex text-xs font-semibold text-blue-700 hover:text-blue-900"
+                      >
+                        Abrir {vulnerability.id} en NVD <span aria-hidden="true">&nbsp;↗</span>
+                      </a>
+                      {#if vulnerability.primaryUrl}
+                        <a
+                          href={vulnerability.primaryUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          class="mt-4 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-900"
+                        >
+                          Ver advisory de {vulnerability.id}
+                          <span aria-hidden="true">&nbsp;↗</span>
+                        </a>
+                      {/if}
+                    </div>
+                  </div>
+                </details>
+              {/each}
+            </div>
+          {/if}
+        </div>
       {:else}
-        <pre
-          class="mt-4 max-h-[480px] overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">{JSON.stringify(
-            data.latestAnalysis.result ?? {},
-            null,
-            2,
-          )}</pre>
+        <div
+          class="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800"
+        >
+          No se han detectado vulnerabilidades en este análisis.
+        </div>
       {/if}
     {/if}
   </section>
