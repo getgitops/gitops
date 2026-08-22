@@ -19,7 +19,7 @@
 
   type ProjectModules = {
     vault: boolean;
-    openreport: boolean;
+    codereport: boolean;
     stateiac: boolean;
   };
 
@@ -63,10 +63,10 @@
       href: `/org/${$page.params.org}/projects/${data.project.slug}/vault`,
     },
     {
-      key: 'openreport',
-      label: 'Open Report',
+      key: 'codereport',
+      label: 'Code Report',
       icon: BarChart3,
-      href: `/org/${$page.params.org}/projects/${data.project.slug}/report`,
+      href: `/org/${$page.params.org}/projects/${data.project.slug}/code-report`,
     },
     {
       key: 'stateiac',
