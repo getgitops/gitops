@@ -23,8 +23,15 @@ export async function load({ parent, params, locals }) {
     const service = await codeReportService.getByProjectAndSlug(project.id, params.serviceSlug);
     const analyses = await codeReportAnalysisService.listByService(service.id);
     const latestAnalysis = analyses[0] ?? null;
+    const analysisHistory = analyses
+      .filter((analysis) => analysis.status === 'completed')
+      .map((analysis) => ({
+        id: analysis.id,
+        createdAt: analysis.createdAt,
+        result: analysis.result,
+      }));
 
-    return { service, latestAnalysis };
+    return { service, latestAnalysis, analysisHistory };
   } catch {
     throw error(404, 'Service not found');
   }
