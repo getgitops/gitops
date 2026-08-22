@@ -25,8 +25,8 @@
     </div>
   </section>
   <CodeReportVisualization
+    service={data.service}
     analysis={data.analysis}
     analysisHistory={data.analysisHistory}
-    heading="Visualización del informe"
   />
 </div>

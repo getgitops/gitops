@@ -97,9 +97,9 @@
   </div>
 
   <CodeReportVisualization
+    service={data.service}
     analysis={data.latestAnalysis}
     analysisHistory={data.analysisHistory}
-    heading={data.service.name}
   />
 </div>
 

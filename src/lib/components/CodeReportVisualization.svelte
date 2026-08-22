@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { AlertCircle, Clock, GitBranch, Github, Gitlab, Info, Search, X } from 'lucide-svelte';
+  import { AlertCircle, GitBranch, Github, Gitlab, Info, Search, X } from 'lucide-svelte';
   import {
     extractVulnerabilities,
     summarizeAnalysisResult,
@@ -23,10 +23,16 @@
     updatedAt: string;
   };
   type Analysis = AnalysisData | null;
+  type ServiceData = {
+    name: string;
+    slug: string;
+    description?: string | null;
+    tags?: string[];
+  } | null;
 
   export let analysis: Analysis;
   export let analysisHistory: AnalysisData[] = [];
-  export let heading = 'Análisis';
+  export let service: ServiceData = null;
   let activeTab = 'summary';
   let riskInfoModalOpen = false;
   let fileQuery = '';
@@ -35,11 +41,6 @@
   let selectedFilePath = '';
   let chart: { destroy: () => void } | null = null;
   const riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
-  const statusStyles: Record<string, string> = {
-    in_progress: 'bg-amber-100 text-amber-700',
-    completed: 'bg-emerald-100 text-emerald-700',
-    failed: 'bg-red-100 text-red-700',
-  };
   const severityStyles: Record<string, string> = {
     critical: 'bg-red-50 text-red-700 border-red-200',
     high: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -49,6 +50,7 @@
   };
   const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
   const severityKeys = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
+  const fileSeverityOrder = ['critical', 'high', 'medium', 'low'] as const;
   $: summary = analysis ? summarizeAnalysisResult(analysis.result) : null;
   $: vulnerabilities = analysis ? extractVulnerabilities(analysis.result) : [];
   $: fileGroups = groupByFile(vulnerabilities);
@@ -61,12 +63,7 @@
       date: new Date(item.createdAt).toLocaleDateString(),
       summary: summarizeAnalysisResult(item.result),
     }));
-  $: riskScore = summary
-    ? summary.vulnerabilities.critical * riskWeights.critical +
-      summary.vulnerabilities.high * riskWeights.high +
-      summary.vulnerabilities.medium * riskWeights.medium +
-      summary.vulnerabilities.low * riskWeights.low
-    : 0;
+  $: riskScore = summary ? calculateRiskScore(summary) : 0;
   $: riskLevel =
     !summary || riskScore === 0
       ? { label: 'Sin riesgo', className: 'safe' }
@@ -158,6 +155,12 @@
   function getFileName(path: string) {
     return path.split(/[\\/]/).pop() || path;
   }
+  function countSeverity(findings: VulnerabilityFinding[], severity: string) {
+    return findings.filter((finding) => finding.severity === severity).length;
+  }
+  function severityLabel(severity: string) {
+    return severity.charAt(0).toUpperCase() + severity.slice(1);
+  }
   function findingStatus(finding: VulnerabilityFinding) {
     return finding.status === 'fixed' || finding.fixedVersion
       ? 'Actualizar'
@@ -173,29 +176,6 @@
 </script>
 
 <div class="space-y-6">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{heading}</p>
-      {#if analysis}<div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-          <span
-            class={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyles[analysis.status]}`}
-            >{analysis.status}</span
-          ><span class="font-medium text-slate-900">{analysis.tool}</span><span
-            class="inline-flex items-center gap-1"
-            ><Clock class="h-3.5 w-3.5" />{new Date(analysis.createdAt).toLocaleString()}</span
-          >
-        </div>{/if}
-    </div>
-    {#if analysis?.gitInfo?.repositoryUrl}{@const ProviderIcon = providerIcon(
-        analysis.gitInfo.repositoryUrl,
-      )}<a
-        href={analysis.gitInfo.repositoryUrl}
-        target="_blank"
-        rel="noreferrer noopener"
-        class="inline-flex items-center gap-2 text-sm font-medium text-blue-700"
-        ><svelte:component this={ProviderIcon} class="h-4 w-4" />Repositorio</a
-      >{/if}
-  </div>
   <div class="flex gap-1 border-b border-slate-200" role="tablist" aria-label="Vista del reporte">
     {#each [{ id: 'summary', label: 'Resumen' }, { id: 'vulnerabilities', label: 'Vulnerabilidades', count: vulnerabilities.length }, { id: 'files', label: 'Archivos', count: fileGroups.length }] as tab}<button
         type="button"
@@ -238,6 +218,88 @@
         ><Info class="h-4 w-4" />¿Cómo se calcula este riesgo?</button
       >
     </section>
+    <div class="grid gap-4 lg:grid-cols-3">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Información del servicio
+        </p>
+        {#if service}
+          <h3 class="mt-2 text-lg font-semibold text-slate-900">{service.name}</h3>
+          <p class="mt-1 font-mono text-xs text-slate-500">{service.slug}</p>
+          {#if service.description}
+            <p class="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{service.description}</p>
+          {/if}
+          {#if service.tags && service.tags.length > 0}
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              {#each service.tags as tag}
+                <span
+                  class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                >
+                  {tag}
+                </span>
+              {/each}
+            </div>
+          {/if}
+        {:else}
+          <p class="mt-3 text-sm text-slate-500">Información no disponible.</p>
+        {/if}
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Información del repositorio
+            </p>
+            <h3 class="mt-2 text-base font-semibold text-slate-900">
+              {analysis?.gitInfo?.repositoryUrl
+                ? 'Repositorio conectado'
+                : 'Sin repositorio conectado'}
+            </h3>
+          </div>
+          {#if analysis?.gitInfo?.repositoryUrl}
+            {@const ProviderIcon = providerIcon(analysis.gitInfo.repositoryUrl)}
+            <svelte:component this={ProviderIcon} class="h-5 w-5 text-slate-500" />
+          {/if}
+        </div>
+        {#if analysis?.gitInfo?.repositoryUrl}
+          <a
+            href={analysis.gitInfo.repositoryUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            class="mt-3 block break-all text-sm font-medium text-blue-700 hover:text-blue-900"
+          >
+            {analysis.gitInfo.repositoryUrl}
+          </a>
+        {:else}
+          <p class="mt-3 text-sm text-slate-500">
+            Este análisis no incluye un repositorio configurado.
+          </p>
+        {/if}
+        {#if analysis?.gitInfo?.branch}
+          <p class="mt-3 text-xs text-slate-500">
+            Rama <span class="font-mono font-semibold text-slate-700"
+              >{analysis.gitInfo.branch}</span
+            >
+          </p>
+        {/if}
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Histórico de ejecuciones
+        </p>
+        <h3 class="mt-2 text-lg font-semibold text-slate-900">
+          {analysisHistory.length} análisis completado{analysisHistory.length === 1 ? '' : 's'}
+        </h3>
+        {#if analysis}
+          <p class="mt-3 text-xs text-slate-500">
+            Último: <span class="font-semibold text-slate-700">{analysis.tool}</span>
+            <span class="mx-1">·</span>{new Date(analysis.createdAt).toLocaleString()}
+          </p>
+        {/if}
+      </section>
+    </div>
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 class="font-semibold text-slate-900">Evolución del riesgo</h3>
@@ -305,23 +367,113 @@
           >
         </div>
         <div class="divide-y divide-slate-200">
-          {#each filteredVulnerabilities as finding}<details class="group py-4">
-              <summary class="flex cursor-pointer list-none flex-wrap items-center gap-3"
-                ><span
+          {#each filteredVulnerabilities as finding, index (finding.id + finding.target + finding.packageName + index)}
+            <details class="group py-4">
+              <summary class="flex cursor-pointer list-none flex-wrap items-center gap-3">
+                <span
                   class={`rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase ${severityStyles[finding.severity]}`}
-                  >{finding.severity}</span
-                ><span class="font-mono text-sm font-semibold text-slate-900">{finding.id}</span
-                ><span class="text-sm text-slate-600">{finding.title}</span><span
-                  class="ml-auto text-xs text-slate-500">{findingStatus(finding)}</span
-                ></summary
-              >
+                >
+                  {finding.severity}
+                </span>
+                <span class="font-mono text-sm font-semibold text-slate-900">{finding.id}</span>
+                <span class="text-sm text-slate-600">{finding.title}</span>
+                <span class="ml-auto text-xs text-slate-500">{findingStatus(finding)}</span>
+                <span class="text-xs font-semibold text-slate-500">
+                  {finding.cvssScore !== null ? `CVSS ${finding.cvssScore.toFixed(1)}` : 'Sin CVSS'}
+                </span>
+                <a
+                  href={finding.cveUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  on:click|stopPropagation
+                  class="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                >
+                  CVE ↗
+                </a>
+              </summary>
               <div class="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
                 <p>{finding.description || finding.title}</p>
-                <p class="mt-2 break-all font-mono text-xs">{finding.packagePath}</p>
-                {#if finding.codeSnippet}<pre
-                    class="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">{finding.codeSnippet}</pre>{/if}
+                <div class="mt-4 grid gap-4 lg:grid-cols-[1fr_auto]">
+                  <div class="rounded-xl border border-slate-200 bg-white p-3">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Ubicación detectada
+                    </p>
+                    <p class="mt-1 break-all font-mono text-xs text-slate-800">
+                      {finding.packagePath}
+                    </p>
+                    {#if finding.packageIdentifier}
+                      <p class="mt-1 break-all text-xs text-slate-500">
+                        Identificador: {finding.packageIdentifier}
+                      </p>
+                    {/if}
+                    {#if finding.lineStart !== null}
+                      <p class="mt-2 text-xs font-semibold text-slate-700">
+                        Línea{finding.lineEnd !== null && finding.lineEnd !== finding.lineStart
+                          ? `s ${finding.lineStart}-${finding.lineEnd}`
+                          : ` ${finding.lineStart}`}
+                      </p>
+                    {:else}
+                      <p class="mt-2 text-xs text-slate-500">
+                        Este informe no incluye línea ni fragmento de código.
+                      </p>
+                    {/if}
+                    {#if finding.codeSnippet}
+                      <pre
+                        class="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">{finding.codeSnippet}</pre>
+                    {/if}
+                  </div>
+                  <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs lg:min-w-64">
+                    <div>
+                      <dt class="text-slate-500">Paquete</dt>
+                      <dd class="mt-0.5 font-semibold text-slate-800">{finding.packageName}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-slate-500">Estado Trivy</dt>
+                      <dd class="mt-0.5 font-semibold text-slate-800">{finding.status}</dd>
+                    </div>
+                    <div>
+                      <dt class="text-slate-500">Versión instalada</dt>
+                      <dd class="mt-0.5 font-mono font-semibold text-red-700">
+                        {finding.installedVersion}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt class="text-slate-500">Versión corregida</dt>
+                      <dd class="mt-0.5 font-mono font-semibold text-emerald-700">
+                        {finding.fixedVersion || 'No indicada'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt class="text-slate-500">CWE</dt>
+                      <dd class="mt-0.5 font-semibold text-slate-800">
+                        {finding.cweIds.length > 0 ? finding.cweIds.join(', ') : 'No indicado'}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-4">
+                  <a
+                    href={finding.cveUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    class="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                  >
+                    Abrir {finding.id} en NVD ↗
+                  </a>
+                  {#if finding.primaryUrl}
+                    <a
+                      href={finding.primaryUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      class="text-xs font-semibold text-blue-700 hover:text-blue-900"
+                    >
+                      Ver advisory ↗
+                    </a>
+                  {/if}
+                </div>
               </div>
-            </details>{/each}
+            </details>
+          {/each}
         </div>{/if}
     </section>{:else}<section
       class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
@@ -335,36 +487,134 @@
       >{#if filteredFileGroups.length === 0}<p class="py-8 text-center text-sm text-slate-500">
           No se han detectado vulnerabilidades asociadas a archivos.
         </p>{:else}<div class="mt-4 grid gap-4 lg:grid-cols-[minmax(16rem,0.4fr)_minmax(0,1fr)]">
-          <div class="space-y-2">
-            {#each filteredFileGroups as file}<button
-                type="button"
-                on:click={() => (selectedFilePath = file.path)}
-                class={`w-full rounded-xl border p-4 text-left ${selectedFilePath === file.path ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 hover:bg-slate-50'}`}
-                ><p class="truncate font-mono text-sm font-semibold">{getFileName(file.path)}</p>
-                <p class="mt-2 text-xs opacity-70">
-                  {file.vulnerabilities.length} hallazgos
-                </p></button
-              >{/each}
-          </div>
-          <div class="min-h-[16rem] rounded-2xl border border-slate-200 p-5">
-            {#if selectedFile}<h4 class="break-all font-mono text-sm font-semibold text-slate-900">
-                {selectedFile.path}
-              </h4>
-              {#each selectedFile.vulnerabilities as finding}<article
-                  class="border-b border-slate-100 py-4"
+          <aside class="rounded-2xl border border-slate-200 bg-slate-50 p-2" aria-label="Archivos">
+            <div class="px-3 py-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Archivos</p>
+              <p class="mt-1 text-xs text-slate-500">{fileGroups.length} archivos con hallazgos</p>
+            </div>
+            <div class="max-h-[34rem] space-y-2 overflow-y-auto">
+              {#each filteredFileGroups as file, index (file.path + index)}
+                <button
+                  type="button"
+                  on:click={() => (selectedFilePath = file.path)}
+                  aria-pressed={selectedFilePath === file.path}
+                  title={file.path}
+                  class={`w-full rounded-xl border p-4 text-left shadow-sm transition ${selectedFilePath === file.path ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-md'}`}
                 >
-                  <p class="font-semibold text-slate-900">{finding.id}</p>
-                  <p class="mt-1 text-sm text-slate-600">{finding.title}</p>
-                </article>{/each}{:else}<div
-                class="flex min-h-[14rem] items-center justify-center text-sm text-slate-500"
-              >
-                Selecciona un archivo para inspeccionar.
-              </div>{/if}
+                  <p class="truncate font-mono text-sm font-semibold" title={file.path}>
+                    {getFileName(file.path)}
+                  </p>
+                  <div class="mt-3 flex flex-wrap gap-1.5">
+                    {#each fileSeverityOrder as severity}
+                      {@const count = countSeverity(file.vulnerabilities, severity)}
+                      {#if count > 0}
+                        <span
+                          class={`rounded-md px-2 py-1 text-[11px] font-semibold ${selectedFilePath === file.path ? 'bg-white/15 text-white' : severityStyles[severity]}`}
+                        >
+                          {severityLabel(severity)}
+                          {count}
+                        </span>
+                      {/if}
+                    {/each}
+                  </div>
+                  <p
+                    class={`mt-3 text-xs ${selectedFilePath === file.path ? 'text-slate-300' : 'text-slate-500'}`}
+                  >
+                    {file.vulnerabilities.length} CVE{file.vulnerabilities.length === 1 ? '' : 's'}
+                  </p>
+                </button>
+              {/each}
+            </div>
+          </aside>
+          <div class="min-h-[20rem] rounded-2xl border border-slate-200 bg-white">
+            {#if selectedFile}
+              <div class="border-b border-slate-200 p-5">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Archivo seleccionado
+                </p>
+                <h4 class="mt-1 break-all font-mono text-sm font-semibold text-slate-900">
+                  {selectedFile.path}
+                </h4>
+                <p class="mt-2 text-sm text-slate-500">
+                  {selectedFile.vulnerabilities.length} vulnerabilidades detectadas en este archivo
+                </p>
+              </div>
+              <div class="divide-y divide-slate-100 px-5">
+                {#each selectedFile.vulnerabilities as finding, index (finding.id + finding.packageName + finding.installedVersion + index)}
+                  <article class="py-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span
+                          class={`rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase ${severityStyles[finding.severity]}`}
+                          >{finding.severity}</span
+                        >
+                        <span class="font-mono text-sm font-semibold text-slate-900"
+                          >{finding.id}</span
+                        >
+                      </div>
+                      <a
+                        href={finding.cveUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        class="text-xs font-semibold text-blue-700 hover:text-blue-900">Ver CVE ↗</a
+                      >
+                    </div>
+                    <p class="mt-2 text-sm font-medium text-slate-800">{finding.packageName}</p>
+                    <p class="mt-1 text-xs text-slate-500">
+                      {finding.installedVersion} → {finding.fixedVersion || 'Sin versión corregida'}
+                    </p>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">
+                      {finding.description || finding.title}
+                    </p>
+                    <div
+                      class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"
+                    >
+                      {#if finding.lineStart !== null}
+                        <p class="font-semibold text-slate-800">
+                          Línea{finding.lineEnd !== null && finding.lineEnd !== finding.lineStart
+                            ? `s ${finding.lineStart}-${finding.lineEnd}`
+                            : ` ${finding.lineStart}`}
+                        </p>
+                      {:else}
+                        <p>Este informe no incluye línea ni fragmento de código.</p>
+                      {/if}
+                      {#if finding.codeSnippet}<pre
+                          class="mt-2 overflow-x-auto rounded-lg bg-slate-950 p-3 leading-5 text-slate-100">{finding.codeSnippet}</pre>{/if}
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-4 text-xs">
+                      <span class="text-slate-500"
+                        >CWE: {finding.cweIds.length > 0
+                          ? finding.cweIds.join(', ')
+                          : 'No indicado'}</span
+                      >
+                      {#if finding.primaryUrl}<a
+                          href={finding.primaryUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          class="font-semibold text-blue-700 hover:text-blue-900">Ver advisory ↗</a
+                        >{/if}
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            {:else}
+              <div class="flex min-h-[20rem] items-center justify-center p-8 text-center">
+                <div>
+                  <p class="text-base font-semibold text-slate-900">
+                    Selecciona un archivo para inspeccionar
+                  </p>
+                  <p class="mt-1 text-sm text-slate-500">
+                    Elige un archivo del listado para ver sus vulnerabilidades.
+                  </p>
+                </div>
+              </div>
+            {/if}
           </div>
         </div>{/if}
     </section>{/if}
 </div>
-{#if riskInfoModalOpen}<div
+{#if riskInfoModalOpen}
+  <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
     role="presentation"
     on:click={(event) => event.currentTarget === event.target && (riskInfoModalOpen = false)}
@@ -373,18 +623,68 @@
       class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="risk-info-title"
     >
-      <div class="flex items-start justify-between">
-        <h2 class="text-xl font-bold text-slate-900">¿Cómo se calcula este riesgo?</h2>
-        <button type="button" on:click={() => (riskInfoModalOpen = false)} aria-label="Cerrar"
-          ><X class="h-5 w-5" /></button
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Método de evaluación
+          </p>
+          <h2 id="risk-info-title" class="mt-1 text-xl font-bold text-slate-900">
+            ¿Cómo se calcula este riesgo?
+          </h2>
+        </div>
+        <button
+          type="button"
+          on:click={() => (riskInfoModalOpen = false)}
+          aria-label="Cerrar información del riesgo"
+          class="text-slate-400 hover:text-slate-700"
         >
+          <X class="h-5 w-5" />
+        </button>
       </div>
+
       <p class="mt-4 text-sm leading-6 text-slate-600">
-        Critical × 10, High × 6, Medium × 3 y Low × 1.
+        La puntuación suma el peso de cada vulnerabilidad encontrada en el último análisis. Cuanto
+        mayor sea el resultado, mayor es la prioridad de remediación.
       </p>
-      <p class="mt-4 rounded-lg bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100">
-        Resultado: {riskScore} puntos
-      </p>
+
+      <div class="mt-5 grid grid-cols-2 gap-2">
+        <div class="rounded-xl border border-red-200 bg-red-50 p-3">
+          <p class="text-sm font-bold text-red-700">Critical × 10</p>
+          <p class="mt-1 text-xs text-red-700">
+            {summary?.vulnerabilities.critical ?? 0} detectadas
+          </p>
+        </div>
+        <div class="rounded-xl border border-orange-200 bg-orange-50 p-3">
+          <p class="text-sm font-bold text-orange-700">High × 6</p>
+          <p class="mt-1 text-xs text-orange-700">
+            {summary?.vulnerabilities.high ?? 0} detectadas
+          </p>
+        </div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p class="text-sm font-bold text-amber-700">Medium × 3</p>
+          <p class="mt-1 text-xs text-amber-700">
+            {summary?.vulnerabilities.medium ?? 0} detectadas
+          </p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-sm font-bold text-slate-700">Low × 1</p>
+          <p class="mt-1 text-xs text-slate-600">
+            {summary?.vulnerabilities.low ?? 0} detectadas
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-5 border-t border-slate-100 pt-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fórmula aplicada</p>
+        <p class="mt-2 rounded-lg bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100">
+          (Critical × 10) + (High × 6) + (Medium × 3) + (Low × 1) = {riskScore} puntos
+        </p>
+        <p class="mt-3 text-xs leading-5 text-slate-500">
+          Riesgo bajo: 1-7 · medio: 8-19 · alto: 20-39 · crítico: 40+ o cualquier Critical.
+        </p>
+      </div>
     </section>
-  </div>{/if}
+  </div>
+{/if}
