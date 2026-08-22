@@ -71,33 +71,43 @@
 
   let vulnerabilityQuery = '';
   let severityFilter = 'all';
-  let statusFilter = 'all';
 
   const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
-  $: filteredVulnerabilities = vulnerabilities
-    .filter((vulnerability) => {
-      const query = vulnerabilityQuery.trim().toLowerCase();
-      const matchesQuery =
-        !query ||
-        [
-          vulnerability.id,
-          vulnerability.packageName,
-          vulnerability.target,
-          vulnerability.title,
-        ].some((value) => value.toLowerCase().includes(query));
-      const matchesSeverity = severityFilter === 'all' || vulnerability.severity === severityFilter;
-      const matchesStatus = statusFilter === 'all' || vulnerability.status === statusFilter;
-      return matchesQuery && matchesSeverity && matchesStatus;
-    })
-    .sort((a, b) => {
-      const severityDifference = (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0);
-      return (
-        severityDifference || (b.cvssScore ?? 0) - (a.cvssScore ?? 0) || a.id.localeCompare(b.id)
-      );
-    });
+  function filterVulnerabilities(
+    findings: VulnerabilityFinding[],
+    queryValue: string,
+    severityValue: string,
+  ) {
+    const query = queryValue.trim().toLowerCase();
 
-  $: statuses = [...new Set(vulnerabilities.map((vulnerability) => vulnerability.status))];
+    return findings
+      .filter((vulnerability) => {
+        const matchesQuery =
+          !query ||
+          [
+            vulnerability.id,
+            vulnerability.packageName,
+            vulnerability.target,
+            vulnerability.title,
+          ].some((value) => value.toLowerCase().includes(query));
+        const matchesSeverity = severityValue === 'all' || vulnerability.severity === severityValue;
+        return matchesQuery && matchesSeverity;
+      })
+      .sort((a, b) => {
+        const severityDifference =
+          (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0);
+        return (
+          severityDifference || (b.cvssScore ?? 0) - (a.cvssScore ?? 0) || a.id.localeCompare(b.id)
+        );
+      });
+  }
+
+  $: filteredVulnerabilities = filterVulnerabilities(
+    vulnerabilities,
+    vulnerabilityQuery,
+    severityFilter,
+  );
 
   function findingStatus(vulnerability: VulnerabilityFinding) {
     if (vulnerability.status === 'fixed' || vulnerability.fixedVersion) return 'Actualizar';
@@ -420,16 +430,6 @@
               <option value="medium">Medium</option>
               <option value="low">Low</option>
             </select>
-            <select
-              bind:value={statusFilter}
-              aria-label="Filtrar por estado"
-              class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-slate-400 focus:outline-none"
-            >
-              <option value="all">Todos los estados</option>
-              {#each statuses as status}
-                <option value={status}>{status}</option>
-              {/each}
-            </select>
           </div>
 
           <div class="flex items-center justify-between px-4 py-3 text-xs text-slate-500">
@@ -446,7 +446,7 @@
             </p>
           {:else}
             <div class="divide-y divide-slate-200">
-              {#each filteredVulnerabilities as vulnerability (vulnerability.id + vulnerability.target)}
+              {#each filteredVulnerabilities as vulnerability, index (vulnerability.id + vulnerability.target + vulnerability.packageName + vulnerability.installedVersion + index)}
                 <details class="group bg-white">
                   <summary
                     class="grid cursor-pointer list-none gap-3 px-4 py-4 text-left transition hover:bg-slate-50 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1.4fr)_auto_auto_auto_auto] lg:items-center [&::-webkit-details-marker]:hidden"
