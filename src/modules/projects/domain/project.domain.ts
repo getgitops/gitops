@@ -8,13 +8,13 @@ export interface ProjectStatus {
 
 export interface ProjectModules {
   vault: boolean;
-  openreport: boolean;
+  codereport: boolean;
   stateiac: boolean;
 }
 
 export const DEFAULT_PROJECT_MODULES: ProjectModules = {
   vault: true,
-  openreport: true,
+  codereport: true,
   stateiac: true,
 };
 

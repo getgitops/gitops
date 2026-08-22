@@ -103,7 +103,7 @@ export const ProjectEntity = entity('projects', {
   status: text().notNull().default('active'),
   modules: json()
     .notNull()
-    .$defaultFn(() => ({ vault: true, openreport: true, stateiac: true })),
+    .$defaultFn(() => ({ vault: true, codereport: true, stateiac: true })),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
