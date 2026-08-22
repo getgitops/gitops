@@ -17,6 +17,17 @@ export class CodeReportAnalysisService {
     return analyses.map((analysis) => analysis.toJson());
   }
 
+  async listByProject(serviceIds: string[]) {
+    const analyses = await Promise.all(
+      serviceIds.map((serviceId) => this.listByService(serviceId)),
+    );
+    return analyses
+      .flat()
+      .sort(
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      );
+  }
+
   async getById(id: string) {
     const analysis = await this.repository.findById(id);
     if (!analysis) {

@@ -29,6 +29,12 @@ export async function load({ parent, params, locals }) {
         id: analysis.id,
         createdAt: analysis.createdAt,
         result: analysis.result,
+        summary: analysis.summary,
+        status: analysis.status,
+        tool: analysis.tool,
+        gitInfo: analysis.gitInfo,
+        error: analysis.error,
+        updatedAt: analysis.updatedAt,
       }));
 
     return { service, latestAnalysis, analysisHistory };
