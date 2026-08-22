@@ -4,9 +4,6 @@ export function grantsFor(section: string, resource: string, extraActions: strin
   return [...defaultActions, ...extraActions].map((action) => `${section}:${resource}:${action}`);
 }
 
-
-
-
 const permissions = {
   version: 1,
   sections: {
@@ -15,7 +12,7 @@ const permissions = {
       sections: {
         organization: {
           resource: 'organization',
-          permissions: grantsFor('cluster','organization'),
+          permissions: grantsFor('cluster', 'organization'),
         },
         users: {
           resource: 'users',
@@ -25,7 +22,7 @@ const permissions = {
           resource: 'settings',
           permissions: grantsFor('cluster', 'settings'),
         },
-      }
+      },
     },
     organization: {
       resource: 'organization',
@@ -54,14 +51,15 @@ const permissions = {
           resource: 'audit',
           permissions: grantsFor('organization', 'audit'),
         },
-      }
+      },
     },
     project: {
       resource: 'project',
+      permissions: grantsFor('project', 'project'),
       sections: {
         users: {
           resource: 'users',
-          permissions: grantsFor('project','users', ['invite']),
+          permissions: grantsFor('project', 'users', ['invite']),
         },
         roles: {
           resource: 'roles',
@@ -123,11 +121,11 @@ const permissions = {
                   resource: 'history',
                   permissions: grantsFor('project:stateiac', 'history'),
                 },
-              }
-            }
+              },
+            },
           },
-        }
-      }
+        },
+      },
     },
   },
 };

@@ -1,3 +1,5 @@
+import permissionsCatalog from '$lib/config/permissions';
+
 export const PERMISSION_SECTIONS = ['vault', 'openreport', 'stateiac'] as const;
 export type PermissionSection = (typeof PERMISSION_SECTIONS)[number];
 
@@ -18,13 +20,58 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
 };
 
 export type Permission = `${PermissionSection}:${PermissionAction}`;
-export type PermissionGrant = Permission | `${PermissionSection}:all`;
+export type PermissionGrant = string;
+export type PermissionScope = 'cluster' | 'organization' | 'project';
+
+type PermissionConfigSection = {
+  permissions?: string[];
+  sections?: Record<string, PermissionConfigSection> | PermissionConfigSection[];
+};
+
+function permissionChildren(section: PermissionConfigSection): PermissionConfigSection[] {
+  if (!section.sections) return [];
+  return Array.isArray(section.sections) ? section.sections : Object.values(section.sections);
+}
+
+function collectPermissionGrants(section: PermissionConfigSection): string[] {
+  return [
+    ...(section.permissions ?? []),
+    ...permissionChildren(section).flatMap((child) => collectPermissionGrants(child)),
+  ];
+}
+
+function storedPermissionFor(permission: string): string {
+  const parts = permission.split(':');
+  if (parts.length < 3) return permission;
+  return parts.slice(1).join(':');
+}
+
+export function toStoredPermissionGrant(
+  permission: string,
+  scope: PermissionScope,
+): PermissionGrant {
+  if (permission.startsWith(`${scope}:${scope}:`)) {
+    return permission.replace(`${scope}:${scope}:`, `${scope}:`);
+  }
+
+  if (permission.startsWith(`${scope}:`)) {
+    return permission.slice(scope.length + 1);
+  }
+
+  return permission;
+}
+
+const CATALOG_PERMISSION_GRANTS = Object.values(permissionsCatalog.sections).flatMap((section) =>
+  collectPermissionGrants(section),
+);
 
 export const ALL_PERMISSION_GRANTS: PermissionGrant[] = [
+  ...CATALOG_PERMISSION_GRANTS,
+  ...CATALOG_PERMISSION_GRANTS.map((permission) => storedPermissionFor(permission)),
   ...PERMISSION_SECTIONS.flatMap((section) =>
     PERMISSION_ACTIONS.map((action) => `${section}:${action}` as Permission),
   ),
-  ...PERMISSION_SECTIONS.map((section) => `${section}:all` as PermissionGrant),
+  ...PERMISSION_SECTIONS.map((section) => `${section}:all`),
 ];
 
 const ALL_PERMISSION_GRANTS_SET = new Set<string>(ALL_PERMISSION_GRANTS);
@@ -72,7 +119,10 @@ export function togglePermissionAction(
 }
 
 /** Toggles the `section:all` shortcut, replacing any explicit grants for that section. */
-export function toggleSectionAll(permissions: readonly string[], section: PermissionSection): string[] {
+export function toggleSectionAll(
+  permissions: readonly string[],
+  section: PermissionSection,
+): string[] {
   const withoutSection = permissions.filter((p) => !p.startsWith(`${section}:`));
   return isSectionFullyGranted(permissions, section)
     ? withoutSection

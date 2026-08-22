@@ -11,10 +11,13 @@ type PermissionRole = {
   permissions?: readonly string[] | null;
 } | null;
 
-type PermissionAwareUser = {
-  id?: string;
-  role?: PermissionRole;
-} | null | undefined;
+type PermissionAwareUser =
+  | {
+      id?: string;
+      role?: PermissionRole;
+    }
+  | null
+  | undefined;
 
 export type CanCanContext =
   | { scope: 'cluster' }
@@ -63,10 +66,7 @@ export class CanCanService {
     return this.can(user.id, permission, context);
   }
 
-  async canManageOrganization(
-    user: PermissionAwareUser,
-    organizationId: string,
-  ): Promise<boolean> {
+  async canManageOrganization(user: PermissionAwareUser, organizationId: string): Promise<boolean> {
     return this.canSessionUser(user, 'stateiac:read', { scope: 'organization', organizationId });
   }
 
@@ -145,7 +145,13 @@ export class CanCanService {
     if (!grants || grants.length === 0) return false;
 
     const [section] = permission.split(':') as [string, string];
-    return grants.includes(permission) || grants.includes(`${section}:all`);
+    return grants.some(
+      (grant) =>
+        grant === permission ||
+        grant === `${section}:all` ||
+        grant.endsWith(`:${permission}`) ||
+        grant.endsWith(`:${section}:all`),
+    );
   }
 
   private async findProjectOrganizationId(projectId: string): Promise<string | null> {

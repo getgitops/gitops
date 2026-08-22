@@ -1,6 +1,6 @@
-import { fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '../../../../../../../modules/auth';
-import { projectService } from '../../../../../../../modules/projects';
+import { error, fail } from '@sveltejs/kit';
+import { cancanService, roleService } from '../../../../../../../../modules/auth';
+import { projectService } from '../../../../../../../../modules/projects';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -9,8 +9,10 @@ function parsePermissions(value: unknown): string[] {
   return permissions.filter((permission): permission is string => typeof permission === 'string');
 }
 
-function errorResponse(error: unknown) {
-  return fail(400, { error: error instanceof Error ? error.message : 'Role action failed.' });
+function errorResponse(errorValue: unknown) {
+  return fail(400, {
+    error: errorValue instanceof Error ? errorValue.message : 'Role action failed.',
+  });
 }
 
 async function canManageProjectRole(
@@ -27,36 +29,15 @@ async function canManageProjectRole(
   return { project, allowed };
 }
 
-export async function load({ parent }) {
+export async function load({ parent, params }) {
   const { project } = await parent();
   const roles = await roleService.listRoles('project', project.id);
-  return { roles };
+  const role = roles.find((row) => row.id === params.id);
+  if (!role) throw error(404, 'Role not found');
+  return { project, role };
 }
 
 export const actions = {
-  async createRole({ request, locals, params }) {
-    const { project, allowed } = await canManageProjectRole(
-      locals.user,
-      params.slug,
-      'stateiac:create',
-    );
-    if (!allowed) return fail(403, { error: 'Forbidden' });
-
-    try {
-      const form = await request.formData();
-      const role = await roleService.createRole({
-        name: String(form.get('name') ?? ''),
-        slug: String(form.get('slug') ?? ''),
-        permissions: parsePermissions(form.get('permissions')),
-        scope: 'project',
-        projectId: project.id,
-      });
-      return { success: true, role };
-    } catch (error: unknown) {
-      return errorResponse(error);
-    }
-  },
-
   async updateRole({ request, locals, params }) {
     const { allowed } = await canManageProjectRole(locals.user, params.slug, 'stateiac:update');
     if (!allowed) return fail(403, { error: 'Forbidden' });
@@ -68,8 +49,8 @@ export const actions = {
         permissions: parsePermissions(form.get('permissions')),
       });
       return { success: true, role };
-    } catch (error: unknown) {
-      return errorResponse(error);
+    } catch (errorValue: unknown) {
+      return errorResponse(errorValue);
     }
   },
 
@@ -81,8 +62,8 @@ export const actions = {
       const form = await request.formData();
       await roleService.deleteRole(String(form.get('id') ?? ''));
       return { success: true };
-    } catch (error: unknown) {
-      return errorResponse(error);
+    } catch (errorValue: unknown) {
+      return errorResponse(errorValue);
     }
   },
 };

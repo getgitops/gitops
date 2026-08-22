@@ -5,6 +5,7 @@ import {
   togglePermissionAction,
   toggleSectionAll,
   isSectionFullyGranted,
+  toStoredPermissionGrant,
 } from './index';
 
 describe('isPermissionActionSelected', () => {
@@ -25,6 +26,11 @@ describe('isValidPermissionGrant', () => {
     expect(isValidPermissionGrant('vault:read')).toBe(true);
     expect(isValidPermissionGrant('stateiac:delete')).toBe(true);
     expect(isValidPermissionGrant('openreport:all')).toBe(true);
+    expect(isValidPermissionGrant('project:vault:secrets:import')).toBe(true);
+    expect(isValidPermissionGrant('organization:users:invite')).toBe(true);
+    expect(isValidPermissionGrant('project:all')).toBe(true);
+    expect(isValidPermissionGrant('users:invite')).toBe(true);
+    expect(isValidPermissionGrant('vault:secrets:import')).toBe(true);
   });
 
   it('rejects unknown sections, actions, or malformed strings', () => {
@@ -32,6 +38,18 @@ describe('isValidPermissionGrant', () => {
     expect(isValidPermissionGrant('unknown-section:read')).toBe(false);
     expect(isValidPermissionGrant('vault')).toBe(false);
     expect(isValidPermissionGrant('*')).toBe(false);
+  });
+});
+
+describe('toStoredPermissionGrant', () => {
+  it('maps UI permissions to canonical stored grants for the role scope', () => {
+    expect(toStoredPermissionGrant('project:project:all', 'project')).toBe('project:all');
+    expect(toStoredPermissionGrant('project:vault:secrets:read', 'project')).toBe(
+      'vault:secrets:read',
+    );
+    expect(toStoredPermissionGrant('organization:users:invite', 'organization')).toBe(
+      'users:invite',
+    );
   });
 });
 
@@ -66,8 +84,11 @@ describe('toggleSectionAll', () => {
 describe('isSectionFullyGranted', () => {
   it('reports true only when the all shortcut is present', () => {
     expect(isSectionFullyGranted(['vault:all'], 'vault')).toBe(true);
-    expect(isSectionFullyGranted(['vault:read', 'vault:create', 'vault:update', 'vault:delete'], 'vault')).toBe(
-      false,
-    );
+    expect(
+      isSectionFullyGranted(
+        ['vault:read', 'vault:create', 'vault:update', 'vault:delete'],
+        'vault',
+      ),
+    ).toBe(false);
   });
 });

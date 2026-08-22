@@ -95,6 +95,8 @@ describe('CanCanService', () => {
     expect(CanCanService.hasPermission(['vault:read'], 'vault:delete')).toBe(false);
     expect(CanCanService.hasPermission(['vault:all'], 'vault:delete')).toBe(true);
     expect(CanCanService.hasPermission(['vault:all'], 'openreport:read')).toBe(false);
+    expect(CanCanService.hasPermission(['project:vault:read'], 'vault:read')).toBe(true);
+    expect(CanCanService.hasPermission(['project:vault:all'], 'vault:delete')).toBe(true);
   });
 
   it('allows a cluster admin without organization or project access rows', async () => {
