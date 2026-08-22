@@ -41,6 +41,7 @@ export const RoleEntity = entity('roles', {
 export const ApiKeyEntity = entity('api_keys', {
   id: uuid().primaryKey(),
   userId: uuid().notNull(),
+  projectId: uuid(),
   name: text().notNull(),
   keyPrefix: text().notNull(),
   keyHash: text().notNull(),

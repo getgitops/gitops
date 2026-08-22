@@ -32,6 +32,13 @@ export class CodeReportService {
     return service.toJson();
   }
 
+  // slug is globally unique, used by machine-to-machine endpoints that only know the project
+  // via the API key (not passed explicitly in the request body)
+  async findBySlugGlobal(slug: string) {
+    const service = await this.repository.findBySlugGlobal(slug);
+    return service ? service.toJson() : null;
+  }
+
   async createService(input: {
     projectId: string;
     name: string;

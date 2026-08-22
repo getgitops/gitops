@@ -58,11 +58,9 @@ export class UserService {
       // if (input.targetUserId === input.actorUserId && input.role !== 'admin') {
       //   throw new Error('You cannot remove your own admin role.');
       // }
-
       // if (input.role !== 'admin') {
       //   await this.ensureNotRemovingLastAdmin(input.targetUserId);
       // }
-
       // await this.userRepository.updateRole(input.targetUserId, input.role);
     }
   }

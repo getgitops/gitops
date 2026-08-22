@@ -5,10 +5,14 @@ import type { ApiKeyView } from '../domain/entities';
 function createRepositoryMock(): any {
   return {
     listByUser: vi.fn(),
+    listByProject: vi.fn(),
     findValidByHash: vi.fn(),
     create: vi.fn(),
     findById: vi.fn(),
+    findByIdAny: vi.fn(),
     revoke: vi.fn(),
+    revokeAny: vi.fn(),
+    touchLastUsed: vi.fn(),
     updateKeyMaterial: vi.fn(),
   };
 }
@@ -25,6 +29,7 @@ describe('ApiKeysService', () => {
         id: 'key-1',
         name: 'Deploy',
         keyPrefix: 'gvs_12',
+        projectId: null,
         expiresAt: null,
         lastUsedAt: null,
         revokedAt: null,
@@ -46,6 +51,7 @@ describe('ApiKeysService', () => {
       id: 'key-1',
       name: 'Deploy',
       keyPrefix: 'gvs_12',
+      projectId: null,
       expiresAt: null,
       lastUsedAt: null,
       revokedAt: null,
@@ -95,6 +101,7 @@ describe('ApiKeysService', () => {
     expect(repository.create).toHaveBeenCalledWith({
       id: expect.any(String),
       userId: 'user-1',
+      projectId: null,
       name: 'Deploy',
       keyPrefix: result.token.slice(0, 6),
       keyHash: expect.any(String),
@@ -109,6 +116,7 @@ describe('ApiKeysService', () => {
         id: 'key-1',
         name: 'Deploy',
         keyPrefix: 'gvs_12',
+        projectId: null,
         expiresAt: null,
         lastUsedAt: null,
         revokedAt: null,
@@ -118,6 +126,7 @@ describe('ApiKeysService', () => {
         id: 'key-1',
         name: 'Deploy',
         keyPrefix: 'gvs_12',
+        projectId: null,
         expiresAt: null,
         lastUsedAt: null,
         revokedAt: '2026-08-18T00:10:00.000Z',
@@ -127,7 +136,9 @@ describe('ApiKeysService', () => {
     const service = new ApiKeysService(repository);
 
     await service.revokeApiKey('user-1', 'key-1');
-    await expect(service.revokeApiKey('user-1', 'key-1')).rejects.toThrow('API key is already revoked');
+    await expect(service.revokeApiKey('user-1', 'key-1')).rejects.toThrow(
+      'API key is already revoked',
+    );
     expect(repository.revoke).toHaveBeenCalledTimes(1);
   });
 
@@ -137,6 +148,7 @@ describe('ApiKeysService', () => {
       id: 'key-1',
       name: 'Deploy',
       keyPrefix: 'gvs_old',
+      projectId: null,
       expiresAt: '2026-12-31T00:00:00.000Z',
       lastUsedAt: null,
       revokedAt: null,
@@ -168,6 +180,7 @@ describe('ApiKeysService', () => {
       id: 'key-1',
       name: 'Deploy',
       keyPrefix: 'gvs_old',
+      projectId: null,
       expiresAt: null,
       lastUsedAt: null,
       revokedAt: '2026-08-18T00:10:00.000Z',

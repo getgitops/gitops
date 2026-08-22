@@ -5,6 +5,7 @@
     ChevronRight,
     GitBranch,
     Info,
+    KeyRound,
     LayoutDashboard,
     ScrollText,
     Shield,
@@ -60,6 +61,12 @@
       href: `/org/${orgSlug}/projects/${project.slug}/settings/roles-permissions`,
       icon: Shield,
       subtitle: 'Define roles y permisos específicos para este proyecto.',
+    },
+    {
+      label: 'Server Access Keys',
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/server-access-keys`,
+      icon: KeyRound,
+      subtitle: 'Credenciales para que herramientas externas reporten análisis a este proyecto.',
     },
     {
       label: 'Auditoría',

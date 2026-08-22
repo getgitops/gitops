@@ -44,6 +44,18 @@ export class CodeReportServiceRepository extends Repository {
     return row ? new CodeReportServiceDomain(row) : null;
   }
 
+  // slug is unique across the whole entity (see schema), so this looks it up regardless of project
+  async findBySlugGlobal(slug: string): Promise<CodeReportServiceDomain | null> {
+    const result = await this.db
+      .with({ project: true })
+      .select()
+      .from(CodeReportServiceEntity)
+      .where({ slug })
+      .limit(1);
+    const row = result.rows[0];
+    return row ? new CodeReportServiceDomain(row) : null;
+  }
+
   async create(input: {
     id: string;
     projectId: string;

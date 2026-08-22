@@ -15,13 +15,15 @@ export interface AuthUserRepository {
   updateRole(userId: string, role: Role): Promise<void>;
   deleteById(userId: string): Promise<void>;
   countAdmins(): Promise<number>;
-  listActiveApiKeys(userId: string): Promise<Array<{
-    id: string;
-    name: string;
-    keyPrefix: string;
-    lastUsedAt: string | null;
-    createdAt: string;
-  }>>;
+  listActiveApiKeys(userId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      keyPrefix: string;
+      lastUsedAt: string | null;
+      createdAt: string;
+    }>
+  >;
   createApiKey(input: {
     id: string;
     userId: string;

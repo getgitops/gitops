@@ -6,13 +6,16 @@ import { getGitDb } from '$lib/server/gitdb';
 getGitDb();
 
 export const handle: Handle = async ({ event, resolve }) => {
-  if (event.url.pathname === '/login' || event.url.pathname.startsWith('/api/auth/')) {
+  if (
+    event.url.pathname === '/login' ||
+    event.url.pathname.startsWith('/api/auth/') ||
+    event.url.pathname === '/api/code-report/analyse-result'
+  ) {
     return resolve(event);
   }
 
   await ensureAuthReady();
   await ensureOrganizationReady();
-
 
   const sessionCookie = event.cookies.get('pos_session');
   const currentUser = await authService.resolveAuthenticatedUser(sessionCookie);
@@ -28,7 +31,10 @@ export const handle: Handle = async ({ event, resolve }) => {
   const organizationSettingsMatch = event.url.pathname.match(/^\/org\/([^/]+)\/settings/);
   if (organizationSettingsMatch) {
     const organization = await organizationService.tryFindBySlug(organizationSettingsMatch[1]);
-    if (!organization || !(await cancanService.canManageOrganization(currentUser, organization.id))) {
+    if (
+      !organization ||
+      !(await cancanService.canManageOrganization(currentUser, organization.id))
+    ) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
   } else if (

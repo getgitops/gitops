@@ -123,4 +123,34 @@ export class CodeReportAnalysisService {
     });
     return this.completeAnalysis(created.id, { result: input.result });
   }
+
+  // single entry point for the CI/CD-facing API: always creates a new analysis event
+  // (each call is one report, not a resumable transition of a previous one)
+  async reportAnalysis(input: {
+    serviceId: string;
+    status: 'in_progress' | 'completed' | 'failed';
+    tool?: string;
+    gitInfo?: CodeReportGitInfo;
+    result?: unknown;
+    error?: string;
+  }) {
+    const created = await this.startAnalysis({
+      serviceId: input.serviceId,
+      tool: input.tool?.trim() || 'api',
+      gitInfo: input.gitInfo,
+    });
+
+    if (input.status === 'completed') {
+      return this.completeAnalysis(created.id, { result: input.result, gitInfo: input.gitInfo });
+    }
+
+    if (input.status === 'failed') {
+      return this.failAnalysis(created.id, {
+        error: input.error || 'Unknown error',
+        gitInfo: input.gitInfo,
+      });
+    }
+
+    return created;
+  }
 }
