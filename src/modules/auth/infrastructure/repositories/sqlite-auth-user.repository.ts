@@ -87,18 +87,22 @@ export class SqliteAuthUserRepository implements AuthUserRepository {
   }
 
   async countAdmins(): Promise<number> {
-    const row = this.db.get<{ count: number }>("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'");
+    const row = this.db.get<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM users WHERE role = 'admin'",
+    );
 
     return row?.count ?? 0;
   }
 
-  async listActiveApiKeys(userId: string): Promise<Array<{
-    id: string;
-    name: string;
-    keyPrefix: string;
-    lastUsedAt: string | null;
-    createdAt: string;
-  }>> {
+  async listActiveApiKeys(userId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      keyPrefix: string;
+      lastUsedAt: string | null;
+      createdAt: string;
+    }>
+  > {
     const rows = this.db.all<ApiKeyRow>(
       `
       SELECT id, name, key_prefix, last_used_at, created_at

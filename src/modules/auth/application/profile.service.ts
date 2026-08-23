@@ -20,7 +20,11 @@ export class ProfileService {
     await this.userRepository.updateEmail(userId, email);
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<boolean> {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<boolean> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       return false;
@@ -30,7 +34,10 @@ export class ProfileService {
       return false;
     }
 
-    await this.userRepository.updatePassword(userId, this.passwordService.hashPassword(newPassword));
+    await this.userRepository.updatePassword(
+      userId,
+      this.passwordService.hashPassword(newPassword),
+    );
     return true;
   }
 }

@@ -26,7 +26,7 @@ class FakeProjectRepository {
     name: string;
     description?: string;
     status: string;
-    modules: { vault: boolean; openreport: boolean; stateiac: boolean };
+    modules: { vault: boolean; codereport: boolean; stateiac: boolean };
   }) {
     this.rows.push(
       new ProjectDomain({
@@ -50,7 +50,7 @@ class FakeProjectRepository {
       slug?: string;
       description?: string;
       status?: string;
-      modules?: { vault: boolean; openreport: boolean; stateiac: boolean };
+      modules?: { vault: boolean; codereport: boolean; stateiac: boolean };
       organizationId?: string;
     },
   ) {
@@ -156,7 +156,7 @@ describe('ProjectService', () => {
 
     it('defaults all modules to enabled when none are provided', async () => {
       const project = await createProject({ name: 'Project C' });
-      expect(project.modules).toEqual({ vault: true, openreport: true, stateiac: true });
+      expect(project.modules).toEqual({ vault: true, codereport: true, stateiac: true });
     });
 
     it('accepts a partial modules override, defaulting the rest to enabled', async () => {
@@ -164,7 +164,7 @@ describe('ProjectService', () => {
         name: 'Project D',
         modules: { vault: false },
       });
-      expect(project.modules).toEqual({ vault: false, openreport: true, stateiac: true });
+      expect(project.modules).toEqual({ vault: false, codereport: true, stateiac: true });
     });
   });
 
@@ -213,12 +213,12 @@ describe('ProjectService', () => {
       const created = await createProject({ name: 'Project A' });
 
       const updated = await service.updateProject(created.id, { modules: { vault: false } });
-      expect(updated.modules).toEqual({ vault: false, openreport: true, stateiac: true });
+      expect(updated.modules).toEqual({ vault: false, codereport: true, stateiac: true });
 
       const updatedAgain = await service.updateProject(created.id, {
-        modules: { openreport: false },
+        modules: { codereport: false },
       });
-      expect(updatedAgain.modules).toEqual({ vault: false, openreport: false, stateiac: true });
+      expect(updatedAgain.modules).toEqual({ vault: false, codereport: false, stateiac: true });
     });
 
     it('updates the status', async () => {

@@ -9,3 +9,4 @@ data/
 .gitdb/
 .env
 .claude/.claude-md-review-state
+code-report-analysis/

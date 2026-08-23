@@ -35,7 +35,7 @@
   export let organizationName: string | null = null;
   export let projects: {
     slug: string;
-    modules?: { vault: boolean; openreport: boolean; stateiac: boolean };
+    modules?: { vault: boolean; codereport: boolean; stateiac: boolean };
   }[] = [];
 
   let currentPath = pathname;
@@ -88,7 +88,7 @@
           },
         ]
       : []),
-    ...(currentProject?.modules?.openreport
+    ...(currentProject?.modules?.codereport
       ? [
           {
             name: 'Analisis',
@@ -97,10 +97,10 @@
                 name: 'Code Report',
                 icon: BarChart3,
                 items: [
-                  { label: 'Services', href: `${projectBase}/report/services`, icon: Layers },
-                  { label: 'History', href: `${projectBase}/report/history`, icon: GitBranch },
-                  { label: 'GitOps Report Bot', href: `${projectBase}/report/bot`, icon: Bot },
-                  { label: 'Settings', href: `${projectBase}/report/settings`, icon: Settings },
+                  { label: 'Services', href: `${projectBase}/code-report/services`, icon: Layers },
+                  { label: 'History', href: `${projectBase}/code-report/history`, icon: GitBranch },
+                  { label: 'GitOps Report Bot', href: `${projectBase}/code-report/bot`, icon: Bot },
+                  { label: 'Settings', href: `${projectBase}/code-report/settings`, icon: Settings },
                 ],
               },
             ],

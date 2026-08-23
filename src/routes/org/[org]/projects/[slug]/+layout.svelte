@@ -5,6 +5,7 @@
     ChevronRight,
     GitBranch,
     Info,
+    KeyRound,
     LayoutDashboard,
     ScrollText,
     Shield,
@@ -33,7 +34,7 @@
     },
     {
       label: 'Open Report',
-      href: `/org/${orgSlug}/projects/${project.slug}/report`,
+      href: `/org/${orgSlug}/projects/${project.slug}/code-report/services`,
       icon: BarChart3,
       subtitle: 'Reportes de vulnerabilidades y dependencias del proyecto.',
     },
@@ -60,6 +61,12 @@
       href: `/org/${orgSlug}/projects/${project.slug}/settings/roles-permissions`,
       icon: Shield,
       subtitle: 'Define roles y permisos específicos para este proyecto.',
+    },
+    {
+      label: 'Server Access Keys',
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/server-access-keys`,
+      icon: KeyRound,
+      subtitle: 'Credenciales para que herramientas externas reporten análisis a este proyecto.',
     },
     {
       label: 'Auditoría',

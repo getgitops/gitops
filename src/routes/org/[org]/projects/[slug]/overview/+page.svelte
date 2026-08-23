@@ -12,7 +12,7 @@
 
   type ProjectModules = {
     vault: boolean;
-    openreport: boolean;
+    codereport: boolean;
     stateiac: boolean;
   };
 
@@ -47,10 +47,10 @@
       icon: Shield,
     },
     {
-      key: 'openreport',
-      label: 'Open Report',
+      key: 'codereport',
+      label: 'Code Report',
       description: 'Reportes de vulnerabilidades y dependencias.',
-      href: `/org/${orgSlug}/projects/${project.slug}/report`,
+      href: `/org/${orgSlug}/projects/${project.slug}/code-report`,
       icon: BarChart3,
     },
     {

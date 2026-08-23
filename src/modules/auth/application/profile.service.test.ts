@@ -122,7 +122,9 @@ describe('ProfileService', () => {
 
     userRepository.findById.mockResolvedValue(null);
 
-    await expect(service.changePassword('missing-user', 'current-pass', 'new-pass')).resolves.toBe(false);
+    await expect(service.changePassword('missing-user', 'current-pass', 'new-pass')).resolves.toBe(
+      false,
+    );
     expect(passwordService.verifyPassword).not.toHaveBeenCalled();
     expect(userRepository.updatePassword).not.toHaveBeenCalled();
   });

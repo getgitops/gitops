@@ -66,6 +66,7 @@ export type ApiKeyView = {
   id: string;
   name: string;
   keyPrefix: string;
+  projectId: string | null;
   expiresAt: string | null;
   lastUsedAt: string | null;
   revokedAt: string | null;
