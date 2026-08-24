@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { CodeReportServiceRepository } from '../infrastructure/repositories/code-report-service.repository';
-
+import { ProjectService } from '../../projects/application/project.service';
 type AnalysisCleanup = {
   deleteAllByService(serviceId: string): Promise<void>;
 };
@@ -8,6 +8,7 @@ type AnalysisCleanup = {
 export class CodeReportService {
   constructor(
     private readonly repository: CodeReportServiceRepository,
+    private readonly projectService: ProjectService,
     private readonly analysisCleanup?: AnalysisCleanup,
   ) {}
 
@@ -24,8 +25,12 @@ export class CodeReportService {
     return service.toJson();
   }
 
-  async getByProjectAndSlug(projectId: string, slug: string) {
-    const service = await this.repository.findBySlug(projectId, slug);
+  async getByProjectAndSlug(projectSlug: string, serviceSlug: string) {
+    const project = await this.projectService.getProjectBySlug(projectSlug);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+    const service = await this.repository.findBySlug(project.id, serviceSlug);
     if (!service) {
       throw new Error('Service not found');
     }
@@ -40,14 +45,14 @@ export class CodeReportService {
   }
 
   async createService(input: {
-    projectId: string;
+    project: string;
     name: string;
     slug?: string;
     description?: string;
     tags?: string[];
   }) {
-    const projectId = input.projectId?.trim();
-    if (!projectId) {
+    const projectSlug = input.project?.trim();
+    if (!projectSlug) {
       throw new Error('Project is required');
     }
 
@@ -60,7 +65,11 @@ export class CodeReportService {
     if (!slug) {
       throw new Error('Service slug is required');
     }
-
+    const project = await this.projectService.getProjectBySlug(projectSlug);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+    const projectId = project.id;
     const existing = await this.repository.findBySlug(projectId, slug);
     if (existing) {
       throw new Error('A service with this slug already exists in this project');
@@ -73,6 +82,7 @@ export class CodeReportService {
       name,
       description: input.description?.trim() || undefined,
       tags: this.normalizeTags(input.tags),
+      tools: ['trivy', 'gitleaks', 'sbom']
     });
 
     const created = await this.repository.findBySlug(projectId, slug);

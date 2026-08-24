@@ -7,6 +7,7 @@ export class CodeReportServiceDomain extends Domain {
   public name: string = '';
   public description?: string | null = null;
   public tags: string[] = [];
+  public tools: string[] = [];
   public project: ProjectDomain | null = null;
 
   constructor(data: any) {
@@ -17,6 +18,7 @@ export class CodeReportServiceDomain extends Domain {
     this.description = data.description;
     this.tags = Array.isArray(data.tags) ? data.tags : [];
     this.project = data.project ? new ProjectDomain(data.project) : null;
+    this.tools = Array.isArray(data.tools) ? data.tools : [];
   }
 
   toJson() {
@@ -30,6 +32,7 @@ export class CodeReportServiceDomain extends Domain {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       project: this.project ? this.project.toJson() : null,
+      tools: this.tools,
     };
   }
 }
