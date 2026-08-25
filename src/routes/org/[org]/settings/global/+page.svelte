@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Building2, CheckCircle, KeyRound, LockKeyhole, RefreshCw, Shield } from 'lucide-svelte';
 
   let googleSsoEnabled = false;
@@ -15,60 +14,13 @@
   let isSaving = false;
   let saveSuccess = false;
 
-  onMount(async () => {
-    try {
-      const res = await fetch('/api/config');
-      const data = await res.json();
-
-      if (data.configured && data.config) {
-        googleSsoEnabled = !!data.config.googleSsoEnabled;
-        googleClientId = data.config.googleClientId || '';
-        googleClientSecret = data.config.googleClientSecret || '';
-
-        samlEnabled = !!data.config.samlEnabled;
-        samlEntryPoint = data.config.samlEntryPoint || '';
-        samlIssuer = data.config.samlIssuer || '';
-        samlCert = data.config.samlCert || '';
-      }
-    } catch (error) {
-      console.error('Error fetching auth config', error);
-    }
-  });
-
-  async function saveSettings() {
+  function saveSettings() {
     isSaving = true;
-    configError = '';
+    configError = 'Global authentication settings are not wired to a server action yet.';
     saveSuccess = false;
-
-    try {
-      const payload = {
-        googleSsoEnabled,
-        googleClientId,
-        googleClientSecret,
-        samlEnabled,
-        samlEntryPoint,
-        samlIssuer,
-        samlCert,
-      };
-
-      const res = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
-
-      saveSuccess = true;
-      setTimeout(() => {
-        saveSuccess = false;
-      }, 3000);
-    } catch (error: unknown) {
-      configError = error instanceof Error ? error.message : 'Failed to save global settings.';
-    } finally {
+    setTimeout(() => {
       isSaving = false;
-    }
+    }, 250);
   }
 </script>
 

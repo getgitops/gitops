@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { enhance } from '$app/forms';
+  import type { SubmitFunction } from '@sveltejs/kit';
   import { CheckCircle, Eye, FolderKanban, Plus, Search, Trash2 } from 'lucide-svelte';
 
-  export let data: { organization: { id: string; slug: string } | null };
+  export let data: { organization: { id: string; slug: string } | null; projects: ProjectRow[] };
 
   type ProjectRow = {
     id: string;
@@ -14,8 +15,8 @@
     updatedAt: string;
   };
 
-  let projects: ProjectRow[] = [];
-  let loading = false;
+  $: projects = data.projects;
+
   let error = '';
   let success = '';
 
@@ -33,28 +34,6 @@
   let deleteModalProject: ProjectRow | null = null;
   let deleteLoading = false;
   let deleteError = '';
-
-  onMount(fetchProjects);
-
-  async function fetchProjects() {
-    loading = true;
-    error = '';
-
-    try {
-      const organizationId = data.organization?.id;
-      const url = organizationId
-        ? `/api/projects?organizationId=${organizationId}`
-        : '/api/projects';
-      const res = await fetch(url);
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-      projects = payload.projects || [];
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to load projects.';
-    } finally {
-      loading = false;
-    }
-  }
 
   function flashSuccess(message: string) {
     success = message;
@@ -87,45 +66,38 @@
     createModalOpen = false;
   }
 
-  async function createProject() {
+  const createProject: SubmitFunction = ({ cancel }) => {
     createError = '';
 
     if (!newName.trim()) {
       createError = 'Project name is required.';
+      cancel();
       return;
     }
 
     if (!data.organization) {
       createError = 'No organization selected.';
+      cancel();
       return;
     }
 
     creating = true;
-    try {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId: data.organization.id,
-          name: newName.trim(),
-          slug: newSlug.trim() || undefined,
-          description: newDescription.trim() || undefined,
-          status: newStatus,
-        }),
-      });
-
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      closeCreateModal();
-      flashSuccess('Project created.');
-      await fetchProjects();
-    } catch (err: unknown) {
-      createError = err instanceof Error ? err.message : 'Failed to create project.';
-    } finally {
+    return async ({ result, update }) => {
+      await update();
       creating = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        closeCreateModal();
+        flashSuccess('Project created.');
+        return;
+      }
+
+      createError =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to create project.';
+    };
+  };
 
   function openDeleteModal(project: ProjectRow) {
     deleteModalProject = project;
@@ -136,26 +108,30 @@
     deleteModalProject = null;
   }
 
-  async function confirmDelete() {
-    if (!deleteModalProject) return;
+  const confirmDelete: SubmitFunction = ({ cancel }) => {
+    if (!deleteModalProject) {
+      cancel();
+      return;
+    }
 
     deleteError = '';
     deleteLoading = true;
-
-    try {
-      const res = await fetch(`/api/projects/${deleteModalProject.id}`, { method: 'DELETE' });
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      closeDeleteModal();
-      flashSuccess('Project deleted.');
-      await fetchProjects();
-    } catch (err: unknown) {
-      deleteError = err instanceof Error ? err.message : 'Failed to delete project.';
-    } finally {
+    return async ({ result, update }) => {
+      await update();
       deleteLoading = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        closeDeleteModal();
+        flashSuccess('Project deleted.');
+        return;
+      }
+
+      deleteError =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to delete project.';
+    };
+  };
 
   function formatDate(value: string) {
     if (!value) return '-';
@@ -225,11 +201,7 @@
     </div>
   {/if}
 
-  {#if loading}
-    <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
-      Loading projects...
-    </div>
-  {:else if filteredProjects.length === 0}
+  {#if filteredProjects.length === 0}
     <div
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
     >
@@ -326,83 +298,91 @@
         <h5 class="text-sm font-semibold text-slate-900">New project</h5>
       </div>
 
-      <div class="space-y-4 px-4 py-4">
-        {#if createError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {createError}
+      <form method="POST" action="?/createProject" use:enhance={createProject}>
+        <input type="hidden" name="organizationId" value={data.organization?.id ?? ''} />
+        <div class="space-y-4 px-4 py-4">
+          {#if createError}
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {createError}
+            </div>
+          {/if}
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-project-name"
+              >Name</label
+            >
+            <input
+              id="new-project-name"
+              name="name"
+              type="text"
+              bind:value={newName}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+              placeholder="Platform Core"
+            />
           </div>
-        {/if}
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-project-name">Name</label
-          >
-          <input
-            id="new-project-name"
-            type="text"
-            bind:value={newName}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            placeholder="Platform Core"
-          />
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-project-slug"
+              >Slug</label
+            >
+            <input
+              id="new-project-slug"
+              name="slug"
+              type="text"
+              bind:value={newSlug}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+              placeholder="platform-core (auto-generated if empty)"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-project-description">
+              Description
+            </label>
+            <textarea
+              id="new-project-description"
+              name="description"
+              bind:value={newDescription}
+              rows="3"
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+              placeholder="Optional description"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-project-status"
+              >Status</label
+            >
+            <select
+              id="new-project-status"
+              name="status"
+              bind:value={newStatus}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-project-slug">Slug</label
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeCreateModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
           >
-          <input
-            id="new-project-slug"
-            type="text"
-            bind:value={newSlug}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            placeholder="platform-core (auto-generated if empty)"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-project-description">
-            Description
-          </label>
-          <textarea
-            id="new-project-description"
-            bind:value={newDescription}
-            rows="3"
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            placeholder="Optional description"
-          ></textarea>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-project-status"
-            >Status</label
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={creating}
+            class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
-          <select
-            id="new-project-status"
-            bind:value={newStatus}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+            <Plus class="h-4 w-4" />
+            {creating ? 'Creating...' : 'Create project'}
+          </button>
         </div>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeCreateModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={createProject}
-          disabled={creating}
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Plus class="h-4 w-4" />
-          {creating ? 'Creating...' : 'Create project'}
-        </button>
-      </div>
+      </form>
     </div>
   </div>
 {/if}
@@ -425,38 +405,40 @@
         <h5 class="text-sm font-semibold text-slate-900">Delete project</h5>
       </div>
 
-      {#if deleteError}
-        <div class="px-4 pt-4">
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {deleteError}
+      <form method="POST" action="?/deleteProject" use:enhance={confirmDelete}>
+        <input type="hidden" name="id" value={deleteModalProject.id} />
+        {#if deleteError}
+          <div class="px-4 pt-4">
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {deleteError}
+            </div>
           </div>
+        {/if}
+
+        <div class="px-4 py-4 text-sm text-slate-600">
+          Are you sure you want to delete <span class="font-medium text-slate-900"
+            >{deleteModalProject.name}</span
+          >? This action cannot be undone.
         </div>
-      {/if}
 
-      <div class="px-4 py-4 text-sm text-slate-600">
-        Are you sure you want to delete <span class="font-medium text-slate-900"
-          >{deleteModalProject.name}</span
-        >? This action cannot be undone.
-      </div>
-
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeDeleteModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={confirmDelete}
-          disabled={deleteLoading}
-          class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Trash2 class="h-4 w-4" />
-          {deleteLoading ? 'Deleting...' : 'Delete project'}
-        </button>
-      </div>
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeDeleteModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={deleteLoading}
+            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            <Trash2 class="h-4 w-4" />
+            {deleteLoading ? 'Deleting...' : 'Delete project'}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 {/if}

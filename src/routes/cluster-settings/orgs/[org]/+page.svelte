@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { enhance } from '$app/forms';
+  import type { SubmitFunction } from '@sveltejs/kit';
   import { CheckCircle, Copy, Save, Trash2 } from 'lucide-svelte';
 
   type OrganizationRow = {
@@ -47,43 +48,30 @@
     }
   }
 
-  async function saveOrganization() {
+  const saveOrganization: SubmitFunction = ({ cancel }) => {
     error = '';
     if (!editName.trim()) {
       error = 'Organization name is required.';
+      cancel();
       return;
     }
 
     saving = true;
-    try {
-      const res = await fetch(`/api/organizations/${organization.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editName.trim(),
-          slug: editSlug.trim(),
-          description: editDescription.trim(),
-        }),
-      });
-
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      const previousSlug = organization.slug;
-      organization = payload.organization;
-      flashSuccess('Organization updated.');
-
-      if (payload.organization.slug !== previousSlug) {
-        await goto(`/cluster-settings/orgs/${payload.organization.slug}`, {
-          invalidateAll: true,
-        });
-      }
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to update organization.';
-    } finally {
+    return async ({ result, update }) => {
+      await update();
       saving = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        flashSuccess('Organization updated.');
+        return;
+      }
+
+      error =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to update organization.';
+    };
+  };
 
   function openDeleteModal() {
     deleteError = '';
@@ -94,21 +82,20 @@
     deleteModalOpen = false;
   }
 
-  async function confirmDelete() {
+  const confirmDelete: SubmitFunction = () => {
     deleteError = '';
     deleteLoading = true;
+    return async ({ result, update }) => {
+      await update();
 
-    try {
-      const res = await fetch(`/api/organizations/${organization.id}`, { method: 'DELETE' });
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      await goto('/cluster-settings/orgs');
-    } catch (err: unknown) {
-      deleteError = err instanceof Error ? err.message : 'Failed to delete organization.';
-      deleteLoading = false;
-    }
-  }
+      if (result.type === 'failure') {
+        deleteError = result.data?.error
+          ? String(result.data.error)
+          : 'Failed to delete organization.';
+        deleteLoading = false;
+      }
+    };
+  };
 </script>
 
 <svelte:head>
@@ -130,7 +117,13 @@
     </div>
   {/if}
 
-  <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
+  <form
+    method="POST"
+    action="?/updateOrganization"
+    use:enhance={saveOrganization}
+    class="overflow-hidden rounded-md border border-slate-200 bg-white"
+  >
+    <input type="hidden" name="id" value={organization.id} />
     <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
       <h3 class="text-sm font-semibold text-slate-900">Información</h3>
       <button
@@ -146,10 +139,10 @@
     <div class="space-y-4 px-4 py-4">
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="edit-org-name">Nombre</label
-          >
+          <label class="block text-sm font-medium text-slate-700" for="edit-org-name">Nombre</label>
           <input
             id="edit-org-name"
+            name="name"
             type="text"
             bind:value={editName}
             class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
@@ -160,6 +153,7 @@
           <label class="block text-sm font-medium text-slate-700" for="edit-org-slug">Slug</label>
           <input
             id="edit-org-slug"
+            name="slug"
             type="text"
             bind:value={editSlug}
             class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
@@ -173,6 +167,7 @@
         </label>
         <textarea
           id="edit-org-description"
+          name="description"
           bind:value={editDescription}
           rows="4"
           class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
@@ -183,8 +178,7 @@
 
     <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
       <button
-        type="button"
-        on:click={saveOrganization}
+        type="submit"
         disabled={saving}
         class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
       >
@@ -192,7 +186,7 @@
         {saving ? 'Saving...' : 'Save changes'}
       </button>
     </div>
-  </section>
+  </form>
 
   <section class="overflow-hidden rounded-md border border-red-200 bg-white">
     <div class="border-b border-red-200 px-4 py-3">
@@ -235,38 +229,40 @@
         <h5 class="text-sm font-semibold text-slate-900">Delete organization</h5>
       </div>
 
-      <div class="space-y-3 px-4 py-4">
-        {#if deleteError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {deleteError}
-          </div>
-        {/if}
+      <form method="POST" action="?/deleteOrganization" use:enhance={confirmDelete}>
+        <input type="hidden" name="id" value={organization.id} />
+        <div class="space-y-3 px-4 py-4">
+          {#if deleteError}
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {deleteError}
+            </div>
+          {/if}
 
-        <p class="text-sm text-slate-600">
-          Are you sure you want to delete <span class="font-medium text-slate-900"
-            >{organization.name}</span
-          >? This action cannot be undone.
-        </p>
-      </div>
+          <p class="text-sm text-slate-600">
+            Are you sure you want to delete <span class="font-medium text-slate-900"
+              >{organization.name}</span
+            >? This action cannot be undone.
+          </p>
+        </div>
 
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeDeleteModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={confirmDelete}
-          disabled={deleteLoading}
-          class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Trash2 class="h-4 w-4" />
-          {deleteLoading ? 'Deleting...' : 'Delete organization'}
-        </button>
-      </div>
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeDeleteModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={deleteLoading}
+            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            <Trash2 class="h-4 w-4" />
+            {deleteLoading ? 'Deleting...' : 'Delete organization'}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 {/if}

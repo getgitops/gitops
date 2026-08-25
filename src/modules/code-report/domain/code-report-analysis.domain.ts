@@ -1,4 +1,5 @@
 import { Domain } from '$lib/server/domain/domain';
+import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
 
 export type CodeReportAnalysisStatus = 'in_progress' | 'completed' | 'failed';
 
@@ -16,6 +17,7 @@ export class CodeReportAnalysisDomain extends Domain {
   public status: CodeReportAnalysisStatus = 'in_progress';
   public result: unknown = null;
   public summary?: unknown = null;
+  public securityPolicies: PolicyComplianceReport | null = null;
   public error?: string | null = null;
   public gitInfo?: CodeReportGitInfo | null = null;
 
@@ -26,6 +28,7 @@ export class CodeReportAnalysisDomain extends Domain {
     this.status = data.status;
     this.result = data.result ?? null;
     this.summary = data.summary ?? null;
+    this.securityPolicies = data.securityPolicies ?? null;
     this.error = data.error ?? null;
     this.gitInfo = data.gitInfo ?? null;
   }
@@ -38,6 +41,7 @@ export class CodeReportAnalysisDomain extends Domain {
       status: this.status,
       result: this.result,
       summary: this.summary,
+      securityPolicies: this.securityPolicies,
       error: this.error,
       gitInfo: this.gitInfo,
       createdAt: this.createdAt,

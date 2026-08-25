@@ -1,5 +1,9 @@
 import { Repository } from '$lib/server/infra/repository';
-import { ProjectDomain, type ProjectModules } from '../../domain/project.domain';
+import {
+  ProjectDomain,
+  type ProjectModules,
+  type ProjectSettings,
+} from '../../domain/project.domain';
 import { ProjectEntity } from '$lib/database/schemas';
 
 export class ProjectRepository extends Repository {
@@ -85,6 +89,7 @@ export class ProjectRepository extends Repository {
       status?: string;
       modules?: ProjectModules;
       organizationId?: string;
+      settings?: ProjectSettings;
     },
   ): Promise<void> {
     await this.db

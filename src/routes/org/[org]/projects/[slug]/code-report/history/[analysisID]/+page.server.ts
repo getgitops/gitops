@@ -19,9 +19,13 @@ export async function load({ parent, params, locals }) {
   const services = await codeReportService.listByProject(project.id);
   const service = services.find((item) => item.id === analysis.serviceId);
   if (!service) throw error(404, 'Analysis not found');
+  
+  const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
+  
   return {
     service,
     analysis,
+    riskWeights,
     analysisHistory: await codeReportAnalysisService.listByService(service.id),
   };
 }

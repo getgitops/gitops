@@ -25,12 +25,12 @@
   class="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col"
   style={`--sidebar-width:${sidebarCollapsed ? '96px' : '340px'}`}
 >
-  {#if $page.url.pathname !== '/login'}
+  {#if $page?.url?.pathname !== '/login'}
     <AppNavbar
       user={data.user}
       projects={data.projects}
       organizationSlug={data.organization?.slug ?? null}
-      projectSlug={$page.params.slug ?? ''}
+      projectSlug={data.currentProjectSlug ?? ''}
     />
 
     <div
@@ -40,11 +40,12 @@
         class="app-shell-sidebar w-full lg:fixed lg:left-0 lg:top-16 lg:z-20 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:border-r lg:border-slate-200 lg:bg-slate-50 lg:px-4 lg:py-6"
       >
         <AppSidebar
-          pathname={$page.url.pathname}
+          pathname={$page?.url?.pathname}
           isConfigured={data.isConfigured}
           organizationSlug={data.organization?.slug ?? null}
           organizationName={data.organization?.name ?? null}
           projects={data.projects}
+          currentProjectSlug={data.currentProjectSlug ?? null}
           bind:collapsed={sidebarCollapsed}
         />
       </aside>
@@ -57,7 +58,7 @@
     <slot />
   {/if}
 
-  {#if $page.url.pathname !== '/login'}
+  {#if $page?.url?.pathname !== '/login'}
     <Footer />
   {/if}
 </div>

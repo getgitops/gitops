@@ -8,11 +8,14 @@
     summarizeAnalysisResult,
     type VulnerabilityFinding,
   } from '$lib/code-report/analysis-summary';
+  import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
+  import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
   import CodeReportFiles from './code-report/CodeReportFiles.svelte';
   import CodeReportSbom from './code-report/CodeReportSbom.svelte';
   import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';
   import CodeReportSummary from './code-report/CodeReportSummary.svelte';
   import CodeReportVulnerabilities from './code-report/CodeReportVulnerabilities.svelte';
+  import SecurityPolicyComplianceCard from './code-report/SecurityPolicyComplianceCard.svelte';
 
   type AnalysisData = {
     id: string;
@@ -20,6 +23,7 @@
     status: 'in_progress' | 'completed' | 'failed';
     result: unknown;
     summary?: unknown;
+    securityPolicies?: PolicyComplianceReport | null;
     error?: string | null;
     gitInfo?: {
       repositoryUrl?: string | null;
@@ -31,6 +35,7 @@
   };
   type Analysis = AnalysisData | null;
   type ServiceData = {
+    id?: string;
     name: string;
     slug: string;
     description?: string | null;
@@ -40,6 +45,7 @@
   export let analysisHistory: AnalysisData[] = [];
   export let latestByTool: Record<string, AnalysisData> = {};
   export let service: ServiceData = null;
+  export let securityPoliciesHref: string | null = null;
   let activeTab = 'summary';
   let activeVulnerabilityTab = 'cve';
   let riskInfoModalOpen = false;
@@ -51,7 +57,8 @@
   let severityFilter = 'all';
   let selectedFilePath = '';
   let chart: { destroy: () => void } | null = null;
-  const riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
+  export let riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
+
   const severityStyles: Record<string, string> = {
     critical: 'bg-red-50 text-red-700 border-red-200',
     high: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -71,6 +78,12 @@
   $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
   $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
   $: sbomComponents = sbomAnalysis ? extractSbomComponents(sbomAnalysis.result) : [];
+  $: complianceReport = mergeComplianceReports([
+    trivyAnalysis?.securityPolicies,
+    gitleaksAnalysis?.securityPolicies,
+    sbomAnalysis?.securityPolicies,
+    analysis?.securityPolicies,
+  ]);
   $: fileGroups = groupByFile(vulnerabilities);
   $: selectedFile = fileGroups.find((file) => file.path === selectedFilePath) ?? null;
   $: historyPoints = analysisHistory
@@ -206,6 +219,12 @@
 </script>
 
 <div class="space-y-6">
+  {#if analysis && complianceReport}
+    <SecurityPolicyComplianceCard
+      report={complianceReport}
+      policiesHref={securityPoliciesHref}
+    />
+  {/if}
   <div class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Vista del reporte">
     {#each tabs as tab}<button
         type="button"
@@ -316,7 +335,7 @@
         mayor sea el resultado, mayor es la prioridad de remediación.
       </p>
       <div class="mt-5 grid grid-cols-2 gap-2">
-        {#each [{ name: 'Critical', weight: 10, count: summary?.vulnerabilities.critical ?? 0, style: 'border-red-200 bg-red-50 text-red-700' }, { name: 'High', weight: 6, count: summary?.vulnerabilities.high ?? 0, style: 'border-orange-200 bg-orange-50 text-orange-700' }, { name: 'Medium', weight: 3, count: summary?.vulnerabilities.medium ?? 0, style: 'border-amber-200 bg-amber-50 text-amber-700' }, { name: 'Low', weight: 1, count: summary?.vulnerabilities.low ?? 0, style: 'border-slate-200 bg-slate-50 text-slate-700' }] as item}<div
+        {#each [{ name: 'Critical', weight: riskWeights.critical, count: summary?.vulnerabilities.critical ?? 0, style: 'border-red-200 bg-red-50 text-red-700' }, { name: 'High', weight: riskWeights.high, count: summary?.vulnerabilities.high ?? 0, style: 'border-orange-200 bg-orange-50 text-orange-700' }, { name: 'Medium', weight: riskWeights.medium, count: summary?.vulnerabilities.medium ?? 0, style: 'border-amber-200 bg-amber-50 text-amber-700' }, { name: 'Low', weight: riskWeights.low, count: summary?.vulnerabilities.low ?? 0, style: 'border-slate-200 bg-slate-50 text-slate-700' }] as item}<div
             class={`rounded-xl border p-3 ${item.style}`}
           >
             <p class="text-sm font-bold">{item.name} × {item.weight}</p>
@@ -326,7 +345,7 @@
       <div class="mt-5 border-t border-slate-100 pt-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fórmula aplicada</p>
         <p class="mt-2 rounded-lg bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100">
-          (Critical × 10) + (High × 6) + (Medium × 3) + (Low × 1) = {riskScore} puntos
+          (Critical × {riskWeights.critical}) + (High × {riskWeights.high}) + (Medium × {riskWeights.medium}) + (Low × {riskWeights.low}) = {riskScore} puntos
         </p>
         <p class="mt-3 text-xs leading-5 text-slate-500">
           Riesgo bajo: 1-7 · medio: 8-19 · alto: 20-39 · crítico: 40+ o cualquier Critical.

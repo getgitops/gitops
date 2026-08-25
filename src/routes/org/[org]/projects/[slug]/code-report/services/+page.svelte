@@ -28,7 +28,10 @@
     { key: 'low', label: 'Low', className: 'border-slate-200 bg-slate-50 text-slate-600' },
   ];
 
-  export let data: { services: ServiceRow[] };
+  export let data: {
+    services: ServiceRow[];
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
+  };
   export let form: {
     success?: boolean;
     error?: string;
@@ -40,8 +43,8 @@
 
   let searchQuery = '';
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/services`;
 
   $: filteredServices = data.services.filter((service) => {

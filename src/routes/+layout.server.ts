@@ -20,6 +20,8 @@ export async function load({ locals, url }) {
     ? await organizationService.tryFindBySlug(orgSlugFromUrl)
     : await organizationService.getDefaultOrganization();
 
+  const currentProjectSlug = url.pathname.match(/\/projects\/([^/]+)/)?.[1] ?? null;
+
   const projects = locals.user
     ? (
         await Promise.all(
@@ -47,5 +49,6 @@ export async function load({ locals, url }) {
     user: locals.user,
     organization,
     projects,
+    currentProjectSlug,
   };
 }

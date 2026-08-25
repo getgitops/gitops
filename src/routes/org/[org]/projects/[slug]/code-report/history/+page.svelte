@@ -3,13 +3,18 @@
   import { ArrowLeft, Check, ChevronDown, Clock, Search } from 'lucide-svelte';
   import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  export let data: { services: { id: string; slug: string; name: string }[]; analyses: any[] };
-  let serviceFilter = $page.url.searchParams.get('service') ?? 'all';
+  export let data: {
+    services: { id: string; slug: string; name: string }[];
+    analyses: any[];
+    riskWeights: { critical: number; high: number; medium: number; low: number };
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
+  };
+  let serviceFilter = $page?.url?.searchParams?.get('service') ?? 'all';
   let statusFilter = 'all';
   let dateFilter = '';
   let query = '';
   let openDropdown = '';
-  const riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
+  $: riskWeights = data.riskWeights;
 
   const statusOptions = [
     { value: 'all', label: 'Todos los estados' },
@@ -80,7 +85,7 @@
       (statusFilter === 'all' || analysis.status === statusFilter) &&
       (!dateFilter || analysis.createdAt.slice(0, 10) === dateFilter),
   );
-  $: base = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report`;
+  $: base = `/org/${data.project?.organization?.slug ?? $page?.params?.org ?? ''}/projects/${data.project?.slug ?? $page?.params?.slug ?? ''}/code-report`;
 </script>
 
 <svelte:head><title>Histórico de Code Report - GitVault Suite</title></svelte:head>
