@@ -9,7 +9,7 @@
   };
   export let form: { error?: string } | null;
 
-  $: baseHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`;
+  $: baseHref = `/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report/security-policy`;
 </script>
 
 <svelte:head><title>Nueva política de seguridad - GitVault Suite</title></svelte:head>

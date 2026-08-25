@@ -125,10 +125,10 @@
 
   onDestroy(() => chart?.destroy());
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = $page?.params?.org ?? '';
+  $: projectSlug = $page?.params?.slug ?? '';
   $: cvesHref = (id?: string) =>
-    `/org/${orgSlug}/projects/${projectSlug}/code-report/cves${id ? `/${id}` : ''}`;
+    `/org/${orgSlug}/cves${id ? `/${id}` : ''}`;
   $: servicesHref = (slug: string) =>
     `/org/${orgSlug}/projects/${projectSlug}/code-report/services/${slug}`;
   $: securityPolicyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;

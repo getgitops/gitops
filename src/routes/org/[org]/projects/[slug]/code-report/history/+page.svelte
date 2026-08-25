@@ -8,7 +8,7 @@
     analyses: any[];
     riskWeights: { critical: number; high: number; medium: number; low: number };
   };
-  let serviceFilter = $page.url.searchParams.get('service') ?? 'all';
+  let serviceFilter = $page?.url?.searchParams?.get('service') ?? 'all';
   let statusFilter = 'all';
   let dateFilter = '';
   let query = '';
@@ -84,7 +84,7 @@
       (statusFilter === 'all' || analysis.status === statusFilter) &&
       (!dateFilter || analysis.createdAt.slice(0, 10) === dateFilter),
   );
-  $: base = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report`;
+  $: base = `/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report`;
 </script>
 
 <svelte:head><title>Histórico de Code Report - GitVault Suite</title></svelte:head>

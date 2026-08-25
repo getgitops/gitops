@@ -42,8 +42,8 @@
   let activeTab: 'detail' | 'services' = 'detail';
 
   $: policy = data.policy;
-  $: baseHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`;
-  $: servicesHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/services`;
+  $: baseHref = `/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report/security-policy`;
+  $: servicesHref = `/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report/services`;
   $: failingServicesCount = data.affectedServices.filter((service) => !service.passing).length;
   $: if (form?.success) editing = false;
 

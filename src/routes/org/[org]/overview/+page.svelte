@@ -24,7 +24,7 @@
 
   export let data: { projects: ProjectRow[] };
 
-  $: orgSlug = $page.params.org;
+  $: orgSlug = $page?.params?.org;
 
   let searchQuery = '';
 

@@ -15,8 +15,8 @@
   let searchQuery = '';
   let typeFilter: 'all' | SecurityPolicy['type'] = 'all';
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = $page?.params?.org;
+  $: projectSlug = $page?.params?.slug;
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
 
   $: filteredPolicies = data.policies.filter((policy) => {

@@ -9,7 +9,7 @@
     analysisHistory: any[];
     riskWeights: { critical: number; high: number; medium: number; low: number };
   };
-  $: historyHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/history`;
+  $: historyHref = `/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report/history`;
 </script>
 
 <svelte:head><title>{data.service.name} - Histórico de Code Report</title></svelte:head>
@@ -32,6 +32,6 @@
     analysis={data.analysis}
     analysisHistory={data.analysisHistory}
     riskWeights={data.riskWeights}
-    securityPoliciesHref={`/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`}
+    securityPoliciesHref={`/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report/security-policy`}
   />
 </div>

@@ -10,7 +10,7 @@
   $: tabs = [
     { label: 'Dashboard', href: `${basePath}/dashboard`, icon: Activity },
     { label: 'Servicios', href: `${basePath}/services`, icon: Boxes },
-    { label: 'CVEs', href: `${basePath}/cves`, icon: ShieldAlert },
+    { label: 'CVEs', href: `/org/${orgSlug}/cves`, icon: ShieldAlert },
     { label: 'Security Policy', href: `${basePath}/security-policy`, icon: CheckSquare },
     { label: 'Historial', href: `${basePath}/history`, icon: History },
     { label: 'Ajustes', href: `${basePath}/settings`, icon: Settings },

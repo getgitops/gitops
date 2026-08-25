@@ -15,7 +15,7 @@
   export let data: { project: { id: string; name: string; slug: string } };
 
   $: project = data.project;
-  $: orgSlug = $page.params.org;
+  $: orgSlug = $page?.params?.org;
 
   $: overviewHref = `/org/${orgSlug}/projects/${project.slug}/overview`;
 
@@ -76,7 +76,7 @@
     },
   ];
 
-  $: currentPath = $page.url.pathname;
+  $: currentPath = $page?.url?.pathname;
   $: currentTab = tabs.find((tab) => tab.href === currentPath) ?? tabs[0];
 </script>
 

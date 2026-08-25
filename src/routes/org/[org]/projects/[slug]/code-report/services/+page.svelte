@@ -40,8 +40,8 @@
 
   let searchQuery = '';
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = $page?.params?.org;
+  $: projectSlug = $page?.params?.slug;
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/services`;
 
   $: filteredServices = data.services.filter((service) => {

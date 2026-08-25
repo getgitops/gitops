@@ -15,8 +15,8 @@
     error?: string;
   } | null;
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = $page?.params?.org;
+  $: projectSlug = $page?.params?.slug;
   $: servicesHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/services`;
   $: historyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/history?service=${data.service.slug}`;
 

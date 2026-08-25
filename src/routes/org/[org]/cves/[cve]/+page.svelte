@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import CveDetailView from '$lib/components/code-report/CveDetailView.svelte';
 
   export let data: {
+    orgSlug: string;
     cve: {
       id: string;
       title: string;
@@ -28,6 +28,8 @@
       serviceId: string;
       serviceSlug: string;
       serviceName: string;
+      projectName?: string;
+      projectSlug: string;
       packageName: string;
       installedVersion: string;
       fixedVersion: string;
@@ -38,13 +40,12 @@
     }[];
   };
 
-  $: orgSlug = $page?.params?.org ?? '';
-  $: projectSlug = $page?.params?.slug ?? '';
-  $: cvesHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/cves`;
+  $: orgSlug = data.orgSlug;
+  $: cvesHref = `/org/${orgSlug}/cves`;
 </script>
 
 <svelte:head>
-  <title>{data.cve.id} - Code Report - GitVault Suite</title>
+  <title>{data.cve.id} - Organization CVEs - GitVault Suite</title>
 </svelte:head>
 
 <CveDetailView
@@ -53,5 +54,4 @@
   affectedServices={data.affectedServices}
   {cvesHref}
   {orgSlug}
-  defaultProjectSlug={projectSlug}
 />
