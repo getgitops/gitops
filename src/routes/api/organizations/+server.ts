@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { organizationService } from '../../../modules/organization';
-import { cancanService } from '../../../modules/auth';
+import { cancanService, roleService } from '../../../modules/auth';
 
 export async function GET({ locals }) {
   if (!cancanService.canAccessAdminArea(locals.user)) {
@@ -33,6 +33,8 @@ export async function POST({ request, locals }) {
       slug: data.slug ? String(data.slug) : undefined,
       description: data.description ? String(data.description) : undefined,
     });
+
+    await roleService.createDefaultOrganizationRoles(organization.id);
 
     return json({ success: true, organization });
   } catch (error: unknown) {

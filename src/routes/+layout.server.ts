@@ -20,6 +20,11 @@ export async function load({ locals, url }) {
     ? await organizationService.tryFindBySlug(orgSlugFromUrl)
     : await organizationService.getDefaultOrganization();
 
+  const canAccessClusterSettings = cancanService.canAccessAdminArea(locals.user);
+  const canManageOrganization = organization
+    ? await cancanService.canManageOrganization(locals.user, organization.id)
+    : false;
+
   const projects = locals.user
     ? (
         await Promise.all(
@@ -39,6 +44,18 @@ export async function load({ locals, url }) {
         .map(({ project }) => project)
     : [];
 
+  const projectSlugFromUrl = url.pathname.match(/^\/org\/[^/]+\/projects\/([^/]+)/)?.[1];
+  const currentProject = projectSlugFromUrl
+    ? projects.find((project) => project.slug === projectSlugFromUrl)
+    : null;
+  const canManageProject = currentProject
+    ? await cancanService.canManageProject(
+        locals.user,
+        currentProject.id,
+        currentProject.organization?.id,
+      )
+    : false;
+
   return {
     // isConfigured: !!config && backends.length > 0,
     isConfigured: true,
@@ -47,5 +64,8 @@ export async function load({ locals, url }) {
     user: locals.user,
     organization,
     projects,
+    canAccessClusterSettings,
+    canManageOrganization,
+    canManageProject,
   };
 }

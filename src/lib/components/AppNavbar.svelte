@@ -175,7 +175,7 @@
                 <Building2 class="h-4 w-4" />
                 Change Organization
               </a>
-              <form action="/api/auth/logout" method="POST" on:submit={closeUserDropdown}>
+              <form action="/api/auth/logout" method="POST">
                 <button
                   type="submit"
                   class="btn-ghost flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-600 hover:bg-red-50"

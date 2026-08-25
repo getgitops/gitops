@@ -14,7 +14,7 @@ export async function load({ locals, parent }) {
     throw error(403, 'Forbidden');
   }
 
-  const projects = await projectService.listProjects();
+  const projects = await projectService.listProjectsByOrganization(organization.id);
   const activeProjects = projects.filter((project) => project.status === 'active');
 
   return { projects: activeProjects };

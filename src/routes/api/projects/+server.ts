@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { projectService } from '../../../modules/projects';
-import { cancanService } from '../../../modules/auth';
+import { cancanService, roleService } from '../../../modules/auth';
 
 export async function GET({ url, locals }) {
   if (!(await cancanService.canSessionUser(locals.user, 'stateiac:read', { scope: 'cluster' }))) {
@@ -49,6 +49,8 @@ export async function POST({ request, locals }) {
       status: data.status ? String(data.status) : undefined,
       modules: data.modules,
     });
+
+    await roleService.createDefaultProjectRoles(project.id);
 
     return json({ success: true, project });
   } catch (error: unknown) {
