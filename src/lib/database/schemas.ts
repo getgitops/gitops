@@ -149,6 +149,33 @@ export const CodeReportAnalysisEntity = entity('code_report_analyses', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const CodeReportSecurityPolicyEntity = entity('code_report_security_policies', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  slug: text().notNull(),
+  name: text().notNull(),
+  description: text(),
+  // vulnerabilities | license | code_coverage | secrets
+  type: text().notNull().default('vulnerabilities'),
+  enabled: bool().notNull().default(true),
+  // warn | block
+  enforcement: text().notNull().default('warn'),
+  // { mode: 'all' | 'services' | 'tags', services: string[], tags: string[] }
+  scope: json()
+    .notNull()
+    .$defaultFn(() => ({ mode: 'all', services: [], tags: [] })),
+  // type-specific configuration, see $lib/code-report/security-policy
+  rules: json()
+    .notNull()
+    .$defaultFn(() => ({})),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
@@ -157,6 +184,14 @@ relations.for(ProjectEntity, ({ one, many }) => ({
     fields: ['id'],
     references: ['projectId'],
   }),
+  codeReportSecurityPolicies: many(CodeReportSecurityPolicyEntity, {
+    fields: ['id'],
+    references: ['projectId'],
+  }),
+}));
+
+relations.for(CodeReportSecurityPolicyEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
 }));
 
 relations.for(CodeReportServiceEntity, ({ one, many }) => ({
