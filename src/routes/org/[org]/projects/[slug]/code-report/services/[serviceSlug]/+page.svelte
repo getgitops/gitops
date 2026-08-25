@@ -7,6 +7,7 @@
   export let data: {
     service: { name: string; slug: string };
     latestAnalysis: any;
+    latestByTool: Record<string, any>;
     analysisHistory: any[];
   };
   export let form: {
@@ -99,6 +100,7 @@
   <CodeReportVisualization
     service={data.service}
     analysis={data.latestAnalysis}
+    latestByTool={data.latestByTool}
     analysisHistory={data.analysisHistory}
   />
 </div>

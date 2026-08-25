@@ -20,7 +20,7 @@ export async function load({ parent, params, locals }) {
   }
 
   try {
-    const service = await codeReportService.getByProjectAndSlug(project.id, params.serviceSlug);
+    const service = await codeReportService.getByProjectIdAndSlug(project.id, params.serviceSlug);
     const analyses = await codeReportAnalysisService.listByService(service.id);
     const latestAnalysis = analyses[0] ?? null;
     const analysisHistory = analyses
@@ -37,7 +37,12 @@ export async function load({ parent, params, locals }) {
         updatedAt: analysis.updatedAt,
       }));
 
-    return { service, latestAnalysis, analysisHistory };
+    const latestByTool = await codeReportAnalysisService.getLatestByTool(
+      service.id,
+      service.tools ?? [],
+    );
+
+    return { service, latestAnalysis, latestByTool, analysisHistory };
   } catch {
     throw error(404, 'Service not found');
   }

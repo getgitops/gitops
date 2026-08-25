@@ -24,7 +24,13 @@ export class CodeReportService {
     }
     return service.toJson();
   }
-
+  async getByProjectIdAndSlug(projectId: string, serviceSlug: string) {
+    const service = await this.repository.findBySlug(projectId, serviceSlug);
+    if (!service) {
+      throw new Error('Service not found');
+    }
+    return service.toJson();
+  }
   async getByProjectAndSlug(projectSlug: string, serviceSlug: string) {
     const project = await this.projectService.getProjectBySlug(projectSlug);
     if (!project) {

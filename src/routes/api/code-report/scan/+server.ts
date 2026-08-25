@@ -94,6 +94,7 @@ export async function POST({ request }) {
     if(status === 'start') {
       message = 'Scan started';
     } else if(status === 'in_progress') {
+      console.log('Starting analysis for service:', serviceCodeReport?.id, 'with tool:', body.tool);
       analysis = await codeReportAnalysisService.startAnalysis({
         serviceId: serviceCodeReport?.id || '',
         tool: body.tool,

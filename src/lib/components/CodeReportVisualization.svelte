@@ -2,11 +2,15 @@
   import { onDestroy } from 'svelte';
   import { X } from 'lucide-svelte';
   import {
+    extractSbomComponents,
+    extractSecrets,
     extractVulnerabilities,
     summarizeAnalysisResult,
     type VulnerabilityFinding,
   } from '$lib/code-report/analysis-summary';
   import CodeReportFiles from './code-report/CodeReportFiles.svelte';
+  import CodeReportSbom from './code-report/CodeReportSbom.svelte';
+  import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';
   import CodeReportSummary from './code-report/CodeReportSummary.svelte';
   import CodeReportVulnerabilities from './code-report/CodeReportVulnerabilities.svelte';
 
@@ -34,11 +38,15 @@
   } | null;
   export let analysis: Analysis;
   export let analysisHistory: AnalysisData[] = [];
+  export let latestByTool: Record<string, AnalysisData> = {};
   export let service: ServiceData = null;
   let activeTab = 'summary';
   let riskInfoModalOpen = false;
   let fileQuery = '';
   let vulnerabilityQuery = '';
+  let secretQuery = '';
+  let sbomQuery = '';
+  let sbomTypeFilter = 'all';
   let severityFilter = 'all';
   let selectedFilePath = '';
   let chart: { destroy: () => void } | null = null;
@@ -53,12 +61,18 @@
   const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
   const severityKeys = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
   const fileSeverityOrder = ['critical', 'high', 'medium', 'low'] as const;
-  $: summary = analysis ? summarizeAnalysisResult(analysis.result) : null;
-  $: vulnerabilities = analysis ? extractVulnerabilities(analysis.result) : [];
+  // manual uploads are stored under other tool names, so fall back to the latest analysis
+  $: trivyAnalysis = latestByTool.trivy ?? analysis;
+  $: gitleaksAnalysis = latestByTool.gitleaks ?? null;
+  $: sbomAnalysis = latestByTool.sbom ?? null;
+  $: summary = trivyAnalysis ? summarizeAnalysisResult(trivyAnalysis.result) : null;
+  $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
+  $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
+  $: sbomComponents = sbomAnalysis ? extractSbomComponents(sbomAnalysis.result) : [];
   $: fileGroups = groupByFile(vulnerabilities);
   $: selectedFile = fileGroups.find((file) => file.path === selectedFilePath) ?? null;
   $: historyPoints = analysisHistory
-    .filter((item) => item.status === 'completed')
+    .filter((item) => item.status === 'completed' && item.tool !== 'gitleaks' && item.tool !== 'sbom')
     .slice()
     .reverse()
     .map((item) => ({
@@ -93,6 +107,18 @@
   $: filteredFileGroups = fileGroups.filter((file) =>
     getFileName(file.path).toLowerCase().includes(fileQuery.trim().toLowerCase()),
   );
+  $: tabs = [
+    { id: 'summary', label: 'Resumen' },
+    {
+      id: 'vulnerabilities',
+      label: 'Vulnerabilidades',
+      tool: 'trivy',
+      count: vulnerabilities.length,
+    },
+    { id: 'secrets', label: 'Secretos Expuestos', tool: 'gitleaks', count: secrets.length },
+    { id: 'sbom', label: 'SBOM', tool: 'syft', count: sbomComponents.length },
+    { id: 'files', label: 'Archivos', count: fileGroups.length },
+  ] as { id: string; label: string; tool?: string; count?: number }[];
   function calculateRiskScore(value: ReturnType<typeof summarizeAnalysisResult>) {
     return (
       value.vulnerabilities.critical * riskWeights.critical +
@@ -175,14 +201,16 @@
 </script>
 
 <div class="space-y-6">
-  <div class="flex gap-1 border-b border-slate-200" role="tablist" aria-label="Vista del reporte">
-    {#each [{ id: 'summary', label: 'Resumen' }, { id: 'vulnerabilities', label: 'Vulnerabilidades', count: vulnerabilities.length }, { id: 'files', label: 'Archivos', count: fileGroups.length }] as tab}<button
+  <div class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Vista del reporte">
+    {#each tabs as tab}<button
         type="button"
         role="tab"
         aria-selected={activeTab === tab.id}
         on:click={() => (activeTab = tab.id)}
-        class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === tab.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
-        >{tab.label}{#if tab.count !== undefined}<span
+        class={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === tab.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+        >{tab.label}{#if tab.tool}<span class="ml-1 text-[11px] font-normal text-slate-400"
+            >({tab.tool})</span
+          >{/if}{#if tab.count !== undefined}<span
             class="ml-1 text-xs font-normal text-slate-400">{tab.count}</span
           >{/if}</button
       >{/each}
@@ -192,7 +220,7 @@
     >
       Todavía no se ha ejecutado ningún análisis.
     </div>{:else if activeTab === 'summary'}<CodeReportSummary
-      {analysis}
+      analysis={trivyAnalysis}
       analysisHistoryLength={analysisHistory.length}
       {service}
       {summary}
@@ -204,13 +232,23 @@
       {setupChart}
       onShowRiskInfo={() => (riskInfoModalOpen = true)}
     />{:else if activeTab === 'vulnerabilities'}<CodeReportVulnerabilities
-      {analysis}
+      analysis={trivyAnalysis}
       {vulnerabilities}
       {filteredVulnerabilities}
       {severityStyles}
       bind:vulnerabilityQuery
       bind:severityFilter
       {findingStatus}
+    />{:else if activeTab === 'secrets'}<CodeReportSecrets
+      analysis={gitleaksAnalysis}
+      {secrets}
+      {severityStyles}
+      bind:secretQuery
+    />{:else if activeTab === 'sbom'}<CodeReportSbom
+      analysis={sbomAnalysis}
+      components={sbomComponents}
+      bind:sbomQuery
+      bind:sbomTypeFilter
     />{:else}<CodeReportFiles
       {fileGroups}
       {filteredFileGroups}
