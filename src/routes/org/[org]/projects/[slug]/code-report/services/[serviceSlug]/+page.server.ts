@@ -42,7 +42,10 @@ export async function load({ parent, params, locals }) {
       service.tools ?? [],
     );
 
-    return { service, latestAnalysis, latestByTool, analysisHistory };
+    const projectSettings = project.settings?.['code-report'] || {};
+    const riskWeights = projectSettings.securityRiskMultipliers || { critical: 10, high: 6, medium: 3, low: 1 };
+
+    return { service, latestAnalysis, latestByTool, analysisHistory, riskWeights };
   } catch {
     throw error(404, 'Service not found');
   }

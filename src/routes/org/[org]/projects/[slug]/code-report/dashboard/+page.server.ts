@@ -12,7 +12,6 @@ import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation'
 import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
 
 const STALE_AFTER_DAYS = 30;
-const riskWeights = { critical: 10, high: 6, medium: 3, low: 1, unknown: 0 };
 
 export async function load({ parent, locals }) {
   const { project } = await parent();
@@ -26,6 +25,10 @@ export async function load({ parent, locals }) {
   if (!canRead) {
     throw error(403, 'Forbidden');
   }
+
+  const projectSettings = project.settings?.['code-report'] || {};
+  const riskWeights = projectSettings.securityRiskMultipliers || { critical: 10, high: 6, medium: 3, low: 1 };
+
 
   const services = await codeReportService.listByProject(project.id);
   const securityPolicies = await codeReportSecurityPolicyService.listByProject(project.id);

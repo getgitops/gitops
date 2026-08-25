@@ -7,6 +7,7 @@
     service: { id: string; name: string; slug: string; tags?: string[] };
     analysis: any;
     analysisHistory: any[];
+    riskWeights: { critical: number; high: number; medium: number; low: number };
   };
   $: historyHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/history`;
 </script>
@@ -30,6 +31,7 @@
     service={data.service}
     analysis={data.analysis}
     analysisHistory={data.analysisHistory}
+    riskWeights={data.riskWeights}
     securityPoliciesHref={`/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`}
   />
 </div>

@@ -57,7 +57,8 @@
   let severityFilter = 'all';
   let selectedFilePath = '';
   let chart: { destroy: () => void } | null = null;
-  const riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
+  export let riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
+
   const severityStyles: Record<string, string> = {
     critical: 'bg-red-50 text-red-700 border-red-200',
     high: 'bg-orange-50 text-orange-700 border-orange-200',

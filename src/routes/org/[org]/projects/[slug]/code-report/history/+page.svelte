@@ -3,13 +3,17 @@
   import { ArrowLeft, Check, ChevronDown, Clock, Search } from 'lucide-svelte';
   import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  export let data: { services: { id: string; slug: string; name: string }[]; analyses: any[] };
+  export let data: {
+    services: { id: string; slug: string; name: string }[];
+    analyses: any[];
+    riskWeights: { critical: number; high: number; medium: number; low: number };
+  };
   let serviceFilter = $page.url.searchParams.get('service') ?? 'all';
   let statusFilter = 'all';
   let dateFilter = '';
   let query = '';
   let openDropdown = '';
-  const riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
+  $: riskWeights = data.riskWeights;
 
   const statusOptions = [
     { value: 'all', label: 'Todos los estados' },

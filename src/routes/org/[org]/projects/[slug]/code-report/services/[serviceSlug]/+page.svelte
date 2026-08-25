@@ -9,6 +9,7 @@
     latestAnalysis: any;
     latestByTool: Record<string, any>;
     analysisHistory: any[];
+    riskWeights: { critical: number; high: number; medium: number; low: number };
   };
   export let form: {
     error?: string;
@@ -60,6 +61,7 @@
     analysis={data.latestAnalysis}
     latestByTool={data.latestByTool}
     analysisHistory={data.analysisHistory}
+    riskWeights={data.riskWeights}
     securityPoliciesHref={`/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`}
   />
 </div>

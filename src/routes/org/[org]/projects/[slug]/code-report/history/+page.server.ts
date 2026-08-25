@@ -15,6 +15,10 @@ export async function load({ parent, locals }) {
     }))
   )
     throw error(403, 'Forbidden');
+    
+  const projectSettings = project.settings?.['code-report'] || {};
+  const riskWeights = projectSettings.securityRiskMultipliers || { critical: 10, high: 6, medium: 3, low: 1 };
+  
   const services = await codeReportService.listByProject(project.id);
   const analyses = await codeReportAnalysisService.listByProject(
     services.map((service) => service.id),
@@ -22,6 +26,7 @@ export async function load({ parent, locals }) {
   const serviceById = new Map(services.map((service) => [service.id, service]));
   return {
     services,
+    riskWeights,
     analyses: analyses.map((analysis) => ({
       ...analysis,
       service: serviceById.get(analysis.serviceId),
