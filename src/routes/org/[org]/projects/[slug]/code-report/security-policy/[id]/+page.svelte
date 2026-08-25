@@ -10,8 +10,22 @@
     type SecurityPolicy,
   } from '$lib/code-report/security-policy';
 
+  type AffectedService = {
+    id: string;
+    slug: string;
+    name: string;
+    evaluatedAnalyses: number;
+    failingAnalyses: number;
+    lastEvaluatedAt: string;
+    lastAnalysisId: string;
+    lastTool: string;
+    passing: boolean;
+    violations: { label: string; actual: number; limit: number | null }[];
+  };
+
   export let data: {
     policy: SecurityPolicy;
+    affectedServices: AffectedService[];
     services: { id: string; slug: string; name: string; tags: string[] }[];
     tags: string[];
   };
@@ -25,9 +39,12 @@
   let deleteModalOpen = false;
   let deleting = false;
   let evaluating = false;
+  let activeTab: 'detail' | 'services' = 'detail';
 
   $: policy = data.policy;
   $: baseHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`;
+  $: servicesHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/services`;
+  $: failingServicesCount = data.affectedServices.filter((service) => !service.passing).length;
   $: if (form?.success) editing = false;
 
   $: scopedServices =
@@ -142,6 +159,98 @@
       />
     {/key}
   {:else}
+    <div class="flex gap-1 border-b border-slate-200" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'detail'}
+        on:click={() => (activeTab = 'detail')}
+        class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'detail' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+      >
+        Detalle
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'services'}
+        on:click={() => (activeTab = 'services')}
+        class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'services' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+      >
+        Servicios afectados
+        <span class="ml-1 text-xs font-normal text-slate-400">{data.affectedServices.length}</span>
+      </button>
+    </div>
+
+    {#if activeTab === 'services'}
+    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-900">Servicios afectados</h2>
+          <p class="mt-1 text-xs text-slate-500">
+            Servicios con análisis evaluados contra esta política.
+          </p>
+        </div>
+        {#if failingServicesCount > 0}
+          <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
+            {failingServicesCount} incumpliendo
+          </span>
+        {/if}
+      </div>
+
+      {#if data.affectedServices.length === 0}
+        <p class="mt-6 text-sm text-slate-500">
+          Ningún análisis se ha evaluado contra esta política todavía. Usa "Analizar servicios" para
+          evaluarlos.
+        </p>
+      {:else}
+        <ul class="mt-4 space-y-2">
+          {#each data.affectedServices as service (service.id)}
+            <li
+              class={`rounded-xl border p-4 ${service.passing ? 'border-slate-200' : 'border-red-200 bg-red-50/50'}`}
+            >
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <a
+                    href={`${servicesHref}/${service.slug}`}
+                    class="text-sm font-semibold text-slate-900 hover:underline"
+                  >
+                    {service.name}
+                  </a>
+                  <p class="mt-0.5 text-xs text-slate-500">
+                    {service.evaluatedAnalyses} análisis evaluados · último con {service.lastTool} el
+                    {new Date(service.lastEvaluatedAt).toLocaleString()}
+                  </p>
+                  {#if service.violations.length > 0}
+                    <ul class="mt-2 flex flex-wrap gap-1.5">
+                      {#each service.violations as violation}
+                        <li
+                          class="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-700"
+                        >
+                          {violation.label}: {violation.actual}{violation.limit !== null
+                            ? ` / ${violation.limit}`
+                            : ''}
+                        </li>
+                      {/each}
+                    </ul>
+                  {/if}
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <span
+                    class={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase ${service.passing ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+                  >
+                    {service.passing ? 'Cumple' : 'Incumple'}
+                  </span>
+                  <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                    {service.failingAnalyses} análisis afectados
+                  </span>
+                </div>
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  {:else}
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -210,6 +319,7 @@
       Creada el {new Date(policy.createdAt).toLocaleString()} · Actualizada el
       {new Date(policy.updatedAt).toLocaleString()}
     </p>
+    {/if}
   {/if}
 </div>
 

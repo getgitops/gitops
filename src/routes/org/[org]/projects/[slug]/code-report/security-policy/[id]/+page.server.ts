@@ -27,8 +27,49 @@ export async function load({ parent, params, locals }) {
 
   const services = await codeReportService.listByProject(project.id);
 
+  const affectedServices = (
+    await Promise.all(
+      services.map(async (service) => {
+        const analyses = await codeReportAnalysisService.listByService(service.id);
+        const evaluations = analyses
+          .map((analysis) => ({
+            analysis,
+            evaluation: analysis.securityPolicies?.evaluations?.find(
+              (item) => item.policyId === params.id,
+            ),
+          }))
+          .filter((entry) => entry.evaluation?.evaluable);
+
+        if (evaluations.length === 0) return null;
+
+        const failing = evaluations.filter((entry) => !entry.evaluation!.passed);
+        const latest = evaluations[0];
+
+        return {
+          id: service.id,
+          slug: service.slug,
+          name: service.name,
+          evaluatedAnalyses: evaluations.length,
+          failingAnalyses: failing.length,
+          lastEvaluatedAt: latest.analysis.updatedAt,
+          lastAnalysisId: latest.analysis.id,
+          lastTool: latest.analysis.tool,
+          passing: latest.evaluation!.passed,
+          violations: latest.evaluation!.violations.map((violation) => ({
+            label: violation.label,
+            actual: violation.actual,
+            limit: violation.limit,
+          })),
+        };
+      }),
+    )
+  )
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    .sort((left, right) => right.failingAnalyses - left.failingAnalyses);
+
   return {
     policy,
+    affectedServices,
     services: services.map((service) => ({
       id: service.id,
       slug: service.slug,
