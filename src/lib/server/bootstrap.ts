@@ -1,27 +1,31 @@
 import { isRepositoryConfigured } from '$lib/server/gitdb';
 
 export type BootstrapState = {
-  repository: boolean;
   administrator: boolean;
   organization: boolean;
   completed: boolean;
 };
 
-export type BootstrapStep = 'repository' | 'administrator' | 'organization';
+export type BootstrapStep = 'administrator' | 'organization';
 
-const EMPTY: BootstrapState = {
-  repository: false,
-  administrator: false,
-  organization: false,
-  completed: false,
-};
+const PENDING: BootstrapState = { administrator: false, organization: false, completed: false };
 
-let cachedCompleted = false;
+// evaluated at startup and after each wizard step, never on the request path
+let state: BootstrapState = PENDING;
 
-export async function getBootstrapState(): Promise<BootstrapState> {
+export function getBootstrapState(): BootstrapState {
+  return state;
+}
+
+/** True once the cluster has an administrator and an organization. Cheap, in-memory. */
+export function isBootstrapCompleted(): boolean {
+  return state.completed;
+}
+
+export async function refreshBootstrapState(): Promise<BootstrapState> {
   if (!isRepositoryConfigured()) {
-    cachedCompleted = false;
-    return EMPTY;
+    state = PENDING;
+    return state;
   }
 
   // imported lazily: these modules instantiate repositories bound to the GitDB client
@@ -40,26 +44,16 @@ export async function getBootstrapState(): Promise<BootstrapState> {
     roles.filter((role: any) => role.slug === 'cluster-admin').map((role: any) => role.id),
   );
 
-  const state: BootstrapState = {
-    repository: true,
-    administrator: users.some(
-      (user: any) => adminRoleIds.has(user.role?.id) || user.role?.slug === 'cluster-admin',
-    ),
-    organization: organizations.length > 0,
-    completed: false,
-  };
-  state.completed = state.repository && state.administrator && state.organization;
-  cachedCompleted = state.completed;
+  const administrator = users.some(
+    (user: any) => adminRoleIds.has(user.role?.id) || user.role?.slug === 'cluster-admin',
+  );
+  const organization = organizations.length > 0;
+
+  state = { administrator, organization, completed: administrator && organization };
+  console.info('[bootstrap] state', state);
   return state;
 }
 
-/** Fast path for the request hook: once completed, the state can never regress. */
-export function isBootstrapCompletedCached(): boolean {
-  return cachedCompleted && isRepositoryConfigured();
-}
-
-export function nextBootstrapStep(state: BootstrapState): BootstrapStep {
-  if (!state.repository) return 'repository';
-  if (!state.administrator) return 'administrator';
-  return 'organization';
+export function nextBootstrapStep(current: BootstrapState): BootstrapStep {
+  return current.administrator ? 'organization' : 'administrator';
 }

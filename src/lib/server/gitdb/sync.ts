@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   buildAuthenticatedUrl,
@@ -224,17 +224,33 @@ class GitDbSyncService {
     this.writeManifest(config);
   }
 
+  /** Keeps `.gitdb/gitdb.manifest.json` in sync with the active repository configuration. */
   private writeManifest(config: GitDbRepositoryConfig): void {
     const manifestPath = path.join(REPO_PATH, 'gitdb.manifest.json');
-    if (existsSync(manifestPath)) return;
+
+    let existing: Record<string, unknown> = {};
+    if (existsSync(manifestPath)) {
+      try {
+        existing = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      } catch {
+        // a corrupted manifest is simply rewritten from the current configuration
+      }
+    }
 
     const manifest = {
       kind: 'gitdb',
       repositoryUrl: config.repositoryUrl,
       branch: config.branch,
-      createdAt: new Date().toISOString(),
+      authorName: config.authorName,
+      authorEmail: config.authorEmail,
+      syncPollSeconds: config.syncPollSeconds,
+      createdAt: (existing.createdAt as string) ?? new Date().toISOString(),
     };
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+
+    const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+    if (serialized === `${JSON.stringify(existing, null, 2)}\n`) return;
+
+    writeFileSync(manifestPath, serialized, 'utf8');
     log('manifest written', { path: manifestPath });
   }
 

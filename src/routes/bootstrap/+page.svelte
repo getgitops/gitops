@@ -1,10 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
-  import { Building2, Check, Database, ShieldCheck } from 'lucide-svelte';
+  import { Building2, Check, ShieldCheck } from 'lucide-svelte';
 
   type BootstrapState = {
-    repository: boolean;
     administrator: boolean;
     organization: boolean;
     completed: boolean;
@@ -12,37 +11,16 @@
 
   export let data: {
     state: BootstrapState;
-    step: 'repository' | 'administrator' | 'organization';
-    repository: {
-      repositoryUrl: string;
-      branch: string;
-      authMode: 'none' | 'basic' | 'token';
-      username: string | null;
-      hasSecret: boolean;
-      authorName: string;
-      authorEmail: string;
-      syncPollSeconds: number;
-    } | null;
-    limits: { min: number; max: number; default: number };
+    step: 'administrator' | 'organization';
   };
 
   const STEPS = [
-    { key: 'repository', label: 'Configure repository', icon: Database },
     { key: 'administrator', label: 'Create Cluster Administrator', icon: ShieldCheck },
     { key: 'organization', label: 'Create Organization', icon: Building2 },
   ] as const;
 
   $: state = data.state;
   $: currentStep = data.step;
-
-  let repositoryUrl = data.repository?.repositoryUrl ?? '';
-  let branch = data.repository?.branch ?? 'main';
-  let authMode: 'none' | 'basic' | 'token' = data.repository?.authMode ?? 'token';
-  let username = data.repository?.username ?? '';
-  let secret = '';
-  let authorName = data.repository?.authorName ?? 'gitvault-suite';
-  let authorEmail = data.repository?.authorEmail ?? 'gitvault-suite@getgitops.local';
-  let syncPollSeconds = data.repository?.syncPollSeconds ?? data.limits.default;
 
   let adminUsername = '';
   let adminEmail = '';
@@ -87,11 +65,11 @@
   <header class="mb-8">
     <h1 class="text-2xl font-semibold text-slate-900">Cluster setup</h1>
     <p class="mt-2 text-sm text-slate-600">
-      Complete these steps to initialize GitVault Suite.
+      The GitDB repository is already connected. Complete these steps to finish the installation.
     </p>
   </header>
 
-  <ol class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+  <ol class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
     {#each STEPS as step, index}
       <li class="flex flex-1 items-center gap-3">
         <span
@@ -125,141 +103,7 @@
     </div>
   {/if}
 
-  {#if currentStep === 'repository'}
-    <form
-      method="POST"
-      action="?/configureRepository"
-      use:enhance={submitStep('Failed to configure the repository.')}
-      class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-    >
-      <div class="border-b border-slate-200 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-900">1. Configure repository</h2>
-        <p class="mt-1 text-sm text-slate-600">
-          GitDB stores all cluster state in this Git repository.
-        </p>
-      </div>
-
-      <div class="grid gap-4 px-6 py-6 sm:grid-cols-2">
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-repo-url">Repository URL</label>
-          <input
-            id="bootstrap-repo-url"
-            name="repositoryUrl"
-            type="text"
-            bind:value={repositoryUrl}
-            placeholder="https://github.com/org/gitdb-state.git"
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-repo-branch">Branch</label>
-          <input
-            id="bootstrap-repo-branch"
-            name="branch"
-            type="text"
-            bind:value={branch}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-repo-auth">Authentication</label>
-          <select
-            id="bootstrap-repo-auth"
-            name="authMode"
-            bind:value={authMode}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          >
-            <option value="token">Token</option>
-            <option value="basic">User / Password</option>
-            <option value="none">None (SSH key or public repo)</option>
-          </select>
-        </div>
-
-        {#if authMode !== 'none'}
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="bootstrap-repo-username">
-              {authMode === 'token' ? 'Username (optional)' : 'Username'}
-            </label>
-            <input
-              id="bootstrap-repo-username"
-              name="username"
-              type="text"
-              autocomplete="off"
-              bind:value={username}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="bootstrap-repo-secret">
-              {authMode === 'token' ? 'Token' : 'Password'}
-            </label>
-            <input
-              id="bootstrap-repo-secret"
-              name="secret"
-              type="password"
-              autocomplete="new-password"
-              bind:value={secret}
-              placeholder={data.repository?.hasSecret ? '•••••••• (stored)' : ''}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            />
-          </div>
-        {/if}
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-author-name">Commit author name</label>
-          <input
-            id="bootstrap-author-name"
-            name="authorName"
-            type="text"
-            bind:value={authorName}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-author-email">Commit author email</label>
-          <input
-            id="bootstrap-author-email"
-            name="authorEmail"
-            type="email"
-            bind:value={authorEmail}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-sync-poll">Sync poll (seconds)</label>
-          <input
-            id="bootstrap-sync-poll"
-            name="syncPollSeconds"
-            type="number"
-            min={data.limits.min}
-            max={data.limits.max}
-            bind:value={syncPollSeconds}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-      </div>
-
-      <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
-        {#if submitting}
-          <span class="text-xs text-slate-500">
-            Cloning the repository into .gitdb, this can take a while...
-          </span>
-        {/if}
-        <button
-          type="submit"
-          disabled={submitting}
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
-        >
-          {submitting ? 'Connecting...' : 'Connect and continue'}
-        </button>
-      </div>
-    </form>
-  {:else if currentStep === 'administrator'}
+  {#if currentStep === 'administrator'}
     <form
       method="POST"
       action="?/createAdministrator"
@@ -267,7 +111,7 @@
       class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
       <div class="border-b border-slate-200 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-900">2. Create Cluster Administrator</h2>
+        <h2 class="text-base font-semibold text-slate-900">1. Create Cluster Administrator</h2>
         <p class="mt-1 text-sm text-slate-600">
           This account gets full access to cluster settings.
         </p>
@@ -275,7 +119,9 @@
 
       <div class="grid gap-4 px-6 py-6 sm:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-username">Username</label>
+          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-username">
+            Username
+          </label>
           <input
             id="bootstrap-admin-username"
             name="username"
@@ -287,7 +133,9 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-email">Email</label>
+          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-email">
+            Email
+          </label>
           <input
             id="bootstrap-admin-email"
             name="email"
@@ -299,7 +147,9 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-password">Password</label>
+          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-password">
+            Password
+          </label>
           <input
             id="bootstrap-admin-password"
             name="password"
@@ -311,7 +161,10 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-password-confirm">
+          <label
+            class="block text-sm font-medium text-slate-700"
+            for="bootstrap-admin-password-confirm"
+          >
             Confirm password
           </label>
           <input
@@ -343,7 +196,7 @@
       class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
       <div class="border-b border-slate-200 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-900">3. Create Organization</h2>
+        <h2 class="text-base font-semibold text-slate-900">2. Create Organization</h2>
         <p class="mt-1 text-sm text-slate-600">
           Organizations group projects and their members.
         </p>
@@ -351,7 +204,9 @@
 
       <div class="grid gap-4 px-6 py-6 sm:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-name">Name</label>
+          <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-name">
+            Name
+          </label>
           <input
             id="bootstrap-org-name"
             name="name"
@@ -362,7 +217,9 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-slug">Slug (optional)</label>
+          <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-slug">
+            Slug (optional)
+          </label>
           <input
             id="bootstrap-org-slug"
             name="slug"
@@ -373,7 +230,9 @@
         </div>
 
         <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-description">Description</label>
+          <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-description">
+            Description
+          </label>
           <textarea
             id="bootstrap-org-description"
             name="description"

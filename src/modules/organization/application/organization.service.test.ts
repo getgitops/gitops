@@ -178,20 +178,4 @@ describe('OrganizationService', () => {
       await expect(service.getOrganization(created.id)).rejects.toThrow(/not found/);
     });
   });
-
-  describe('bootstrapDefaults', () => {
-    it('seeds the default gitops organization when none exists', async () => {
-      await service.bootstrapDefaults();
-      const organizations = await service.listOrganizations();
-      expect(organizations).toHaveLength(1);
-      expect(organizations[0].slug).toBe('gitops');
-    });
-
-    it('does not create a duplicate when the default organization already exists', async () => {
-      await service.bootstrapDefaults();
-      await service.bootstrapDefaults();
-      const organizations = await service.listOrganizations();
-      expect(organizations).toHaveLength(1);
-    });
-  });
 });

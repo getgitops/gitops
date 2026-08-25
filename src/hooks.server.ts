@@ -1,30 +1,49 @@
 import type { Handle } from '@sveltejs/kit';
 import { authService, cancanService, ensureAuthReady } from '$modules/auth';
-import { ensureOrganizationReady, organizationService } from '$modules/organization';
-import { getBootstrapState, isBootstrapCompletedCached } from '$lib/server/bootstrap';
-import { getGitDb } from '$lib/server/gitdb';
+import { organizationService } from '$modules/organization';
+import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
+import { startGitDb } from '$lib/server/gitdb';
+
+// clone, manifest, sync poll and bootstrap detection run once per process
+const serverReady = (async () => {
+  await startGitDb();
+  await ensureAuthReady();
+  await refreshBootstrapState();
+})();
+
+serverReady.catch((error) => {
+  console.error('[startup] failed', error);
+});
 
 const authWithToken = async (token: string) => {
   return true;
 };
 
-async function isBootstrapCompleted(): Promise<boolean> {
-  if (isBootstrapCompletedCached()) return true;
-  return (await getBootstrapState()).completed;
-}
-
 export const handle: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
   const isApiRequest = pathname.startsWith('/api/');
 
+  try {
+    await serverReady;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'GitDB is unavailable';
+    return new Response(
+      isApiRequest ? JSON.stringify({ error: message }) : `Startup failed: ${message}`,
+      {
+        status: 503,
+        headers: { 'content-type': isApiRequest ? 'application/json' : 'text/plain' },
+      },
+    );
+  }
+
   if (pathname.startsWith('/bootstrap')) {
-    if (await isBootstrapCompleted()) {
+    if (isBootstrapCompleted()) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
     return resolve(event);
   }
 
-  if (!(await isBootstrapCompleted())) {
+  if (!isBootstrapCompleted()) {
     if (isApiRequest) {
       return new Response(JSON.stringify({ error: 'Cluster is not bootstrapped yet' }), {
         status: 503,
@@ -33,8 +52,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
-
-  getGitDb();
 
   if (pathname === '/login') {
     return resolve(event);
@@ -53,9 +70,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
     return resolve(event);
   }
-
-  await ensureAuthReady();
-  await ensureOrganizationReady();
 
   const sessionCookie = event.cookies.get('pos_session');
   const currentUser = await authService.resolveAuthenticatedUser(sessionCookie);
