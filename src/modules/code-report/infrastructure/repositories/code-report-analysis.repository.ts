@@ -22,6 +22,20 @@ export class CodeReportAnalysisRepository extends Repository {
     return row ? new CodeReportAnalysisDomain(row) : null;
   }
 
+  async findLatestByServiceIdAndTool(
+    serviceId: string,
+    tool: string,
+  ): Promise<CodeReportAnalysisDomain | null> {
+    const result = await this.db
+      .select()
+      .from(CodeReportAnalysisEntity)
+      .where({ serviceId, tool })
+      .orderBy('createdAt', 'desc')
+      .limit(1);
+    const row = result.rows[0];
+    return row ? new CodeReportAnalysisDomain(row) : null;
+  }
+
   async create(input: {
     id: string;
     serviceId: string;

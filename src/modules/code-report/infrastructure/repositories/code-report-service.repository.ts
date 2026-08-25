@@ -63,6 +63,7 @@ export class CodeReportServiceRepository extends Repository {
     name: string;
     description?: string;
     tags?: string[];
+    tools?: string[];
   }): Promise<void> {
     await this.db.insert(CodeReportServiceEntity).values({
       id: input.id,
@@ -71,6 +72,7 @@ export class CodeReportServiceRepository extends Repository {
       name: input.name,
       description: input.description,
       tags: input.tags ?? [],
+      tools: input.tools ?? [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -78,7 +80,7 @@ export class CodeReportServiceRepository extends Repository {
 
   async update(
     id: string,
-    changes: { name?: string; slug?: string; description?: string; tags?: string[] },
+    changes: { name?: string; slug?: string; description?: string; tags?: string[]; tools?: string[] },
   ): Promise<void> {
     await this.db
       .update(CodeReportServiceEntity)

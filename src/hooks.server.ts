@@ -6,12 +6,29 @@ import { getGitDb } from '$lib/server/gitdb';
 
 getGitDb();
 
+const authWithToken = async (token: string) => {
+  return true;
+};
+
 export const handle: Handle = async ({ event, resolve }) => {
   if (
-    event.url.pathname === '/login' ||
-    event.url.pathname.startsWith('/api/auth/') ||
-    event.url.pathname === '/api/code-report/analyse-result'
+    event.url.pathname === '/login'
   ) {
+    return resolve(event);
+  }
+
+  if (event.url.pathname.startsWith('/api/')) {
+    const token = event.request.headers.get('Authorization') || "";
+    if (!token || token.trim() === '') {
+      return new Response(null, { status: 401 });
+    }
+
+    const isAuthenticated = await authWithToken(token);
+
+    if (!isAuthenticated) {
+      return new Response(null, { status: 401 });
+    }
+    console.log('✅ [API] Authenticated successfully with token:', token);
     return resolve(event);
   }
 

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { CodeReportAnalysisRepository } from '../infrastructure/repositories/code-report-analysis.repository';
+import type { CodeReportAnalysisDomain } from '../domain/code-report-analysis.domain';
 import type { CodeReportGitInfo } from '../domain/code-report-analysis.domain';
 
 type ServiceLookup = {
@@ -17,7 +18,34 @@ export class CodeReportAnalysisService {
     return analyses.map((analysis) => analysis.toJson());
   }
 
+  async getLatestByTool(serviceId: string, tools: string[]) {
+    const analyses = await Promise.all(
+      tools.map((tool) => this.repository.findLatestByServiceIdAndTool(serviceId, tool)),
+    );
+
+    return tools.reduce<Record<string, ReturnType<CodeReportAnalysisDomain['toJson']> | null>>(
+      (accumulator, tool, index) => {
+        const analysis = analyses[index];
+        accumulator[tool] = analysis ? analysis.toJson() : null;
+        return accumulator;
+      },
+      {},
+    );
+  }
+
+  async listByProject(serviceIds: string[]) {
+    const analyses = await Promise.all(
+      serviceIds.map((serviceId) => this.listByService(serviceId)),
+    );
+    return analyses
+      .flat()
+      .sort(
+        (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+      );
+  }
+
   async getById(id: string) {
+    console.log('🔍 Fetching analysis by ID:', id);
     const analysis = await this.repository.findById(id);
     if (!analysis) {
       throw new Error('Analysis not found');
@@ -27,15 +55,15 @@ export class CodeReportAnalysisService {
 
   // called when a scan tool starts running against a service, reports 'in_progress' with no result yet
   async startAnalysis(input: { serviceId: string; tool: string; gitInfo?: CodeReportGitInfo }) {
-    const serviceId = input.serviceId?.trim();
-    if (!serviceId) {
-      throw new Error('Service is required');
-    }
+      // const serviceId = input.serviceId?.trim();
+      // if (!serviceId) {
+      //   throw new Error('Service is required');
+      // }
 
-    const service = await this.serviceLookup.findById(serviceId);
-    if (!service) {
-      throw new Error('Service not found');
-    }
+      // const service = await this.serviceLookup.findById(serviceId);
+      // if (!service) {
+      //   throw new Error('Service not found');
+      // }
 
     const tool = input.tool?.trim();
     if (!tool) {
@@ -45,13 +73,13 @@ export class CodeReportAnalysisService {
     const id = crypto.randomUUID();
     await this.repository.create({
       id,
-      serviceId,
+      serviceId: input.serviceId,
       tool,
       status: 'in_progress',
       gitInfo: input.gitInfo,
     });
-
-    return this.getById(id);
+    return { id, serviceId: input.serviceId, tool, status: 'in_progress', gitInfo: input.gitInfo };
+    // return this.getById(id);
   }
 
   // called when the tool finishes successfully with the raw JSON result
