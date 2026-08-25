@@ -139,6 +139,8 @@ export const CodeReportAnalysisEntity = entity('code_report_analyses', {
   status: text().notNull().default('in_progress'),
   result: json(),
   summary: json(),
+  // compliance report evaluated when the analysis is completed
+  securityPolicies: json(),
   error: text(),
   gitInfo: json(),
   createdAt: timestamp()

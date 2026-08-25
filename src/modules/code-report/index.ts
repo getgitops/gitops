@@ -11,9 +11,13 @@ const codeReportServiceRepository = new CodeReportServiceRepository();
 const codeReportAnalysisRepository = new CodeReportAnalysisRepository();
 const codeReportSecurityPolicyRepository = new CodeReportSecurityPolicyRepository();
 
+export const codeReportSecurityPolicyService = new CodeReportSecurityPolicyService(
+  codeReportSecurityPolicyRepository,
+);
 export const codeReportAnalysisService = new CodeReportAnalysisService(
   codeReportAnalysisRepository,
   codeReportServiceRepository,
+  codeReportSecurityPolicyService,
 );
 export const codeReportService = new CodeReportService(
   codeReportServiceRepository,
@@ -23,7 +27,4 @@ export const codeReportService = new CodeReportService(
 export const codeReportCveService = new CodeReportCveService(
   codeReportService,
   codeReportAnalysisService,
-);
-export const codeReportSecurityPolicyService = new CodeReportSecurityPolicyService(
-  codeReportSecurityPolicyRepository,
 );

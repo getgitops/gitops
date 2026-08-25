@@ -43,9 +43,9 @@
 
   $: subtitle =
     report.status === 'violated'
-      ? `${report.failed.length} política(s) incumplida(s) · ${report.totalViolations} regla(s) superada(s)`
+      ? `${report.failed.length} políticas incumplidas · ${report.totalViolations} reglas superadas`
       : report.status === 'compliant'
-        ? `${report.passed.length} política(s) evaluada(s) sin incidencias`
+        ? `${report.passed.length} políticas evaluadas sin incidencias`
         : report.status === 'no_policies'
           ? 'Define políticas para vigilar automáticamente cada análisis.'
           : 'Las políticas activas no cubren este servicio o faltan análisis.';
@@ -72,7 +72,7 @@
       {#if report.blockingFailures > 0}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1 text-xs font-bold text-white">
           <AlertTriangle class="h-3.5 w-3.5" />
-          {report.blockingFailures} bloqueante(s)
+          {report.blockingFailures} bloqueantes
         </span>
       {/if}
       {#if policiesHref}

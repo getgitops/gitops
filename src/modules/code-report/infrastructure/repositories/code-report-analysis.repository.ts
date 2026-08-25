@@ -60,6 +60,7 @@ export class CodeReportAnalysisRepository extends Repository {
       status?: CodeReportAnalysisStatus;
       result?: unknown;
       summary?: unknown;
+      securityPolicies?: unknown;
       error?: string | null;
       gitInfo?: CodeReportGitInfo;
     },

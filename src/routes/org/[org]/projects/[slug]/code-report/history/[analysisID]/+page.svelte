@@ -3,12 +3,10 @@
   import { ArrowLeft } from 'lucide-svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  import type { SecurityPolicy } from '$lib/code-report/security-policy';
   export let data: {
     service: { id: string; name: string; slug: string; tags?: string[] };
     analysis: any;
     analysisHistory: any[];
-    securityPolicies: SecurityPolicy[];
   };
   $: historyHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/history`;
 </script>
@@ -32,7 +30,6 @@
     service={data.service}
     analysis={data.analysis}
     analysisHistory={data.analysisHistory}
-    securityPolicies={data.securityPolicies}
     securityPoliciesHref={`/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`}
   />
 </div>

@@ -234,3 +234,43 @@ export function evaluatePolicies(
     blockingFailures: failed.filter((evaluation) => evaluation.enforcement === 'block').length,
   };
 }
+
+// each tool stores its own partial report, so views combine them into a single one
+export function mergeComplianceReports(
+  reports: (PolicyComplianceReport | null | undefined)[],
+): PolicyComplianceReport | null {
+  const available = reports.filter((report): report is PolicyComplianceReport => Boolean(report));
+  if (available.length === 0) return null;
+
+  const byPolicy = new Map<string, PolicyEvaluation>();
+  for (const report of available) {
+    for (const evaluation of report.evaluations) {
+      const existing = byPolicy.get(evaluation.policyId);
+      // an evaluable result always wins over a skipped one
+      if (!existing || (!existing.evaluable && evaluation.evaluable)) {
+        byPolicy.set(evaluation.policyId, evaluation);
+      }
+    }
+  }
+
+  const evaluations = [...byPolicy.values()];
+  const evaluable = evaluations.filter((evaluation) => evaluation.evaluable);
+  const failed = evaluable.filter((evaluation) => !evaluation.passed);
+  const passed = evaluable.filter((evaluation) => evaluation.passed);
+
+  return {
+    status:
+      evaluations.length === 0
+        ? 'no_policies'
+        : evaluable.length === 0
+          ? 'not_applicable'
+          : failed.length > 0
+            ? 'violated'
+            : 'compliant',
+    evaluations,
+    passed,
+    failed,
+    totalViolations: failed.reduce((total, evaluation) => total + evaluation.violations.length, 0),
+    blockingFailures: failed.filter((evaluation) => evaluation.enforcement === 'block').length,
+  };
+}

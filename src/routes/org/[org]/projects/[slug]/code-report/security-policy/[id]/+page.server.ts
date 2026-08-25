@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { cancanService } from '../../../../../../../../modules/auth';
 import {
+  codeReportAnalysisService,
   codeReportSecurityPolicyService,
   codeReportService,
 } from '../../../../../../../../modules/code-report';
@@ -76,6 +77,41 @@ export const actions = {
         error: err instanceof Error ? err.message : 'No se pudo actualizar la política',
       });
     }
+  },
+
+  evaluate: async ({ params, locals }) => {
+    const { project, policy } = await resolvePolicy(params.slug, params.id);
+
+    const canUpdate = await cancanService.canSessionUser(locals.user, 'openreport:update', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    });
+
+    if (!canUpdate) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
+    if (!policy) {
+      return fail(404, { error: 'Security policy not found' });
+    }
+
+    const services = await codeReportService.listByProject(project.id);
+    const result = await codeReportAnalysisService.revalidateLatestByServices(services);
+
+    const failingServices = new Set(
+      result.reports
+        .filter((entry) => entry.report.failed.some((item) => item.policyId === params.id))
+        .map((entry) => entry.serviceId),
+    );
+
+    return {
+      evaluated: {
+        servicesEvaluated: result.servicesEvaluated,
+        analysesUpdated: result.analysesUpdated,
+        failingServices: failingServices.size,
+      },
+    };
   },
 
   delete: async ({ params, locals }) => {

@@ -3,10 +3,13 @@ import { cancanService } from '../../../../../../../modules/auth';
 import {
   codeReportAnalysisService,
   codeReportCveService,
+  codeReportSecurityPolicyService,
   codeReportService,
 } from '../../../../../../../modules/code-report';
 import { extractSecrets, summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
 import { summarizeCves } from '$lib/code-report/cve-aggregation';
+import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
+import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
 
 const STALE_AFTER_DAYS = 30;
 const riskWeights = { critical: 10, high: 6, medium: 3, low: 1, unknown: 0 };
@@ -25,6 +28,10 @@ export async function load({ parent, locals }) {
   }
 
   const services = await codeReportService.listByProject(project.id);
+  const securityPolicies = await codeReportSecurityPolicyService.listByProject(project.id);
+
+  const policyEvaluations: { service: (typeof services)[number]; report: PolicyComplianceReport }[] =
+    [];
 
   const serviceStats = await Promise.all(
     services.map(async (service) => {
@@ -39,6 +46,15 @@ export async function load({ parent, locals }) {
         ? summarizeAnalysisResult(trivyAnalysis.result)
         : summarizeAnalysisResult(null);
       const exposedSecrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result).length : 0;
+
+      // compliance was evaluated and stored when the analysis completed
+      const report = mergeComplianceReports([
+        trivyAnalysis?.securityPolicies as PolicyComplianceReport | null,
+        gitleaksAnalysis?.securityPolicies as PolicyComplianceReport | null,
+      ]);
+      if (report) {
+        policyEvaluations.push({ service, report });
+      }
 
       const lastScanAt = [latest.trivy?.createdAt, latest.gitleaks?.createdAt]
         .filter((value): value is string => Boolean(value))
@@ -98,6 +114,31 @@ export async function load({ parent, locals }) {
 
   const topCves = cves.slice(0, 8);
 
+  const evaluatedServices = policyEvaluations.filter(
+    (entry) => entry.report.status === 'compliant' || entry.report.status === 'violated',
+  );
+  const failingServices = evaluatedServices.filter((entry) => entry.report.status === 'violated');
+
+  const violatedPolicies = new Map<
+    string,
+    { id: string; name: string; enforcement: string; services: string[] }
+  >();
+  for (const entry of failingServices) {
+    for (const evaluation of entry.report.failed) {
+      const existing = violatedPolicies.get(evaluation.policyId);
+      if (existing) {
+        existing.services.push(entry.service.name);
+      } else {
+        violatedPolicies.set(evaluation.policyId, {
+          id: evaluation.policyId,
+          name: evaluation.policyName,
+          enforcement: evaluation.enforcement,
+          services: [entry.service.name],
+        });
+      }
+    }
+  }
+
   return {
     project,
     kpis: {
@@ -110,6 +151,18 @@ export async function load({ parent, locals }) {
       remediationCoveragePercent:
         cves.length > 0 ? Math.round((remediableCves / cves.length) * 100) : null,
       staleServicesCount: staleServices.length,
+    },
+    securityPolicies: {
+      total: securityPolicies.length,
+      active: securityPolicies.filter((policy) => policy.enabled).length,
+      evaluatedServices: evaluatedServices.length,
+      failingServices: failingServices.length,
+      compliantServices: evaluatedServices.length - failingServices.length,
+      totalViolations: failingServices.reduce(
+        (total, entry) => total + entry.report.totalViolations,
+        0,
+      ),
+      violatedPolicies: [...violatedPolicies.values()],
     },
     severityBreakdown,
     topCves,

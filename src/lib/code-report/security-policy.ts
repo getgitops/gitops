@@ -66,8 +66,8 @@ export type SecurityPolicy = {
   enforcement: SecurityPolicyEnforcement;
   scope: SecurityPolicyScope;
   rules: SecurityPolicyRules;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 };
 
 export const SECURITY_POLICY_TYPE_META: Record<

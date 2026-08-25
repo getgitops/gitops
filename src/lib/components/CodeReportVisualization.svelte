@@ -8,8 +8,8 @@
     summarizeAnalysisResult,
     type VulnerabilityFinding,
   } from '$lib/code-report/analysis-summary';
-  import { evaluatePolicies } from '$lib/code-report/policy-evaluation';
-  import type { SecurityPolicy } from '$lib/code-report/security-policy';
+  import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
+  import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
   import CodeReportFiles from './code-report/CodeReportFiles.svelte';
   import CodeReportSbom from './code-report/CodeReportSbom.svelte';
   import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';
@@ -23,6 +23,7 @@
     status: 'in_progress' | 'completed' | 'failed';
     result: unknown;
     summary?: unknown;
+    securityPolicies?: PolicyComplianceReport | null;
     error?: string | null;
     gitInfo?: {
       repositoryUrl?: string | null;
@@ -44,7 +45,6 @@
   export let analysisHistory: AnalysisData[] = [];
   export let latestByTool: Record<string, AnalysisData> = {};
   export let service: ServiceData = null;
-  export let securityPolicies: SecurityPolicy[] = [];
   export let securityPoliciesHref: string | null = null;
   let activeTab = 'summary';
   let activeVulnerabilityTab = 'cve';
@@ -77,14 +77,12 @@
   $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
   $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
   $: sbomComponents = sbomAnalysis ? extractSbomComponents(sbomAnalysis.result) : [];
-  $: complianceReport = evaluatePolicies(securityPolicies, {
-    serviceId: service?.id ?? '',
-    serviceTags: service?.tags ?? [],
-    vulnerabilities,
-    secrets,
-    hasVulnerabilityScan: trivyAnalysis?.status === 'completed',
-    hasSecretScan: gitleaksAnalysis?.status === 'completed',
-  });
+  $: complianceReport = mergeComplianceReports([
+    trivyAnalysis?.securityPolicies,
+    gitleaksAnalysis?.securityPolicies,
+    sbomAnalysis?.securityPolicies,
+    analysis?.securityPolicies,
+  ]);
   $: fileGroups = groupByFile(vulnerabilities);
   $: selectedFile = fileGroups.find((file) => file.path === selectedFilePath) ?? null;
   $: historyPoints = analysisHistory
@@ -220,7 +218,7 @@
 </script>
 
 <div class="space-y-6">
-  {#if analysis}
+  {#if analysis && complianceReport}
     <SecurityPolicyComplianceCard
       report={complianceReport}
       policiesHref={securityPoliciesHref}

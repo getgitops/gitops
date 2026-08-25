@@ -2,15 +2,36 @@ import crypto from 'crypto';
 import { CodeReportAnalysisRepository } from '../infrastructure/repositories/code-report-analysis.repository';
 import type { CodeReportAnalysisDomain } from '../domain/code-report-analysis.domain';
 import type { CodeReportGitInfo } from '../domain/code-report-analysis.domain';
+import { extractSecrets, extractVulnerabilities } from '$lib/code-report/analysis-summary';
+import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
+import type { SecurityPolicy, SecurityPolicyType } from '$lib/code-report/security-policy';
 
 type ServiceLookup = {
-  findById(id: string): Promise<{ id: string } | null>;
+  findById(id: string): Promise<{ id: string; projectId?: string; tags?: string[] } | null>;
 };
+
+type PolicyLookup = {
+  listByProject(projectId: string): Promise<SecurityPolicy[]>;
+};
+
+// each tool only produces evidence for some policy types
+const TOOL_POLICY_TYPES: Record<string, SecurityPolicyType[]> = {
+  trivy: ['vulnerabilities', 'license'],
+  grype: ['vulnerabilities'],
+  sbom: ['license'],
+  syft: ['license'],
+  gitleaks: ['secrets'],
+  trufflehog: ['secrets'],
+  coverage: ['code_coverage'],
+  'code-coverage': ['code_coverage'],
+};
+const DEFAULT_POLICY_TYPES: SecurityPolicyType[] = ['vulnerabilities', 'license'];
 
 export class CodeReportAnalysisService {
   constructor(
     private readonly repository: CodeReportAnalysisRepository,
     private readonly serviceLookup: ServiceLookup,
+    private readonly policyLookup?: PolicyLookup,
   ) {}
 
   async listByService(serviceId: string) {
@@ -100,11 +121,73 @@ export class CodeReportAnalysisService {
       status: 'completed',
       result: input.result,
       summary: input.summary,
+      securityPolicies: await this.evaluateSecurityPolicies(analysis.serviceId, analysis.tool, input.result),
       gitInfo: input.gitInfo,
       error: null,
     });
 
     return this.getById(id);
+  }
+
+  // compliance is frozen at completion time so the UI never re-evaluates on read
+  private async evaluateSecurityPolicies(
+    serviceId: string,
+    tool: string,
+    result: unknown,
+  ): Promise<PolicyComplianceReport | null> {
+    if (!this.policyLookup) return null;
+
+    const service = await this.serviceLookup.findById(serviceId);
+    if (!service?.projectId) return null;
+
+    const policies = await this.policyLookup.listByProject(service.projectId);
+    const types = TOOL_POLICY_TYPES[tool.toLowerCase()] ?? DEFAULT_POLICY_TYPES;
+    const scopedPolicies = policies.filter((policy) => types.includes(policy.type));
+    if (scopedPolicies.length === 0) return null;
+
+    const checksVulnerabilities = types.includes('vulnerabilities');
+    const checksSecrets = types.includes('secrets');
+
+    return evaluatePolicies(scopedPolicies, {
+      serviceId: service.id,
+      serviceTags: service.tags ?? [],
+      vulnerabilities: checksVulnerabilities ? extractVulnerabilities(result) : [],
+      secrets: checksSecrets ? extractSecrets(result) : [],
+      hasVulnerabilityScan: checksVulnerabilities,
+      hasSecretScan: checksSecrets,
+    });
+  }
+
+  // re-runs the policy evaluation over the latest stored analysis of each service
+  async revalidateLatestByServices(services: { id: string; tools?: string[] }[]) {
+    let analysesUpdated = 0;
+    const reports: { serviceId: string; report: PolicyComplianceReport }[] = [];
+
+    for (const service of services) {
+      const tools = service.tools?.length ? service.tools : ['trivy'];
+      const latest = await this.getLatestByTool(service.id, tools);
+
+      for (const analysis of Object.values(latest)) {
+        if (!analysis || analysis.status !== 'completed') continue;
+
+        const report = await this.evaluateSecurityPolicies(
+          analysis.serviceId,
+          analysis.tool,
+          analysis.result,
+        );
+        if (!report) continue;
+
+        await this.repository.update(analysis.id, { securityPolicies: report });
+        analysesUpdated += 1;
+        reports.push({ serviceId: service.id, report });
+      }
+    }
+
+    return {
+      servicesEvaluated: new Set(reports.map((entry) => entry.serviceId)).size,
+      analysesUpdated,
+      reports,
+    };
   }
 
   // called when the tool could not run/complete, records the reason instead of a result

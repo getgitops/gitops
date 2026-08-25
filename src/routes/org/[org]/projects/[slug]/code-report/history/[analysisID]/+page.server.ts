@@ -2,7 +2,6 @@ import { error } from '@sveltejs/kit';
 import { cancanService } from '../../../../../../../../modules/auth';
 import {
   codeReportAnalysisService,
-  codeReportSecurityPolicyService,
   codeReportService,
 } from '../../../../../../../../modules/code-report';
 
@@ -24,6 +23,5 @@ export async function load({ parent, params, locals }) {
     service,
     analysis,
     analysisHistory: await codeReportAnalysisService.listByService(service.id),
-    securityPolicies: await codeReportSecurityPolicyService.listByProject(project.id),
   };
 }

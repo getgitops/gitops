@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
-  import { ArrowLeft, Pencil, Trash2, X } from 'lucide-svelte';
+  import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from 'lucide-svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
   import {
     describeScope,
@@ -15,11 +15,16 @@
     services: { id: string; slug: string; name: string; tags: string[] }[];
     tags: string[];
   };
-  export let form: { error?: string; success?: boolean } | null;
+  export let form: {
+    error?: string;
+    success?: boolean;
+    evaluated?: { servicesEvaluated: number; analysesUpdated: number; failingServices: number };
+  } | null;
 
   let editing = false;
   let deleteModalOpen = false;
   let deleting = false;
+  let evaluating = false;
 
   $: policy = data.policy;
   $: baseHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/security-policy`;
@@ -70,6 +75,26 @@
       <ArrowLeft class="h-3.5 w-3.5" />Volver a políticas
     </a>
     <div class="flex flex-wrap items-center gap-2">
+      <form
+        method="POST"
+        action="?/evaluate"
+        use:enhance={() => {
+          evaluating = true;
+          return async ({ update }) => {
+            await update({ reset: false });
+            evaluating = false;
+          };
+        }}
+      >
+        <button
+          type="submit"
+          disabled={evaluating}
+          class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          <RefreshCw class={`h-4 w-4 ${evaluating ? 'animate-spin' : ''}`} />
+          {evaluating ? 'Analizando...' : 'Analizar servicios'}
+        </button>
+      </form>
       <button
         type="button"
         on:click={() => (editing = !editing)}
@@ -86,6 +111,24 @@
       </button>
     </div>
   </div>
+
+  {#if form?.evaluated}
+    <p
+      class={`rounded-xl border px-4 py-3 text-sm ${
+        form.evaluated.failingServices > 0
+          ? 'border-red-200 bg-red-50 text-red-800'
+          : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+      }`}
+    >
+      {form.evaluated.servicesEvaluated} servicios reevaluados ({form.evaluated.analysesUpdated} análisis
+      actualizados).
+      {#if form.evaluated.failingServices > 0}
+        <strong>{form.evaluated.failingServices}</strong> incumplen esta política.
+      {:else}
+        Ninguno incumple esta política.
+      {/if}
+    </p>
+  {/if}
 
   {#if editing}
     {#key policy.updatedAt}
