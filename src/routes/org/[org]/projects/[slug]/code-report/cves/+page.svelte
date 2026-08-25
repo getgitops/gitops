@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { AlertTriangle, Info, Search, ShieldAlert } from 'lucide-svelte';
+  import { AlertTriangle, ChevronLeft, ChevronRight, Info, Search, ShieldAlert } from 'lucide-svelte';
 
   type CveRow = {
     id: string;
@@ -23,11 +23,15 @@
 
   let searchQuery = '';
   let severityFilter = 'all';
+  const perPageOptions = [10, 25, 50, 100];
+  let perPage = 10;
+  let currentPage = 1;
 
   $: orgSlug = $page.params.org;
   $: projectSlug = $page.params.slug;
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/cves`;
 
+  // search/filter run against the full dataset, not just the current page
   $: filteredCves = data.cves.filter((cve) => {
     const query = searchQuery.trim().toLowerCase();
     const matchesQuery =
@@ -35,6 +39,13 @@
     const matchesSeverity = severityFilter === 'all' || cve.severity === severityFilter;
     return matchesQuery && matchesSeverity;
   });
+
+  $: totalPages = Math.max(1, Math.ceil(filteredCves.length / perPage));
+  $: if (currentPage > totalPages) currentPage = totalPages;
+  $: searchQuery, severityFilter, perPage, (currentPage = 1);
+  $: paginatedCves = filteredCves.slice((currentPage - 1) * perPage, currentPage * perPage);
+  $: rangeStart = filteredCves.length === 0 ? 0 : (currentPage - 1) * perPage + 1;
+  $: rangeEnd = Math.min(currentPage * perPage, filteredCves.length);
 </script>
 
 <svelte:head>
@@ -98,7 +109,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          {#each filteredCves as cve (cve.id)}
+          {#each paginatedCves as cve (cve.id)}
             <tr class="hover:bg-slate-50">
               <td class="px-5 py-3">
                 <a href={`${baseHref}/${cve.id}`} class="font-mono font-semibold text-slate-900 hover:underline">
@@ -125,6 +136,46 @@
           {/each}
         </tbody>
       </table>
+    </div>
+
+    <div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
+      <div class="flex items-center gap-2 text-sm text-slate-600">
+        <span>Mostrando {rangeStart}-{rangeEnd} de {filteredCves.length}</span>
+        <label class="flex items-center gap-1.5">
+          <span class="text-slate-500">Por página</span>
+          <select
+            bind:value={perPage}
+            aria-label="Elementos por página"
+            class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+          >
+            {#each perPageOptions as option}
+              <option value={option}>{option}</option>
+            {/each}
+          </select>
+        </label>
+      </div>
+
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          disabled={currentPage === 1}
+          on:click={() => (currentPage -= 1)}
+          aria-label="Página anterior"
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ChevronLeft class="h-4 w-4" />
+        </button>
+        <span class="px-3 text-sm text-slate-600">Página {currentPage} de {totalPages}</span>
+        <button
+          type="button"
+          disabled={currentPage === totalPages}
+          on:click={() => (currentPage += 1)}
+          aria-label="Página siguiente"
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ChevronRight class="h-4 w-4" />
+        </button>
+      </div>
     </div>
   {/if}
 </div>

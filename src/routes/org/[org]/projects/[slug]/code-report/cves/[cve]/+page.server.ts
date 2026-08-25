@@ -1,7 +1,12 @@
 import { error } from '@sveltejs/kit';
 import { cancanService } from '../../../../../../../../modules/auth';
 import { codeReportCveService } from '../../../../../../../../modules/code-report';
-import { highestCvssScore, highestSeverity } from '$lib/code-report/cve-aggregation';
+import {
+  highestCvssScore,
+  highestEpssPercentile,
+  highestEpssScore,
+  highestSeverity,
+} from '$lib/code-report/cve-aggregation';
 
 export async function load({ parent, locals, params }) {
   const { project } = await parent();
@@ -24,6 +29,10 @@ export async function load({ parent, locals, params }) {
   }
 
   const first = occurrences[0].finding;
+  const publishedDate =
+    occurrences.map((occurrence) => occurrence.finding.publishedDate).find(Boolean) ?? null;
+  const lastModifiedDate =
+    occurrences.map((occurrence) => occurrence.finding.lastModifiedDate).find(Boolean) ?? null;
 
   const cve = {
     id: params.cve,
@@ -31,10 +40,30 @@ export async function load({ parent, locals, params }) {
     description: first.description,
     severity: highestSeverity(occurrences),
     cvssScore: highestCvssScore(occurrences),
+    epssScore: highestEpssScore(occurrences),
+    epssPercentile: highestEpssPercentile(occurrences),
     primaryUrl: first.primaryUrl,
     cveUrl: first.cveUrl,
     cweIds: first.cweIds,
+    references: [...new Set(occurrences.flatMap((occurrence) => occurrence.finding.references))],
+    publishedDate,
+    lastModifiedDate,
   };
+
+  // one remediation entry per distinct package, listing the fixed version(s) trivy reported
+  const remediations = [
+    ...new Map(
+      occurrences.map((occurrence) => [
+        occurrence.finding.packageName,
+        {
+          packageName: occurrence.finding.packageName,
+          installedVersion: occurrence.finding.installedVersion,
+          fixedVersion: occurrence.finding.fixedVersion,
+          status: occurrence.finding.status,
+        },
+      ]),
+    ).values(),
+  ];
 
   const affectedServices = occurrences.map((occurrence) => ({
     serviceId: occurrence.serviceId,
@@ -49,5 +78,5 @@ export async function load({ parent, locals, params }) {
     scannedAt: occurrence.scannedAt,
   }));
 
-  return { cve, affectedServices };
+  return { cve, remediations, affectedServices };
 }

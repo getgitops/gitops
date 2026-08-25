@@ -33,6 +33,11 @@ export type VulnerabilityFinding = {
   cveUrl: string;
   cvssScore: number | null;
   cweIds: string[];
+  references: string[];
+  epssScore: number | null;
+  epssPercentile: number | null;
+  publishedDate: string | null;
+  lastModifiedDate: string | null;
 };
 
 export type SecretFinding = {
@@ -139,6 +144,18 @@ export function extractVulnerabilities(result: unknown): VulnerabilityFinding[] 
         return Number.isFinite(value) && (highest === null || value > highest) ? value : highest;
       }, null);
 
+      const epss = vuln.EPSS;
+      const epssScore =
+        epss && typeof epss === 'object' && Number.isFinite(Number((epss as Record<string, unknown>).Score))
+          ? Number((epss as Record<string, unknown>).Score)
+          : null;
+      const epssPercentile =
+        epss &&
+        typeof epss === 'object' &&
+        Number.isFinite(Number((epss as Record<string, unknown>).Percentile))
+          ? Number((epss as Record<string, unknown>).Percentile)
+          : null;
+
       return [
         {
           id: String(vuln.VulnerabilityID || `${vuln.PkgName || 'unknown'}-${row.Target || ''}`),
@@ -165,6 +182,11 @@ export function extractVulnerabilities(result: unknown): VulnerabilityFinding[] 
           cveUrl: `https://nvd.nist.gov/vuln/detail/${String(vuln.VulnerabilityID || '')}`,
           cvssScore: score,
           cweIds: Array.isArray(vuln.CweIDs) ? vuln.CweIDs.map(String) : [],
+          references: Array.isArray(vuln.References) ? vuln.References.map(String) : [],
+          epssScore,
+          epssPercentile,
+          publishedDate: vuln.PublishedDate ? String(vuln.PublishedDate) : null,
+          lastModifiedDate: vuln.LastModifiedDate ? String(vuln.LastModifiedDate) : null,
         },
       ];
     });
