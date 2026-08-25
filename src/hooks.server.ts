@@ -10,14 +10,12 @@ const authWithToken = async (token: string) => {
 };
 
 export const handle: Handle = async ({ event, resolve }) => {
-  if (
-    event.url.pathname === '/login'
-  ) {
+  if (event.url.pathname === '/login') {
     return resolve(event);
   }
 
   if (event.url.pathname.startsWith('/api/')) {
-    const token = event.request.headers.get('Authorization') || "";
+    const token = event.request.headers.get('Authorization') || '';
     if (!token || token.trim() === '') {
       return new Response(null, { status: 401 });
     }
@@ -54,11 +52,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     ) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
-  } else if (
-    event.url.pathname.startsWith('/cluster-settings') ||
-    event.url.pathname.startsWith('/api/system') ||
-    event.url.pathname.startsWith('/api/organizations')
-  ) {
+  } else if (event.url.pathname.startsWith('/cluster-settings')) {
     if (!cancanService.canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }

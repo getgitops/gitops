@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
+  import { enhance } from '$app/forms';
   import { page } from '$app/stores';
+  import type { SubmitFunction } from '@sveltejs/kit';
   import {
     Archive,
     ArchiveRestore,
@@ -117,44 +118,30 @@
     }
   }
 
-  async function saveProject() {
+  const saveProject: SubmitFunction = ({ cancel }) => {
     error = '';
     if (!editName.trim()) {
       error = 'Project name is required.';
+      cancel();
       return;
     }
 
     saving = true;
-    try {
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editName.trim(),
-          slug: editSlug.trim(),
-          description: editDescription.trim(),
-          modules: editModules,
-        }),
-      });
-
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      project = payload.project;
-      editModules = { ...project.modules };
-      flashSuccess('Project updated.');
-
-      if (payload.project.slug !== project.slug) {
-        await goto(`/org/${orgSlug}/projects/${payload.project.slug}/settings/overview`, {
-          invalidateAll: true,
-        });
-      }
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to update project.';
-    } finally {
+    return async ({ result, update }) => {
+      await update();
       saving = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        flashSuccess('Project updated.');
+        return;
+      }
+
+      error =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to update project.';
+    };
+  };
 
   function openArchiveModal() {
     error = '';
@@ -165,30 +152,26 @@
     archiveModalOpen = false;
   }
 
-  async function confirmArchive() {
+  const confirmArchive: SubmitFunction = () => {
     error = '';
     archiveLoading = true;
-
-    try {
-      const nextStatus = isArchived ? 'active' : 'inactive';
-      const res = await fetch(`/api/projects/${project.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      project = payload.project;
-      closeArchiveModal();
-      flashSuccess(isArchived ? 'Project reactivated.' : 'Project archived.');
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to update project status.';
-    } finally {
+    const wasArchived = isArchived;
+    return async ({ result, update }) => {
+      await update();
       archiveLoading = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        closeArchiveModal();
+        flashSuccess(wasArchived ? 'Project reactivated.' : 'Project archived.');
+        return;
+      }
+
+      error =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to update project status.';
+    };
+  };
 
   function openDeleteModal() {
     error = '';
@@ -199,21 +182,18 @@
     deleteModalOpen = false;
   }
 
-  async function confirmDelete() {
+  const confirmDelete: SubmitFunction = () => {
     error = '';
     deleteLoading = true;
+    return async ({ result, update }) => {
+      await update();
 
-    try {
-      const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      await goto(`/org/${orgSlug}/settings/projects`);
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to delete project.';
-      deleteLoading = false;
-    }
-  }
+      if (result.type === 'failure') {
+        error = result.data?.error ? String(result.data.error) : 'Failed to delete project.';
+        deleteLoading = false;
+      }
+    };
+  };
 </script>
 
 <svelte:head>
@@ -235,7 +215,16 @@
     </div>
   {/if}
 
-  <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
+  <form
+    method="POST"
+    action="?/updateProject"
+    use:enhance={saveProject}
+    class="overflow-hidden rounded-md border border-slate-200 bg-white"
+  >
+    <input type="hidden" name="id" value={project.id} />
+    <input type="hidden" name="moduleVault" value={editModules.vault ? 'on' : ''} />
+    <input type="hidden" name="moduleCodeReport" value={editModules.codereport ? 'on' : ''} />
+    <input type="hidden" name="moduleStateIac" value={editModules.stateiac ? 'on' : ''} />
     <div class="flex items-center justify-end gap-3 border-b border-slate-200 px-4 py-4">
       {#if isArchived}
         <span
@@ -264,6 +253,7 @@
           >
           <input
             id="edit-project-name"
+            name="name"
             type="text"
             bind:value={editName}
             class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
@@ -276,6 +266,7 @@
           >
           <input
             id="edit-project-slug"
+            name="slug"
             type="text"
             bind:value={editSlug}
             class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
@@ -289,6 +280,7 @@
         </label>
         <textarea
           id="edit-project-description"
+          name="description"
           bind:value={editDescription}
           rows="4"
           class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
@@ -358,8 +350,7 @@
 
     <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
       <button
-        type="button"
-        on:click={saveProject}
+        type="submit"
         disabled={saving}
         class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
       >
@@ -367,7 +358,7 @@
         {saving ? 'Saving...' : 'Save changes'}
       </button>
     </div>
-  </section>
+  </form>
 
   <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
     <div class="border-b border-slate-200 px-4 py-3">
@@ -487,41 +478,45 @@
         </h5>
       </div>
 
-      <div class="px-4 py-4 text-sm text-slate-600">
-        {#if isArchived}
-          Are you sure you want to activate <span class="font-medium text-slate-900"
-            >{project.name}</span
-          >? It will be marked as active again.
-        {:else}
-          Are you sure you want to archive <span class="font-medium text-slate-900"
-            >{project.name}</span
-          >? It will be marked as inactive.
-        {/if}
-      </div>
+      <form method="POST" action="?/updateProjectStatus" use:enhance={confirmArchive}>
+        <input type="hidden" name="id" value={project.id} />
+        <input type="hidden" name="status" value={isArchived ? 'active' : 'inactive'} />
 
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeArchiveModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={confirmArchive}
-          disabled={archiveLoading}
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
+        <div class="px-4 py-4 text-sm text-slate-600">
           {#if isArchived}
-            <ArchiveRestore class="h-4 w-4" />
-            {archiveLoading ? 'Activating...' : 'Activate project'}
+            Are you sure you want to activate <span class="font-medium text-slate-900"
+              >{project.name}</span
+            >? It will be marked as active again.
           {:else}
-            <Archive class="h-4 w-4" />
-            {archiveLoading ? 'Archiving...' : 'Archive project'}
+            Are you sure you want to archive <span class="font-medium text-slate-900"
+              >{project.name}</span
+            >? It will be marked as inactive.
           {/if}
-        </button>
-      </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeArchiveModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={archiveLoading}
+            class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            {#if isArchived}
+              <ArchiveRestore class="h-4 w-4" />
+              {archiveLoading ? 'Activating...' : 'Activate project'}
+            {:else}
+              <Archive class="h-4 w-4" />
+              {archiveLoading ? 'Archiving...' : 'Archive project'}
+            {/if}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 {/if}
@@ -544,30 +539,32 @@
         <h5 class="text-sm font-semibold text-slate-900">Delete project</h5>
       </div>
 
-      <div class="px-4 py-4 text-sm text-slate-600">
-        Are you sure you want to delete <span class="font-medium text-slate-900"
-          >{project.name}</span
-        >? This action cannot be undone.
-      </div>
+      <form method="POST" action="?/deleteProject" use:enhance={confirmDelete}>
+        <input type="hidden" name="id" value={project.id} />
+        <div class="px-4 py-4 text-sm text-slate-600">
+          Are you sure you want to delete <span class="font-medium text-slate-900"
+            >{project.name}</span
+          >? This action cannot be undone.
+        </div>
 
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeDeleteModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={confirmDelete}
-          disabled={deleteLoading}
-          class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Trash2 class="h-4 w-4" />
-          {deleteLoading ? 'Deleting...' : 'Delete project'}
-        </button>
-      </div>
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeDeleteModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={deleteLoading}
+            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            <Trash2 class="h-4 w-4" />
+            {deleteLoading ? 'Deleting...' : 'Delete project'}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 {/if}
