@@ -98,6 +98,11 @@
                 name: 'Code Report',
                 icon: BarChart3,
                 items: [
+                  {
+                    label: 'Dashboard',
+                    href: `${projectBase}/code-report/dashboard`,
+                    icon: LayoutDashboard,
+                  },
                   { label: 'Services', href: `${projectBase}/code-report/services`, icon: Layers },
                   { label: 'CVEs', href: `${projectBase}/code-report/cves`, icon: ShieldAlert },
                   { label: 'History', href: `${projectBase}/code-report/history`, icon: GitBranch },
