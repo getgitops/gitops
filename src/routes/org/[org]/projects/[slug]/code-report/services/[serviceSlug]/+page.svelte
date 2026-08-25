@@ -3,12 +3,14 @@
   import { enhance } from '$app/forms';
   import { ArrowLeft, History, Trash2, X } from 'lucide-svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
+  import type { SecurityPolicy } from '$lib/code-report/security-policy';
 
   export let data: {
-    service: { name: string; slug: string };
+    service: { id: string; name: string; slug: string; tags?: string[] };
     latestAnalysis: any;
     latestByTool: Record<string, any>;
     analysisHistory: any[];
+    securityPolicies: SecurityPolicy[];
   };
   export let form: {
     error?: string;
@@ -60,6 +62,8 @@
     analysis={data.latestAnalysis}
     latestByTool={data.latestByTool}
     analysisHistory={data.analysisHistory}
+    securityPolicies={data.securityPolicies}
+    securityPoliciesHref={`/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`}
   />
 </div>
 

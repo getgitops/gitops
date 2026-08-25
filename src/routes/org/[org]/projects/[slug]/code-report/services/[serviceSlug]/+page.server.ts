@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import {
   codeReportService,
   codeReportAnalysisService,
+  codeReportSecurityPolicyService,
 } from '../../../../../../../../modules/code-report';
 import { projectService } from '../../../../../../../../modules/projects';
 import { cancanService } from '../../../../../../../../modules/auth';
@@ -42,7 +43,9 @@ export async function load({ parent, params, locals }) {
       service.tools ?? [],
     );
 
-    return { service, latestAnalysis, latestByTool, analysisHistory };
+    const securityPolicies = await codeReportSecurityPolicyService.listByProject(project.id);
+
+    return { service, latestAnalysis, latestByTool, analysisHistory, securityPolicies };
   } catch {
     throw error(404, 'Service not found');
   }

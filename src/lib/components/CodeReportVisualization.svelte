@@ -8,11 +8,14 @@
     summarizeAnalysisResult,
     type VulnerabilityFinding,
   } from '$lib/code-report/analysis-summary';
+  import { evaluatePolicies } from '$lib/code-report/policy-evaluation';
+  import type { SecurityPolicy } from '$lib/code-report/security-policy';
   import CodeReportFiles from './code-report/CodeReportFiles.svelte';
   import CodeReportSbom from './code-report/CodeReportSbom.svelte';
   import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';
   import CodeReportSummary from './code-report/CodeReportSummary.svelte';
   import CodeReportVulnerabilities from './code-report/CodeReportVulnerabilities.svelte';
+  import SecurityPolicyComplianceCard from './code-report/SecurityPolicyComplianceCard.svelte';
 
   type AnalysisData = {
     id: string;
@@ -31,6 +34,7 @@
   };
   type Analysis = AnalysisData | null;
   type ServiceData = {
+    id?: string;
     name: string;
     slug: string;
     description?: string | null;
@@ -40,6 +44,8 @@
   export let analysisHistory: AnalysisData[] = [];
   export let latestByTool: Record<string, AnalysisData> = {};
   export let service: ServiceData = null;
+  export let securityPolicies: SecurityPolicy[] = [];
+  export let securityPoliciesHref: string | null = null;
   let activeTab = 'summary';
   let activeVulnerabilityTab = 'cve';
   let riskInfoModalOpen = false;
@@ -71,6 +77,14 @@
   $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
   $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
   $: sbomComponents = sbomAnalysis ? extractSbomComponents(sbomAnalysis.result) : [];
+  $: complianceReport = evaluatePolicies(securityPolicies, {
+    serviceId: service?.id ?? '',
+    serviceTags: service?.tags ?? [],
+    vulnerabilities,
+    secrets,
+    hasVulnerabilityScan: trivyAnalysis?.status === 'completed',
+    hasSecretScan: gitleaksAnalysis?.status === 'completed',
+  });
   $: fileGroups = groupByFile(vulnerabilities);
   $: selectedFile = fileGroups.find((file) => file.path === selectedFilePath) ?? null;
   $: historyPoints = analysisHistory
@@ -206,6 +220,12 @@
 </script>
 
 <div class="space-y-6">
+  {#if analysis}
+    <SecurityPolicyComplianceCard
+      report={complianceReport}
+      policiesHref={securityPoliciesHref}
+    />
+  {/if}
   <div class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Vista del reporte">
     {#each tabs as tab}<button
         type="button"
