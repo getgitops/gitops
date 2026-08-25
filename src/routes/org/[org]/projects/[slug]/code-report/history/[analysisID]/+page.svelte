@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { ArrowLeft } from 'lucide-svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
+  import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
   export let data: {
     service: { name: string; slug: string };
     analysis: any;
@@ -18,9 +19,10 @@
   <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Informe consultado</p>
     <h1 class="mt-2 text-2xl font-bold text-slate-950">{data.service.name}</h1>
-    <div class="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
-      <span class="font-mono">{data.analysis.id}</span><span>{data.analysis.tool}</span><span
-        >{new Date(data.analysis.createdAt).toLocaleString()}</span
+    <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+      <span class="font-mono">{data.analysis.id}</span><CodeReportToolBadge
+        tool={data.analysis.tool}
+      /><span>{new Date(data.analysis.createdAt).toLocaleString()}</span
       ><span>{data.analysis.status}</span>
     </div>
   </section>

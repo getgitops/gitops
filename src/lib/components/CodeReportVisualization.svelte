@@ -41,6 +41,7 @@
   export let latestByTool: Record<string, AnalysisData> = {};
   export let service: ServiceData = null;
   let activeTab = 'summary';
+  let activeVulnerabilityTab = 'cve';
   let riskInfoModalOpen = false;
   let fileQuery = '';
   let vulnerabilityQuery = '';
@@ -61,6 +62,7 @@
   const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
   const severityKeys = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
   const fileSeverityOrder = ['critical', 'high', 'medium', 'low'] as const;
+  const knownTools = ['trivy', 'sbom', 'gitleaks'];
   // manual uploads are stored under other tool names, so fall back to the latest analysis
   $: trivyAnalysis = latestByTool.trivy ?? analysis;
   $: gitleaksAnalysis = latestByTool.gitleaks ?? null;
@@ -109,16 +111,19 @@
   );
   $: tabs = [
     { id: 'summary', label: 'Resumen' },
-    {
-      id: 'vulnerabilities',
-      label: 'Vulnerabilidades',
-      tool: 'trivy',
-      count: vulnerabilities.length,
-    },
-    { id: 'secrets', label: 'Secretos Expuestos', tool: 'gitleaks', count: secrets.length },
-    { id: 'sbom', label: 'SBOM', tool: 'syft', count: sbomComponents.length },
+    { id: 'vulnerabilities', label: 'Vulnerabilidades', count: vulnerabilities.length },
+    { id: 'sbom', label: 'Inventario', count: sbomComponents.length },
+    { id: 'secrets', label: 'Secretos Expuestos', count: secrets.length },
+  ] as { id: string; label: string; count?: number }[];
+  $: vulnerabilitySubTabs = [
+    { id: 'cve', label: 'CVE', count: vulnerabilities.length },
     { id: 'files', label: 'Archivos', count: fileGroups.length },
-  ] as { id: string; label: string; tool?: string; count?: number }[];
+  ];
+  $: toolRuns = knownTools.map((tool) => ({
+    tool,
+    status: latestByTool[tool]?.status ?? null,
+    createdAt: latestByTool[tool]?.createdAt ?? null,
+  }));
   function calculateRiskScore(value: ReturnType<typeof summarizeAnalysisResult>) {
     return (
       value.vulnerabilities.critical * riskWeights.critical +
@@ -208,9 +213,7 @@
         aria-selected={activeTab === tab.id}
         on:click={() => (activeTab = tab.id)}
         class={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === tab.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
-        >{tab.label}{#if tab.tool}<span class="ml-1 text-[11px] font-normal text-slate-400"
-            >({tab.tool})</span
-          >{/if}{#if tab.count !== undefined}<span
+        >{tab.label}{#if tab.count !== undefined}<span
             class="ml-1 text-xs font-normal text-slate-400">{tab.count}</span
           >{/if}</button
       >{/each}
@@ -222,6 +225,7 @@
     </div>{:else if activeTab === 'summary'}<CodeReportSummary
       analysis={trivyAnalysis}
       analysisHistoryLength={analysisHistory.length}
+      {toolRuns}
       {service}
       {summary}
       fileCount={fileGroups.length}
@@ -231,35 +235,52 @@
       {severityKeys}
       {setupChart}
       onShowRiskInfo={() => (riskInfoModalOpen = true)}
-    />{:else if activeTab === 'vulnerabilities'}<CodeReportVulnerabilities
-      analysis={trivyAnalysis}
-      {vulnerabilities}
-      {filteredVulnerabilities}
-      {severityStyles}
-      bind:vulnerabilityQuery
-      bind:severityFilter
-      {findingStatus}
-    />{:else if activeTab === 'secrets'}<CodeReportSecrets
+    />{:else if activeTab === 'vulnerabilities'}<div class="space-y-4">
+      <div
+        class="flex gap-1 overflow-x-auto rounded-full bg-slate-100 p-1"
+        role="tablist"
+        aria-label="Vista de vulnerabilidades"
+      >
+        {#each vulnerabilitySubTabs as subTab}<button
+            type="button"
+            role="tab"
+            aria-selected={activeVulnerabilityTab === subTab.id}
+            on:click={() => (activeVulnerabilityTab = subTab.id)}
+            class={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold ${activeVulnerabilityTab === subTab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+            >{subTab.label}<span class="ml-1 text-xs font-normal text-slate-400">{subTab.count}</span
+            ></button
+          >{/each}
+      </div>
+      {#if activeVulnerabilityTab === 'cve'}<CodeReportVulnerabilities
+          analysis={trivyAnalysis}
+          {vulnerabilities}
+          {filteredVulnerabilities}
+          {severityStyles}
+          bind:vulnerabilityQuery
+          bind:severityFilter
+          {findingStatus}
+        />{:else}<CodeReportFiles
+          {fileGroups}
+          {filteredFileGroups}
+          {selectedFile}
+          bind:selectedFilePath
+          bind:fileQuery
+          {severityStyles}
+          {fileSeverityOrder}
+          {getFileName}
+          {countSeverity}
+          {severityLabel}
+        />{/if}
+    </div>{:else if activeTab === 'secrets'}<CodeReportSecrets
       analysis={gitleaksAnalysis}
       {secrets}
       {severityStyles}
       bind:secretQuery
-    />{:else if activeTab === 'sbom'}<CodeReportSbom
+    />{:else}<CodeReportSbom
       analysis={sbomAnalysis}
       components={sbomComponents}
       bind:sbomQuery
       bind:sbomTypeFilter
-    />{:else}<CodeReportFiles
-      {fileGroups}
-      {filteredFileGroups}
-      {selectedFile}
-      bind:selectedFilePath
-      bind:fileQuery
-      {severityStyles}
-      {fileSeverityOrder}
-      {getFileName}
-      {countSeverity}
-      {severityLabel}
     />{/if}
 </div>
 

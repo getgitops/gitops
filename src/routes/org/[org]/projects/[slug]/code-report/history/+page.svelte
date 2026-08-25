@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { ArrowLeft, Check, ChevronDown, Clock, Search } from 'lucide-svelte';
   import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
+  import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
   export let data: { services: { id: string; slug: string; name: string }[]; analyses: any[] };
   let serviceFilter = $page.url.searchParams.get('service') ?? 'all';
   let statusFilter = 'all';
@@ -198,8 +199,7 @@
                 <span class="font-mono text-xs text-slate-500">ID: {analysis.id.slice(0, 8)}</span>
               </div>
               <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span>{analysis.tool}</span>
-                <span class="text-slate-300">·</span>
+                <CodeReportToolBadge tool={analysis.tool} size="sm" />
                 <span class="inline-flex items-center gap-1"
                   ><Clock class="h-3.5 w-3.5" />{new Date(
                     analysis.createdAt,

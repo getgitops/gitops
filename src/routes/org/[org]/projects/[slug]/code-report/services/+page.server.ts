@@ -1,7 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
-import { codeReportService } from '../../../../../../../modules/code-report';
+import { codeReportService, codeReportAnalysisService } from '../../../../../../../modules/code-report';
 import { projectService } from '../../../../../../../modules/projects';
 import { cancanService } from '../../../../../../../modules/auth';
+import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
 
 export async function load({ parent, locals }) {
   const { project } = await parent();
@@ -18,7 +19,22 @@ export async function load({ parent, locals }) {
 
   const services = await codeReportService.listByProject(project.id);
 
-  return { services };
+  const servicesWithSeverity = await Promise.all(
+    services.map(async (service) => {
+      const latest = await codeReportAnalysisService.getLatestByTool(service.id, ['trivy']);
+      const analysis = latest.trivy;
+      const summary =
+        analysis?.status === 'completed' ? summarizeAnalysisResult(analysis.result) : null;
+
+      return {
+        ...service,
+        lastScanAt: analysis?.createdAt ?? null,
+        severity: summary?.vulnerabilities ?? null,
+      };
+    }),
+  );
+
+  return { services: servicesWithSeverity };
 }
 
 export const actions = {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { GitBranch, Github, Gitlab, Info } from 'lucide-svelte';
   import type { AnalysisSummary } from '$lib/code-report/analysis-summary';
+  import CodeReportToolBadge from './CodeReportToolBadge.svelte';
   type Analysis = {
     tool: string;
     createdAt: string;
@@ -15,6 +16,11 @@
 
   export let analysis: Analysis;
   export let analysisHistoryLength = 0;
+  export let toolRuns: {
+    tool: string;
+    status: string | null;
+    createdAt: string | null;
+  }[] = [];
   export let service: ServiceData = null;
   export let summary: AnalysisSummary | null = null;
   export let fileCount = 0;
@@ -27,6 +33,16 @@
   function providerIcon(url: string) {
     return url.includes('github.com') ? Github : url.includes('gitlab.com') ? Gitlab : GitBranch;
   }
+  const runStatusStyles: Record<string, string> = {
+    completed: 'bg-emerald-50 text-emerald-700',
+    in_progress: 'bg-amber-50 text-amber-700',
+    failed: 'bg-red-50 text-red-700',
+  };
+  const runStatusLabels: Record<string, string> = {
+    completed: 'OK',
+    in_progress: 'En curso',
+    failed: 'Fallido',
+  };
 </script>
 
 <section
@@ -104,7 +120,20 @@
     <h3 class="mt-2 text-lg font-semibold text-slate-900">
       {analysisHistoryLength} análisis completado{analysisHistoryLength === 1 ? '' : 's'}
     </h3>
-    {#if analysis}<p class="mt-3 text-xs text-slate-500">
+    {#if toolRuns.length > 0}<ul class="mt-3 divide-y divide-slate-100">
+        {#each toolRuns as run (run.tool)}<li class="flex items-center justify-between gap-3 py-2">
+            <div class="min-w-0">
+              <CodeReportToolBadge tool={run.tool} size="sm" />
+              <p class="mt-1 truncate text-xs text-slate-500">
+                {run.createdAt ? new Date(run.createdAt).toLocaleString() : 'Nunca ejecutado'}
+              </p>
+            </div>
+            <span
+              class={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${run.status ? (runStatusStyles[run.status] ?? 'bg-slate-100 text-slate-600') : 'bg-slate-100 text-slate-500'}`}
+              >{run.status ? (runStatusLabels[run.status] ?? run.status) : 'Sin datos'}</span
+            >
+          </li>{/each}
+      </ul>{:else if analysis}<p class="mt-3 text-xs text-slate-500">
         Último: <span class="font-semibold text-slate-700">{analysis.tool}</span><span class="mx-1"
           >·</span
         >{new Date(analysis.createdAt).toLocaleString()}
