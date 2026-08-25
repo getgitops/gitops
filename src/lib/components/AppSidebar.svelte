@@ -111,7 +111,6 @@
                     icon: Shield,
                   },
                   { label: 'History', href: `${projectBase}/code-report/history`, icon: GitBranch },
-                  { label: 'GitOps Report Bot', href: `${projectBase}/code-report/bot`, icon: Bot },
                   { label: 'Settings', href: `${projectBase}/code-report/settings`, icon: Settings },
                 ],
               },

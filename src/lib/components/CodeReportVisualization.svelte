@@ -335,7 +335,7 @@
         mayor sea el resultado, mayor es la prioridad de remediación.
       </p>
       <div class="mt-5 grid grid-cols-2 gap-2">
-        {#each [{ name: 'Critical', weight: 10, count: summary?.vulnerabilities.critical ?? 0, style: 'border-red-200 bg-red-50 text-red-700' }, { name: 'High', weight: 6, count: summary?.vulnerabilities.high ?? 0, style: 'border-orange-200 bg-orange-50 text-orange-700' }, { name: 'Medium', weight: 3, count: summary?.vulnerabilities.medium ?? 0, style: 'border-amber-200 bg-amber-50 text-amber-700' }, { name: 'Low', weight: 1, count: summary?.vulnerabilities.low ?? 0, style: 'border-slate-200 bg-slate-50 text-slate-700' }] as item}<div
+        {#each [{ name: 'Critical', weight: riskWeights.critical, count: summary?.vulnerabilities.critical ?? 0, style: 'border-red-200 bg-red-50 text-red-700' }, { name: 'High', weight: riskWeights.high, count: summary?.vulnerabilities.high ?? 0, style: 'border-orange-200 bg-orange-50 text-orange-700' }, { name: 'Medium', weight: riskWeights.medium, count: summary?.vulnerabilities.medium ?? 0, style: 'border-amber-200 bg-amber-50 text-amber-700' }, { name: 'Low', weight: riskWeights.low, count: summary?.vulnerabilities.low ?? 0, style: 'border-slate-200 bg-slate-50 text-slate-700' }] as item}<div
             class={`rounded-xl border p-3 ${item.style}`}
           >
             <p class="text-sm font-bold">{item.name} × {item.weight}</p>
@@ -345,7 +345,7 @@
       <div class="mt-5 border-t border-slate-100 pt-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fórmula aplicada</p>
         <p class="mt-2 rounded-lg bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100">
-          (Critical × 10) + (High × 6) + (Medium × 3) + (Low × 1) = {riskScore} puntos
+          (Critical × {riskWeights.critical}) + (High × {riskWeights.high}) + (Medium × {riskWeights.medium}) + (Low × {riskWeights.low}) = {riskScore} puntos
         </p>
         <p class="mt-3 text-xs leading-5 text-slate-500">
           Riesgo bajo: 1-7 · medio: 8-19 · alto: 20-39 · crítico: 40+ o cualquier Critical.

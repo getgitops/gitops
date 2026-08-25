@@ -2,8 +2,15 @@
   import { page } from '$app/stores';
   import { Bot, ListChecks, Settings, Webhook } from 'lucide-svelte';
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  export let data: {
+    project?: {
+      slug?: string | null;
+      organization?: { slug?: string | null } | null;
+    };
+  };
+
+  $: orgSlug = data?.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data?.project?.slug ?? $page?.params?.slug ?? '';
   $: basePath = `/org/${orgSlug}/projects/${projectSlug}/code-report/settings`;
 
   $: tabs = [
@@ -14,7 +21,7 @@
     { label: 'Webhooks', href: `${basePath}/webhooks`, icon: Webhook, soon: true },
   ];
 
-  $: currentPath = $page.url.pathname;
+  $: currentPath = $page?.url?.pathname ?? '';
 </script>
 
 <div class="mx-auto w-full max-w-7xl">

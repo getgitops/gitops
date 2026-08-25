@@ -16,8 +16,7 @@ export async function load({ parent, locals }) {
   )
     throw error(403, 'Forbidden');
     
-  const projectSettings = project.settings?.['code-report'] || {};
-  const riskWeights = projectSettings.securityRiskMultipliers || { critical: 10, high: 6, medium: 3, low: 1 };
+  const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
   
   const services = await codeReportService.listByProject(project.id);
   const analyses = await codeReportAnalysisService.listByProject(

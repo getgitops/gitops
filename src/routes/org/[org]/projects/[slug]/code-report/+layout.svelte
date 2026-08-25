@@ -2,8 +2,8 @@
   import { page } from '$app/stores';
   import { Settings, ShieldAlert, Activity, FileKey, CheckSquare, Boxes, History } from 'lucide-svelte';
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = $page?.params?.org ?? '';
+  $: projectSlug = $page?.params?.slug ?? '';
   
   $: basePath = `/org/${orgSlug}/projects/${projectSlug}/code-report`;
 
@@ -16,20 +16,10 @@
     { label: 'Ajustes', href: `${basePath}/settings`, icon: Settings },
   ];
 
-  $: currentPath = $page.url.pathname;
+  $: currentPath = $page?.url?.pathname ?? '';
 </script>
 
 <div class="space-y-6">
 
   <slot />
 </div>
-
-<style>
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-</style>

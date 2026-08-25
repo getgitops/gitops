@@ -26,8 +26,7 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const projectSettings = project.settings?.['code-report'] || {};
-  const riskWeights = projectSettings.securityRiskMultipliers || { critical: 10, high: 6, medium: 3, low: 1 };
+  const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
 
 
   const services = await codeReportService.listByProject(project.id);
@@ -60,8 +59,8 @@ export async function load({ parent, locals }) {
       }
 
       const lastScanAt = [latest.trivy?.createdAt, latest.gitleaks?.createdAt]
-        .filter((value): value is string => Boolean(value))
-        .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
+        .filter((value): value is Date => Boolean(value))
+        .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
 
       return {
         id: service.id,
@@ -105,11 +104,7 @@ export async function load({ parent, locals }) {
   const riskiestServices = serviceStats
     .map((service) => ({
       ...service,
-      riskScore:
-        service.severity.critical * riskWeights.critical +
-        service.severity.high * riskWeights.high +
-        service.severity.medium * riskWeights.medium +
-        service.severity.low * riskWeights.low,
+      riskScore: codeReportService.calculateRiskScore(service.severity, riskWeights),
     }))
     .filter((service) => service.riskScore > 0)
     .sort((left, right) => right.riskScore - left.riskScore)

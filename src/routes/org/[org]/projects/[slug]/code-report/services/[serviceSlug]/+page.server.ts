@@ -42,8 +42,7 @@ export async function load({ parent, params, locals }) {
       service.tools ?? [],
     );
 
-    const projectSettings = project.settings?.['code-report'] || {};
-    const riskWeights = projectSettings.securityRiskMultipliers || { critical: 10, high: 6, medium: 3, low: 1 };
+    const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
 
     return { service, latestAnalysis, latestByTool, analysisHistory, riskWeights };
   } catch {
