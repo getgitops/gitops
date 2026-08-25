@@ -36,7 +36,7 @@
   export let data: { project: ProjectRow };
 
   $: project = data.project;
-  $: orgSlug = $page?.params?.org;
+  $: orgSlug = $page?.params?.org ?? '';
 
   $: moduleInfo = [
     {

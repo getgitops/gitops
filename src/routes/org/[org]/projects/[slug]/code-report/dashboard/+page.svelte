@@ -69,6 +69,7 @@
     topCves: CveRow[];
     riskiestServices: ServiceRisk[];
     staleServices: StaleService[];
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
   };
 
   const severityStyles: Record<keyof SeverityCounts, string> = {
@@ -125,8 +126,8 @@
 
   onDestroy(() => chart?.destroy());
 
-  $: orgSlug = $page?.params?.org ?? '';
-  $: projectSlug = $page?.params?.slug ?? '';
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: cvesHref = (id?: string) =>
     `/org/${orgSlug}/cves${id ? `/${id}` : ''}`;
   $: servicesHref = (slug: string) =>

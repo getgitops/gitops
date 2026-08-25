@@ -6,10 +6,13 @@
   export let data: {
     services: { id: string; slug: string; name: string; tags: string[] }[];
     tags: string[];
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
   };
   export let form: { error?: string } | null;
 
-  $: baseHref = `/org/${$page?.params?.org}/projects/${$page?.params?.slug}/code-report/security-policy`;
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
+  $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
 </script>
 
 <svelte:head><title>Nueva política de seguridad - GitVault Suite</title></svelte:head>

@@ -9,14 +9,17 @@
     type SecurityPolicy,
   } from '$lib/code-report/security-policy';
 
-  export let data: { policies: SecurityPolicy[] };
+  export let data: {
+    policies: SecurityPolicy[];
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
+  };
   export let form: { error?: string } | null;
 
   let searchQuery = '';
   let typeFilter: 'all' | SecurityPolicy['type'] = 'all';
 
-  $: orgSlug = $page?.params?.org;
-  $: projectSlug = $page?.params?.slug;
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
 
   $: filteredPolicies = data.policies.filter((policy) => {

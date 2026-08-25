@@ -37,7 +37,7 @@
   export let data: { project: ProjectRow };
 
   $: project = data.project;
-  $: orgSlug = $page?.params?.org;
+  $: orgSlug = $page?.params?.org ?? '';
   $: isArchived = project.status === 'inactive';
 
   let saving = false;
@@ -60,19 +60,19 @@
       key: 'vault',
       label: 'Vault',
       icon: Shield,
-      href: `/org/${$page?.params?.org}/projects/${data.project.slug}/vault`,
+      href: `/org/${orgSlug}/projects/${data.project.slug}/vault`,
     },
     {
       key: 'codereport',
       label: 'Code Report',
       icon: BarChart3,
-      href: `/org/${$page?.params?.org}/projects/${data.project.slug}/code-report`,
+      href: `/org/${orgSlug}/projects/${data.project.slug}/code-report`,
     },
     {
       key: 'stateiac',
       label: 'State IaC',
       icon: GitBranch,
-      href: `/org/${$page?.params?.org}/projects/${data.project.slug}/state-iac`,
+      href: `/org/${orgSlug}/projects/${data.project.slug}/state-iac`,
     },
   ];
 

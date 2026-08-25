@@ -10,13 +10,14 @@
     latestByTool: Record<string, any>;
     analysisHistory: any[];
     riskWeights: { critical: number; high: number; medium: number; low: number };
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
   };
   export let form: {
     error?: string;
   } | null;
 
-  $: orgSlug = $page?.params?.org;
-  $: projectSlug = $page?.params?.slug;
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: servicesHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/services`;
   $: historyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/history?service=${data.service.slug}`;
 
