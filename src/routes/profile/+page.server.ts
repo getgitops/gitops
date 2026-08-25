@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { apiKeysService, profileService } from '../../modules/auth';
+import { apiKeysService, profileService } from '$modules/auth';
 
 function expiresAtFromDays(expiresInDays: string | null): string | null {
   if (!expiresInDays) {

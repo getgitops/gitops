@@ -38,7 +38,7 @@ La lógica de negocio vive en `src/modules/<nombre>/` (`auth`, `config`, `projec
 - `infrastructure/repositories/` — implementaciones concretas de repositorio
 - `index.ts` — composition root del módulo: instancia repositorios + servicios y exporta singletons
 
-Las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '../../modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
+Las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '$modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
 
 `src/lib/` contiene infraestructura transversal: `src/lib/server/gitdb/index.ts` (cliente gitdb, `getGitDb()`), `src/lib/db.ts` + `src/lib/database/` (cliente sqlite `databaseClient`), `src/lib/permissions/index.ts` (helpers RBAC).
 
@@ -61,7 +61,7 @@ Permisos = strings `section:action` (`vault|openreport|stateiac` : `read|create|
 
 ```typescript
 // ✅ patrón correcto en un endpoint (api/roles, api/projects, api/backends)
-import { can, isAdmin } from '../../../modules/auth';
+import { can, isAdmin } from '$modules/auth';
 if (!can(locals.user, 'stateiac:read')) return json({ error: 'Forbidden' }, { status: 403 });
 ```
 

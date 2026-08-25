@@ -1,6 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { cancanService } from '../../../../modules/auth';
-import { organizationService } from '../../../../modules/organization';
+import { cancanService } from '$modules/auth';
+import { organizationService } from '$modules/organization';
 
 function errorResponse(error: unknown) {
   return fail(400, {

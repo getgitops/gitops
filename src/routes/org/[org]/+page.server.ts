@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import { organizationService } from '../../../modules/organization';
+import { organizationService } from '$modules/organization';
 
 export async function load({ params }) {
   const organization = await organizationService.tryFindBySlug(params.org);

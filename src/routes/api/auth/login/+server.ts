@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { authService, ensureAuthReady } from '../../../../modules/auth';
+import { authService, ensureAuthReady } from '$modules/auth';
 
 export async function POST({ request, cookies }) {
   try {

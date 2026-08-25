@@ -1,6 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
-import { authService, cancanService, ensureAuthReady } from './modules/auth';
-import { ensureOrganizationReady, organizationService } from './modules/organization';
+import { authService, cancanService, ensureAuthReady } from '$modules/auth';
+import { ensureOrganizationReady, organizationService } from '$modules/organization';
 import { getGitDb } from '$lib/server/gitdb';
 
 getGitDb();

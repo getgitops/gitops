@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '../../../../../../../modules/auth';
+import { cancanService } from '$modules/auth';
 import {
   codeReportAnalysisService,
   codeReportService,
-} from '../../../../../../../modules/code-report';
+} from '$modules/code-report';
 
 export async function load({ parent, locals }) {
   const { project } = await parent();

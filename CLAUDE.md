@@ -52,7 +52,7 @@ La lógica de negocio vive en `src/modules/<nombre>/`, cada uno separado en:
 
 Módulos existentes: `auth`, `config`, `projects`, `storage`.
 
-**Regla de acceso**: las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '../../modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
+**Regla de acceso**: las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '$modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
 
 `src/lib/` contiene infraestructura transversal compartida entre módulos:
 
@@ -96,7 +96,7 @@ Los roles (y su array de `permissions`) viven en gitdb (`.gitdb/roles.json`), ge
 
 ```typescript
 // ✅ BIEN
-import { can, isAdmin } from '../../../modules/auth';
+import { can, isAdmin } from '$modules/auth';
 
 export async function GET({ locals }) {
   if (!can(locals.user, 'stateiac:read')) {

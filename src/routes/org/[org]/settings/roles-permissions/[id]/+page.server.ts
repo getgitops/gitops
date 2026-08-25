@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '../../../../../../modules/auth';
-import { organizationService } from '../../../../../../modules/organization';
+import { cancanService, roleService } from '$modules/auth';
+import { organizationService } from '$modules/organization';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];

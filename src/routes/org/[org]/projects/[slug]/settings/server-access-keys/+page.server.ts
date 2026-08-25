@@ -1,6 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
-import { apiKeysService, cancanService } from '../../../../../../../modules/auth';
-import { projectService } from '../../../../../../../modules/projects';
+import { apiKeysService, cancanService } from '$modules/auth';
+import { projectService } from '$modules/projects';
 
 export async function load({ parent, locals }) {
   const { project } = await parent();
