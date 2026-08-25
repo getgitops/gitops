@@ -135,10 +135,11 @@ export class OrganizationService {
     await this.repository.deleteById(id);
   }
 
-  // seeds the single default org so existing routes keep resolving 'gitops' out of the box
+  // seeds the single default org so existing routes keep resolving 'gitops' out of the box.
+  // skipped once any organization exists, so the /bootstrap wizard owns the first one.
   async bootstrapDefaults(): Promise<void> {
-    const existing = await this.repository.findBySlug(DEFAULT_ORGANIZATION.slug);
-    if (existing) {
+    const organizations = await this.repository.findAll();
+    if (organizations.length > 0) {
       return;
     }
 

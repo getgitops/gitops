@@ -43,9 +43,15 @@ export const cancanService = new CanCanService(
   projectService,
 );
 
-// Bootstrap auth primitives once at startup.
-const authBootstrap = authService.bootstrapDefaults();
+// Bootstrap auth primitives once, on first use, since it requires a configured GitDB repository.
+let authBootstrap: Promise<void> | null = null;
 
 export async function ensureAuthReady(): Promise<void> {
+  if (!authBootstrap) {
+    authBootstrap = authService.bootstrapDefaults().catch((error) => {
+      authBootstrap = null;
+      throw error;
+    });
+  }
   await authBootstrap;
 }

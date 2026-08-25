@@ -11,6 +11,9 @@
   let sidebarCollapsed = false;
   let sidebarStateReady = false;
 
+  $: isBareLayout =
+    $page?.url?.pathname === '/login' || $page?.url?.pathname?.startsWith('/bootstrap');
+
   onMount(() => {
     sidebarCollapsed = localStorage.getItem('gitvault-sidebar-collapsed') === '1';
     sidebarStateReady = true;
@@ -25,7 +28,7 @@
   class="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col"
   style={`--sidebar-width:${sidebarCollapsed ? '96px' : '340px'}`}
 >
-  {#if $page?.url?.pathname !== '/login'}
+  {#if !isBareLayout}
     <AppNavbar
       user={data.user}
       projects={data.projects}
@@ -58,7 +61,7 @@
     <slot />
   {/if}
 
-  {#if $page?.url?.pathname !== '/login'}
+  {#if !isBareLayout}
     <Footer />
   {/if}
 </div>

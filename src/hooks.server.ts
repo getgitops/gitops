@@ -1,20 +1,46 @@
 import type { Handle } from '@sveltejs/kit';
 import { authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { ensureOrganizationReady, organizationService } from '$modules/organization';
+import { getBootstrapState, isBootstrapCompletedCached } from '$lib/server/bootstrap';
 import { getGitDb } from '$lib/server/gitdb';
-
-getGitDb();
 
 const authWithToken = async (token: string) => {
   return true;
 };
 
+async function isBootstrapCompleted(): Promise<boolean> {
+  if (isBootstrapCompletedCached()) return true;
+  return (await getBootstrapState()).completed;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
-  if (event.url.pathname === '/login') {
+  const pathname = event.url.pathname;
+  const isApiRequest = pathname.startsWith('/api/');
+
+  if (pathname.startsWith('/bootstrap')) {
+    if (await isBootstrapCompleted()) {
+      return new Response(null, { status: 302, headers: { location: '/' } });
+    }
     return resolve(event);
   }
 
-  if (event.url.pathname.startsWith('/api/')) {
+  if (!(await isBootstrapCompleted())) {
+    if (isApiRequest) {
+      return new Response(JSON.stringify({ error: 'Cluster is not bootstrapped yet' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
+  }
+
+  getGitDb();
+
+  if (pathname === '/login') {
+    return resolve(event);
+  }
+
+  if (isApiRequest) {
     const token = event.request.headers.get('Authorization') || '';
     if (!token || token.trim() === '') {
       return new Response(null, { status: 401 });
@@ -25,7 +51,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (!isAuthenticated) {
       return new Response(null, { status: 401 });
     }
-    console.log('✅ [API] Authenticated successfully with token:', token);
     return resolve(event);
   }
 

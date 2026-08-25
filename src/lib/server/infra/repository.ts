@@ -1,6 +1,9 @@
 import { getGitDb } from '$lib/server/gitdb';
 export class Repository {
-    protected readonly db = getGitDb();
+    // resolved on access so repositories can be instantiated before the repo is configured
+    protected get db() {
+        return getGitDb();
+    }
 
     protected toDomain(row: any): any {
         return row;

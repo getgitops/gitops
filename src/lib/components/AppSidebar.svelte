@@ -237,6 +237,7 @@
               icon: Shield,
             },
             { label: 'Users', href: '/cluster-settings/users', icon: Users },
+            { label: 'Database', href: '/cluster-settings/database', icon: Database },
           ],
         },
       ],
