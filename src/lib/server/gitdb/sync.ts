@@ -31,8 +31,19 @@ const NETWORK_COMMANDS = new Set(['clone', 'fetch', 'push', 'pull']);
 const NETWORK_TIMEOUT_MS = 120_000;
 const LOCAL_TIMEOUT_MS = 30_000;
 
-function log(message: string, details?: Record<string, unknown>): void {
-  console.info(`[gitdb-sync] ${message}`, details ?? '');
+type ChangeSummary = { added: number; updated: number; removed: number };
+
+function parseNameStatus(output: string): ChangeSummary {
+  const summary: ChangeSummary = { added: 0, updated: 0, removed: 0 };
+
+  for (const line of output.split('\n')) {
+    const status = line.trim().charAt(0);
+    if (status === 'A' || status === 'C') summary.added += 1;
+    else if (status === 'D') summary.removed += 1;
+    else if (status === 'M' || status === 'R' || status === 'T') summary.updated += 1;
+  }
+
+  return summary;
 }
 
 const STATE_LABELS: Record<SyncState, string> = {
@@ -125,33 +136,31 @@ class GitDbSyncService {
   private async run(config: GitDbRepositoryConfig): Promise<void> {
     this.state = 'syncing';
     this.lastAttemptAt = new Date().toISOString();
-    const startedAt = Date.now();
-    log('sync started', { repository: redactUrl(config.repositoryUrl), branch: config.branch });
 
     try {
       const remote = buildAuthenticatedUrl(config);
       await this.ensureCloned(config, remote);
 
+      const previousHead = (
+        await this.git(['rev-parse', '--verify', 'HEAD'], { allowFailure: true })
+      ).stdout.trim();
+
       await this.git(['add', '-A']);
-      const hasChanges = (await this.git(['diff', '--cached', '--quiet'], { allowFailure: true })).code !== 0;
+      const hasChanges =
+        (await this.git(['diff', '--cached', '--quiet'], { allowFailure: true })).code !== 0;
       if (hasChanges) {
         await this.git(['commit', '-m', `gitdb: sync @ ${new Date().toISOString()}`]);
-        log('local changes committed');
       }
 
       const fetched = await this.git(['fetch', remote, config.branch], { allowFailure: true });
       if (fetched.code === 0) {
         await this.git(['rebase', 'FETCH_HEAD']);
-      } else {
-        log('branch not found on remote, it will be created on push', { branch: config.branch });
       }
 
       const head = await this.git(['rev-parse', '--verify', 'HEAD'], { allowFailure: true });
       if (head.code === 0) {
         await this.git(['push', remote, `HEAD:refs/heads/${config.branch}`]);
         this.lastCommit = (await this.git(['rev-parse', '--short', 'HEAD'])).stdout.trim();
-      } else {
-        log('nothing to push yet, repository has no commits');
       }
 
       const counts = await this.git(['rev-list', '--left-right', '--count', 'FETCH_HEAD...HEAD'], {
@@ -164,12 +173,27 @@ class GitDbSyncService {
       this.lastSyncAt = new Date().toISOString();
       this.lastError = null;
       this.state = 'synced';
-      log('sync completed', { ms: Date.now() - startedAt, commit: this.lastCommit });
+
+      await this.logSummary(previousHead, head.stdout.trim());
     } catch (error: unknown) {
       this.state = 'error';
       this.lastError = redactUrl(error instanceof Error ? error.message : 'Unknown sync error');
-      console.error(`[gitdb-sync] sync failed after ${Date.now() - startedAt}ms: ${this.lastError}`);
+      console.error(`[gitdb-sync] sync failed: ${this.lastError}`);
     }
+  }
+
+  /** Only reports syncs that actually moved HEAD, to keep the poll quiet. */
+  private async logSummary(previousHead: string, currentHead: string): Promise<void> {
+    if (!currentHead || previousHead === currentHead) return;
+
+    const range = previousHead ? [previousHead, currentHead] : ['--root', currentHead];
+    const diff = await this.git(['diff', '--name-status', ...range], { allowFailure: true });
+    const { added, updated, removed } = parseNameStatus(diff.stdout);
+
+    console.info(
+      `[gitdb-sync] synced ${this.lastCommit ?? currentHead.slice(0, 7)} — ` +
+        `${added} added, ${updated} updated, ${removed} removed`,
+    );
   }
 
   /**
@@ -187,10 +211,6 @@ class GitDbSyncService {
       const origin = await this.git(['remote', 'get-url', 'origin'], { allowFailure: true });
       // pointing at another repository would push cluster state to the wrong remote
       if (origin.stdout.trim() !== config.repositoryUrl) {
-        log('origin changed, discarding the local clone', {
-          from: redactUrl(origin.stdout.trim()),
-          to: redactUrl(config.repositoryUrl),
-        });
         rmSync(REPO_PATH, { recursive: true, force: true });
       }
     }
@@ -199,13 +219,11 @@ class GitDbSyncService {
       const isEmptyTarget = !existsSync(REPO_PATH) || readdirSync(REPO_PATH).length === 0;
 
       if (isEmptyTarget) {
-        log('cloning repository into .gitdb', { repository: redactUrl(config.repositoryUrl) });
+        console.info(`[gitdb-sync] cloning ${redactUrl(config.repositoryUrl)} into .gitdb`);
         rmSync(REPO_PATH, { recursive: true, force: true });
         await this.git(['clone', remote, REPO_PATH], { cwd: process.cwd() });
-        log('clone completed');
       } else {
         // the directory already holds local state, so adopt it instead of wiping it
-        log('.gitdb already has local state, adopting it instead of cloning');
         mkdirSync(REPO_PATH, { recursive: true });
         await this.git(['init']);
         await this.git(['symbolic-ref', 'HEAD', `refs/heads/${config.branch}`]);
@@ -251,7 +269,6 @@ class GitDbSyncService {
     if (serialized === `${JSON.stringify(existing, null, 2)}\n`) return;
 
     writeFileSync(manifestPath, serialized, 'utf8');
-    log('manifest written', { path: manifestPath });
   }
 
   private git(
@@ -259,9 +276,7 @@ class GitDbSyncService {
     options: { allowFailure?: boolean; cwd?: string } = {},
   ): Promise<{ code: number; stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      const startedAt = Date.now();
       const timeoutMs = NETWORK_COMMANDS.has(args[0]) ? NETWORK_TIMEOUT_MS : LOCAL_TIMEOUT_MS;
-      log(`git ${args[0]}`, { args: args.slice(1).map(redactUrl) });
 
       const child = spawn('git', args, {
         cwd: options.cwd ?? REPO_PATH,
@@ -293,26 +308,20 @@ class GitDbSyncService {
       child.on('close', (code) => {
         clearTimeout(timer);
         const exitCode = code ?? 1;
-        const duration = Date.now() - startedAt;
 
         if (timedOut) {
-          console.error(`[gitdb-sync] git ${args[0]} timed out after ${timeoutMs}ms`);
           reject(new Error(`git ${args[0]} timed out after ${timeoutMs / 1000}s`));
           return;
         }
 
-        if (exitCode !== 0) {
-          const message = redactUrl(
-            `git ${args[0]} failed: ${stderr.trim() || `exit code ${exitCode}`}`,
+        if (exitCode !== 0 && !options.allowFailure) {
+          // args may contain a credential-bearing remote, so only the command name is reported
+          reject(
+            new Error(
+              redactUrl(`git ${args[0]} failed: ${stderr.trim() || `exit code ${exitCode}`}`),
+            ),
           );
-          if (!options.allowFailure) {
-            console.error(`[gitdb-sync] ${message}`);
-            reject(new Error(message));
-            return;
-          }
-          log(`git ${args[0]} exited with ${exitCode} (ignored)`, { ms: duration });
-        } else {
-          log(`git ${args[0]} ok`, { ms: duration });
+          return;
         }
 
         resolve({ code: exitCode, stdout, stderr });
