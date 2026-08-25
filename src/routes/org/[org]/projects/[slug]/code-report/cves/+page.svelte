@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { AlertTriangle, Search, ShieldAlert } from 'lucide-svelte';
+  import { AlertTriangle, Info, Search, ShieldAlert } from 'lucide-svelte';
 
   type CveRow = {
     id: string;
@@ -42,6 +42,14 @@
 </svelte:head>
 
 <div class="space-y-6">
+  <div class="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+    <Info class="mt-0.5 h-4 w-4 shrink-0" />
+    <p>
+      Este listado muestra los CVEs detectados en el <strong>último análisis</strong> de cada servicio.
+      Los servicios sin un análisis reciente completado no aparecen reflejados aquí.
+    </p>
+  </div>
+
   <div class="flex flex-col gap-3 lg:flex-row">
     <label class="relative min-w-0 flex-1">
       <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
