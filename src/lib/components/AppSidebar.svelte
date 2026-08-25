@@ -22,6 +22,7 @@
     Layers,
     HardDrive,
     Bot,
+    ShieldAlert,
   } from 'lucide-svelte';
 
   type NavItem = { label: string; href: string; icon: ComponentType };
@@ -98,6 +99,7 @@
                 icon: BarChart3,
                 items: [
                   { label: 'Services', href: `${projectBase}/code-report/services`, icon: Layers },
+                  { label: 'CVEs', href: `${projectBase}/code-report/cves`, icon: ShieldAlert },
                   { label: 'History', href: `${projectBase}/code-report/history`, icon: GitBranch },
                   { label: 'GitOps Report Bot', href: `${projectBase}/code-report/bot`, icon: Bot },
                   { label: 'Settings', href: `${projectBase}/code-report/settings`, icon: Settings },
