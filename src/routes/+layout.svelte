@@ -12,7 +12,7 @@
   let sidebarStateReady = false;
 
   $: isBareLayout =
-    $page?.url?.pathname === '/login' || $page?.url?.pathname?.startsWith('/bootstrap');
+    $page?.url?.pathname?.startsWith('/auth/') || $page?.url?.pathname?.startsWith('/bootstrap');
 
   onMount(() => {
     sidebarCollapsed = localStorage.getItem('gitvault-sidebar-collapsed') === '1';

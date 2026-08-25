@@ -72,6 +72,6 @@ export const actions = {
       return errorResponse(error);
     }
 
-    throw redirect(303, '/login');
+    throw redirect(303, '/auth/login');
   },
 };

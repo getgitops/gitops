@@ -1,37 +1,15 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
+  import { page } from '$app/stores';
+  import type { ActionData } from './$types';
   import { ShieldCheck } from 'lucide-svelte';
 
-  let error = '';
+  export let form: ActionData;
+
   let isSubmitting = false;
-  let username = 'admin';
-  let password = '12345678';
 
-  async function submitLogin(event: SubmitEvent) {
-    event.preventDefault();
-    error = '';
-    isSubmitting = true;
-
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const payload = await response.json().catch(() => ({}));
-
-      if (response.ok && payload?.success) {
-        window.location.href = '/';
-        return;
-      }
-
-      error = payload?.error || 'Invalid credentials';
-    } catch {
-      error = 'Could not reach server. Please try again.';
-    } finally {
-      isSubmitting = false;
-    }
-  }
+  $: username = form?.username ?? '';
+  $: loggedOut = $page.url.searchParams.has('loggedOut');
 </script>
 
 <svelte:head>
@@ -60,13 +38,32 @@
       </div>
     </div>
 
-    {#if error}
-      <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {error}
+    {#if loggedOut}
+      <div
+        class="mb-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+      >
+        You have been signed out.
       </div>
     {/if}
 
-    <form method="POST" action="/api/auth/login" on:submit={submitLogin} class="space-y-4">
+    {#if form?.error}
+      <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {form.error}
+      </div>
+    {/if}
+
+    <form
+      method="POST"
+      action="?/login"
+      use:enhance={() => {
+        isSubmitting = true;
+        return async ({ update }) => {
+          await update();
+          isSubmitting = false;
+        };
+      }}
+      class="space-y-4"
+    >
       <div>
         <label class="mb-1.5 block text-sm font-medium text-slate-700" for="username"
           >Username</label
@@ -75,7 +72,8 @@
           id="username"
           name="username"
           type="text"
-          bind:value={username}
+          autocomplete="username"
+          value={username}
           class="field-input w-full rounded-md border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition"
         />
       </div>
@@ -88,7 +86,7 @@
           id="password"
           name="password"
           type="password"
-          bind:value={password}
+          autocomplete="current-password"
           class="field-input w-full rounded-md border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition"
         />
       </div>
@@ -102,11 +100,5 @@
         {isSubmitting ? 'Signing in...' : 'Sign in'}
       </button>
     </form>
-
-    <div class="mt-6 border-t border-slate-200 pt-4 text-xs text-slate-500">
-      Default credentials for first start: <span class="font-medium text-slate-700"
-        >admin / 12345678</span
-      >
-    </div>
   </div>
 </div>

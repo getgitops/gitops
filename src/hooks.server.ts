@@ -53,7 +53,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
-  if (pathname === '/login') {
+  // sign-in and sign-out must work without (or with a broken) session
+  if (pathname === '/auth/login' || pathname === '/auth/logout') {
     return resolve(event);
   }
 
@@ -79,7 +80,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   if (!currentUser) {
-    return new Response(null, { status: 302, headers: { location: '/login' } });
+    return new Response(null, { status: 302, headers: { location: '/auth/login' } });
   }
 
   const organizationSettingsMatch = event.url.pathname.match(/^\/org\/([^/]+)\/settings/);
