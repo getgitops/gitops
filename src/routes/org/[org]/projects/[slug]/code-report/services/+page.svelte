@@ -3,13 +3,30 @@
   import { enhance } from '$app/forms';
   import { Boxes, Plus, Search, X } from 'lucide-svelte';
 
+  type SeverityCounts = {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    unknown: number;
+  };
+
   type ServiceRow = {
     id: string;
     slug: string;
     name: string;
     description?: string | null;
     tags: string[];
+    lastScanAt?: string | null;
+    severity?: SeverityCounts | null;
   };
+
+  const severityStyles: { key: keyof SeverityCounts; label: string; className: string }[] = [
+    { key: 'critical', label: 'Critical', className: 'border-red-200 bg-red-50 text-red-700' },
+    { key: 'high', label: 'High', className: 'border-orange-200 bg-orange-50 text-orange-700' },
+    { key: 'medium', label: 'Medium', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+    { key: 'low', label: 'Low', className: 'border-slate-200 bg-slate-50 text-slate-600' },
+  ];
 
   export let data: { services: ServiceRow[] };
   export let form: {
@@ -136,6 +153,31 @@
               {/each}
             </div>
           {/if}
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            {#if service.severity}
+              <div class="grid grid-cols-4 gap-2">
+                {#each severityStyles as severity}
+                  <div
+                    class={`rounded-xl border p-2 text-center ${severity.className} ${service.severity[severity.key] === 0 ? 'opacity-40' : ''}`}
+                  >
+                    <p class="text-2xl font-black leading-none">
+                      {service.severity[severity.key]}
+                    </p>
+                    <p class="mt-1 text-[10px] font-bold uppercase tracking-wide">
+                      {severity.label}
+                    </p>
+                  </div>
+                {/each}
+              </div>
+              {#if service.lastScanAt}
+                <p class="mt-2 text-[11px] text-slate-400">
+                  Último escaneo: {new Date(service.lastScanAt).toLocaleString()}
+                </p>
+              {/if}
+            {:else}
+              <p class="text-[11px] text-slate-400">Sin análisis de vulnerabilidades todavía.</p>
+            {/if}
+          </div>
         </a>
       {/each}
     </div>

@@ -121,6 +121,9 @@ export const CodeReportServiceEntity = entity('code_report_services', {
   tags: json()
     .notNull()
     .$defaultFn(() => []),
+  tools: json()
+    .notNull()
+    .$defaultFn(() => ['trivy']),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
