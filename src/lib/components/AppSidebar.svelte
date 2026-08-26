@@ -21,7 +21,6 @@
     Users,
     Layers,
     HardDrive,
-    Bot,
     ShieldAlert,
   } from 'lucide-svelte';
 
@@ -34,6 +33,9 @@
   export let collapsed = true;
   export let organizationSlug: string | null = null;
   export let organizationName: string | null = null;
+  export let canAccessClusterSettings = false;
+  export let canManageOrganization = false;
+  export let canManageProject = false;
   export let currentProjectSlug: string | null = null;
   export let projects: {
     slug: string;
@@ -151,7 +153,7 @@
           },
         ]
       : []),
-    ...(currentProjectSlug
+    ...(currentProjectSlug && canManageProject
       ? [
           {
             name: 'Proyecto',
@@ -186,7 +188,7 @@
     {
       name: 'Sistema',
       modules: [
-        ...(organizationSlug
+        ...(organizationSlug && canManageOrganization
           ? [
               {
                 name: 'Organization Settings',
@@ -226,22 +228,26 @@
               },
             ]
           : []),
-        {
-          name: 'Cluster Settings',
-          icon: Building2,
-          items: [
-            { label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 },
-            {
-              label: 'Roles & Permissions',
-              href: '/cluster-settings/roles-permissions',
-              icon: Shield,
-            },
-            { label: 'Users', href: '/cluster-settings/users', icon: Users },
-          ],
-        },
+        ...(canAccessClusterSettings
+          ? [
+              {
+                name: 'Cluster Settings',
+                icon: Building2,
+                items: [
+                  { label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 },
+                  {
+                    label: 'Roles & Permissions',
+                    href: '/cluster-settings/roles-permissions',
+                    icon: Shield,
+                  },
+                  { label: 'Users', href: '/cluster-settings/users', icon: Users },
+                ],
+              },
+            ]
+          : []),
       ],
     },
-  ] satisfies NavCategory[];
+  ].filter((category) => category.modules.length > 0) satisfies NavCategory[];
 
   function isItemActive(href: string) {
     return currentPath.startsWith(href);

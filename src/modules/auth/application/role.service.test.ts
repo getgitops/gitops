@@ -193,4 +193,63 @@ describe('RoleService', () => {
     const roles = await service.listRoles();
     expect(roles.find((r) => r.id === created.id)).toBeUndefined();
   });
+
+  describe('createDefaultOrganizationRoles', () => {
+    it('creates the org-admin and org-developer roles scoped to the organization', async () => {
+      await service.createDefaultOrganizationRoles('org-1');
+
+      const roles = await service.listRoles('organization', 'org-1');
+      expect(roles.map((role) => role.slug).sort()).toEqual(['org-admin', 'org-developer']);
+
+      const admin = roles.find((role) => role.slug === 'org-admin');
+      expect(admin.permissions).toEqual(
+        expect.arrayContaining([
+          'organization:projects:all',
+          'organization:users:all',
+          'organization:roles:all',
+        ]),
+      );
+
+      const developer = roles.find((role) => role.slug === 'org-developer');
+      expect(developer.permissions).toEqual([
+        'organization:projects:read',
+        'organization:projects:create',
+        'organization:projects:update',
+      ]);
+    });
+  });
+
+  describe('createDefaultProjectRoles', () => {
+    it('creates the project-admin, project-developer and project-viewer roles scoped to the project', async () => {
+      await service.createDefaultProjectRoles('project-1');
+
+      const roles = await service.listRoles('project', 'project-1');
+      expect(roles.map((role) => role.slug).sort()).toEqual([
+        'project-admin',
+        'project-developer',
+        'project-viewer',
+      ]);
+
+      const admin = roles.find((role) => role.slug === 'project-admin');
+      expect(admin.permissions).toEqual(
+        expect.arrayContaining(['project:project:all', 'project:users:all', 'project:roles:all']),
+      );
+
+      const developer = roles.find((role) => role.slug === 'project-developer');
+      expect(developer.permissions).toEqual(
+        expect.arrayContaining([
+          'project:vault:secrets:read',
+          'project:vault:secrets:create',
+          'project:vault:secrets:update',
+        ]),
+      );
+      expect(developer.permissions).not.toContain('project:vault:secrets:delete');
+      expect(developer.permissions).not.toContain('project:roles:all');
+
+      const viewer = roles.find((role) => role.slug === 'project-viewer');
+      expect(viewer.permissions.every((permission: string) => permission.endsWith(':read'))).toBe(
+        true,
+      );
+    });
+  });
 });

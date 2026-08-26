@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { authService, cancanService, ensureAuthReady } from './modules/auth';
 import { ensureOrganizationReady, organizationService } from './modules/organization';
+import { projectService } from './modules/projects';
 import { getGitDb } from '$lib/server/gitdb';
 
 getGitDb();
@@ -43,8 +44,20 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/login' } });
   }
 
+  const projectSettingsMatch = event.url.pathname.match(
+    /^\/org\/[^/]+\/projects\/([^/]+)\/settings/,
+  );
   const organizationSettingsMatch = event.url.pathname.match(/^\/org\/([^/]+)\/settings/);
-  if (organizationSettingsMatch) {
+
+  if (projectSettingsMatch) {
+    const project = await projectService.tryFindBySlug(projectSettingsMatch[1]);
+    if (
+      !project ||
+      !(await cancanService.canManageProject(currentUser, project.id, project.organization?.id))
+    ) {
+      return new Response(null, { status: 302, headers: { location: '/' } });
+    }
+  } else if (organizationSettingsMatch) {
     const organization = await organizationService.tryFindBySlug(organizationSettingsMatch[1]);
     if (
       !organization ||

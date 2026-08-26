@@ -31,7 +31,7 @@ Package manager: **Bun** (`bun.lock`). Usar `bun`, nunca `npm`/`yarn`.
 
 ### Módulos (DDD ligero)
 
-La lógica de negocio vive en `src/modules/<nombre>/` (`auth`, `config`, `projects`, `storage`), cada uno separado en:
+La lógica de negocio vive en `src/modules/<nombre>/` (`auth`, `config`, `organization`, `projects`, `storage`), cada uno separado en:
 
 - `domain/` — entidades (`entities.ts`), interfaces de repositorio (`repositories.ts`), clases de dominio (`*.domain.ts`)
 - `application/` — servicios que orquestan el dominio (`*.service.ts`) — esto es lo que llaman las rutas
@@ -53,11 +53,22 @@ Env vars (`.env.example`): `GITDB_REPOSITORY_URL` (obligatoria), `GITDB_ENCRYPTI
 
 ### Puerta de acceso global
 
-`src/hooks.server.ts`: inicializa gitdb, resuelve usuario desde la cookie `pos_session`, redirige a `/login` si no hay sesión, y restringe `/settings/*` + `/api/system/*` a admins.
+`src/hooks.server.ts`: inicializa gitdb, resuelve usuario desde la cookie `pos_session`, redirige a `/login` si no hay sesión, valida permisos de proyecto/organización en rutas `/org/*/projects/*/settings` y `/org/*/settings`, y restringe `/settings/*` + `/api/system/*` a admins.
 
 ## RBAC / Permisos
 
-Permisos = strings `section:action` (`vault|openreport|stateiac` : `read|create|update|delete`) o el atajo `section:all`, definidos en `src/lib/permissions/index.ts`. Roles en gitdb (`.gitdb/roles.json`), gestionados por `roleService`.
+Permisos = strings con formato global (`vault:read`), organización (`organization:projects:all`) o proyecto (`project:vault:secrets:read`), definidos en `src/lib/permissions/index.ts`. Roles en gitdb (`.gitdb/roles.json`), gestionados por `roleService`.
+
+**Roles de organización** (`scope: 'organization'`) se crean automáticamente al crear organización (`createDefaultOrganizationRoles`):
+- `org-admin`: permisos completos (`organization:projects:all`, `organization:users:all`, etc.)
+- `org-developer`: lectura/creación/actualización de proyectos (`organization:projects:read|create|update`)
+
+**Roles de proyecto** (`scope: 'project'`) se crean automáticamente al crear proyecto (`createDefaultProjectRoles`):
+- `project-admin`: permisos completos a nivel de proyecto
+- `project-developer`: lectura/creación/actualización de vault/state/code report (sin delete ni gestión de roles)
+- `project-viewer`: solo lectura en todos los recursos del proyecto
+
+**Control de acceso a organizaciones**: `cancanService.organizationIdsForUser(user)` devuelve los IDs de organizaciones a las que el usuario puede acceder (directo o a través de proyectos), o `null` para admins sin restricción. Se usa en rutas como `/org` para filtrar contenido.
 
 ```typescript
 // ✅ patrón correcto en un endpoint (api/roles, api/projects, api/backends)

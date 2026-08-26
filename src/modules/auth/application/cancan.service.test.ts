@@ -35,6 +35,7 @@ function access(input: {
   scope: 'organization' | 'project';
   organizationId?: string;
   projectId?: string;
+  project?: { id: string; organizationId: string };
 }) {
   return new UserAccessDomain({
     id: input.id,
@@ -44,6 +45,14 @@ function access(input: {
     scope: input.scope,
     organizationId: input.organizationId,
     projectId: input.projectId,
+    project: input.project
+      ? {
+          id: input.project.id,
+          name: input.project.id,
+          slug: input.project.id,
+          organization: { id: input.project.organizationId, name: '', slug: '' },
+        }
+      : undefined,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
   });
@@ -191,5 +200,55 @@ describe('CanCanService', () => {
       service.can('jose', 'stateiac:read', { scope: 'organization', organizationId: 'gitops' }),
     ).resolves.toBe(false);
     await expect(service.can('jose', 'stateiac:read', { scope: 'cluster' })).resolves.toBe(true);
+  });
+
+  describe('organizationIdsForUser', () => {
+    it('returns null for a cluster admin (no restriction)', async () => {
+      const jose = user({ id: 'jose', role: role({ id: 'admin', slug: 'admin' }) });
+      await expect(service.organizationIdsForUser(jose)).resolves.toBeNull();
+    });
+
+    it('returns an empty list for a user with no access rows', async () => {
+      const jose = user({ id: 'jose', role: null });
+      await expect(service.organizationIdsForUser(jose)).resolves.toEqual([]);
+    });
+
+    it('collects organizations from direct organization access', async () => {
+      const jose = user({ id: 'jose', role: null });
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({ id: 'org-developer', slug: 'org-developer', scope: 'organization' }),
+        }),
+      );
+
+      await expect(service.organizationIdsForUser(jose)).resolves.toEqual(['gitops']);
+    });
+
+    it('collects the parent organization from project access, deduplicated', async () => {
+      const jose = user({ id: 'jose', role: null });
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'project',
+          projectId: 'kettu',
+          project: { id: 'kettu', organizationId: 'gitops' },
+          role: role({ id: 'project-admin', slug: 'project-admin', scope: 'project' }),
+        }),
+        access({
+          id: 'access-2',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({ id: 'org-developer', slug: 'org-developer', scope: 'organization' }),
+        }),
+      );
+
+      await expect(service.organizationIdsForUser(jose)).resolves.toEqual(['gitops']);
+    });
   });
 });

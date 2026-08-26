@@ -1,4 +1,4 @@
-import type { Permission } from '$lib/permissions';
+import type { PermissionGrant } from '$lib/permissions';
 import type { ProjectDomain } from '../../projects/domain/project.domain';
 import type { RoleDomain } from '../domain/role.domain';
 import type { UserDomain } from '../domain/user.domain';
@@ -43,7 +43,7 @@ export class CanCanService {
     private readonly projectLookup?: ProjectLookup,
   ) {}
 
-  async can(userId: string, permission: Permission, context: CanCanContext): Promise<boolean> {
+  async can(userId: string, permission: PermissionGrant, context: CanCanContext): Promise<boolean> {
     const user = await this.userRepository.findById(userId);
     if (!user) return false;
 
@@ -52,7 +52,7 @@ export class CanCanService {
 
   async canSessionUser(
     user: PermissionAwareUser,
-    permission: Permission,
+    permission: PermissionGrant,
     context: CanCanContext,
   ): Promise<boolean> {
     if (!user?.id) return false;
@@ -70,6 +70,38 @@ export class CanCanService {
     return this.canSessionUser(user, 'stateiac:read', { scope: 'organization', organizationId });
   }
 
+  async canManageProject(
+    user: PermissionAwareUser,
+    projectId: string,
+    organizationId?: string,
+  ): Promise<boolean> {
+    return this.canSessionUser(user, 'project:project:read', {
+      scope: 'project',
+      projectId,
+      organizationId,
+    });
+  }
+
+  // organizationIds this user is a member of, directly or via a project under that organization.
+  // returns null for a cluster admin, meaning "no restriction, sees every organization".
+  async organizationIdsForUser(user: PermissionAwareUser): Promise<string[] | null> {
+    if (!user?.id) return [];
+    if (this.isClusterAdmin(user.role ?? null)) return null;
+
+    const access = await this.userAccessRepository.findByUserId(user.id);
+    const organizationIds = new Set<string>();
+
+    for (const entry of access) {
+      if (entry.scope === 'organization' && entry.organizationId) {
+        organizationIds.add(entry.organizationId);
+      } else if (entry.scope === 'project' && entry.project?.organization?.id) {
+        organizationIds.add(entry.project.organization.id);
+      }
+    }
+
+    return Array.from(organizationIds);
+  }
+
   canAccessAdminArea(user: PermissionAwareUser): boolean {
     return this.isAdmin(user);
   }
@@ -80,7 +112,7 @@ export class CanCanService {
 
   async canForUser(
     user: UserDomain,
-    permission: Permission,
+    permission: PermissionGrant,
     context: CanCanContext,
   ): Promise<boolean> {
     if (this.isClusterAdmin(user.role)) return true;
@@ -123,7 +155,7 @@ export class CanCanService {
       .filter((role): role is RoleDomain => Boolean(role));
   }
 
-  private roleCan(role: PermissionRole, permission: Permission): boolean {
+  private roleCan(role: PermissionRole, permission: PermissionGrant): boolean {
     if (!role) return false;
     if (this.isAdminRole(role)) return true;
     return CanCanService.hasPermission(role.permissions, permission);
@@ -140,7 +172,7 @@ export class CanCanService {
 
   static hasPermission(
     grants: readonly string[] | null | undefined,
-    permission: Permission,
+    permission: PermissionGrant,
   ): boolean {
     if (!grants || grants.length === 0) return false;
 
