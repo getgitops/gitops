@@ -1,2 +1,4 @@
 allowBuilds:
   esbuild: set this to true or false
+minimumReleaseAgeExclude:
+  - '@getgitops/gitdb@0.3.0'

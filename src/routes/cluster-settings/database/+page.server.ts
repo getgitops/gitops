@@ -6,7 +6,7 @@ import { gitDbSyncService } from '$lib/server/gitdb/sync';
 export async function load() {
   return {
     repository: readRepositoryConfigView(),
-    status: gitDbSyncService.getStatus(),
+    status: await gitDbSyncService.getStatus(),
   };
 }
 

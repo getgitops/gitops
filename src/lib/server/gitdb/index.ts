@@ -1,5 +1,5 @@
 import { gitDb, type GitDB } from '@getgitops/gitdb';
-import { isRepositoryConfigured, redactUrl, requireRepositoryConfig } from './config';
+import { buildAuthenticatedUrl, isRepositoryConfigured, redactUrl, requireRepositoryConfig } from './config';
 import { gitDbSyncService } from './sync';
 
 let instance: GitDB | null = null;
@@ -8,7 +8,7 @@ let startup: Promise<void> | null = null;
 export { isRepositoryConfigured };
 
 /**
- * Clones the repository into `.gitdb/`, writes the manifest and starts the sync poll.
+ * Initializes GitDB instance and sync state.
  * Runs once per process, not per request.
  */
 export function startGitDb(): Promise<void> {
@@ -30,11 +30,8 @@ async function boot(): Promise<void> {
     syncPollSeconds: config.syncPollSeconds,
   });
 
-  await gitDbSyncService.ensureCloned(config);
-
   instance = createClient(config.authorName, config.authorEmail);
 
-  gitDbSyncService.schedule();
   await gitDbSyncService.syncNow();
 
   console.info('[gitdb] ready');
@@ -42,10 +39,10 @@ async function boot(): Promise<void> {
 
 function createClient(authorName: string, authorEmail: string): GitDB {
   const config = requireRepositoryConfig();
-  // the clone is owned by the sync service, which keeps credentials out of .git/config
-  return gitDb(config.repositoryUrl, {
+  return gitDb(buildAuthenticatedUrl(config), {
     gitUserName: authorName,
     gitUserEmail: authorEmail,
+    syncPollSeconds: config.syncPollSeconds,
   });
 }
 

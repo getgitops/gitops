@@ -6,7 +6,7 @@
       "name": "gitvault-suite",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.500.0",
-        "@getgitops/gitdb": "^0.2.0",
+        "@getgitops/gitdb": "^0.3.0",
         "@google-cloud/storage": "^7.21.0",
         "chart.js": "^4.5.1",
         "lucide-svelte": "^0.320.0",
@@ -156,7 +156,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
 
-    "@getgitops/gitdb": ["@getgitops/gitdb@0.2.0", "", {}, "sha512-31tPFQQR4wA8U/pDYF3KkjoIH5kga7jfBIEPyDbew1h0kHSwhDlKIDOHct0LsBtwkkHSBmsbVTiqsFQaokn+6w=="],
+    "@getgitops/gitdb": ["@getgitops/gitdb@0.3.0", "", {}, "sha512-W7powgJs8xJIXFBrNI6F48HsEWqbcjKnt8V2h8JNqz7/ZMDVhHfiVgiKD2MWBRG4w6doLafd8VzW6Tz6ZNmVFA=="],
 
     "@google-cloud/paginator": ["@google-cloud/paginator@5.0.2", "", { "dependencies": { "arrify": "^2.0.0", "extend": "^3.0.2" } }, "sha512-DJS3s0OVH4zFDB1PzjxAsHqJT6sKVbRwwML0ZBP9PbU7Yebtu/7SWMRzvO2J3nUi9pRNITCfu4LJeooM2w4pjg=="],
 
