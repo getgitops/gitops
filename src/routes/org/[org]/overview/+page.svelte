@@ -22,9 +22,9 @@
     updatedAt: string;
   };
 
-  export let data: { projects: ProjectRow[] };
+  export let data: { projects: ProjectRow[]; organization?: { slug?: string | null } };
 
-  $: orgSlug = $page.params.org;
+  $: orgSlug = data.organization?.slug ?? $page?.params?.org ?? '';
 
   let searchQuery = '';
 

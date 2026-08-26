@@ -21,7 +21,6 @@
     Users,
     Layers,
     HardDrive,
-    Bot,
     ShieldAlert,
   } from 'lucide-svelte';
 
@@ -37,6 +36,7 @@
   export let canAccessClusterSettings = false;
   export let canManageOrganization = false;
   export let canManageProject = false;
+  export let currentProjectSlug: string | null = null;
   export let projects: {
     slug: string;
     modules?: { vault: boolean; codereport: boolean; stateiac: boolean };
@@ -45,9 +45,10 @@
   let currentPath = pathname;
   let openModules: Record<string, boolean> = {};
 
-  $: currentPath = $page.url.pathname || pathname;
-  $: currentProjectOrgSlug = ($page.params.org as string | undefined) ?? organizationSlug;
-  $: currentProjectSlug = $page.params.slug as string | undefined;
+  $: currentPath = $page?.url?.pathname || pathname;
+  // sourced from the server load (parsed from the URL), so it never lags behind or
+  // blanks out during client-side navigation like $page.params could
+  $: currentProjectOrgSlug = organizationSlug;
   $: currentProject = projects.find((project) => project.slug === currentProjectSlug) ?? null;
 
   $: projectBase = `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`;
@@ -66,6 +67,11 @@
                   label: 'Overview',
                   href: `/org/${organizationSlug}/overview`,
                   icon: LayoutDashboard,
+                },
+                {
+                  label: 'CVEs',
+                  href: `/org/${organizationSlug}/cves`,
+                  icon: ShieldAlert,
                 },
               ]
             : [
@@ -107,9 +113,17 @@
                     icon: LayoutDashboard,
                   },
                   { label: 'Services', href: `${projectBase}/code-report/services`, icon: Layers },
-                  { label: 'CVEs', href: `${projectBase}/code-report/cves`, icon: ShieldAlert },
+                  {
+                    label: 'CVEs',
+                    href: `/org/${currentProjectOrgSlug}/cves?project=${currentProjectSlug}`,
+                    icon: ShieldAlert,
+                  },
+                  {
+                    label: 'Security Policies',
+                    href: `${projectBase}/code-report/security-policy`,
+                    icon: Shield,
+                  },
                   { label: 'History', href: `${projectBase}/code-report/history`, icon: GitBranch },
-                  { label: 'GitOps Report Bot', href: `${projectBase}/code-report/bot`, icon: Bot },
                   { label: 'Settings', href: `${projectBase}/code-report/settings`, icon: Settings },
                 ],
               },

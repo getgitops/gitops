@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { enhance } from '$app/forms';
+  import type { SubmitFunction } from '@sveltejs/kit';
   import { Building2, CheckCircle, Eye, Plus, Search, Trash2 } from 'lucide-svelte';
 
   type OrganizationRow = {
@@ -11,8 +12,10 @@
     updatedAt: string;
   };
 
-  let organizations: OrganizationRow[] = [];
-  let loading = false;
+  export let data: { organizations: OrganizationRow[] };
+
+  $: organizations = data.organizations;
+
   let error = '';
   let success = '';
 
@@ -28,24 +31,6 @@
   let deleteModalOrganization: OrganizationRow | null = null;
   let deleteLoading = false;
   let deleteError = '';
-
-  onMount(fetchOrganizations);
-
-  async function fetchOrganizations() {
-    loading = true;
-    error = '';
-
-    try {
-      const res = await fetch('/api/organizations');
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-      organizations = payload.organizations || [];
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to load organizations.';
-    } finally {
-      loading = false;
-    }
-  }
 
   function flashSuccess(message: string) {
     success = message;
@@ -76,38 +61,32 @@
     createModalOpen = false;
   }
 
-  async function createOrganization() {
+  const createOrganization: SubmitFunction = ({ cancel }) => {
     createError = '';
 
     if (!newName.trim()) {
       createError = 'Organization name is required.';
+      cancel();
       return;
     }
 
     creating = true;
-    try {
-      const res = await fetch('/api/organizations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName.trim(),
-          slug: newSlug.trim() || undefined,
-          description: newDescription.trim() || undefined,
-        }),
-      });
-
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      closeCreateModal();
-      flashSuccess('Organization created.');
-      await fetchOrganizations();
-    } catch (err: unknown) {
-      createError = err instanceof Error ? err.message : 'Failed to create organization.';
-    } finally {
+    return async ({ result, update }) => {
+      await update();
       creating = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        closeCreateModal();
+        flashSuccess('Organization created.');
+        return;
+      }
+
+      createError =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to create organization.';
+    };
+  };
 
   function openDeleteModal(organization: OrganizationRow) {
     deleteModalOrganization = organization;
@@ -118,28 +97,30 @@
     deleteModalOrganization = null;
   }
 
-  async function confirmDelete() {
-    if (!deleteModalOrganization) return;
+  const confirmDelete: SubmitFunction = ({ cancel }) => {
+    if (!deleteModalOrganization) {
+      cancel();
+      return;
+    }
 
     deleteError = '';
     deleteLoading = true;
-
-    try {
-      const res = await fetch(`/api/organizations/${deleteModalOrganization.id}`, {
-        method: 'DELETE',
-      });
-      const payload = await res.json();
-      if (payload.error) throw new Error(payload.error);
-
-      closeDeleteModal();
-      flashSuccess('Organization deleted.');
-      await fetchOrganizations();
-    } catch (err: unknown) {
-      deleteError = err instanceof Error ? err.message : 'Failed to delete organization.';
-    } finally {
+    return async ({ result, update }) => {
+      await update();
       deleteLoading = false;
-    }
-  }
+
+      if (result.type === 'success') {
+        closeDeleteModal();
+        flashSuccess('Organization deleted.');
+        return;
+      }
+
+      deleteError =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'Failed to delete organization.';
+    };
+  };
 
   function formatDate(value: string) {
     if (!value) return '-';
@@ -200,11 +181,7 @@
     </div>
   {/if}
 
-  {#if loading}
-    <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
-      Loading organizations...
-    </div>
-  {:else if filteredOrganizations.length === 0}
+  {#if filteredOrganizations.length === 0}
     <div
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
     >
@@ -290,67 +267,71 @@
         <h5 class="text-sm font-semibold text-slate-900">New organization</h5>
       </div>
 
-      <div class="space-y-4 px-4 py-4">
-        {#if createError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {createError}
+      <form method="POST" action="?/createOrganization" use:enhance={createOrganization}>
+        <div class="space-y-4 px-4 py-4">
+          {#if createError}
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {createError}
+            </div>
+          {/if}
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-name">Name</label>
+            <input
+              id="new-org-name"
+              name="name"
+              type="text"
+              bind:value={newName}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+              placeholder="GitOps"
+            />
           </div>
-        {/if}
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-org-name">Name</label>
-          <input
-            id="new-org-name"
-            type="text"
-            bind:value={newName}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            placeholder="GitOps"
-          />
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-slug">Slug</label>
+            <input
+              id="new-org-slug"
+              name="slug"
+              type="text"
+              bind:value={newSlug}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+              placeholder="gitops (auto-generated if empty)"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-description">
+              Description
+            </label>
+            <textarea
+              id="new-org-description"
+              name="description"
+              bind:value={newDescription}
+              rows="3"
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+              placeholder="Optional description"
+            ></textarea>
+          </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-org-slug">Slug</label>
-          <input
-            id="new-org-slug"
-            type="text"
-            bind:value={newSlug}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            placeholder="gitops (auto-generated if empty)"
-          />
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeCreateModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={creating}
+            class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            <Plus class="h-4 w-4" />
+            {creating ? 'Creating...' : 'Create organization'}
+          </button>
         </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="new-org-description">
-            Description
-          </label>
-          <textarea
-            id="new-org-description"
-            bind:value={newDescription}
-            rows="3"
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            placeholder="Optional description"
-          ></textarea>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeCreateModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={createOrganization}
-          disabled={creating}
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Plus class="h-4 w-4" />
-          {creating ? 'Creating...' : 'Create organization'}
-        </button>
-      </div>
+      </form>
     </div>
   </div>
 {/if}
@@ -373,38 +354,40 @@
         <h5 class="text-sm font-semibold text-slate-900">Delete organization</h5>
       </div>
 
-      <div class="space-y-3 px-4 py-4">
-        {#if deleteError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {deleteError}
-          </div>
-        {/if}
+      <form method="POST" action="?/deleteOrganization" use:enhance={confirmDelete}>
+        <input type="hidden" name="id" value={deleteModalOrganization.id} />
+        <div class="space-y-3 px-4 py-4">
+          {#if deleteError}
+            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {deleteError}
+            </div>
+          {/if}
 
-        <p class="text-sm text-slate-600">
-          Are you sure you want to delete <span class="font-medium text-slate-900"
-            >{deleteModalOrganization.name}</span
-          >? This action cannot be undone.
-        </p>
-      </div>
+          <p class="text-sm text-slate-600">
+            Are you sure you want to delete <span class="font-medium text-slate-900"
+              >{deleteModalOrganization.name}</span
+            >? This action cannot be undone.
+          </p>
+        </div>
 
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={closeDeleteModal}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={confirmDelete}
-          disabled={deleteLoading}
-          class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Trash2 class="h-4 w-4" />
-          {deleteLoading ? 'Deleting...' : 'Delete organization'}
-        </button>
-      </div>
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+          <button
+            type="button"
+            on:click={closeDeleteModal}
+            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={deleteLoading}
+            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            <Trash2 class="h-4 w-4" />
+            {deleteLoading ? 'Deleting...' : 'Delete organization'}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 {/if}

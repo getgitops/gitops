@@ -24,6 +24,7 @@ export async function load({ locals, url }) {
   const canManageOrganization = organization
     ? await cancanService.canManageOrganization(locals.user, organization.id)
     : false;
+  const currentProjectSlug = url.pathname.match(/\/projects\/([^/]+)/)?.[1] ?? null;
 
   const projects = locals.user
     ? (
@@ -67,5 +68,6 @@ export async function load({ locals, url }) {
     canAccessClusterSettings,
     canManageOrganization,
     canManageProject,
+    currentProjectSlug,
   };
 }

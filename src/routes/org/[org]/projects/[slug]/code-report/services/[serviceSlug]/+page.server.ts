@@ -42,7 +42,9 @@ export async function load({ parent, params, locals }) {
       service.tools ?? [],
     );
 
-    return { service, latestAnalysis, latestByTool, analysisHistory };
+    const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
+
+    return { service, latestAnalysis, latestByTool, analysisHistory, riskWeights };
   } catch {
     throw error(404, 'Service not found');
   }

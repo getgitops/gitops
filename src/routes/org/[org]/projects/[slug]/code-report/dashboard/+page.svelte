@@ -56,10 +56,20 @@
       remediationCoveragePercent: number | null;
       staleServicesCount: number;
     };
+    securityPolicies: {
+      total: number;
+      active: number;
+      evaluatedServices: number;
+      failingServices: number;
+      compliantServices: number;
+      totalViolations: number;
+      violatedPolicies: { id: string; name: string; enforcement: string; services: string[] }[];
+    };
     severityBreakdown: SeverityCounts;
     topCves: CveRow[];
     riskiestServices: ServiceRisk[];
     staleServices: StaleService[];
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
   };
 
   const severityStyles: Record<keyof SeverityCounts, string> = {
@@ -116,12 +126,22 @@
 
   onDestroy(() => chart?.destroy());
 
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: cvesHref = (id?: string) =>
-    `/org/${orgSlug}/projects/${projectSlug}/code-report/cves${id ? `/${id}` : ''}`;
+    `/org/${orgSlug}/cves${id ? `/${id}` : ''}`;
   $: servicesHref = (slug: string) =>
     `/org/${orgSlug}/projects/${projectSlug}/code-report/services/${slug}`;
+  $: securityPolicyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
+
+  $: policyState =
+    data.securityPolicies.active === 0
+      ? 'none'
+      : data.securityPolicies.failingServices > 0
+        ? 'violated'
+        : data.securityPolicies.evaluatedServices === 0
+          ? 'pending'
+          : 'compliant';
 
   $: totalSeverity =
     data.severityBreakdown.critical +
@@ -213,16 +233,81 @@
         {/if}
       </section>
 
-      <section class="flex flex-1 flex-col rounded-2xl border border-dashed border-slate-300 bg-white p-6 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-900">Security Policy</h2>
-        <p class="mt-1 text-xs text-slate-500">
-          Umbrales de aceptación y políticas de seguridad para este proyecto.
-        </p>
-        <div
-          class="mt-4 flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 py-8 text-xs font-medium text-slate-400"
-        >
-          Próximamente
+      <section
+        class={`flex flex-1 flex-col rounded-2xl border-2 p-6 shadow-sm ${
+          policyState === 'violated'
+            ? 'border-red-300 bg-red-50'
+            : policyState === 'compliant'
+              ? 'border-emerald-300 bg-emerald-50'
+              : 'border-slate-200 bg-white'
+        }`}
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+              {#if policyState === 'violated'}
+                <ShieldAlert class="h-4 w-4 text-red-600" />
+              {:else if policyState === 'compliant'}
+                <ShieldCheck class="h-4 w-4 text-emerald-600" />
+              {:else}
+                <ShieldCheck class="h-4 w-4 text-slate-400" />
+              {/if}
+              Security Policy
+            </h2>
+            <p class="mt-1 text-xs text-slate-500">
+              {data.securityPolicies.active} políticas activas sobre {data.securityPolicies
+                .evaluatedServices} servicios evaluados.
+            </p>
+          </div>
+          <a
+            href={securityPolicyHref}
+            class="shrink-0 text-xs font-semibold text-slate-700 underline"
+          >
+            Gestionar
+          </a>
         </div>
+
+        {#if policyState === 'violated'}
+          <p class="mt-4 text-4xl font-black text-red-700">
+            {data.securityPolicies.failingServices}
+          </p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-red-600">
+            servicios incumpliendo · {data.securityPolicies.totalViolations} reglas superadas
+          </p>
+          <ul class="mt-3 space-y-1.5">
+            {#each data.securityPolicies.violatedPolicies as policy (policy.id)}
+              <li class="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2">
+                <a
+                  href={`${securityPolicyHref}/${policy.id}`}
+                  class="truncate text-xs font-semibold text-red-800 hover:underline"
+                >
+                  {policy.name}
+                </a>
+                <span
+                  class="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700"
+                >
+                  {policy.services.length} servicios
+                </span>
+              </li>
+            {/each}
+          </ul>
+        {:else if policyState === 'compliant'}
+          <p class="mt-4 text-4xl font-black text-emerald-700">OK</p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+            {data.securityPolicies.compliantServices} servicios cumplen todas las políticas
+          </p>
+        {:else}
+          <div
+            class="mt-4 flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-xs font-medium text-slate-400"
+          >
+            {#if policyState === 'none'}
+              Todavía no hay políticas activas.
+              <a href={securityPolicyHref} class="ml-1 underline">Crea la primera</a>
+            {:else}
+              Sin análisis suficientes para evaluar las políticas activas.
+            {/if}
+          </div>
+        {/if}
       </section>
     </div>
 

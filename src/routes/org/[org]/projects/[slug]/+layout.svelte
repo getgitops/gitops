@@ -12,10 +12,17 @@
     Users,
   } from 'lucide-svelte';
 
-  export let data: { project: { id: string; name: string; slug: string } };
+  export let data: {
+    project: {
+      id: string;
+      name: string;
+      slug: string;
+      organization?: { slug?: string | null } | null;
+    };
+  };
 
   $: project = data.project;
-  $: orgSlug = $page.params.org;
+  $: orgSlug = project.organization?.slug ?? $page?.params?.org ?? '';
 
   $: overviewHref = `/org/${orgSlug}/projects/${project.slug}/overview`;
 
@@ -76,7 +83,7 @@
     },
   ];
 
-  $: currentPath = $page.url.pathname;
+  $: currentPath = $page?.url?.pathname;
   $: currentTab = tabs.find((tab) => tab.href === currentPath) ?? tabs[0];
 </script>
 

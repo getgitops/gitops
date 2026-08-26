@@ -12,7 +12,7 @@
   export let data: { organizations: OrganizationRow[] };
 
   $: errorMessage =
-    $page.url.searchParams.get('error') === 'organization-not-found'
+    $page?.url?.searchParams?.get('error') === 'organization-not-found'
       ? 'Organization not found.'
       : '';
 </script>

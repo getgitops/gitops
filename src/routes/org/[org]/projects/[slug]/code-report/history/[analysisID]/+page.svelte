@@ -4,11 +4,15 @@
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
   export let data: {
-    service: { name: string; slug: string };
+    service: { id: string; name: string; slug: string; tags?: string[] };
     analysis: any;
     analysisHistory: any[];
+    riskWeights: { critical: number; high: number; medium: number; low: number };
+    project?: { slug?: string; organization?: { slug?: string | null } | null };
   };
-  $: historyHref = `/org/${$page.params.org}/projects/${$page.params.slug}/code-report/history`;
+  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
+  $: historyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/history`;
 </script>
 
 <svelte:head><title>{data.service.name} - Histórico de Code Report</title></svelte:head>
@@ -30,5 +34,7 @@
     service={data.service}
     analysis={data.analysis}
     analysisHistory={data.analysisHistory}
+    riskWeights={data.riskWeights}
+    securityPoliciesHref={`/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`}
   />
 </div>

@@ -1,6 +1,28 @@
 import crypto from 'crypto';
 import { CodeReportServiceRepository } from '../infrastructure/repositories/code-report-service.repository';
 import { ProjectService } from '../../projects/application/project.service';
+
+export type RiskWeights = {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+};
+
+export type VulnerabilityTotals = {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+};
+
+export const DEFAULT_RISK_WEIGHTS: RiskWeights = {
+  critical: 10,
+  high: 6,
+  medium: 3,
+  low: 1,
+};
+
 type AnalysisCleanup = {
   deleteAllByService(serviceId: string): Promise<void>;
 };
@@ -15,6 +37,23 @@ export class CodeReportService {
   async listByProject(projectId: string) {
     const services = await this.repository.findByProjectId(projectId);
     return services.map((service) => service.toJson());
+  }
+
+  async getRiskWeightsByProjectId(projectId: string): Promise<RiskWeights> {
+    const project = await this.projectService.getProject(projectId);
+    return this.resolveRiskWeights(project.settings);
+  }
+
+  calculateRiskScore(
+    vulnerabilities: VulnerabilityTotals,
+    riskWeights: RiskWeights = DEFAULT_RISK_WEIGHTS,
+  ): number {
+    return (
+      vulnerabilities.critical * riskWeights.critical +
+      vulnerabilities.high * riskWeights.high +
+      vulnerabilities.medium * riskWeights.medium +
+      vulnerabilities.low * riskWeights.low
+    );
   }
 
   async getById(id: string) {
@@ -163,5 +202,21 @@ export class CodeReportService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
+  }
+
+  private resolveRiskWeights(settings: any): RiskWeights {
+    const multipliers = settings?.['code-report']?.securityRiskMultipliers;
+
+    return {
+      critical: this.toPositiveNumberOrDefault(multipliers?.critical, DEFAULT_RISK_WEIGHTS.critical),
+      high: this.toPositiveNumberOrDefault(multipliers?.high, DEFAULT_RISK_WEIGHTS.high),
+      medium: this.toPositiveNumberOrDefault(multipliers?.medium, DEFAULT_RISK_WEIGHTS.medium),
+      low: this.toPositiveNumberOrDefault(multipliers?.low, DEFAULT_RISK_WEIGHTS.low),
+    };
+  }
+
+  private toPositiveNumberOrDefault(value: unknown, fallback: number): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 }

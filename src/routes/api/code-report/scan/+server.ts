@@ -1,6 +1,48 @@
 import { json } from '@sveltejs/kit';
 import { codeReportService, codeReportAnalysisService } from '../../../../modules/code-report';
 import { apiKeysService } from '../../../../modules/auth';
+import { projectService } from '../../../../modules/projects';
+
+type ProjectSettingsTool = {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  scanner?: string;
+  soon?: boolean;
+};
+
+const DEFAULT_CODE_REPORT_TOOLS: ProjectSettingsTool[] = [
+  {
+    id: 'trivy',
+    name: 'Vulnerabilidades (Trivy)',
+    description: 'Escaneo de vulnerabilidades y severidad de dependencias con Trivy.',
+    enabled: true,
+    scanner: 'trivy',
+  },
+  {
+    id: 'syft',
+    name: 'Dependencias, SBOM y Licencias (Syft)',
+    description: 'Inventario de dependencias, generación de SBOM y análisis de licencias con Syft.',
+    enabled: true,
+    scanner: 'syft',
+  },
+  {
+    id: 'gitleaks',
+    name: 'Secretos (Gitleaks)',
+    description: 'Detección de secretos expuestos en el repositorio con Gitleaks.',
+    enabled: true,
+    scanner: 'gitleaks',
+  },
+  {
+    id: 'code-coverage',
+    name: 'Code Coverage',
+    description: 'Métricas de cobertura de código por servicio.',
+    enabled: false,
+    scanner: 'code-coverage',
+    soon: true,
+  },
+];
 
 type AnalyseResultBody = {
   service: string;
@@ -72,7 +114,8 @@ export async function POST({ request }) {
 
   let message = '';
   let analysis;
-  let tools = []
+  let tools: string[] = [];
+  let activeSettingsTools: ProjectSettingsTool[] = [];
   if(['start', 'in_progress'].includes(status)) {
     //use service and project to find or create the service
     if (!body.service) {
@@ -82,6 +125,38 @@ export async function POST({ request }) {
       return json({ error: 'project is required' }, { status: 400 });
     }
 
+    const project = await projectService.getProjectBySlug(body.project).catch(() => null);
+    if (!project) {
+      return json({ error: 'project not found' }, { status: 404 });
+    }
+
+    const codeReportSettings = project.settings?.['code-report'] || {};
+    const persistedTools = Array.isArray(codeReportSettings.tools)
+      ? (codeReportSettings.tools as ProjectSettingsTool[])
+      : [];
+    const persistedById = new Map(
+      persistedTools
+        .filter((tool) => tool && typeof tool.id === 'string')
+        .map((tool) => [tool.id, tool]),
+    );
+
+    const resolvedTools = DEFAULT_CODE_REPORT_TOOLS.map((tool) => {
+      const persisted = persistedById.get(tool.id);
+      return {
+        ...tool,
+        enabled: persisted?.enabled ?? tool.enabled,
+      };
+    });
+
+    activeSettingsTools = resolvedTools.filter((tool) => tool.enabled && !tool.soon);
+
+    const configuredScanners = activeSettingsTools
+      .map((tool) => tool.scanner || tool.id)
+      .filter(Boolean)
+      .map((scanner) => scanner.toLowerCase());
+
+    tools = [...new Set(configuredScanners)];
+
     let serviceCodeReport = await codeReportService.getByProjectAndSlug(body.project, body.service).catch(async (err) => {
       console.log('err', err)
       return await codeReportService.createService({
@@ -89,7 +164,9 @@ export async function POST({ request }) {
         name: body.service,
       });
     });
-    tools = serviceCodeReport?.tools || []
+    if (tools.length === 0) {
+      tools = serviceCodeReport?.tools || [];
+    }
     console.log('✅ Service found or created:', serviceCodeReport);
     if(status === 'start') {
       message = 'Scan started';
@@ -132,5 +209,6 @@ export async function POST({ request }) {
       id: analysis?.id
     },
     tools,
+    activeSettingsTools,
   });
 }

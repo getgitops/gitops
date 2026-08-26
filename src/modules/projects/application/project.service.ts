@@ -1,6 +1,10 @@
 import crypto from 'crypto';
 import { ProjectRepository } from '../infrastructure/repositories/project.repostitory';
-import { DEFAULT_PROJECT_MODULES, type ProjectModules } from '../domain/project.domain';
+import {
+  DEFAULT_PROJECT_MODULES,
+  type ProjectModules,
+  type ProjectSettings,
+} from '../domain/project.domain';
 
 export type ProjectStatusValue = 'active' | 'inactive';
 
@@ -102,6 +106,7 @@ export class ProjectService {
       status?: string;
       modules?: Partial<ProjectModules>;
       organizationId?: string;
+      settings?: ProjectSettings;
     },
   ) {
     const project = await this.repository.findById(id);
@@ -116,6 +121,7 @@ export class ProjectService {
       status?: string;
       modules?: ProjectModules;
       organizationId?: string;
+      settings?: ProjectSettings;
     } = {};
 
     if (changes.organizationId !== undefined) {
@@ -158,6 +164,10 @@ export class ProjectService {
 
     if (changes.modules !== undefined) {
       patch.modules = this.sanitizeModules({ ...project.modules, ...changes.modules });
+    }
+
+    if (changes.settings !== undefined) {
+      patch.settings = changes.settings;
     }
 
     await this.repository.update(id, patch);
