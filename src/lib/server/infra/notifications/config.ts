@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/private';
+
 export type SmtpConfig = {
   host: string;
   port: number;
@@ -12,7 +14,7 @@ export type SmtpConfig = {
 const DEFAULT_PORT = 587;
 
 function value(name: string): string | null {
-  return process.env[name]?.trim() || null;
+  return env[name]?.trim() || null;
 }
 
 function flag(name: string, fallback: boolean): boolean {

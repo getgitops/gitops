@@ -7,6 +7,8 @@ export const UserEntity = entity('users', {
   passwordHash: text().notNull(),
   roleId: uuid().notNull(),
   status: text().notNull().default('active'),
+  invitationTokenHash: text(),
+  invitationExpiresAt: timestamp(),
   authProviders: json()
     .notNull()
     .$defaultFn(() => []),

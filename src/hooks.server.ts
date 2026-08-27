@@ -58,8 +58,12 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
-  // sign-in and sign-out must work without (or with a broken) session
-  if (pathname === '/auth/login' || pathname === '/auth/logout') {
+  // sign-in, sign-out and invitation acceptance must work without (or with a broken) session
+  if (
+    pathname === '/auth/login' ||
+    pathname === '/auth/logout' ||
+    pathname === '/auth/invitation'
+  ) {
     return resolve(event);
   }
 
