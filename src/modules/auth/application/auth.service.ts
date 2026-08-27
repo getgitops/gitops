@@ -93,8 +93,8 @@ export class AuthService {
     return created;
   }
 
-  async authenticate(username: string, password: string): Promise<any> {
-    const user = await this.userRepository.findByUsername(username);
+  async authenticate(email: string, password: string): Promise<any> {
+    const user = await this.userRepository.findByEmail(email.trim().toLowerCase());
     if (!user) {
       return null;
     }

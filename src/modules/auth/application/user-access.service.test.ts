@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserAccessService } from './user-access.service';
 import { RoleDomain } from '../domain/role.domain';
 import { UserAccessDomain } from '../domain/user-access.domain';
@@ -24,12 +24,19 @@ function role(input: {
   });
 }
 
-function user(input: { id: string; username: string; role: RoleDomain | null }) {
+function user(input: {
+  id: string;
+  username: string;
+  role: RoleDomain | null;
+  email?: string | null;
+  status?: 'active' | 'invited';
+}) {
   return new UserDomain({
     id: input.id,
     username: input.username,
-    email: null,
+    email: input.email ?? null,
     password: 'hashed',
+    status: input.status ?? 'active',
     role: input.role,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
@@ -55,13 +62,33 @@ class FakeUserRepository {
     return this.rows.find((entry) => entry.username === username) ?? null;
   }
 
+  async findByEmail(email: string) {
+    return this.rows.find((entry) => entry.email === email) ?? null;
+  }
+
   async listUsers() {
     return [...this.rows];
   }
 
-  async createUser(input: { id: string; username: string; role: any }) {
+  async deleteById(id: string) {
+    this.rows = this.rows.filter((entry) => entry.id !== id);
+  }
+
+  async createUser(input: {
+    id: string;
+    username: string;
+    email?: string | null;
+    role: any;
+    status?: 'active' | 'invited';
+  }) {
     this.rows.push(
-      user({ id: input.id, username: input.username, role: new RoleDomain(input.role) }),
+      user({
+        id: input.id,
+        username: input.username,
+        email: input.email ?? null,
+        status: input.status,
+        role: new RoleDomain(input.role),
+      }),
     );
   }
 }
@@ -73,8 +100,17 @@ class FakeRoleRepository {
     return this.rows.find((entry) => entry.id === id) ?? null;
   }
 
-  async findBySlug(slug: string) {
-    return this.rows.find((entry) => entry.slug === slug) ?? null;
+  async findBySlug(slug: string, scope?: string, scopeId?: string) {
+    return (
+      this.rows.find((entry) => {
+        if (entry.slug !== slug) return false;
+        if (!scope) return true;
+        if (entry.scope !== scope) return false;
+        if (scope === 'organization') return entry.organizationId === scopeId;
+        if (scope === 'project') return entry.projectId === scopeId;
+        return true;
+      }) ?? null
+    );
   }
 }
 
@@ -82,6 +118,10 @@ class FakeUserAccessRepository {
   rows: UserAccessDomain[] = [];
   userRepository!: FakeUserRepository;
   roleRepository!: FakeRoleRepository;
+
+  async findByUserId(userId: string) {
+    return this.rows.filter((entry) => entry.userId === userId);
+  }
 
   async findByScope(scope: 'cluster' | 'organization' | 'project', scopeId?: string) {
     return this.rows.filter((entry) => {
@@ -156,6 +196,8 @@ describe('UserAccessService', () => {
   let userRepository: FakeUserRepository;
   let roleRepository: FakeRoleRepository;
   let userAccessRepository: FakeUserAccessRepository;
+  let invitationNotifier: { sendInvitation: ReturnType<typeof vi.fn> };
+  let invitationTokens: { issueToken: ReturnType<typeof vi.fn> };
   let service: UserAccessService;
 
   beforeEach(() => {
@@ -164,11 +206,20 @@ describe('UserAccessService', () => {
     userAccessRepository = new FakeUserAccessRepository();
     userAccessRepository.userRepository = userRepository;
     userAccessRepository.roleRepository = roleRepository;
+    invitationNotifier = { sendInvitation: vi.fn(async () => {}) };
+    invitationTokens = {
+      issueToken: vi.fn(async () => ({
+        token: 'raw-token',
+        expiresAt: '2024-01-08T00:00:00.000Z',
+      })),
+    };
     service = new UserAccessService(
       userRepository as any,
       roleRepository as any,
       userAccessRepository as any,
       { hashPassword: (password: string) => `hashed:${password}` },
+      invitationNotifier,
+      invitationTokens,
     );
 
     roleRepository.rows.push(role({ id: 'cluster-user-id', slug: 'cluster-user' }));
@@ -194,6 +245,164 @@ describe('UserAccessService', () => {
     expect(created.username).toBe('jose');
     expect(created.role?.id).toBe('org-developer-id');
     expect(userRepository.rows[0].role?.slug).toBe('cluster-user');
+  });
+
+  describe('inviteOrganizationUser', () => {
+    function seedOrganizationRole() {
+      roleRepository.rows.push(
+        role({
+          id: 'org-developer-id',
+          slug: 'org-developer',
+          scope: 'organization',
+          organizationId: 'gitops',
+        }),
+      );
+    }
+
+    function invite(email = 'Jose.Doe@Example.com') {
+      return service.inviteOrganizationUser({
+        organizationId: 'gitops',
+        organizationName: 'GitOps',
+        email,
+        inviteUrl: 'https://app.local/auth/invitation',
+        invitedBy: 'admin',
+      });
+    }
+
+    it('creates the user as invited and grants invited organization access', async () => {
+      seedOrganizationRole();
+
+      const invited = await invite();
+
+      expect(invited.status).toBe('invited');
+      expect(invited.role?.slug).toBe('org-developer');
+      expect(userRepository.rows[0].status).toBe('invited');
+      expect(userRepository.rows[0].email).toBe('jose.doe@example.com');
+      expect(userRepository.rows[0].role?.slug).toBe('cluster-user');
+    });
+
+    it('derives a unique username from the email local part', async () => {
+      seedOrganizationRole();
+      userRepository.rows.push(user({ id: 'existing', username: 'jose.doe', role: null }));
+
+      await invite();
+
+      expect(userRepository.rows[1].username).toBe('jose.doe-1');
+    });
+
+    it('sends the invitation notification with a tokenized link', async () => {
+      seedOrganizationRole();
+
+      await invite();
+
+      expect(invitationTokens.issueToken).toHaveBeenCalledWith(userRepository.rows[0].id);
+      expect(invitationNotifier.sendInvitation).toHaveBeenCalledWith({
+        email: 'jose.doe@example.com',
+        username: 'jose.doe',
+        organizationName: 'GitOps',
+        roleName: 'org-developer',
+        inviteUrl: 'https://app.local/auth/invitation?token=raw-token',
+        expiresAt: '2024-01-08T00:00:00.000Z',
+        invitedBy: 'admin',
+      });
+    });
+
+    it('rejects invalid emails', async () => {
+      seedOrganizationRole();
+
+      await expect(invite('   ')).rejects.toThrow(/Email is required/);
+      await expect(invite('not-an-email')).rejects.toThrow(/Email is not valid/);
+      expect(invitationNotifier.sendInvitation).not.toHaveBeenCalled();
+    });
+
+    it('reuses an existing invited account and re-sends the invitation', async () => {
+      seedOrganizationRole();
+      userRepository.rows.push(
+        user({
+          id: 'existing',
+          username: 'jose.doe',
+          email: 'jose.doe@example.com',
+          status: 'invited',
+          role: null,
+        }),
+      );
+
+      const invited = await invite();
+
+      expect(userRepository.rows).toHaveLength(1);
+      expect(invited.userId).toBe('existing');
+      expect(invited.status).toBe('invited');
+      expect(invitationNotifier.sendInvitation).toHaveBeenCalledTimes(1);
+    });
+
+    it('grants access without notifying when the account is already active', async () => {
+      seedOrganizationRole();
+      userRepository.rows.push(
+        user({
+          id: 'existing',
+          username: 'jose.doe',
+          email: 'jose.doe@example.com',
+          status: 'active',
+          role: null,
+        }),
+      );
+
+      const invited = await invite();
+
+      expect(userRepository.rows).toHaveLength(1);
+      expect(invited.userId).toBe('existing');
+      expect(invited.status).toBe('active');
+      expect(invitationTokens.issueToken).not.toHaveBeenCalled();
+      expect(invitationNotifier.sendInvitation).not.toHaveBeenCalled();
+    });
+
+    it('rejects a user that already has access to the organization', async () => {
+      seedOrganizationRole();
+      userRepository.rows.push(
+        user({
+          id: 'existing',
+          username: 'jose.doe',
+          email: 'jose.doe@example.com',
+          status: 'active',
+          role: null,
+        }),
+      );
+      await userAccessRepository.create({
+        id: 'access-id',
+        userId: 'existing',
+        roleId: 'org-developer-id',
+        scope: 'organization',
+        organizationId: 'gitops',
+      });
+
+      await expect(invite()).rejects.toThrow(/already has access/);
+    });
+
+    it('fails when the organization has no default role', async () => {
+      await expect(invite()).rejects.toThrow(/Default organization role not found/);
+    });
+
+    it('uses an explicit role when provided', async () => {
+      seedOrganizationRole();
+      roleRepository.rows.push(
+        role({
+          id: 'org-admin-id',
+          slug: 'org-admin',
+          scope: 'organization',
+          organizationId: 'gitops',
+        }),
+      );
+
+      const invited = await service.inviteOrganizationUser({
+        organizationId: 'gitops',
+        organizationName: 'GitOps',
+        email: 'jose@example.com',
+        inviteUrl: 'https://app.local/auth/invitation',
+        roleId: 'org-admin-id',
+      });
+
+      expect(invited.role?.slug).toBe('org-admin');
+    });
   });
 
   it('assigns an existing user to a project role', async () => {
@@ -239,10 +448,11 @@ describe('UserAccessService', () => {
     expect(updated.status).toBe('invited');
   });
 
-  it('removes an access row', async () => {
+  it('removes only the selected project access', async () => {
     userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
     roleRepository.rows.push(
       role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+      role({ id: 'project-developer-id', slug: 'developer', scope: 'project', projectId: 'other' }),
     );
     await userAccessRepository.create({
       id: 'access-id',
@@ -251,10 +461,84 @@ describe('UserAccessService', () => {
       scope: 'project',
       projectId: 'kettu',
     });
+    await userAccessRepository.create({
+      id: 'other-access-id',
+      userId: 'jose-id',
+      roleId: 'project-developer-id',
+      scope: 'project',
+      projectId: 'other',
+    });
 
     await service.removeAccess({ accessId: 'access-id', scope: 'project', scopeId: 'kettu' });
 
+    expect(userAccessRepository.rows.map((entry) => entry.id)).toEqual(['other-access-id']);
+    expect(await userRepository.findById('jose-id')).not.toBeNull();
+  });
+
+  it('removes all user access and the user when removed from an organization', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'org-admin-id', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+      role({ id: 'project-developer-id', slug: 'developer', scope: 'project', projectId: 'other' }),
+    );
+    await userAccessRepository.create({
+      id: 'organization-access-id',
+      userId: 'jose-id',
+      roleId: 'org-admin-id',
+      scope: 'organization',
+      organizationId: 'gitops',
+    });
+    await userAccessRepository.create({
+      id: 'project-access-id',
+      userId: 'jose-id',
+      roleId: 'project-admin-id',
+      scope: 'project',
+      projectId: 'kettu',
+    });
+    await userAccessRepository.create({
+      id: 'other-project-access-id',
+      userId: 'jose-id',
+      roleId: 'project-developer-id',
+      scope: 'project',
+      projectId: 'other',
+    });
+
+    await service.removeAccess({
+      accessId: 'organization-access-id',
+      scope: 'organization',
+      scopeId: 'gitops',
+    });
+
     expect(userAccessRepository.rows).toEqual([]);
+    expect(await userRepository.findById('jose-id')).toBeNull();
+  });
+
+  it('removes all user access and the user when removed from cluster settings', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'org-admin-id', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+    );
+    await userAccessRepository.create({
+      id: 'organization-access-id',
+      userId: 'jose-id',
+      roleId: 'org-admin-id',
+      scope: 'organization',
+      organizationId: 'gitops',
+    });
+    await userAccessRepository.create({
+      id: 'project-access-id',
+      userId: 'jose-id',
+      roleId: 'project-admin-id',
+      scope: 'project',
+      projectId: 'kettu',
+    });
+
+    await service.removeAccess({ accessId: 'jose-id', scope: 'cluster' });
+
+    expect(userAccessRepository.rows).toEqual([]);
+    expect(await userRepository.findById('jose-id')).toBeNull();
   });
 
   it('resends invitations only for invited access rows', async () => {

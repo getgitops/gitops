@@ -15,17 +15,17 @@ export async function load({ cookies }) {
 export const actions = {
   async login({ request, cookies }) {
     const form = await request.formData();
-    const username = String(form.get('username') ?? '').trim();
+    const email = String(form.get('email') ?? '').trim().toLowerCase();
     const password = String(form.get('password') ?? '');
 
-    if (!username || !password) {
-      return fail(400, { username, error: 'Username and password are required.' });
+    if (!email || !password) {
+      return fail(400, { email, error: 'Email and password are required.' });
     }
 
-    const user = await authService.authenticate(username, password);
+    const user = await authService.authenticate(email, password);
     if (!user) {
-      // same message for unknown user and wrong password, to avoid leaking valid usernames
-      return fail(401, { username, error: 'Invalid username or password.' });
+      // same message for unknown email and wrong password, to avoid leaking valid emails
+      return fail(401, { email, error: 'Invalid email or password.' });
     }
 
     cookies.set(SESSION_COOKIE, authService.createSessionToken(user.id), {

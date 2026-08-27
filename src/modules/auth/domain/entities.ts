@@ -53,6 +53,7 @@ export type CreateUserInput = {
   email: string | null;
   passwordHash: string;
   role: RoleView;
+  status?: 'active' | 'invited';
 };
 
 export type UpdateUserInput = {
