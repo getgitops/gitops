@@ -1,0 +1,10 @@
+node_modules
+build
+.svelte-kit
+.gitdb
+data
+.env
+.env.*
+!.env.example
+*.log
+.husky
