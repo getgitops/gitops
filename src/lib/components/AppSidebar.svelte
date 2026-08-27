@@ -242,6 +242,7 @@
                   },
                   { label: 'Users', href: '/cluster-settings/users', icon: Users },
                   { label: 'Database', href: '/cluster-settings/database', icon: Database },
+                  { label: 'Audit Log', href: '/cluster-settings/audit', icon: ScrollText },
                 ],
               },
             ]
