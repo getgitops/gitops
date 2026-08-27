@@ -50,7 +50,7 @@ La lógica de negocio vive en `src/modules/<nombre>/`, cada uno separado en:
 | `infrastructure/repositories/` | Implementaciones concretas de repositorio                              |
 | `index.ts`                     | **Composition root** del módulo: instancia repositorios + servicios y exporta singletons |
 
-Módulos existentes: `auth`, `config`, `projects`, `storage`.
+Módulos existentes: `auth`, `config`, `organization`, `projects`, `storage`.
 
 **Regla de acceso**: las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '$modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
 
@@ -79,18 +79,32 @@ Variables de entorno (`.env.example`): `GITDB_REPOSITORY_URL` (obligatoria, lanz
 1. Inicializa gitdb (`getGitDb()` a nivel de módulo, una sola vez).
 2. Deja pasar `/login` y `/api/auth/*` sin sesión.
 3. Resuelve el usuario desde la cookie `pos_session` (`authService.resolveAuthenticatedUser`); si no hay usuario válido, redirige (302) a `/login`.
-4. Restringe `/settings/*` y `/api/system/*` a admins (`canAccessAdminArea`).
+4. Valida permisos de proyecto para rutas `/org/[org]/projects/[slug]/settings` (`canManageProject`); si no tiene acceso, redirige a `/`.
+5. Restringe `/org/[org]/settings` a usuarios con permiso de organización (`canManageOrganization`); si no, redirige a `/`.
+6. Restringe `/settings/*` y `/api/system/*` a admins (`canAccessAdminArea`).
 
 ---
 
 ## RBAC / Permisos
 
-Los permisos son strings `section:action` (p. ej. `vault:read`) o el atajo `section:all`, definidos en `src/lib/permissions/index.ts`:
+Los permisos son strings `section:action` (p. ej. `vault:read`) o el atajo `section:all`, definidos en `src/lib/permissions/index.ts`. El formato soporta dos niveles de scope:
 
-- `section` ∈ `vault | openreport | stateiac`
-- `action` ∈ `read | create | update | delete`
+- **Global**: `section:action` donde `section` ∈ `vault | openreport | stateiac`
+- **Organización**: `organization:action` (p. ej. `organization:projects:read`, `organization:users:all`)
+- **Proyecto**: `project:action` (p. ej. `project:vault:secrets:read`, `project:stateiac:stacks:all`)
+
+Roles a nivel de organización (`scope: 'organization'`) se crean automáticamente al crear una organización (método `RoleService.createDefaultOrganizationRoles`):
+- `org-admin`: permisos completos a nivel de organización (`organization:projects:all`, `organization:users:all`, `organization:roles:all`, etc.)
+- `org-developer`: lectura, creación y actualización de proyectos (`organization:projects:read|create|update`)
+
+Roles a nivel de proyecto (`scope: 'project'`) se crean automáticamente al crear un proyecto (método `RoleService.createDefaultProjectRoles`):
+- `project-admin`: permisos completos a nivel de proyecto (vault, state/IaC, code report, usuarios, roles, auditoría)
+- `project-developer`: permisos de lectura, creación y actualización para vault/state/code report (sin permisos de eliminación ni gestión de roles)
+- `project-viewer`: permisos de lectura exclusivamente en todos los recursos del proyecto
 
 Los roles (y su array de `permissions`) viven en gitdb (`/data/gitdb/roles.json`), gestionados por `roleService`. El rol `admin` es especial: no se puede borrar (`RoleService.deleteRole` lo bloquea explícitamente) y `isAdmin(user)` comprueba `user.role.slug === 'admin'`.
+
+**Control de acceso a organizaciones**: `CanCanService.organizationIdsForUser(user)` devuelve los IDs de organizaciones a las que un usuario tiene acceso — directo (vía rol de organización) o indirecto (vía rol en un proyecto). Devuelve `null` para admins de cluster (sin restricción). Se usa en rutas como `/org` para filtrar qué organizaciones ve el usuario.
 
 **Patrón correcto en un endpoint** (todas las rutas bajo `api/roles`, `api/projects`, `api/backends` lo siguen):
 

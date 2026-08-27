@@ -48,6 +48,9 @@
           organizationSlug={data.organization?.slug ?? null}
           organizationName={data.organization?.name ?? null}
           projects={data.projects}
+          canAccessClusterSettings={data.canAccessClusterSettings}
+          canManageOrganization={data.canManageOrganization}
+          canManageProject={data.canManageProject}
           currentProjectSlug={data.currentProjectSlug ?? null}
           bind:collapsed={sidebarCollapsed}
         />

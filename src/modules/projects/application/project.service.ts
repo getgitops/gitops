@@ -45,6 +45,12 @@ export class ProjectService {
     return project.toJson();
   }
 
+  // non-throwing variant, for callers that should degrade gracefully (e.g. hooks.server.ts)
+  async tryFindBySlug(slug: string) {
+    const project = await this.repository.findBySlug(slug);
+    return project ? project.toJson() : null;
+  }
+
   async createProject(input: {
     organizationId: string;
     name: string;

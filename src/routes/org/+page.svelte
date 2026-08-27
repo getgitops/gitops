@@ -35,9 +35,13 @@
 
   {#if data.organizations.length === 0}
     <div
-      class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600"
+      class="flex flex-col items-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center"
     >
-      No organizations found.
+      <Building2 class="h-8 w-8 text-slate-400" />
+      <p class="text-sm font-medium text-slate-700">You don't belong to any organization yet</p>
+      <p class="max-w-sm text-sm text-slate-500">
+        Ask an administrator to add you to an organization to get started.
+      </p>
     </div>
   {:else}
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
