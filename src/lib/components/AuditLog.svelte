@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { ExternalLink, Eye, Search, X } from '@lucide/svelte';
+  import { ChevronLeft, ChevronRight, ExternalLink, Eye, Search, X } from '@lucide/svelte';
   import { enhance } from '$app/forms';
+  import { page } from '$app/stores';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { diffListItems, summarizeChange, type EntityRowChange } from './audit-summary';
   import AuditFieldValue from './AuditFieldValue.svelte';
@@ -17,6 +18,8 @@
     message: string;
   };
 
+  type Pagination = { page: number; perPage: number; total: number; totalPages: number };
+
   export let events: AuditEvent[] = [];
   export let title = 'Audit Log';
   export let description = 'History of changes recorded in the data repository.';
@@ -24,20 +27,105 @@
   export let diffAction = '?/viewDiff';
   /** Repo web URL (no trailing slash) used to build "View commit" links; null hides the button. */
   export let commitBaseUrl: string | null = null;
+  export let pagination: Pagination = { page: 1, perPage: 20, total: events.length, totalPages: 1 };
+  /** Organizations for the filter dropdown; omit to hide it (e.g. on an already org-scoped page). */
+  export let organizations: { id: string; name: string }[] | null = null;
 
-  let searchQuery = '';
+  const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-  $: filteredEvents = events.filter((event) => {
-    const query = searchQuery.trim().toLowerCase();
-    return (
-      !query ||
-      (event.entity ?? '').toLowerCase().includes(query) ||
-      event.action.toLowerCase().includes(query) ||
-      event.reason.toLowerCase().includes(query) ||
-      event.author.toLowerCase().includes(query) ||
-      event.commitHash.toLowerCase().includes(query)
-    );
-  });
+  $: params = $page.url.searchParams;
+  $: currentSearch = params.get('search') ?? '';
+  $: currentFrom = params.get('from') ?? '';
+  $: currentTo = params.get('to') ?? '';
+  $: currentOrganizationId = params.get('organizationId') ?? '';
+  $: hasActiveFilters = Boolean(currentSearch || currentFrom || currentTo || currentOrganizationId);
+
+  function hrefWithParam(name: string, value: string): string {
+    const next = new URLSearchParams(params);
+    if (value) {
+      next.set(name, value);
+    } else {
+      next.delete(name);
+    }
+    return `?${next.toString()}`;
+  }
+
+  type DatePreset = 'all' | 'today' | '7d' | '30d' | '3m' | 'custom';
+
+  const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
+    { value: 'all', label: 'All time' },
+    { value: 'today', label: 'Today' },
+    { value: '7d', label: 'Last 7 days' },
+    { value: '30d', label: 'Last 30 days' },
+    { value: '3m', label: 'Last 3 months' },
+    { value: 'custom', label: 'Custom range...' },
+  ];
+
+  function toLocalIsoDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function presetRange(preset: DatePreset): { from: string; to: string } {
+    const today = new Date();
+    const to = toLocalIsoDate(today);
+
+    if (preset === 'today') {
+      return { from: to, to };
+    }
+    if (preset === '7d') {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 6);
+      return { from: toLocalIsoDate(from), to };
+    }
+    if (preset === '30d') {
+      const from = new Date(today);
+      from.setDate(from.getDate() - 29);
+      return { from: toLocalIsoDate(from), to };
+    }
+    if (preset === '3m') {
+      const from = new Date(today);
+      from.setMonth(from.getMonth() - 3);
+      return { from: toLocalIsoDate(from), to };
+    }
+    return { from: '', to: '' };
+  }
+
+  $: selectedPreset = ((): DatePreset => {
+    if (!currentFrom && !currentTo) return 'all';
+    for (const preset of ['today', '7d', '30d', '3m'] as const) {
+      const range = presetRange(preset);
+      if (range.from === currentFrom && range.to === currentTo) return preset;
+    }
+    return 'custom';
+  })();
+
+  let showCustomRange = false;
+  $: showCustomRange = selectedPreset === 'custom';
+
+  function handlePresetChange(event: Event & { currentTarget: HTMLSelectElement }) {
+    const preset = event.currentTarget.value as DatePreset;
+
+    if (preset === 'custom') {
+      showCustomRange = true;
+      return;
+    }
+
+    showCustomRange = false;
+    const range = presetRange(preset);
+    const next = new URLSearchParams(params);
+    next.delete('page');
+    if (range.from) {
+      next.set('from', range.from);
+      next.set('to', range.to);
+    } else {
+      next.delete('from');
+      next.delete('to');
+    }
+    window.location.href = `?${next.toString()}`;
+  }
 
   const actionStyles: Record<AuditAction, string> = {
     insert: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -100,25 +188,75 @@
     <p class="mt-2 text-sm text-slate-600">{description}</p>
   </section>
 
-  <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div class="relative flex-1">
+  <form method="GET" class="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-wrap">
+    <div class="relative flex-1 lg:min-w-60">
       <Search
         class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
       />
       <input
         type="text"
-        bind:value={searchQuery}
+        name="search"
+        value={currentSearch}
         placeholder="Search by entity, action, author or commit..."
         class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
       />
     </div>
-  </section>
+    <div class="flex flex-wrap items-center gap-2">
+      <select
+        value={selectedPreset}
+        on:change={handlePresetChange}
+        class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+      >
+        {#each DATE_PRESET_OPTIONS as option}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+      {#if showCustomRange}
+        <input
+          type="date"
+          name="from"
+          value={currentFrom}
+          title="From date"
+          class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+        />
+        <span class="text-slate-400">–</span>
+        <input
+          type="date"
+          name="to"
+          value={currentTo}
+          title="To date"
+          class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+        />
+      {:else}
+        <input type="hidden" name="from" value={currentFrom} />
+        <input type="hidden" name="to" value={currentTo} />
+      {/if}
+    </div>
+    {#if organizations}
+      <select
+        name="organizationId"
+        class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+      >
+        <option value="">All organizations</option>
+        {#each organizations as organization}
+          <option value={organization.id} selected={organization.id === currentOrganizationId}>
+            {organization.name}
+          </option>
+        {/each}
+      </select>
+    {/if}
+    <input type="hidden" name="perPage" value={pagination.perPage} />
+    <button type="submit" class="btn-primary rounded-md px-3 py-2 text-sm font-medium">Filter</button>
+    {#if hasActiveFilters}
+      <a href="?" class="btn-secondary rounded-md px-3 py-2 text-sm font-medium">Clear</a>
+    {/if}
+  </form>
 
-  {#if filteredEvents.length === 0}
+  {#if events.length === 0}
     <div
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
     >
-      {events.length === 0 ? 'No audit events found.' : 'No audit events match your search.'}
+      {hasActiveFilters ? 'No audit events match your filters.' : 'No audit events found.'}
     </div>
   {:else}
     <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -137,7 +275,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each filteredEvents as event (event.commitHash + event.reason)}
+            {#each events as event (event.commitHash + event.reason)}
               <tr class="border-t border-slate-100">
                 <td class="px-4 py-3 whitespace-nowrap text-slate-600">{formatDate(event.timestamp)}</td>
                 <td class="px-4 py-3">
@@ -183,6 +321,68 @@
             {/each}
           </tbody>
         </table>
+      </div>
+
+      <div
+        class="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div class="flex items-center gap-2">
+          <span>
+            {(pagination.page - 1) * pagination.perPage + 1}–{Math.min(
+              pagination.page * pagination.perPage,
+              pagination.total,
+            )} of {pagination.total}
+          </span>
+          <select
+            value={String(pagination.perPage)}
+            on:change={(event) => {
+              window.location.href = hrefWithParam('perPage', event.currentTarget.value);
+            }}
+            class="field-input rounded-md border px-2 py-1 text-xs outline-none transition"
+          >
+            {#each PER_PAGE_OPTIONS as size}
+              <option value={String(size)}>{size} / page</option>
+            {/each}
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          {#if pagination.page > 1}
+            <a
+              href={hrefWithParam('page', String(pagination.page - 1))}
+              class="btn-secondary inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+            >
+              <ChevronLeft class="h-3.5 w-3.5" />
+              Previous
+            </a>
+          {:else}
+            <span
+              class="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-300"
+            >
+              <ChevronLeft class="h-3.5 w-3.5" />
+              Previous
+            </span>
+          {/if}
+
+          <span class="text-xs text-slate-500">Page {pagination.page} of {pagination.totalPages}</span>
+
+          {#if pagination.page < pagination.totalPages}
+            <a
+              href={hrefWithParam('page', String(pagination.page + 1))}
+              class="btn-secondary inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+            >
+              Next
+              <ChevronRight class="h-3.5 w-3.5" />
+            </a>
+          {:else}
+            <span
+              class="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-300"
+            >
+              Next
+              <ChevronRight class="h-3.5 w-3.5" />
+            </span>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}

@@ -1,9 +1,26 @@
 import { fail } from '@sveltejs/kit';
 import { auditService } from '$modules/audit';
+import { organizationService } from '$modules/organization';
 
-export async function load() {
-  const { events } = await auditService.listEvents();
-  return { events, commitBaseUrl: auditService.getRepositoryWebUrl() };
+export async function load({ url }) {
+  const [{ events, page, perPage, total, totalPages }, organizations] = await Promise.all([
+    auditService.listEvents({
+      search: url.searchParams.get('search') || undefined,
+      organizationId: url.searchParams.get('organizationId') || undefined,
+      dateFrom: url.searchParams.get('from') || undefined,
+      dateTo: url.searchParams.get('to') || undefined,
+      page: Number(url.searchParams.get('page')) || undefined,
+      perPage: Number(url.searchParams.get('perPage')) || undefined,
+    }),
+    organizationService.listOrganizations(),
+  ]);
+
+  return {
+    events,
+    pagination: { page, perPage, total, totalPages },
+    organizations,
+    commitBaseUrl: auditService.getRepositoryWebUrl(),
+  };
 }
 
 export const actions = {
