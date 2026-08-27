@@ -19,8 +19,7 @@
     Sun,
   } from '@lucide/svelte';
   import { _ } from 'svelte-i18n';
-  import { setLocale, SUPPORTED_LOCALES, type SupportedLocale } from '$lib/i18n';
-  import { locale } from 'svelte-i18n';
+  import { setLocale, SUPPORTED_LOCALES, locale, type SupportedLocale } from '$lib/i18n';
 
   export let data: any;
   export let form: any;
@@ -426,7 +425,7 @@
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"
     on:click={closeCreateApiKeyModal}
-    aria-label={$_('common.close')}
+    aria-label={$_('profile.closeCreateApiKeyModal')}
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div

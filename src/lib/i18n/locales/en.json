@@ -106,7 +106,7 @@
     "never": "Never",
     "days": "days",
     "cancel": "Cancel",
-    "language": "Language",
+    "closeCreateApiKeyModal": "Close create API key modal",
     "languageDescription": "Select the interface language.",
     "spanish": "Spanish",
     "english": "English",

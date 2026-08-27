@@ -106,7 +106,7 @@
     "never": "Nunca",
     "days": "días",
     "cancel": "Cancelar",
-    "language": "Idioma",
+    "closeCreateApiKeyModal": "Cerrar modal de creación de clave API",
     "languageDescription": "Selecciona el idioma de la interfaz.",
     "spanish": "Español",
     "english": "Inglés",
