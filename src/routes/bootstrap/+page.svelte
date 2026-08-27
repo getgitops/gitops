@@ -58,7 +58,7 @@
 </script>
 
 <svelte:head>
-  <title>Setup - GitVault Suite</title>
+  <title>Setup - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-3xl px-4 py-12">

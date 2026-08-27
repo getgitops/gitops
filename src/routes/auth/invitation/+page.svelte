@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-  <title>Accept invitation - GitVault Suite</title>
+  <title>Accept invitation - GitOps</title>
 </svelte:head>
 
 <div

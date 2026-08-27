@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>Vault - GitVault Suite</title>
+  <title>Vault - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">

@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>State IaC - GitVault Suite</title>
+  <title>State IaC - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">

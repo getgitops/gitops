@@ -13,7 +13,7 @@
 </script>
 
 <svelte:head>
-  <title>Login - GitVault Suite</title>
+  <title>Login - GitOps</title>
 </svelte:head>
 
 <div
@@ -33,7 +33,7 @@
         <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
           Workspace
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitVault Suite</h1>
+        <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitOps</h1>
         <p class="mt-2 text-sm text-slate-600">Continue with your private admin workspace.</p>
       </div>
     </div>

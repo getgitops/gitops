@@ -34,7 +34,7 @@
   });
 </script>
 
-<svelte:head><title>Security Policies - Code Report - GitVault Suite</title></svelte:head>
+<svelte:head><title>Security Policies - Code Report - GitOps</title></svelte:head>
 
 <div class="space-y-6">
   <div class="flex flex-wrap items-center gap-3">
