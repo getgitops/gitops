@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { ProjectRepository } from '../infrastructure/repositories/project.repostitory';
 import {
   DEFAULT_PROJECT_MODULES,
+  DEFAULT_PROJECT_SETTINGS,
   type ProjectModules,
   type ProjectSettings,
 } from '../domain/project.domain';
@@ -81,6 +82,7 @@ export class ProjectService {
       description: input.description?.trim() || undefined,
       status: this.sanitizeStatus(input.status),
       modules: this.sanitizeModules(input.modules),
+      settings: DEFAULT_PROJECT_SETTINGS,
     });
 
     const created = await this.repository.findBySlug(slug);

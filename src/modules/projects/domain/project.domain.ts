@@ -66,7 +66,20 @@ export class ProjectDomain extends Domain {
     this.description = data.description;
     this.status = data.status;
     this.modules = { ...DEFAULT_PROJECT_MODULES, ...(data.modules ?? {}) };
-    this.settings = { ...DEFAULT_PROJECT_SETTINGS, ...(data.settings ?? {}) };
+    const codeReportSettings = data.settings?.['code-report'] ?? {};
+    this.settings = {
+      ...DEFAULT_PROJECT_SETTINGS,
+      ...(data.settings ?? {}),
+      'code-report': {
+        ...DEFAULT_PROJECT_SETTINGS['code-report'],
+        ...codeReportSettings,
+        securityRiskMultipliers: {
+          ...DEFAULT_PROJECT_SETTINGS['code-report'].securityRiskMultipliers,
+          ...(codeReportSettings.securityRiskMultipliers ?? {}),
+        },
+        tools: codeReportSettings.tools ?? DEFAULT_PROJECT_SETTINGS['code-report'].tools,
+      },
+    };
     this.organization = data.organization ? new OrganizationDomain(data.organization) : null;
   }
 
