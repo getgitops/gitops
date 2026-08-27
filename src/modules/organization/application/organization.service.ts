@@ -10,8 +10,6 @@ export type Organization = {
   updatedAt: Date;
 };
 
-const DEFAULT_ORGANIZATION = { name: 'GitOps', slug: 'gitops' };
-
 export class OrganizationService {
   constructor(private readonly repository: OrganizationRepository) {}
 
@@ -133,20 +131,6 @@ export class OrganizationService {
     }
 
     await this.repository.deleteById(id);
-  }
-
-  // seeds the single default org so existing routes keep resolving 'gitops' out of the box
-  async bootstrapDefaults(): Promise<void> {
-    const existing = await this.repository.findBySlug(DEFAULT_ORGANIZATION.slug);
-    if (existing) {
-      return;
-    }
-
-    await this.repository.create({
-      id: crypto.randomUUID(),
-      slug: DEFAULT_ORGANIZATION.slug,
-      name: DEFAULT_ORGANIZATION.name,
-    });
   }
 
   private normalizeSlug(value: string): string {

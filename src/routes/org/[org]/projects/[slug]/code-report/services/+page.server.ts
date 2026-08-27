@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import { codeReportService, codeReportAnalysisService } from '../../../../../../../modules/code-report';
-import { projectService } from '../../../../../../../modules/projects';
-import { cancanService } from '../../../../../../../modules/auth';
+import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
+import { projectService } from '$modules/projects';
+import { cancanService } from '$modules/auth';
 import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
 
 export async function load({ parent, locals }) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, Copy, KeyRound, Plus, Trash2 } from 'lucide-svelte';
+  import { Check, Copy, KeyRound, Plus, Trash2 } from '@lucide/svelte';
 
   type ApiKeyRow = {
     id: string;

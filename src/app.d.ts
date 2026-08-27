@@ -1,4 +1,4 @@
-import type { AuthenticatedUser } from './modules/auth/domain/entities';
+import type { AuthenticatedUser } from '$modules/auth/domain/entities';
 
 declare global {
   namespace App {

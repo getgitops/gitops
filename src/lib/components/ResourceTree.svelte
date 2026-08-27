@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Box, ChevronRight, ChevronDown, Package } from 'lucide-svelte';
+  import { Box, ChevronRight, ChevronDown, Package } from '@lucide/svelte';
   import { createEventDispatcher } from 'svelte';
 
   const dispatch = createEventDispatcher();

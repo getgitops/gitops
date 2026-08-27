@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
-  import { Boxes, Plus, Search, X } from 'lucide-svelte';
+  import { Boxes, Plus, Search, X } from '@lucide/svelte';
 
   type SeverityCounts = {
     critical: number;

@@ -1,21 +1,68 @@
 import type { Handle } from '@sveltejs/kit';
-import { authService, cancanService, ensureAuthReady } from './modules/auth';
-import { ensureOrganizationReady, organizationService } from './modules/organization';
-import { projectService } from './modules/projects';
-import { getGitDb } from '$lib/server/gitdb';
+import { authService, cancanService, ensureAuthReady } from '$modules/auth';
+import { organizationService } from '$modules/organization';
+import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
+import { startGitDb } from '$lib/server/gitdb';
+import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';
 
-getGitDb();
+// clone, manifest, sync poll and bootstrap detection run once per process
+const serverReady = (async () => {
+  await startGitDb();
+  await ensureAuthReady();
+  await refreshBootstrapState();
+  markServerReady();
+})();
+
+serverReady.catch((error) => {
+  console.error('[startup] failed', error);
+  markServerFailed(error);
+});
 
 const authWithToken = async (token: string) => {
   return true;
 };
 
 export const handle: Handle = async ({ event, resolve }) => {
-  if (event.url.pathname === '/login') {
+  const pathname = event.url.pathname;
+  const isApiRequest = pathname.startsWith('/api/');
+
+  // while starting up (or if startup failed), skip all validation and show maintenance page
+  if (!isServerReady()) {
+    if (pathname === '/maintenance') {
+      return resolve(event);
+    }
+    if (isApiRequest) {
+      return new Response(JSON.stringify({ error: 'Server is starting up' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(null, { status: 302, headers: { location: '/maintenance' } });
+  }
+
+  if (pathname.startsWith('/bootstrap')) {
+    if (isBootstrapCompleted()) {
+      return new Response(null, { status: 302, headers: { location: '/' } });
+    }
     return resolve(event);
   }
 
-  if (event.url.pathname.startsWith('/api/')) {
+  if (!isBootstrapCompleted()) {
+    if (isApiRequest) {
+      return new Response(JSON.stringify({ error: 'Cluster is not bootstrapped yet' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
+  }
+
+  // sign-in and sign-out must work without (or with a broken) session
+  if (pathname === '/auth/login' || pathname === '/auth/logout') {
+    return resolve(event);
+  }
+
+  if (isApiRequest) {
     const token = event.request.headers.get('Authorization') || '';
     if (!token || token.trim() === '') {
       return new Response(null, { status: 401 });
@@ -26,12 +73,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (!isAuthenticated) {
       return new Response(null, { status: 401 });
     }
-    console.log('✅ [API] Authenticated successfully with token:', token);
     return resolve(event);
   }
-
-  await ensureAuthReady();
-  await ensureOrganizationReady();
 
   const sessionCookie = event.cookies.get('pos_session');
   const currentUser = await authService.resolveAuthenticatedUser(sessionCookie);
@@ -41,7 +84,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   if (!currentUser) {
-    return new Response(null, { status: 302, headers: { location: '/login' } });
+    return new Response(null, { status: 302, headers: { location: '/auth/login' } });
   }
 
   const projectSettingsMatch = event.url.pathname.match(

@@ -25,7 +25,7 @@ Package manager: **Bun** (`bun.lock`). Usar `bun`, nunca `npm`/`yarn`.
 | Framework           | SvelteKit 2 (Svelte 4) + Vite 5                          |
 | Lenguaje            | TypeScript (strict)                                      |
 | Estilos             | Tailwind CSS 4 (`@tailwindcss/postcss`)                  |
-| Iconos              | `lucide-svelte`                                          |
+| Iconos              | `@lucide/svelte`                                          |
 | Base de datos (auth)| gitdb (`@getgitops/gitdb`) — JSON versionado en git       |
 | Base de datos (resto)| SQLite local vía `better-sqlite3` (`data/db/states.sqlite`) |
 | Storage externo     | AWS S3 (`@aws-sdk/client-s3`) y GCS (`@google-cloud/storage`) — solo para leer estado Pulumi |
@@ -52,7 +52,7 @@ La lógica de negocio vive en `src/modules/<nombre>/`, cada uno separado en:
 
 Módulos existentes: `auth`, `config`, `organization`, `projects`, `storage`.
 
-**Regla de acceso**: las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '../../modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
+**Regla de acceso**: las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '$modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
 
 `src/lib/` contiene infraestructura transversal compartida entre módulos:
 
@@ -62,7 +62,7 @@ Módulos existentes: `auth`, `config`, `organization`, `projects`, `storage`.
 
 ### Dos backends de persistencia — no mezclar
 
-1. **gitdb** (`@getgitops/gitdb`) — cada escritura es un commit al repositorio git configurado en `GITDB_REPOSITORY_URL` (clon local en `.gitdb/`, snapshot legible en `.gitdb/users.json` y `.gitdb/roles.json`). Los esquemas se definen estilo Drizzle en `src/lib/database/schemas.ts` (`UserEntity`, `RoleEntity`, `ApiKeyEntity` + `relations`) y se consultan con una API `.with({ role: true }).select().from(Entity).where(...)`. **Solo lo usa el módulo `auth`** (usuarios, roles, API keys) — es la fuente de verdad auditada y versionada de identidad. Los repositorios extienden `Repository` (`src/modules/auth/infrastructure/repositories/repository.ts`), que expone `this.db` vía `getGitDb()`.
+1. **gitdb** (`@getgitops/gitdb`) — cada escritura es un commit al repositorio git configurado en `GITDB_REPOSITORY_URL` (clon local en `/data/gitdb/`, snapshot legible en `/data/gitdb/users.json` y `/data/gitdb/roles.json`). Los esquemas se definen estilo Drizzle en `src/lib/database/schemas.ts` (`UserEntity`, `RoleEntity`, `ApiKeyEntity` + `relations`) y se consultan con una API `.with({ role: true }).select().from(Entity).where(...)`. **Solo lo usa el módulo `auth`** (usuarios, roles, API keys) — es la fuente de verdad auditada y versionada de identidad. Los repositorios extienden `Repository` (`src/modules/auth/infrastructure/repositories/repository.ts`), que expone `this.db` vía `getGitDb()`.
 2. **better-sqlite3** — fichero local en `data/db/states.sqlite`, creado y migrado con `ALTER TABLE` + try/catch (sin framework de migraciones) en `src/lib/db.ts`. Lo usan `config`, `projects` y todo lo relacionado con Pulumi State (stacks, states, history, credenciales de storage backend). Los repositorios reciben un `DatabaseClient` inyectado por constructor.
 
 **Caveat verificado**: `src/lib/db.ts` también crea tablas `users`/`api_keys`/`config` en sqlite, y existen `sqlite-auth-user.repository.ts` / `sqlite-auth-config.repository.ts` en `modules/auth/infrastructure/repositories/`. Pero el wiring activo (`src/modules/auth/index.ts`) usa `UserRepository`/`RoleRepository`, que son gitdb. **Tratar las tablas y repos sqlite de auth como código muerto/legacy** salvo que se confirme lo contrario — no asumir que están sincronizados con gitdb.
@@ -102,7 +102,7 @@ Roles a nivel de proyecto (`scope: 'project'`) se crean automáticamente al crea
 - `project-developer`: permisos de lectura, creación y actualización para vault/state/code report (sin permisos de eliminación ni gestión de roles)
 - `project-viewer`: permisos de lectura exclusivamente en todos los recursos del proyecto
 
-Los roles (y su array de `permissions`) viven en gitdb (`.gitdb/roles.json`), gestionados por `roleService`. El rol `admin` es especial: no se puede borrar (`RoleService.deleteRole` lo bloquea explícitamente) y `isAdmin(user)` comprueba `user.role.slug === 'admin'`.
+Los roles (y su array de `permissions`) viven en gitdb (`/data/gitdb/roles.json`), gestionados por `roleService`. El rol `admin` es especial: no se puede borrar (`RoleService.deleteRole` lo bloquea explícitamente) y `isAdmin(user)` comprueba `user.role.slug === 'admin'`.
 
 **Control de acceso a organizaciones**: `CanCanService.organizationIdsForUser(user)` devuelve los IDs de organizaciones a las que un usuario tiene acceso — directo (vía rol de organización) o indirecto (vía rol en un proyecto). Devuelve `null` para admins de cluster (sin restricción). Se usa en rutas como `/org` para filtrar qué organizaciones ve el usuario.
 
@@ -110,7 +110,7 @@ Los roles (y su array de `permissions`) viven en gitdb (`.gitdb/roles.json`), ge
 
 ```typescript
 // ✅ BIEN
-import { can, isAdmin } from '../../../modules/auth';
+import { can, isAdmin } from '$modules/auth';
 
 export async function GET({ locals }) {
   if (!can(locals.user, 'stateiac:read')) {
@@ -257,7 +257,7 @@ Antes de tocar gestión de usuarios (`modules/auth`, `api/users/**`), tener en c
 - **Los guards de admin en `api/users/+server.ts` y `api/users/[id]/+server.ts` nunca dejan pasar a nadie**: comparan `locals.user.role !== 'admin'`, pero `locals.user.role` es un objeto (`SessionRole`), no un string — la comparación es siempre `true` → 403 para todos, incluidos admins reales. El resto de la API (`api/roles`, `api/projects`, `api/backends`) sí usa correctamente `isAdmin()`/`can()`. Si se arregla esta ruta, alinear con ese patrón.
 - **`ProfileService.changePassword` está roto**: lee `user.passwordHash`, pero `UserDomain` (lo que devuelve `UserRepository`) solo expone `.password` (ver `UserRepository.toDomain`, que mapea `passwordHash` de la fila → `password` del dominio). `user.passwordHash` es siempre `undefined`, así que `verifyPassword` recibe un hash inválido.
 - **`UserRepository.countAdmins()` está hardcodeado a devolver `0`** ("Placeholder until role extraction is implemented"). Además, `UserService.ensureNotRemovingLastAdmin` compara `targetUser.role === 'admin'`, pero `targetUser.role` es un `RoleDomain` (objeto), nunca el string `'admin'` — esa comprobación de seguridad tampoco se dispara nunca.
-- **`AuthService.bootstrapDefaults()` es un no-op**: toda la creación del admin por defecto está comentada. Un checkout nuevo depende de que `.gitdb/users.json` / `.gitdb/roles.json` ya vengan poblados en el repo de gitdb configurado; no hay auto-seed de un usuario admin inicial.
+- **`AuthService.bootstrapDefaults()` es un no-op**: toda la creación del admin por defecto está comentada. Un checkout nuevo depende de que `/data/gitdb/users.json` / `/data/gitdb/roles.json` ya vengan poblados en el repo de gitdb configurado; no hay auto-seed de un usuario admin inicial.
 - **`UserService.updateUser`**: la rama de cambio de rol está completamente comentada — llamar con `{ role: ... }` no lanza error pero tampoco cambia nada (fallo silencioso).
 - **`ApiKeysService`** (`modules/auth/application/apikeys.service.ts`) es una clase vacía, no wireada en `modules/auth/index.ts` — código muerto. La gestión real de API keys (crear/listar/revocar) vive en `ProfileService`.
 - Ver también "Dos backends de persistencia" arriba: tablas/repos sqlite de auth duplicados y no usados.

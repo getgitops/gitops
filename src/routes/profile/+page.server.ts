@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { apiKeysService, profileService } from '../../modules/auth';
+import { apiKeysService, profileService } from '$modules/auth';
 
 function expiresAtFromDays(expiresInDays: string | null): string | null {
   if (!expiresInDays) {
@@ -18,13 +18,13 @@ function expiresAtFromDays(expiresInDays: string | null): string | null {
 
 export async function load({ locals }) {
   if (!locals.user) {
-    throw redirect(302, '/login');
+    throw redirect(302, '/auth/login');
   }
 
   const user = await profileService.getAuthenticatedUserProfile(locals.user.id);
 
   if (!user) {
-    throw redirect(302, '/login');
+    throw redirect(302, '/auth/login');
   }
 
 
@@ -44,7 +44,7 @@ export async function load({ locals }) {
 
 export const actions = {
   updateProfile: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(302, '/login');
+    if (!locals.user) throw redirect(302, '/auth/login');
 
     const formData = await request.formData();
     const email = String(formData.get('email') || '').trim() || null;
@@ -55,7 +55,7 @@ export const actions = {
   },
 
   updatePassword: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(302, '/login');
+    if (!locals.user) throw redirect(302, '/auth/login');
 
     const formData = await request.formData();
     const currentPassword = String(formData.get('currentPassword') || '');
@@ -82,7 +82,7 @@ export const actions = {
   },
 
   createApiKey: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(302, '/login');
+    if (!locals.user) throw redirect(302, '/auth/login');
 
     const formData = await request.formData();
     const name = String(formData.get('name') || '').trim();
@@ -100,7 +100,7 @@ export const actions = {
   },
 
   regenerateApiKey: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(302, '/login');
+    if (!locals.user) throw redirect(302, '/auth/login');
 
     const formData = await request.formData();
     const keyId = String(formData.get('keyId') || '');
@@ -115,7 +115,7 @@ export const actions = {
   },
 
   revokeApiKey: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(302, '/login');
+    if (!locals.user) throw redirect(302, '/auth/login');
 
     const formData = await request.formData();
     const keyId = String(formData.get('keyId') || '');

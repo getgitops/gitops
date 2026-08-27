@@ -1,5 +1,4 @@
-import { organizationService } from '../../modules/organization';
-import { cancanService } from '../../modules/auth';
+import { organizationService } from '$modules/organization';
 
 export async function load({ locals }) {
   const allOrganizations = await organizationService.listOrganizations();

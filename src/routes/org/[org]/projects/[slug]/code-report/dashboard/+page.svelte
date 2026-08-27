@@ -9,7 +9,7 @@
     ShieldAlert,
     ShieldCheck,
     Wrench,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type SeverityCounts = {
     critical: number;

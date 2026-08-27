@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
-  import { ArrowLeft, History, Trash2, X } from 'lucide-svelte';
+  import { ArrowLeft, History, Trash2, X } from '@lucide/svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
 
   export let data: {

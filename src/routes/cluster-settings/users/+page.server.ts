@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService, roleService, userAccessService } from '../../../modules/auth';
+import { cancanService, roleService, userAccessService } from '$modules/auth';
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });

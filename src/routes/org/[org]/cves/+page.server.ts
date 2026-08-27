@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '../../../../modules/auth';
-import { codeReportCveService } from '../../../../modules/code-report';
-import { projectService } from '../../../../modules/projects';
+import { cancanService } from '$modules/auth';
+import { codeReportCveService } from '$modules/code-report';
+import { projectService } from '$modules/projects';
 import { summarizeCves } from '$lib/code-report/cve-aggregation';
 
 export async function load({ parent, locals, url }) {

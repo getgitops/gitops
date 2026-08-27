@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { KeyRound, Package, ScanLine, ShieldCheck } from 'lucide-svelte';
+  import { KeyRound, Package, ScanLine, ShieldCheck } from '@lucide/svelte';
 
   export let tool: string;
   export let size: 'sm' | 'md' = 'md';

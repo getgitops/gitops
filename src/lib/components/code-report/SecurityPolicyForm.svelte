@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { X } from 'lucide-svelte';
+  import { X } from '@lucide/svelte';
   import {
     defaultRulesFor,
     defaultScope,

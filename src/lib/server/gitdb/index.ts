@@ -1,13 +1,50 @@
-import { env } from '$env/dynamic/private';
 import { gitDb, type GitDB } from '@getgitops/gitdb';
+import { buildAuthenticatedUrl, isRepositoryConfigured, redactUrl, requireRepositoryConfig } from './config';
+import { gitDbSyncService } from './sync';
 
 let instance: GitDB | null = null;
+let startup: Promise<void> | null = null;
 
-function resolveRepositoryUrl(): string {
-    if(!env.GITDB_REPOSITORY_URL) {
-        throw new Error('GITDB_REPOSITORY_URL is not set. Please set it in your environment variables.');
-    }
-  return env.GITDB_REPOSITORY_URL;
+export { isRepositoryConfigured };
+
+/**
+ * Initializes GitDB instance and sync state.
+ * Runs once per process, not per request.
+ */
+export function startGitDb(): Promise<void> {
+  if (!startup) {
+    startup = boot().catch((error) => {
+      startup = null;
+      throw error;
+    });
+  }
+  return startup;
+}
+
+async function boot(): Promise<void> {
+  const config = requireRepositoryConfig();
+  console.info('[gitdb] starting', {
+    repository: redactUrl(config.repositoryUrl),
+    branch: config.branch,
+    authMode: config.authMode,
+    syncPollSeconds: config.syncPollSeconds,
+  });
+
+  instance = createClient(config.authorName, config.authorEmail);
+
+  // await gitDbSyncService.syncNow();
+
+  console.info('[gitdb] ready');
+}
+
+function createClient(authorName: string, authorEmail: string): GitDB {
+  const config = requireRepositoryConfig();
+  return gitDb(buildAuthenticatedUrl(config), {
+    gitUserName: authorName,
+    gitUserEmail: authorEmail,
+    syncPollSeconds: config.syncPollSeconds,
+    dataPath: config.dataPath,
+  });
 }
 
 export function getGitDb(): GitDB {
@@ -15,12 +52,7 @@ export function getGitDb(): GitDB {
     return instance;
   }
 
-
-  instance = gitDb(resolveRepositoryUrl(), {
-    gitUserName: env.GITDB_AUTHOR_NAME ?? 'gitvault-suite',
-    gitUserEmail: env.GITDB_AUTHOR_EMAIL ?? 'gitvault-suite@getgitops.local'
-  });
-
-  console.info('[gitdb] initialized');
+  const config = requireRepositoryConfig();
+  instance = createClient(config.authorName, config.authorEmail);
   return instance;
 }

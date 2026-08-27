@@ -27,6 +27,7 @@ class FakeProjectRepository {
     description?: string;
     status: string;
     modules: { vault: boolean; codereport: boolean; stateiac: boolean };
+    settings?: ProjectDomain['settings'];
   }) {
     this.rows.push(
       new ProjectDomain({
@@ -37,6 +38,7 @@ class FakeProjectRepository {
         description: input.description,
         status: input.status,
         modules: input.modules,
+        settings: input.settings,
         createdAt: '2024-01-01T00:00:00.000Z',
         updatedAt: '2024-01-01T00:00:00.000Z',
       }),
@@ -157,6 +159,16 @@ describe('ProjectService', () => {
     it('defaults all modules to enabled when none are provided', async () => {
       const project = await createProject({ name: 'Project C' });
       expect(project.modules).toEqual({ vault: true, codereport: true, stateiac: true });
+    });
+
+    it('persists default code report risk multipliers', async () => {
+      const project = await createProject({ name: 'Project E' });
+      expect(project.settings['code-report'].securityRiskMultipliers).toEqual({
+        critical: 10,
+        high: 6,
+        medium: 3,
+        low: 1,
+      });
     });
 
     it('accepts a partial modules override, defaulting the rest to enabled', async () => {

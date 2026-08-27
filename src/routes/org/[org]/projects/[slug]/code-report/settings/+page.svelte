@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { ShieldAlert, Info, Save, SlidersHorizontal } from 'lucide-svelte';
+  import { ShieldAlert, Info, Save, SlidersHorizontal } from '@lucide/svelte';
 
   export let data;
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ScrollText } from 'lucide-svelte';
+  import { ScrollText } from '@lucide/svelte';
 </script>
 
 <svelte:head>

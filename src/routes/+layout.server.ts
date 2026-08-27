@@ -1,9 +1,20 @@
-import { projectService } from '../modules/projects';
-import { organizationService } from '../modules/organization';
-import { cancanService } from '../modules/auth';
-// import { configService, storageBackendService } from '../modules/config';
+import { projectService } from '$modules/projects';
+import { organizationService } from '$modules/organization';
+import { cancanService } from '$modules/auth';
+// import { configService, storageBackendService } from '$modules/config';
 
 export async function load({ locals, url }) {
+  // the setup wizard runs before GitDB exists, so none of the app-shell data can be loaded yet
+  if (url.pathname.startsWith('/bootstrap')) {
+    return {
+      isConfigured: false,
+      user: null,
+      organization: null,
+      projects: [],
+      currentProjectSlug: null,
+    };
+  }
+
   // const config = configService.getConfig();
   // const backends = storageBackendService.list();
 

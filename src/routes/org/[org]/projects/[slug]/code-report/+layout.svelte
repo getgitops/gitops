@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { Settings, ShieldAlert, Activity, FileKey, CheckSquare, Boxes, History } from 'lucide-svelte';
+  import { Settings, ShieldAlert, Activity, FileKey, CheckSquare, Boxes, History } from '@lucide/svelte';
 
   export let data: {
     project?: {

@@ -10,7 +10,7 @@
     Trash2,
     UserPlus,
     Users as UsersIcon,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type UserScope = 'cluster' | 'organization' | 'project';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { ChevronDown, Check } from 'lucide-svelte';
+  import { ChevronDown, Check } from '@lucide/svelte';
 
   export let options: Array<{ id: string; name: string }> = [];
   export let value = '';

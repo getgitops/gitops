@@ -22,7 +22,7 @@
     Layers,
     HardDrive,
     ShieldAlert,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type NavItem = { label: string; href: string; icon: ComponentType };
   type NavModule = { name: string; icon: ComponentType; items: NavItem[] };
@@ -241,10 +241,12 @@
                     icon: Shield,
                   },
                   { label: 'Users', href: '/cluster-settings/users', icon: Users },
+                  { label: 'Database', href: '/cluster-settings/database', icon: Database },
                 ],
               },
             ]
           : []),
+            
       ],
     },
   ].filter((category) => category.modules.length > 0) satisfies NavCategory[];

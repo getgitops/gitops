@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
-  import { Building2, CheckCircle, Eye, Plus, Search, Trash2 } from 'lucide-svelte';
+  import { Building2, CheckCircle, Eye, Plus, Search, Trash2 } from '@lucide/svelte';
 
   type OrganizationRow = {
     id: string;

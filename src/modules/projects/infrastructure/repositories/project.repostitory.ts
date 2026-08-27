@@ -66,6 +66,7 @@ export class ProjectRepository extends Repository {
     description?: string;
     status: string;
     modules: ProjectModules;
+    settings: ProjectSettings;
   }): Promise<void> {
     await this.db.insert(ProjectEntity).values({
       id: input.id,
@@ -75,6 +76,7 @@ export class ProjectRepository extends Repository {
       description: input.description,
       status: input.status,
       modules: input.modules,
+      settings: input.settings,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

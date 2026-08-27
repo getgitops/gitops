@@ -19,7 +19,7 @@ Package manager: **Bun** (`bun.lock`). Usar `bun`, nunca `npm`/`yarn`.
 ## Stack
 
 - Framework: SvelteKit 2 (Svelte 4) + Vite 5, TypeScript strict
-- Estilos: Tailwind CSS 4, iconos `lucide-svelte`
+- Estilos: Tailwind CSS 4, iconos `@lucide/svelte`
 - Base de datos (auth): gitdb (`@getgitops/gitdb`) — JSON versionado en git
 - Base de datos (resto): SQLite local vía `better-sqlite3` (`data/db/states.sqlite`)
 - Storage externo: AWS S3 (`@aws-sdk/client-s3`) y GCS (`@google-cloud/storage`) — solo para leer estado Pulumi
@@ -38,7 +38,7 @@ La lógica de negocio vive en `src/modules/<nombre>/` (`auth`, `config`, `organi
 - `infrastructure/repositories/` — implementaciones concretas de repositorio
 - `index.ts` — composition root del módulo: instancia repositorios + servicios y exporta singletons
 
-Las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '../../modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
+Las rutas y otros módulos importan únicamente desde el `index.ts` de cada módulo (p. ej. `import { can, isAdmin, roleService } from '$modules/auth'`), nunca de `application/`, `domain/` o `infrastructure/` directamente.
 
 `src/lib/` contiene infraestructura transversal: `src/lib/server/gitdb/index.ts` (cliente gitdb, `getGitDb()`), `src/lib/db.ts` + `src/lib/database/` (cliente sqlite `databaseClient`), `src/lib/permissions/index.ts` (helpers RBAC).
 
@@ -72,7 +72,7 @@ Permisos = strings con formato global (`vault:read`), organización (`organizati
 
 ```typescript
 // ✅ patrón correcto en un endpoint (api/roles, api/projects, api/backends)
-import { can, isAdmin } from '../../../modules/auth';
+import { can, isAdmin } from '$modules/auth';
 if (!can(locals.user, 'stateiac:read')) return json({ error: 'Forbidden' }, { status: 403 });
 ```
 

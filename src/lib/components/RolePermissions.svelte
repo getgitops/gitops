@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Plus, Shield } from 'lucide-svelte';
+  import { Plus, Shield } from '@lucide/svelte';
 
   export let initialRoles: RoleRow[] = [];
   export let title = 'Roles & Permissions';

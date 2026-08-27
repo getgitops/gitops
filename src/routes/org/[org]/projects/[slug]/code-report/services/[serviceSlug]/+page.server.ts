@@ -2,9 +2,9 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import {
   codeReportService,
   codeReportAnalysisService,
-} from '../../../../../../../../modules/code-report';
-import { projectService } from '../../../../../../../../modules/projects';
-import { cancanService } from '../../../../../../../../modules/auth';
+} from '$modules/code-report';
+import { projectService } from '$modules/projects';
+import { cancanService } from '$modules/auth';
 
 export async function load({ parent, params, locals }) {
   const { project } = await parent();

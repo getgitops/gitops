@@ -1,4 +1,4 @@
-import { projectService } from '../../../../../../../../modules/projects';
+import { projectService } from '$modules/projects';
 
 const DEFAULT_CODE_REPORT_TOOLS = [
   {
