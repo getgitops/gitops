@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { organizationService } from '$modules/organization';
+import { projectService } from '$modules/projects';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
 import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';

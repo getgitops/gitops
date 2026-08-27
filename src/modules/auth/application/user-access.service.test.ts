@@ -70,6 +70,10 @@ class FakeUserRepository {
     return [...this.rows];
   }
 
+  async deleteById(id: string) {
+    this.rows = this.rows.filter((entry) => entry.id !== id);
+  }
+
   async createUser(input: {
     id: string;
     username: string;
@@ -114,6 +118,10 @@ class FakeUserAccessRepository {
   rows: UserAccessDomain[] = [];
   userRepository!: FakeUserRepository;
   roleRepository!: FakeRoleRepository;
+
+  async findByUserId(userId: string) {
+    return this.rows.filter((entry) => entry.userId === userId);
+  }
 
   async findByScope(scope: 'cluster' | 'organization' | 'project', scopeId?: string) {
     return this.rows.filter((entry) => {
@@ -440,10 +448,11 @@ describe('UserAccessService', () => {
     expect(updated.status).toBe('invited');
   });
 
-  it('removes an access row', async () => {
+  it('removes only the selected project access', async () => {
     userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
     roleRepository.rows.push(
       role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+      role({ id: 'project-developer-id', slug: 'developer', scope: 'project', projectId: 'other' }),
     );
     await userAccessRepository.create({
       id: 'access-id',
@@ -452,10 +461,84 @@ describe('UserAccessService', () => {
       scope: 'project',
       projectId: 'kettu',
     });
+    await userAccessRepository.create({
+      id: 'other-access-id',
+      userId: 'jose-id',
+      roleId: 'project-developer-id',
+      scope: 'project',
+      projectId: 'other',
+    });
 
     await service.removeAccess({ accessId: 'access-id', scope: 'project', scopeId: 'kettu' });
 
+    expect(userAccessRepository.rows.map((entry) => entry.id)).toEqual(['other-access-id']);
+    expect(await userRepository.findById('jose-id')).not.toBeNull();
+  });
+
+  it('removes all user access and the user when removed from an organization', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'org-admin-id', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+      role({ id: 'project-developer-id', slug: 'developer', scope: 'project', projectId: 'other' }),
+    );
+    await userAccessRepository.create({
+      id: 'organization-access-id',
+      userId: 'jose-id',
+      roleId: 'org-admin-id',
+      scope: 'organization',
+      organizationId: 'gitops',
+    });
+    await userAccessRepository.create({
+      id: 'project-access-id',
+      userId: 'jose-id',
+      roleId: 'project-admin-id',
+      scope: 'project',
+      projectId: 'kettu',
+    });
+    await userAccessRepository.create({
+      id: 'other-project-access-id',
+      userId: 'jose-id',
+      roleId: 'project-developer-id',
+      scope: 'project',
+      projectId: 'other',
+    });
+
+    await service.removeAccess({
+      accessId: 'organization-access-id',
+      scope: 'organization',
+      scopeId: 'gitops',
+    });
+
     expect(userAccessRepository.rows).toEqual([]);
+    expect(await userRepository.findById('jose-id')).toBeNull();
+  });
+
+  it('removes all user access and the user when removed from cluster settings', async () => {
+    userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
+    roleRepository.rows.push(
+      role({ id: 'org-admin-id', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
+    );
+    await userAccessRepository.create({
+      id: 'organization-access-id',
+      userId: 'jose-id',
+      roleId: 'org-admin-id',
+      scope: 'organization',
+      organizationId: 'gitops',
+    });
+    await userAccessRepository.create({
+      id: 'project-access-id',
+      userId: 'jose-id',
+      roleId: 'project-admin-id',
+      scope: 'project',
+      projectId: 'kettu',
+    });
+
+    await service.removeAccess({ accessId: 'jose-id', scope: 'cluster' });
+
+    expect(userAccessRepository.rows).toEqual([]);
+    expect(await userRepository.findById('jose-id')).toBeNull();
   });
 
   it('resends invitations only for invited access rows', async () => {

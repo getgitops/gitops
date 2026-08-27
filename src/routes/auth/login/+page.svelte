@@ -8,7 +8,7 @@
 
   let isSubmitting = false;
 
-  $: username = form?.username ?? '';
+  $: email = form?.email ?? '';
   $: loggedOut = $page.url.searchParams.has('loggedOut');
 </script>
 
@@ -65,15 +65,15 @@
       class="space-y-4"
     >
       <div>
-        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="username"
-          >Username</label
+        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="email"
+          >Email</label
         >
         <input
-          id="username"
-          name="username"
-          type="text"
-          autocomplete="username"
-          value={username}
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          value={email}
           class="field-input w-full rounded-md border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition"
         />
       </div>

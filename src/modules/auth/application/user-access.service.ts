@@ -49,11 +49,18 @@ export class UserAccessService {
       | 'createUser'
       | 'updateRoleId'
       | 'updateStatus'
+      | 'deleteById'
     >,
     private readonly roleRepository: Pick<RoleRepository, 'findById' | 'findBySlug'>,
     private readonly userAccessRepository: Pick<
       UserAccessRepository,
-      'findByScope' | 'findOne' | 'findById' | 'create' | 'update' | 'deleteById'
+      | 'findByScope'
+      | 'findByUserId'
+      | 'findOne'
+      | 'findById'
+      | 'create'
+      | 'update'
+      | 'deleteById'
     >,
     private readonly passwordService: Pick<PasswordService, 'hashPassword'>,
     private readonly invitationNotifier: InvitationNotifierPort,
@@ -262,9 +269,11 @@ export class UserAccessService {
     scopeId?: string;
   }): Promise<void> {
     const access = await this.findAccessInScope(input.accessId, input.scope, input.scopeId);
-    if (input.scope === 'cluster') {
-      const clusterUserRole = await this.ensureClusterUserRole();
-      await this.userRepository.updateRoleId(access.id, clusterUserRole.id);
+    if (input.scope === 'cluster' || input.scope === 'organization') {
+      const userId = input.scope === 'cluster' ? access.id : access.userId;
+      const userAccess = await this.userAccessRepository.findByUserId(access.userId);
+      await Promise.all(userAccess.map((entry) => this.userAccessRepository.deleteById(entry.id)));
+      await this.userRepository.deleteById(userId);
       return;
     }
 
