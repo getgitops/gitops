@@ -12,6 +12,7 @@ export type GitDbRepositoryConfig = {
   authorName: string;
   authorEmail: string;
   syncPollSeconds: number;
+  dataPath: string;
 };
 
 /** Safe projection for the browser: credentials are never included. */
@@ -82,6 +83,7 @@ export function readRepositoryConfig(): GitDbRepositoryConfig | null {
     authorName: value('GITDB_AUTHOR_NAME') ?? 'gitops',
     authorEmail: value('GITDB_AUTHOR_EMAIL') ?? 'gitops@getgitops.local',
     syncPollSeconds: resolveSyncPollSeconds(),
+    dataPath: value('GITDB_DATA_PATH') ?? '/data/gitdb',
   };
 
   return cached;

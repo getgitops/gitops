@@ -3,16 +3,19 @@ import { authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
+import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';
 
 // clone, manifest, sync poll and bootstrap detection run once per process
 const serverReady = (async () => {
   await startGitDb();
   await ensureAuthReady();
   await refreshBootstrapState();
+  markServerReady();
 })();
 
 serverReady.catch((error) => {
   console.error('[startup] failed', error);
+  markServerFailed(error);
 });
 
 const authWithToken = async (token: string) => {
@@ -23,17 +26,18 @@ export const handle: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
   const isApiRequest = pathname.startsWith('/api/');
 
-  try {
-    await serverReady;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'GitDB is unavailable';
-    return new Response(
-      isApiRequest ? JSON.stringify({ error: message }) : `Startup failed: ${message}`,
-      {
+  // while starting up (or if startup failed), skip all validation and show maintenance page
+  if (!isServerReady()) {
+    if (pathname === '/maintenance') {
+      return resolve(event);
+    }
+    if (isApiRequest) {
+      return new Response(JSON.stringify({ error: 'Server is starting up' }), {
         status: 503,
-        headers: { 'content-type': isApiRequest ? 'application/json' : 'text/plain' },
-      },
-    );
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(null, { status: 302, headers: { location: '/maintenance' } });
   }
 
   if (pathname.startsWith('/bootstrap')) {

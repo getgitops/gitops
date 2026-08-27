@@ -32,7 +32,7 @@ async function boot(): Promise<void> {
 
   instance = createClient(config.authorName, config.authorEmail);
 
-  await gitDbSyncService.syncNow();
+  // await gitDbSyncService.syncNow();
 
   console.info('[gitdb] ready');
 }
@@ -43,6 +43,7 @@ function createClient(authorName: string, authorEmail: string): GitDB {
     gitUserName: authorName,
     gitUserEmail: authorEmail,
     syncPollSeconds: config.syncPollSeconds,
+    dataPath: config.dataPath,
   });
 }
 
