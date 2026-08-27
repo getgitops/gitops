@@ -1,8 +1,5 @@
 <script lang="ts">
-  import { Shield, KeyRound, Lock, Plus } from '@lucide/svelte';
-  import { page } from '$app/stores';
-
-  $: canCreate = Boolean($page.data.canCreateVault);
+  import { Shield, KeyRound, Lock, Sparkles } from '@lucide/svelte';
 </script>
 
 <svelte:head>
@@ -20,14 +17,12 @@
             Centraliza secretos, credenciales y controles de acceso para los futuros módulos de seguridad.
           </p>
         </div>
-        {#if canCreate}
-          <button
-            class="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
-          >
-            <Plus class="h-4 w-4" />
-            Nuevo secreto
-          </button>
-        {/if}
+        <span
+          class="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+        >
+          <Sparkles class="h-4 w-4" />
+          Coming soon
+        </span>
       </div>
     </div>
 
@@ -50,10 +45,16 @@
     </div>
   </section>
 
-  <section class="rounded-[28px] border border-dashed border-slate-300 bg-white p-6 shadow-sm sm:p-8">
-    <h3 class="text-lg font-semibold text-slate-900">Próximo paso</h3>
-    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-      Esta pantalla es sólo la base visual. El siguiente paso será conectar un modelo de datos para secretos y políticas.
+  <section
+    class="flex flex-col items-center rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm sm:p-14"
+  >
+    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+      <Sparkles class="h-6 w-6" />
+    </div>
+    <h3 class="mt-4 text-lg font-semibold text-slate-900">Estamos trabajando en esto</h3>
+    <p class="mt-2 max-w-md text-sm leading-6 text-slate-600">
+      El módulo de Vault está en construcción. Pronto podrás administrar secretos, políticas y
+      controles de acceso directamente desde aquí.
     </p>
   </section>
 </div>

@@ -20,7 +20,6 @@
     Shield,
     Users,
     Layers,
-    HardDrive,
     ShieldAlert,
   } from '@lucide/svelte';
 
@@ -140,13 +139,7 @@
                 name: 'State IaC',
                 icon: GitBranch,
                 items: [
-                  { label: 'Stacks', href: `${projectBase}/state-iac/stacks`, icon: Layers },
-                  { label: 'Backends', href: `${projectBase}/state-iac/backends`, icon: HardDrive },
-                  {
-                    label: 'Deployments',
-                    href: `${projectBase}/state-iac/deployments`,
-                    icon: GitBranch,
-                  },
+                  { label: 'State IaC', href: `${projectBase}/state-iac`, icon: GitBranch },
                 ],
               },
             ],
@@ -266,7 +259,7 @@
   }
 
   function toggleModule(navModule: NavModule) {
-    openModules = { ...openModules, [navModule.name]: !(openModules[navModule.name] ?? true) };
+    openModules = { ...openModules, [navModule.name]: !(openModules[navModule.name] ?? false) };
   }
 
   function toggleCollapsed() {
@@ -395,7 +388,7 @@
                     ? 'btn-primary text-white'
                     : 'btn-secondary text-slate-700'}"
                   on:click={() => toggleModule(navModule)}
-                  aria-expanded={openModules[navModule.name] ?? true}
+                  aria-expanded={openModules[navModule.name] ?? false}
                 >
                   <div
                     class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isModuleActive(
@@ -407,14 +400,14 @@
                     <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
                   </div>
                   <p class="min-w-0 flex-1 truncate text-sm font-medium">{navModule.name}</p>
-                  {#if openModules[navModule.name] ?? true}
+                  {#if openModules[navModule.name] ?? false}
                     <ChevronDown class="h-4 w-4 shrink-0" />
                   {:else}
                     <ChevronRight class="h-4 w-4 shrink-0" />
                   {/if}
                 </button>
 
-                {#if openModules[navModule.name] ?? true}
+                {#if openModules[navModule.name] ?? false}
                   <div class="ml-4 border-l border-slate-200 pl-3">
                     <div class="space-y-1">
                       {#each navModule.items as item (item.href)}

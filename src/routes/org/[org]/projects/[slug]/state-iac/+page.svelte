@@ -1,8 +1,5 @@
 <script lang="ts">
-  import { GitBranch, HardDrive, Terminal, Layers } from '@lucide/svelte';
-  import { page } from '$app/stores';
-
-  $: canCreate = Boolean($page.data.canCreateStateIac);
+  import { GitBranch, HardDrive, Layers, Sparkles } from '@lucide/svelte';
 </script>
 
 <svelte:head>
@@ -25,15 +22,12 @@
             este proyecto.
           </p>
         </div>
-        {#if canCreate}
-          <a
-            href="/how-to"
-            class="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100"
-          >
-            <Terminal class="h-4 w-4" />
-            CLI Guide
-          </a>
-        {/if}
+        <span
+          class="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+        >
+          <Sparkles class="h-4 w-4" />
+          Coming soon
+        </span>
       </div>
     </div>
 
@@ -57,12 +51,15 @@
   </section>
 
   <section
-    class="rounded-[28px] border border-dashed border-slate-300 bg-white p-6 shadow-sm sm:p-8"
+    class="flex flex-col items-center rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm sm:p-14"
   >
-    <h3 class="text-lg font-semibold text-slate-900">Próximo paso</h3>
-    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-      Esta pantalla es sólo la base visual. El siguiente paso será conectar el estado real de Pulumi
-      para este proyecto.
+    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+      <Sparkles class="h-6 w-6" />
+    </div>
+    <h3 class="mt-4 text-lg font-semibold text-slate-900">Estamos trabajando en esto</h3>
+    <p class="mt-2 max-w-md text-sm leading-6 text-slate-600">
+      El módulo de State IaC está en construcción. Pronto podrás ver stacks, backends de
+      almacenamiento e historial de despliegues de Pulumi directamente desde aquí.
     </p>
   </section>
 </div>
