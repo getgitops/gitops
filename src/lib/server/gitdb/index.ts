@@ -7,6 +7,7 @@ import {
   resolveRepositoryWebUrl,
 } from './config';
 import { gitDbSyncService } from './sync';
+import { getCurrentActor } from '../request-context';
 
 let instance: GitDB | null = null;
 let startup: Promise<void> | null = null;
@@ -64,11 +65,11 @@ function createClient(authorName: string, authorEmail: string): GitDB {
 }
 
 export function getGitDb(): GitDB {
-  if (instance) {
-    return instance;
+  if (!instance) {
+    const config = requireRepositoryConfig();
+    instance = createClient(config.authorName, config.authorEmail);
   }
 
-  const config = requireRepositoryConfig();
-  instance = createClient(config.authorName, config.authorEmail);
-  return instance;
+  const actor = getCurrentActor();
+  return actor ? instance.as(actor) : instance;
 }
