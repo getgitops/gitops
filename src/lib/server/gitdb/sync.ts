@@ -51,11 +51,10 @@ class GitDbSyncService {
     }
 
     let ahead = 0;
-    let isSynced = true;
     try {
       const db = getGitDb();
       ahead = await db.getPendingCommits();
-      isSynced = await db.isSynced();
+      await db.isSynced();
     } catch {
       // transient status query error
     }

@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import type { AuthenticatedUser } from '$modules/auth/domain/entities';
 import { cancanService, roleService, userAccessService } from '$modules/auth';
 import { projectService } from '$modules/projects';
 
@@ -6,7 +7,7 @@ function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
 }
 
-async function canUpdateProjectUsers(user: App.Locals['user'], projectSlug: string) {
+async function canUpdateProjectUsers(user: AuthenticatedUser | null | undefined, projectSlug: string) {
   const project = await projectService.getProjectBySlug(projectSlug);
   const allowed = await cancanService.canSessionUser(user, 'stateiac:update', {
     scope: 'project',

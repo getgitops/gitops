@@ -10,7 +10,7 @@ export async function load({ params, locals }) {
   let project;
   try {
     project = await projectService.getProjectBySlug(params.slug);
-  } catch (errorValue: unknown) {
+  } catch {
     throw error(404, 'Project not found');
   }
 

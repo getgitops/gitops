@@ -20,7 +20,7 @@ serverReady.catch((error) => {
   markServerFailed(error);
 });
 
-const authWithToken = async (token: string) => {
+const authWithToken = async (_token: string) => {
   return true;
 };
 

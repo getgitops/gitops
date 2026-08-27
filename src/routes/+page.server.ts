@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit';
+import { cancanService } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 
 export async function load({ locals, parent }) {
