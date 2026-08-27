@@ -36,12 +36,12 @@
       <p>
         Released under the
         <a
-          href="https://github.com/kettu-studio/pulumi-open-state/blob/main/LICENSE"
+          href="https://getgitops.com/license"
           target="_blank"
           rel="noopener noreferrer"
           class="font-medium text-slate-700 transition-colors hover:text-slate-950"
         >
-          Apache 2.0 License
+          Elastic License 2.0
         </a>
       </p>
     </div>
@@ -56,20 +56,20 @@
       </a>
 
       <a
-        href="https://kettu.studio"
+        href="https://getgitops.com"
         target="_blank"
         rel="noopener noreferrer"
         class="text-sm text-slate-500 transition-colors hover:text-slate-950"
       >
-        Developed by <span class="font-semibold text-slate-700">Kettu Studio</span>
+        Developed by <span class="font-semibold text-slate-700">GetGitOps.com</span>
       </a>
 
       <a
-        href="https://github.com/kettu-studio/pulumi-open-state"
+        href="https://getgitops.com"
         target="_blank"
         rel="noopener noreferrer"
         class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
-        aria-label="GitHub Repository"
+        aria-label="GetGitOps.com"
       >
         <GitBranch class="h-4 w-4" />
       </a>

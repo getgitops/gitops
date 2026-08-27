@@ -173,4 +173,4 @@ credentials as sensitive data.
 
 ## License
 
-GitOps is released under the [MIT License](license.md).
+GitOps is released under the [Elastic License 2.0](license.md).
