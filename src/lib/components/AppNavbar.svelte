@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type NavbarUser = { username: string; role: { name: string } | string | null };
 
@@ -81,7 +82,7 @@
           class="btn-secondary flex max-w-55 items-center gap-2 rounded-2xl px-3 py-1.5 text-sm font-medium text-slate-700"
         >
           <FolderKanban class="h-4 w-4 shrink-0 text-slate-500" />
-          <span class="truncate">{currentProject ? currentProject.name : 'Select project'}</span>
+          <span class="truncate">{currentProject ? currentProject.name : $_('nav.selectProject')}</span>
           <ChevronDown class="h-3.5 w-3.5 shrink-0 text-slate-500" />
         </button>
 
@@ -91,12 +92,12 @@
           >
             {#if !organizationSlug}
               <p class="px-4 py-3 text-sm text-slate-500">
-                No organization selected. <a href="/cluster-settings/orgs" class="underline"
-                  >Choose one</a
+                {$_('nav.noOrganizationSelected')} <a href="/cluster-settings/orgs" class="underline"
+                  >{$_('nav.chooseOne')}</a
                 >.
               </p>
             {:else if projects.length === 0}
-              <p class="px-4 py-3 text-sm text-slate-500">No hay proyectos activos.</p>
+              <p class="px-4 py-3 text-sm text-slate-500">{$_('nav.noActiveProjects')}</p>
             {:else}
               <div class="max-h-72 overflow-y-auto py-1">
                 {#each projects as project (project.id)}
@@ -121,7 +122,7 @@
                 on:click={closeProjectDropdown}
                 class="block border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
               >
-                View all projects
+                {$_('nav.viewAllProjects')}
               </a>
             {/if}
           </div>
@@ -134,7 +135,7 @@
         href="/how-to"
         class="hidden rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 md:inline-flex"
       >
-        How To
+        {$_('nav.howTo')}
       </a>
 
       {#if user}
@@ -157,7 +158,7 @@
             >
               <div class="border-b border-slate-100 bg-slate-50 px-4 py-3">
                 <p class="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-                <p class="truncate text-xs text-slate-500 capitalize">{roleName} Account</p>
+                <p class="truncate text-xs text-slate-500 capitalize">{roleName} {$_('nav.account')}</p>
               </div>
               <a
                 href="/profile"
@@ -165,7 +166,7 @@
                 class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <UserRound class="h-4 w-4" />
-                Profile
+                {$_('nav.profile')}
               </a>
               <a
                 href="/org"
@@ -173,7 +174,7 @@
                 class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
               >
                 <Building2 class="h-4 w-4" />
-                Change Organization
+                {$_('nav.changeOrganization')}
               </a>
               <a
                 href="/auth/logout"
@@ -181,7 +182,7 @@
                 class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
               >
                 <LogOut class="h-4 w-4" />
-                Sign out
+                {$_('nav.signOut')}
               </a>
             </div>
           {/if}

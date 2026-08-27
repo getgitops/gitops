@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { FileText, GitBranch } from '@lucide/svelte';
   import GitDbStatusBadge from './GitDbStatusBadge.svelte';
+  import { _ } from 'svelte-i18n';
 
   const POLL_MS = 15_000;
 
@@ -34,14 +35,14 @@
         <FileText class="h-4 w-4" />
       </span>
       <p>
-        Released under the
+        {$_('footer.releasedUnder')}
         <a
           href="https://getgitops.com/license"
           target="_blank"
           rel="noopener noreferrer"
           class="font-medium text-slate-700 transition-colors hover:text-slate-950"
         >
-          Elastic License 2.0
+          {$_('footer.license')}
         </a>
       </p>
     </div>
@@ -50,7 +51,7 @@
       <a
         href="/cluster-settings/database"
         class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1.5 transition-colors hover:bg-slate-50"
-        aria-label="GitDB sync status"
+        aria-label={$_('footer.gitdbSyncStatus')}
       >
         <GitDbStatusBadge state={status.state} label={status.label} />
       </a>
@@ -61,7 +62,7 @@
         rel="noopener noreferrer"
         class="text-sm text-slate-500 transition-colors hover:text-slate-950"
       >
-        Developed by <span class="font-semibold text-slate-700">GetGitOps.com</span>
+        {$_('footer.developedBy')} <span class="font-semibold text-slate-700">GetGitOps.com</span>
       </a>
 
       <a

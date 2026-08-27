@@ -3,6 +3,7 @@
   import {
     Cloud,
     KeyRound,
+    Languages,
     LockKeyhole,
     Mail,
     Save,
@@ -17,6 +18,9 @@
     Moon,
     Sun,
   } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
+  import { setLocale, SUPPORTED_LOCALES, type SupportedLocale } from '$lib/i18n';
+  import { locale } from 'svelte-i18n';
 
   export let data: any;
   export let form: any;
@@ -28,10 +32,12 @@
   let copiedCreatedKey = false;
   let darkMode = false;
   let themeReady = false;
+  let currentLocale: SupportedLocale = 'es';
 
   onMount(() => {
     darkMode = document.documentElement.classList.contains('dark');
     themeReady = true;
+    currentLocale = (localStorage.getItem('gitops-locale') as SupportedLocale) ?? 'es';
   });
 
   $: if (data.user.email !== email && form?.section !== 'profile') {
@@ -48,10 +54,10 @@
 
   function formatDateTime(value: string | null) {
     if (!value) {
-      return 'Never';
+      return $_('profile.never');
     }
 
-    return new Intl.DateTimeFormat('es-ES', {
+    return new Intl.DateTimeFormat($locale ?? 'es', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(value));
@@ -59,14 +65,14 @@
 
   function getKeyState(key: any) {
     if (key.revokedAt) {
-      return 'Revoked';
+      return $_('profile.revoked');
     }
 
     if (key.expiresAt && new Date(key.expiresAt) <= new Date()) {
-      return 'Expired';
+      return $_('profile.expired');
     }
 
-    return 'Active';
+    return $_('profile.active');
   }
 
   async function copyCreatedKey() {
@@ -84,10 +90,17 @@
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('gitops-theme', darkMode ? 'dark' : 'light');
   }
+
+  function handleLocaleChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    const lang = select.value as SupportedLocale;
+    currentLocale = lang;
+    setLocale(lang);
+  }
 </script>
 
 <svelte:head>
-  <title>Profile - GitOps</title>
+  <title>{$_('profile.title')} - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto max-w-6xl space-y-6">
@@ -98,11 +111,11 @@
       <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-300">
-            Account
+            {$_('profile.account')}
           </p>
-          <h1 class="mt-2 text-3xl font-bold tracking-tight">Profile</h1>
+          <h1 class="mt-2 text-3xl font-bold tracking-tight">{$_('profile.title')}</h1>
           <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-            Manage your identity, password and API access from one place.
+            {$_('profile.subtitle')}
           </p>
         </div>
 
@@ -111,15 +124,15 @@
           on:click={toggleDarkMode}
           class="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15"
           aria-pressed={themeReady ? darkMode : undefined}
-          aria-label={darkMode ? 'Disable dark mode' : 'Enable dark mode'}
-          title={darkMode ? 'Disable dark mode' : 'Enable dark mode'}
+          aria-label={darkMode ? $_('profile.disableDarkMode') : $_('profile.enableDarkMode')}
+          title={darkMode ? $_('profile.disableDarkMode') : $_('profile.enableDarkMode')}
         >
           {#if darkMode}
             <Sun class="h-4 w-4" />
-            Light mode
+            {$_('profile.lightMode')}
           {:else}
             <Moon class="h-4 w-4" />
-            Dark mode
+            {$_('profile.darkMode')}
           {/if}
         </button>
       </div>
@@ -128,30 +141,30 @@
     <div class="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:grid-cols-4 sm:px-8">
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <UserRound class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Username</p>
+        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.username')}</p>
         <p class="mt-1 text-base font-semibold text-slate-900">{data.user.username}</p>
       </div>
 
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <Mail class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Email</p>
-        <p class="mt-1 text-base font-semibold text-slate-900">{data.user.email || 'Not set'}</p>
+        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.email')}</p>
+        <p class="mt-1 text-base font-semibold text-slate-900">{data.user.email || $_('profile.notSet')}</p>
       </div>
 
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <Shield class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Role</p>
+        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.role')}</p>
         <p class="mt-1 text-base font-semibold text-slate-900 capitalize">{data.user.role.name}</p>
       </div>
 
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <Cloud class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">GCP</p>
+        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.gcp')}</p>
         <p class="mt-1 text-base font-semibold text-slate-900">
           {#if data.gcpConnected}
-            Connected
+            {$_('profile.connected')}
           {:else}
-            Not connected
+            {$_('profile.notConnected')}
           {/if}
         </p>
       </div>
@@ -170,12 +183,12 @@
     <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
       <div class="flex items-center gap-3">
         <Mail class="h-5 w-5 text-slate-900" />
-        <h2 class="text-lg font-semibold text-slate-900">Account information</h2>
+        <h2 class="text-lg font-semibold text-slate-900">{$_('profile.accountInformation')}</h2>
       </div>
 
       <form method="POST" action="?/updateProfile" class="mt-6 space-y-4">
         <div>
-          <label for="email" class="block text-sm font-medium text-slate-700">Email</label>
+          <label for="email" class="block text-sm font-medium text-slate-700">{$_('profile.email')}</label>
           <input
             id="email"
             name="email"
@@ -189,14 +202,14 @@
         <div
           class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
         >
-          <span>Username</span>
+          <span>{$_('profile.username')}</span>
           <span class="font-medium text-slate-900">{data.user.username}</span>
         </div>
 
         <div
           class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
         >
-          <span>Role</span>
+          <span>{$_('profile.role')}</span>
           <span class="font-medium text-slate-900 capitalize">{data.user.role.name}</span>
         </div>
 
@@ -205,7 +218,7 @@
           class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
         >
           <Save class="h-4 w-4" />
-          Save changes
+          {$_('profile.saveChanges')}
         </button>
       </form>
     </section>
@@ -213,13 +226,13 @@
     <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
       <div class="flex items-center gap-3">
         <LockKeyhole class="h-5 w-5 text-slate-900" />
-        <h2 class="text-lg font-semibold text-slate-900">Password</h2>
+        <h2 class="text-lg font-semibold text-slate-900">{$_('profile.password')}</h2>
       </div>
 
       <form method="POST" action="?/updatePassword" class="mt-6 space-y-4">
         <div>
           <label for="currentPassword" class="block text-sm font-medium text-slate-700"
-            >Current password</label
+            >{$_('profile.currentPassword')}</label
           >
           <input
             id="currentPassword"
@@ -231,7 +244,7 @@
 
         <div>
           <label for="newPassword" class="block text-sm font-medium text-slate-700"
-            >New password</label
+            >{$_('profile.newPassword')}</label
           >
           <input
             id="newPassword"
@@ -243,7 +256,7 @@
 
         <div>
           <label for="confirmPassword" class="block text-sm font-medium text-slate-700"
-            >Confirm password</label
+            >{$_('profile.confirmPassword')}</label
           >
           <input
             id="confirmPassword"
@@ -257,19 +270,44 @@
           type="submit"
           class="btn-secondary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
         >
-          Update password
+          {$_('profile.updatePassword')}
         </button>
       </form>
     </section>
   </div>
 
   <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
+    <div class="flex items-center gap-3">
+      <Languages class="h-5 w-5 text-slate-900" />
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">{$_('profile.language')}</h2>
+        <p class="text-sm text-slate-500">{$_('profile.languageDescription')}</p>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <select
+        value={currentLocale}
+        on:change={handleLocaleChange}
+        class="field-input rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
+        aria-label={$_('profile.language')}
+      >
+        {#each SUPPORTED_LOCALES as lang}
+          <option value={lang}>
+            {lang === 'es' ? $_('profile.spanish') : $_('profile.english')}
+          </option>
+        {/each}
+      </select>
+    </div>
+  </section>
+
+  <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-3">
         <KeyRound class="h-5 w-5 text-slate-900" />
         <div>
-          <h2 class="text-lg font-semibold text-slate-900">API Keys</h2>
-          <p class="text-sm text-slate-500">Create and revoke keys for future API access.</p>
+          <h2 class="text-lg font-semibold text-slate-900">{$_('profile.apiKeys')}</h2>
+          <p class="text-sm text-slate-500">{$_('profile.apiKeysDescription')}</p>
         </div>
       </div>
 
@@ -279,7 +317,7 @@
         class="btn-primary inline-flex shrink-0 items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
       >
         <Plus class="h-4 w-4" />
-        Create
+        {$_('profile.create')}
       </button>
     </div>
 
@@ -289,7 +327,7 @@
       >
         <div class="flex items-start justify-between gap-3">
           <div>
-            <p class="font-medium">Copy this token now. It will not be shown again.</p>
+            <p class="font-medium">{$_('profile.copyNow')}</p>
             <code class="mt-2 block break-all rounded bg-white px-3 py-2 text-xs text-slate-900"
               >{form.createdKey}</code
             >
@@ -299,15 +337,15 @@
             type="button"
             on:click={copyCreatedKey}
             class="btn-ghost inline-flex shrink-0 items-center gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-900 hover:bg-amber-100"
-            title="Copy API key"
-            aria-label="Copy API key"
+            title={$_('profile.copy')}
+            aria-label={$_('profile.copy')}
           >
             {#if copiedCreatedKey}
               <Check class="h-4 w-4 text-emerald-600" />
-              Copied
+              {$_('profile.copied')}
             {:else}
               <Copy class="h-4 w-4" />
-              Copy
+              {$_('profile.copy')}
             {/if}
           </button>
         </div>
@@ -319,7 +357,7 @@
         <div
           class="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500"
         >
-          No API keys created yet.
+          {$_('profile.noApiKeys')}
         </div>
       {:else}
         {#each data.apiKeys as key}
@@ -329,7 +367,7 @@
             <div>
               <p class="text-sm font-medium text-slate-900">{key.name}</p>
               <p class="mt-1 text-xs text-slate-500">
-                Prefix: {key.keyPrefix} · Created {key.createdAt} · Expires {formatDateTime(
+                {$_('profile.prefix')}: {key.keyPrefix} · {$_('profile.created')} {key.createdAt} · {$_('profile.expires')} {formatDateTime(
                   key.expiresAt,
                 )}
               </p>
@@ -338,9 +376,9 @@
                   ? 'text-rose-700'
                   : 'text-emerald-700'}"
               >
-                Status: {getKeyState(key)}
+                {$_('profile.status')}: {getKeyState(key)}
                 {#if key.revokedAt}
-                  · Revoked {formatDateTime(key.revokedAt)}
+                  · {$_('profile.revoked')} {formatDateTime(key.revokedAt)}
                 {/if}
               </p>
             </div>
@@ -354,7 +392,7 @@
                     class="btn-secondary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
                   >
                     <RotateCcw class="h-4 w-4" />
-                    Regenerate
+                    {$_('profile.regenerate')}
                   </button>
                 </form>
 
@@ -365,14 +403,14 @@
                     class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
                   >
                     <Trash2 class="h-4 w-4" />
-                    Revoke
+                    {$_('profile.revoke')}
                   </button>
                 </form>
               {:else}
                 <div
                   class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"
                 >
-                  Actions unavailable for revoked keys.
+                  {$_('profile.revokedActionsUnavailable')}
                 </div>
               {/if}
             </div>
@@ -388,27 +426,27 @@
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"
     on:click={closeCreateApiKeyModal}
-    aria-label="Close create api key modal"
+    aria-label={$_('common.close')}
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div
       class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Create API key modal"
+      aria-label={$_('profile.createApiKey')}
     >
       <div class="border-b border-slate-200 px-4 py-3 flex items-center justify-between">
         <div>
-          <h5 class="text-sm font-semibold text-slate-900">Create API key</h5>
+          <h5 class="text-sm font-semibold text-slate-900">{$_('profile.createApiKey')}</h5>
           <p class="mt-1 text-xs text-slate-500">
-            Set a name and an expiration before creating it.
+            {$_('profile.setNameAndExpiration')}
           </p>
         </div>
         <button
           type="button"
           on:click={closeCreateApiKeyModal}
           class="btn-ghost p-2 rounded-md text-slate-500 hover:text-slate-800 transition-colors"
-          aria-label="Close modal"
+          aria-label={$_('common.close')}
         >
           <X class="h-4 w-4" />
         </button>
@@ -416,7 +454,7 @@
 
       <form method="POST" action="?/createApiKey" class="space-y-4 px-4 py-4">
         <div>
-          <label for="api-key-name" class="block text-sm font-medium text-slate-700">Name</label>
+          <label for="api-key-name" class="block text-sm font-medium text-slate-700">{$_('profile.name')}</label>
           <input
             id="api-key-name"
             name="name"
@@ -430,7 +468,7 @@
 
         <div>
           <label for="api-key-expiration" class="block text-sm font-medium text-slate-700"
-            >Expiration</label
+            >{$_('profile.expiration')}</label
           >
           <select
             id="api-key-expiration"
@@ -438,11 +476,11 @@
             bind:value={apiKeyExpiresInDays}
             class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
           >
-            <option value="">Never</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
-            <option value="365">365 days</option>
+            <option value="">{$_('profile.never')}</option>
+            <option value="7">7 {$_('profile.days')}</option>
+            <option value="30">30 {$_('profile.days')}</option>
+            <option value="90">90 {$_('profile.days')}</option>
+            <option value="365">365 {$_('profile.days')}</option>
           </select>
         </div>
 
@@ -452,14 +490,14 @@
             on:click={closeCreateApiKeyModal}
             class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
           >
-            Cancel
+            {$_('profile.cancel')}
           </button>
           <button
             type="submit"
             class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
             <Plus class="h-4 w-4" />
-            Create API key
+            {$_('profile.createApiKey')}
           </button>
         </div>
       </form>

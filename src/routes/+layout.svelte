@@ -5,11 +5,14 @@
   import AppNavbar from '$lib/components/AppNavbar.svelte';
   import AppSidebar from '$lib/components/AppSidebar.svelte';
   import Footer from '$lib/components/Footer.svelte';
+  import { setupI18n } from '$lib/i18n';
 
   export let data: any;
 
   let sidebarCollapsed = false;
   let sidebarStateReady = false;
+
+  setupI18n();
 
   $: isBareLayout =
     $page?.url?.pathname?.startsWith('/auth/') || $page?.url?.pathname?.startsWith('/bootstrap');
