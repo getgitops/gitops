@@ -1,11 +1,28 @@
 import { gitDb, type GitDB } from '@getgitops/gitdb';
-import { buildAuthenticatedUrl, isRepositoryConfigured, redactUrl, requireRepositoryConfig } from './config';
+import {
+  buildAuthenticatedUrl,
+  isRepositoryConfigured,
+  redactUrl,
+  requireRepositoryConfig,
+  resolveRepositoryWebUrl,
+} from './config';
 import { gitDbSyncService } from './sync';
+import { getCurrentActor } from '../request-context';
 
 let instance: GitDB | null = null;
 let startup: Promise<void> | null = null;
 
 export { isRepositoryConfigured };
+
+/** Browsable repo URL for building commit links, or null when it can't be derived. */
+export function getRepositoryWebUrl(): string | null {
+  try {
+    const config = requireRepositoryConfig();
+    return resolveRepositoryWebUrl(config.repositoryUrl);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Initializes GitDB instance and sync state.
@@ -48,11 +65,11 @@ function createClient(authorName: string, authorEmail: string): GitDB {
 }
 
 export function getGitDb(): GitDB {
-  if (instance) {
-    return instance;
+  if (!instance) {
+    const config = requireRepositoryConfig();
+    instance = createClient(config.authorName, config.authorEmail);
   }
 
-  const config = requireRepositoryConfig();
-  instance = createClient(config.authorName, config.authorEmail);
-  return instance;
+  const actor = getCurrentActor();
+  return actor ? instance.as(actor) : instance;
 }

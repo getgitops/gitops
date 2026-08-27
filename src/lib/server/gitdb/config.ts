@@ -142,3 +142,35 @@ export function buildAuthenticatedUrl(config: GitDbRepositoryConfig): string {
 export function redactUrl(value: string): string {
   return value.replace(/\/\/[^/@\s]+@/g, '//***@');
 }
+
+/** Best-effort browsable repo URL (github/gitlab/bitbucket-style), or null when it can't be derived. */
+export function resolveRepositoryWebUrl(repositoryUrl: string): string | null {
+  const withoutGitSuffix = repositoryUrl.replace(/\.git$/, '');
+
+  // git@host:owner/repo -> https://host/owner/repo
+  const scpMatch = withoutGitSuffix.match(/^[\w-]+@([^:]+):(.+)$/);
+  if (scpMatch) {
+    return `https://${scpMatch[1]}/${scpMatch[2]}`;
+  }
+
+  try {
+    const url = new URL(withoutGitSuffix);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null;
+    }
+    url.username = '';
+    url.password = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+/** Web URL for a specific commit in the configured repository, or null when unavailable. */
+export function resolveCommitUrl(commitHash: string): string | null {
+  const config = readRepositoryConfig();
+  if (!config) return null;
+
+  const webUrl = resolveRepositoryWebUrl(config.repositoryUrl);
+  return webUrl ? `${webUrl}/commit/${commitHash}` : null;
+}

@@ -4,6 +4,7 @@ import { organizationService } from '$modules/organization';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
 import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';
+import { runWithActor } from '$lib/server/request-context';
 
 // clone, manifest, sync poll and bootstrap detection run once per process
 const serverReady = (async () => {
@@ -73,7 +74,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (!isAuthenticated) {
       return new Response(null, { status: 401 });
     }
-    return resolve(event);
+    return runWithActor({ name: 'apikey', email: 'apikey@gitops.local' }, () => resolve(event));
   }
 
   const sessionCookie = event.cookies.get('pos_session');
@@ -114,5 +115,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  return resolve(event);
+  const actor = {
+    name: currentUser.username,
+    email: currentUser.email || `${currentUser.username}@gitops.local`,
+  };
+  return runWithActor(actor, () => resolve(event));
 };
