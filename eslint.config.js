@@ -48,6 +48,9 @@ export default [
         ...globals.node,
       },
     },
+    rules: {
+      'svelte/no-reactive-functions': 'off',
+    },
   },
   prettier,
 ];
