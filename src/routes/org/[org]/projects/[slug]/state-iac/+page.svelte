@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GitBranch, HardDrive, Terminal, Layers } from 'lucide-svelte';
+  import { GitBranch, HardDrive, Terminal, Layers } from '@lucide/svelte';
   import { page } from '$app/stores';
 
   $: canCreate = Boolean($page.data.canCreateStateIac);

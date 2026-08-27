@@ -10,7 +10,7 @@
     Search,
     Shield,
     Terminal,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type ProjectRow = {
     id: string;

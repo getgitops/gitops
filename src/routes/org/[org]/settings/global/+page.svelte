@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Building2, CheckCircle, KeyRound, LockKeyhole, RefreshCw, Shield } from 'lucide-svelte';
+  import { Building2, CheckCircle, KeyRound, LockKeyhole, RefreshCw, Shield } from '@lucide/svelte';
 
   let googleSsoEnabled = false;
   let googleClientId = '';

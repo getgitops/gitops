@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
-  import { Plus, Search, ShieldCheck, ShieldOff } from 'lucide-svelte';
+  import { Plus, Search, ShieldCheck, ShieldOff } from '@lucide/svelte';
   import {
     describeScope,
     SECURITY_POLICY_ENFORCEMENT_META,

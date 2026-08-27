@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import { onMount } from 'svelte';
   import type { SubmitFunction } from '@sveltejs/kit';
-  import { CheckCircle, GitBranch, RefreshCw, Timer } from 'lucide-svelte';
+  import { CheckCircle, GitBranch, RefreshCw, Timer } from '@lucide/svelte';
   import GitDbStatusBadge from '$lib/components/GitDbStatusBadge.svelte';
 
   type RepositoryConfig = {

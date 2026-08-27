@@ -19,7 +19,7 @@ Package manager: **Bun** (`bun.lock`). Usar `bun`, nunca `npm`/`yarn`.
 ## Stack
 
 - Framework: SvelteKit 2 (Svelte 4) + Vite 5, TypeScript strict
-- Estilos: Tailwind CSS 4, iconos `lucide-svelte`
+- Estilos: Tailwind CSS 4, iconos `@lucide/svelte`
 - Base de datos (auth): gitdb (`@getgitops/gitdb`) — JSON versionado en git
 - Base de datos (resto): SQLite local vía `better-sqlite3` (`data/db/states.sqlite`)
 - Storage externo: AWS S3 (`@aws-sdk/client-s3`) y GCS (`@google-cloud/storage`) — solo para leer estado Pulumi

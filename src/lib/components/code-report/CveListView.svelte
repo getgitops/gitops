@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AlertTriangle, ChevronLeft, ChevronRight, Info, Search, ShieldAlert } from 'lucide-svelte';
+  import { AlertTriangle, ChevronLeft, ChevronRight, Info, Search, ShieldAlert } from '@lucide/svelte';
   import Dropdown from '$lib/components/Dropdown.svelte';
 
   export type CveListRow = {

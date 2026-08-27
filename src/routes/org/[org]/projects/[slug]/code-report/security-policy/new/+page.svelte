@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { ArrowLeft } from 'lucide-svelte';
+  import { ArrowLeft } from '@lucide/svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
 
   export let data: {

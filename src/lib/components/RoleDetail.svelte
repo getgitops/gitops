@@ -1,7 +1,7 @@
 <script lang="ts">
   import { deserialize } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
-  import { CheckCircle, ChevronDown, ChevronRight, Pencil, Save, Trash2, X } from 'lucide-svelte';
+  import { CheckCircle, ChevronDown, ChevronRight, Pencil, Save, Trash2, X } from '@lucide/svelte';
   import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
   import { toStoredPermissionGrant } from '$lib/permissions';
 

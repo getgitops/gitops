@@ -7,7 +7,7 @@
     KeyRound,
     Shield,
     UserPlus,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
   import { page } from '$app/stores';
 
   type ProjectModules = {

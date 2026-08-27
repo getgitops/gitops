@@ -23,7 +23,7 @@
     HardDrive,
     Bot,
     ShieldAlert,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type NavItem = { label: string; href: string; icon: ComponentType };
   type NavModule = { name: string; icon: ComponentType; items: NavItem[] };

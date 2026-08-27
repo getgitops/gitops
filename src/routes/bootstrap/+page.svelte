@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
-  import { Building2, Check, ShieldCheck } from 'lucide-svelte';
+  import { Building2, Check, ShieldCheck } from '@lucide/svelte';
 
   type BootstrapState = {
     administrator: boolean;

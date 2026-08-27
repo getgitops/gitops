@@ -11,7 +11,7 @@
     ShieldAlert,
     TrendingUp,
     Wrench,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type CveDetail = {
     id: string;

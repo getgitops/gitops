@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { ArrowLeft, Check, ChevronDown, Clock, Search } from 'lucide-svelte';
+  import { ArrowLeft, Check, ChevronDown, Clock, Search } from '@lucide/svelte';
   import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
   export let data: {

@@ -16,7 +16,7 @@
     Shield,
     Terminal,
     Trash2,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   type ProjectModules = {
     vault: boolean;

@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/stores';
   import type { ActionData } from './$types';
-  import { ShieldCheck } from 'lucide-svelte';
+  import { ShieldCheck } from '@lucide/svelte';
 
   export let form: ActionData;
 

@@ -10,7 +10,7 @@
     ScrollText,
     Shield,
     Users,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   export let data: {
     project: {

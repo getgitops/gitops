@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GitBranch, Github, Gitlab, Info } from 'lucide-svelte';
+  import { GitBranch, Info } from '@lucide/svelte';
   import type { AnalysisSummary } from '$lib/code-report/analysis-summary';
   import CodeReportToolBadge from './CodeReportToolBadge.svelte';
   type Analysis = {
@@ -31,7 +31,7 @@
   export let setupChart: (canvas: HTMLCanvasElement) => { destroy: () => void };
   export let onShowRiskInfo: () => void;
   function providerIcon(url: string) {
-    return url.includes('github.com') ? Github : url.includes('gitlab.com') ? Gitlab : GitBranch;
+    return GitBranch;
   }
   const runStatusStyles: Record<string, string> = {
     completed: 'bg-emerald-50 text-emerald-700',

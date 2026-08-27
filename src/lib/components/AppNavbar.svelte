@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from 'lucide-svelte';
+  import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
 
   type NavbarUser = { username: string; role: { name: string } | string | null };
 

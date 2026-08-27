@@ -16,7 +16,7 @@
     Check,
     Moon,
     Sun,
-  } from 'lucide-svelte';
+  } from '@lucide/svelte';
 
   export let data: any;
   export let form: any;

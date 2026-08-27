@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { Wrench, CheckCircle2, XCircle } from 'lucide-svelte';
+  import { Wrench, CheckCircle2, XCircle } from '@lucide/svelte';
 
   export let data;
 

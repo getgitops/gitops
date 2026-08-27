@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Github, FileText } from 'lucide-svelte';
+  import { FileText, GitBranch } from '@lucide/svelte';
   import GitDbStatusBadge from './GitDbStatusBadge.svelte';
 
   const POLL_MS = 15_000;
@@ -71,7 +71,7 @@
         class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
         aria-label="GitHub Repository"
       >
-        <Github class="h-4 w-4" />
+        <GitBranch class="h-4 w-4" />
       </a>
     </div>
   </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { ArrowRight, Building2 } from 'lucide-svelte';
+  import { ArrowRight, Building2 } from '@lucide/svelte';
 
   type OrganizationRow = {
     id: string;

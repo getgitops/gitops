@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { Bot, ListChecks, Settings, Webhook } from 'lucide-svelte';
+  import { Bot, ListChecks, Settings, Webhook } from '@lucide/svelte';
 
   export let data: {
     project?: {

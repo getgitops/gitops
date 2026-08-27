@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
-  import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from 'lucide-svelte';
+  import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from '@lucide/svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
   import {
     describeScope,

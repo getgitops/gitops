@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { ArrowLeft } from 'lucide-svelte';
+  import { ArrowLeft } from '@lucide/svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
   export let data: {

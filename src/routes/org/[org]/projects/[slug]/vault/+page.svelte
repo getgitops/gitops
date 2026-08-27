@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Shield, KeyRound, Lock, Plus } from 'lucide-svelte';
+  import { Shield, KeyRound, Lock, Plus } from '@lucide/svelte';
   import { page } from '$app/stores';
 
   $: canCreate = Boolean($page.data.canCreateVault);
