@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint . --ext .js,.ts,.svelte",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "svelte-kit sync && vitest run",
+    "test:watch": "svelte-kit sync && vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
