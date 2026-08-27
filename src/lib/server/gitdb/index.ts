@@ -1,11 +1,27 @@
 import { gitDb, type GitDB } from '@getgitops/gitdb';
-import { buildAuthenticatedUrl, isRepositoryConfigured, redactUrl, requireRepositoryConfig } from './config';
+import {
+  buildAuthenticatedUrl,
+  isRepositoryConfigured,
+  redactUrl,
+  requireRepositoryConfig,
+  resolveRepositoryWebUrl,
+} from './config';
 import { gitDbSyncService } from './sync';
 
 let instance: GitDB | null = null;
 let startup: Promise<void> | null = null;
 
 export { isRepositoryConfigured };
+
+/** Browsable repo URL for building commit links, or null when it can't be derived. */
+export function getRepositoryWebUrl(): string | null {
+  try {
+    const config = requireRepositoryConfig();
+    return resolveRepositoryWebUrl(config.repositoryUrl);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Initializes GitDB instance and sync state.

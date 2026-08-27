@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Eye, Search, X } from '@lucide/svelte';
+  import { ExternalLink, Eye, Search, X } from '@lucide/svelte';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { diffListItems, summarizeChange, type EntityRowChange } from './audit-summary';
@@ -22,6 +22,8 @@
   export let description = 'History of changes recorded in the data repository.';
   /** Form action (in the current route's +page.server.ts) that returns the row-level diff. */
   export let diffAction = '?/viewDiff';
+  /** Repo web URL (no trailing slash) used to build "View commit" links; null hides the button. */
+  export let commitBaseUrl: string | null = null;
 
   let searchQuery = '';
 
@@ -149,19 +151,33 @@
                 <td class="px-4 py-3 text-slate-600">{event.author}</td>
                 <td class="px-4 py-3 font-mono text-xs text-slate-500">{event.commitHash.slice(0, 7)}</td>
                 <td class="px-4 py-3 text-right">
-                  {#if event.entity}
-                    <form method="POST" action={diffAction} use:enhance={submitDiff(event)}>
-                      <input type="hidden" name="commit" value={event.commitHash} />
-                      <input type="hidden" name="entity" value={event.entity} />
-                      <button
-                        type="submit"
+                  <div class="flex items-center justify-end gap-2">
+                    {#if commitBaseUrl}
+                      <a
+                        href={`${commitBaseUrl}/commit/${event.commitHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+                        title="View commit in repository"
                       >
-                        <Eye class="h-3.5 w-3.5" />
-                        View changes
-                      </button>
-                    </form>
-                  {/if}
+                        <ExternalLink class="h-3.5 w-3.5" />
+                        Commit
+                      </a>
+                    {/if}
+                    {#if event.entity}
+                      <form method="POST" action={diffAction} use:enhance={submitDiff(event)}>
+                        <input type="hidden" name="commit" value={event.commitHash} />
+                        <input type="hidden" name="entity" value={event.entity} />
+                        <button
+                          type="submit"
+                          class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+                        >
+                          <Eye class="h-3.5 w-3.5" />
+                          View changes
+                        </button>
+                      </form>
+                    {/if}
+                  </div>
                 </td>
               </tr>
             {/each}

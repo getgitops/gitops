@@ -224,6 +224,11 @@
                     href: `/org/${organizationSlug}/settings/server-access-keys`,
                     icon: KeyRound,
                   },
+                  {
+                    label: 'Audit',
+                    href: `/org/${organizationSlug}/settings/audit`,
+                    icon: ScrollText,
+                  },
                 ],
               },
             ]

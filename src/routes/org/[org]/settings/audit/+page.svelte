@@ -8,6 +8,6 @@
 <AuditLog
   events={data.events}
   commitBaseUrl={data.commitBaseUrl}
-  title="Cluster Audit Log"
-  description="History of changes recorded across the cluster's data repository."
+  title="Auditoría"
+  description="Historial de cambios registrados en los datos de esta organización."
 />

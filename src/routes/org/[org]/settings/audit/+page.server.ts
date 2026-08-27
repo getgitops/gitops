@@ -1,8 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { auditService } from '$modules/audit';
 
-export async function load() {
-  const { events } = await auditService.listEvents();
+export async function load({ parent }) {
+  const { organization } = await parent();
+  const { events } = await auditService.listEvents({ organizationId: organization.id });
   return { events, commitBaseUrl: auditService.getRepositoryWebUrl() };
 }
 
