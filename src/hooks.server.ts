@@ -1,6 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { organizationService } from '$modules/organization';
+import { projectService } from '$modules/projects';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
 import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';
@@ -19,7 +20,7 @@ serverReady.catch((error) => {
   markServerFailed(error);
 });
 
-const authWithToken = async (token: string) => {
+const authWithToken = async (_token: string) => {
   return true;
 };
 
@@ -58,8 +59,12 @@ export const handle: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
-  // sign-in and sign-out must work without (or with a broken) session
-  if (pathname === '/auth/login' || pathname === '/auth/logout') {
+  // sign-in, sign-out and invitation acceptance must work without (or with a broken) session
+  if (
+    pathname === '/auth/login' ||
+    pathname === '/auth/logout' ||
+    pathname === '/auth/invitation'
+  ) {
     return resolve(event);
   }
 

@@ -37,6 +37,27 @@ export const actions = {
     }
   },
 
+  async inviteUser({ request, locals, params, url }) {
+    const organization = await organizationService.findBySlug(params.org);
+    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
+    try {
+      const form = await request.formData();
+      const user = await userAccessService.inviteOrganizationUser({
+        organizationId: organization.id,
+        organizationName: organization.name,
+        email: String(form.get('email') ?? ''),
+        inviteUrl: `${url.origin}/auth/invitation`,
+        invitedBy: locals.user?.username ?? null,
+      });
+      return { success: true, user };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
   async updateUserAccess({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
     if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
@@ -77,7 +98,7 @@ export const actions = {
     }
   },
 
-  async resendInvitation({ request, locals, params }) {
+  async resendInvitation({ request, locals, params, url }) {
     const organization = await organizationService.findBySlug(params.org);
     if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
       return fail(403, { error: 'Forbidden' });
@@ -89,6 +110,9 @@ export const actions = {
         accessId: String(form.get('accessId') ?? ''),
         scope: 'organization',
         scopeId: organization.id,
+        organizationName: organization.name,
+        inviteUrl: `${url.origin}/auth/invitation`,
+        invitedBy: locals.user?.username ?? null,
       });
       return { success: true, user };
     } catch (error: unknown) {

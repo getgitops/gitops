@@ -45,7 +45,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.cve.id} - Organization CVEs - GitVault Suite</title>
+  <title>{data.cve.id} - Organization CVEs - GitOps</title>
 </svelte:head>
 
 <CveDetailView

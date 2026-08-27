@@ -30,7 +30,7 @@
   export let severityKeys: readonly (keyof AnalysisSummary['vulnerabilities'])[] = [];
   export let setupChart: (canvas: HTMLCanvasElement) => { destroy: () => void };
   export let onShowRiskInfo: () => void;
-  function providerIcon(url: string) {
+  function providerIcon() {
     return GitBranch;
   }
   const runStatusStyles: Record<string, string> = {
@@ -97,9 +97,9 @@
           {analysis?.gitInfo?.repositoryUrl ? 'Repositorio conectado' : 'Sin repositorio conectado'}
         </h3>
       </div>
-      {#if analysis?.gitInfo?.repositoryUrl}{@const ProviderIcon = providerIcon(
-          analysis.gitInfo.repositoryUrl,
-        )}<svelte:component this={ProviderIcon} class="h-5 w-5 text-slate-500" />{/if}
+      {#if analysis?.gitInfo?.repositoryUrl}{@const ProviderIcon = providerIcon()}<svelte:component
+          this={ProviderIcon} class="h-5 w-5 text-slate-500"
+        />{/if}
     </div>
     {#if analysis?.gitInfo?.repositoryUrl}<a
         href={analysis.gitInfo.repositoryUrl}

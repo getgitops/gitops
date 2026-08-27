@@ -87,7 +87,7 @@
   }
 </script>
 
-<svelte:head><title>{policy.name} - Security Policies - GitVault Suite</title></svelte:head>
+<svelte:head><title>{policy.name} - Security Policies - GitOps</title></svelte:head>
 
 <div class="space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">

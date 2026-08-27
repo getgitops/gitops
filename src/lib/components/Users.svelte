@@ -4,6 +4,7 @@
   import {
     ChevronDown,
     CheckCircle,
+    Mail,
     Plus,
     Search,
     Send,
@@ -51,6 +52,11 @@
   let success = '';
   let addModalOpen = false;
   let adding = false;
+  let addError = '';
+  let inviteModalOpen = false;
+  let inviting = false;
+  let inviteEmail = '';
+  let inviteError = '';
   let savingAccessId: string | null = null;
   let removingAccessId: string | null = null;
   let resendingAccessId: string | null = null;
@@ -85,13 +91,19 @@
   );
 
   function openAddModal() {
-    error = '';
+    addError = '';
     newUsername = '';
     newEmail = '';
     newPassword = '';
     selectedUserId = availableUsers[0]?.id ?? '';
     selectedRoleId = roles[0]?.id ?? '';
     addModalOpen = true;
+  }
+
+  function openInviteModal() {
+    inviteError = '';
+    inviteEmail = '';
+    inviteModalOpen = true;
   }
 
   function flashSuccess(message: string) {
@@ -115,21 +127,21 @@
   }
 
   async function addUser() {
-    error = '';
+    addError = '';
     success = '';
 
     if (!selectedRoleId) {
-      error = 'Role is required.';
+      addError = 'Role is required.';
       return;
     }
 
     if (scope !== 'project' && (!newUsername.trim() || !newPassword.trim())) {
-      error = 'Username and password are required.';
+      addError = 'Username and password are required.';
       return;
     }
 
     if (scope === 'project' && !selectedUserId) {
-      error = 'User is required.';
+      addError = 'User is required.';
       return;
     }
 
@@ -145,9 +157,30 @@
       addModalOpen = false;
       flashSuccess(scope === 'project' ? 'User assigned.' : 'User created.');
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : 'Failed to add user.';
+      addError = err instanceof Error ? err.message : 'Failed to add user.';
     } finally {
       adding = false;
+    }
+  }
+
+  async function inviteUser() {
+    inviteError = '';
+    success = '';
+
+    if (!inviteEmail.trim()) {
+      inviteError = 'Email is required.';
+      return;
+    }
+
+    inviting = true;
+    try {
+      await submitAction('inviteUser', { email: inviteEmail.trim() });
+      inviteModalOpen = false;
+      flashSuccess('Invitation sent.');
+    } catch (err: unknown) {
+      inviteError = err instanceof Error ? err.message : 'Failed to invite user.';
+    } finally {
+      inviting = false;
     }
   }
 
@@ -243,14 +276,26 @@
       <h3 class="text-xl font-semibold text-slate-900">{title}</h3>
       <p class="mt-2 text-sm text-slate-600">{description}</p>
     </div>
-    <button
-      type="button"
-      on:click={openAddModal}
-      class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-    >
-      <Plus class="h-4 w-4" />
-      {scope === 'project' ? 'Add user' : 'New user'}
-    </button>
+    <div class="flex shrink-0 items-center gap-2">
+      {#if scope === 'organization'}
+        <button
+          type="button"
+          on:click={openInviteModal}
+          class="btn-secondary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+        >
+          <Mail class="h-4 w-4" />
+          Invite user
+        </button>
+      {/if}
+      <button
+        type="button"
+        on:click={openAddModal}
+        class="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+      >
+        <Plus class="h-4 w-4" />
+        {scope === 'project' ? 'Add user' : 'New user'}
+      </button>
+    </div>
   </section>
 
   <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -439,6 +484,12 @@
         </h5>
       </div>
       <div class="space-y-4 px-4 py-4">
+        {#if addError}
+          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {addError}
+          </div>
+        {/if}
+
         {#if scope !== 'project'}
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
@@ -525,6 +576,69 @@
         >
           <UserPlus class="h-4 w-4" />
           {adding ? 'Adding...' : 'Add user'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if inviteModalOpen}
+  <button
+    type="button"
+    class="fixed inset-0 z-40 bg-slate-900/50"
+    on:click={() => (inviteModalOpen = false)}
+    aria-label="Close invite user modal"
+  ></button>
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Invite user modal"
+    >
+      <div class="border-b border-slate-200 px-4 py-3">
+        <h5 class="text-sm font-semibold text-slate-900">Invite user</h5>
+      </div>
+      <div class="space-y-4 px-4 py-4">
+        {#if inviteError}
+          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {inviteError}
+          </div>
+        {/if}
+
+        <p class="text-sm text-slate-600">
+          If the account does not exist yet we will create it and email the invitation. Existing
+          active accounts are granted access straight away.
+        </p>
+        <div>
+          <label class="block text-sm font-medium text-slate-700" for="invite-user-email">
+            Email
+          </label>
+          <input
+            id="invite-user-email"
+            type="email"
+            bind:value={inviteEmail}
+            placeholder="user@example.com"
+            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+          />
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+        <button
+          type="button"
+          on:click={() => (inviteModalOpen = false)}
+          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          on:click={inviteUser}
+          disabled={inviting}
+          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+        >
+          <Mail class="h-4 w-4" />
+          {inviting ? 'Sending...' : 'Send invitation'}
         </button>
       </div>
     </div>

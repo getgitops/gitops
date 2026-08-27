@@ -15,11 +15,11 @@ function role(input: { id: string; slug: string; permissions?: string[] }) {
   });
 }
 
-function user(input: { id: string; username: string; role: RoleDomain | null }) {
+function user(input: { id: string; username: string; role: RoleDomain | null; email?: string | null }) {
   return new UserDomain({
     id: input.id,
     username: input.username,
-    email: null,
+    email: input.email ?? null,
     password: 'hashed',
     role: input.role,
     createdAt: '2024-01-01T00:00:00.000Z',
@@ -33,6 +33,10 @@ class FakeUserRepository {
 
   async findByUsername(username: string) {
     return [...this.rows.values()].find((entry) => entry.username === username) ?? null;
+  }
+
+  async findByEmail(email: string) {
+    return [...this.rows.values()].find((entry) => entry.email === email) ?? null;
   }
 
   async findById(id: string) {
@@ -132,5 +136,35 @@ describe('AuthService bootstrapDefaults', () => {
       { id: 'cluster-admin-id', permissions: ['vault:all', 'openreport:all', 'stateiac:all'] },
     ]);
     expect(userRepository.updatedRoleIds).toEqual([]);
+  });
+});
+
+describe('AuthService authentication', () => {
+  it('authenticates with a case-insensitive email address and password', async () => {
+    const userRepository = new FakeUserRepository();
+    const passwordService = {
+      ensureEncryptionKey: vi.fn(),
+      verifyPassword: vi.fn(() => true),
+    };
+    userRepository.rows.set(
+      'carlos-id',
+      user({
+        id: 'carlos-id',
+        username: 'carlos',
+        email: 'carlos@kettu.studio',
+        role: role({ id: 'role-id', slug: 'cluster-user' }),
+      }),
+    );
+    const service = new AuthService(
+      userRepository as any,
+      new FakeRoleRepository() as any,
+      passwordService as any,
+      { createToken: vi.fn(), parseAndVerifyToken: vi.fn() } as any,
+    );
+
+    const authenticated = await service.authenticate('Carlos@Kettu.Studio', 'secret');
+
+    expect(authenticated?.id).toBe('carlos-id');
+    expect(passwordService.verifyPassword).toHaveBeenCalledWith('secret', 'hashed');
   });
 });

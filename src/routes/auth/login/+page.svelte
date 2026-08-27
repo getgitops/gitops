@@ -8,12 +8,12 @@
 
   let isSubmitting = false;
 
-  $: username = form?.username ?? '';
+  $: email = form?.email ?? '';
   $: loggedOut = $page.url.searchParams.has('loggedOut');
 </script>
 
 <svelte:head>
-  <title>Login - GitVault Suite</title>
+  <title>Login - GitOps</title>
 </svelte:head>
 
 <div
@@ -33,7 +33,7 @@
         <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
           Workspace
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitVault Suite</h1>
+        <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitOps</h1>
         <p class="mt-2 text-sm text-slate-600">Continue with your private admin workspace.</p>
       </div>
     </div>
@@ -65,15 +65,15 @@
       class="space-y-4"
     >
       <div>
-        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="username"
-          >Username</label
+        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="email"
+          >Email</label
         >
         <input
-          id="username"
-          name="username"
-          type="text"
-          autocomplete="username"
-          value={username}
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          value={email}
           class="field-input w-full rounded-md border bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition"
         />
       </div>

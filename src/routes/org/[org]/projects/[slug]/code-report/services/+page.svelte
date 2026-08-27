@@ -98,7 +98,7 @@
 </script>
 
 <svelte:head>
-  <title>Code Report - Services - GitVault Suite</title>
+  <title>Code Report - Services - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">

@@ -15,12 +15,12 @@
     $page?.url?.pathname?.startsWith('/auth/') || $page?.url?.pathname?.startsWith('/bootstrap');
 
   onMount(() => {
-    sidebarCollapsed = localStorage.getItem('gitvault-sidebar-collapsed') === '1';
+    sidebarCollapsed = localStorage.getItem('gitops-sidebar-collapsed') === '1';
     sidebarStateReady = true;
   });
 
   $: if (sidebarStateReady) {
-    localStorage.setItem('gitvault-sidebar-collapsed', sidebarCollapsed ? '1' : '0');
+    localStorage.setItem('gitops-sidebar-collapsed', sidebarCollapsed ? '1' : '0');
   }
 </script>
 

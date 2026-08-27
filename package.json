@@ -1,5 +1,5 @@
 {
-  "name": "gitvault-suite",
+  "name": "gitops",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -22,8 +22,8 @@
     "@sveltejs/kit": "^2.70.3",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.4.0",
+    "@types/nodemailer": "^8.0.1",
     "@typescript-eslint/eslint-plugin": "^8.68.0",
     "@typescript-eslint/parser": "^8.68.0",
     "@vitest/coverage-v8": "^4.1.11",
@@ -40,7 +40,7 @@
     "svelte-check": "^4.7.6",
     "svelte-eslint-parser": "^1.8.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
+    "typescript": "^6.0.0",
     "vite": "^8.2.2",
     "vitest": "^4.1.11"
   },
@@ -49,6 +49,7 @@
     "@getgitops/gitdb": "^0.8.0",
     "@google-cloud/storage": "^8.0.1",
     "@lucide/svelte": "^1.34.0",
-    "chart.js": "^4.5.1"
+    "chart.js": "^4.5.1",
+    "nodemailer": "^9.0.6"
   }
 }

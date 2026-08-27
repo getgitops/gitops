@@ -22,18 +22,49 @@ type UserAccessRow = {
   createdAt: string;
 };
 
+export type InvitationNotifierPort = {
+  sendInvitation(input: {
+    email: string;
+    username: string;
+    organizationName: string;
+    roleName: string;
+    inviteUrl: string;
+    expiresAt: string;
+    invitedBy?: string | null;
+  }): Promise<void>;
+};
+
+export type InvitationTokenIssuerPort = {
+  issueToken(userId: string): Promise<{ token: string; expiresAt: string }>;
+};
+
 export class UserAccessService {
   constructor(
     private readonly userRepository: Pick<
       UserRepository,
-      'findById' | 'findByUsername' | 'listUsers' | 'createUser' | 'updateRoleId' | 'updateStatus'
+      | 'findById'
+      | 'findByUsername'
+      | 'findByEmail'
+      | 'listUsers'
+      | 'createUser'
+      | 'updateRoleId'
+      | 'updateStatus'
+      | 'deleteById'
     >,
     private readonly roleRepository: Pick<RoleRepository, 'findById' | 'findBySlug'>,
     private readonly userAccessRepository: Pick<
       UserAccessRepository,
-      'findByScope' | 'findOne' | 'findById' | 'create' | 'update' | 'deleteById'
+      | 'findByScope'
+      | 'findByUserId'
+      | 'findOne'
+      | 'findById'
+      | 'create'
+      | 'update'
+      | 'deleteById'
     >,
     private readonly passwordService: Pick<PasswordService, 'hashPassword'>,
+    private readonly invitationNotifier: InvitationNotifierPort,
+    private readonly invitationTokens: InvitationTokenIssuerPort,
   ) {}
 
   async listUsers(scope: RoleScope, scopeId?: string): Promise<UserAccessRow[]> {
@@ -83,6 +114,74 @@ export class UserAccessService {
       organizationId,
     });
     return this.toRow(access);
+  }
+
+  async inviteOrganizationUser(input: {
+    organizationId: string;
+    organizationName: string;
+    email: string;
+    inviteUrl: string;
+    roleId?: string;
+    invitedBy?: string | null;
+  }): Promise<UserAccessRow> {
+    const organizationId = input.organizationId.trim();
+    const email = input.email.trim().toLowerCase();
+    if (!organizationId) throw new Error('Organization is required');
+    if (!email) throw new Error('Email is required');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Email is not valid');
+
+    const role = input.roleId?.trim()
+      ? await this.findRoleForScope(input.roleId, 'organization', organizationId)
+      : await this.findDefaultOrganizationRole(organizationId);
+
+    const user =
+      (await this.userRepository.findByEmail(email)) ?? (await this.createInvitedUser(email));
+
+    // an already active account just gets access, there is nothing to activate
+    const status: UserAccessStatus = user.status === 'active' ? 'active' : 'invited';
+
+    const access = await this.createAccess({
+      userId: user.id,
+      roleId: role.id,
+      scope: 'organization',
+      organizationId,
+      status,
+    });
+
+    if (status === 'invited') {
+      const invitation = await this.invitationTokens.issueToken(user.id);
+
+      await this.invitationNotifier.sendInvitation({
+        email,
+        username: user.username,
+        organizationName: input.organizationName,
+        roleName: role.name,
+        inviteUrl: this.buildInviteUrl(input.inviteUrl, invitation.token),
+        expiresAt: invitation.expiresAt,
+        invitedBy: input.invitedBy ?? null,
+      });
+    }
+
+    return this.toRow(access);
+  }
+
+  private async createInvitedUser(email: string) {
+    const clusterUserRole = await this.ensureClusterUserRole();
+    const username = await this.buildUsernameFromEmail(email);
+
+    await this.userRepository.createUser({
+      id: crypto.randomUUID(),
+      username,
+      email,
+      // placeholder credential: the invited user must set a password before signing in
+      passwordHash: this.passwordService.hashPassword(crypto.randomBytes(32).toString('hex')),
+      role: this.toRoleView(clusterUserRole),
+      status: 'invited',
+    });
+
+    const user = await this.userRepository.findByUsername(username);
+    if (!user) throw new Error('Failed to create user');
+    return user;
   }
 
   async createClusterUser(input: {
@@ -170,9 +269,11 @@ export class UserAccessService {
     scopeId?: string;
   }): Promise<void> {
     const access = await this.findAccessInScope(input.accessId, input.scope, input.scopeId);
-    if (input.scope === 'cluster') {
-      const clusterUserRole = await this.ensureClusterUserRole();
-      await this.userRepository.updateRoleId(access.id, clusterUserRole.id);
+    if (input.scope === 'cluster' || input.scope === 'organization') {
+      const userId = input.scope === 'cluster' ? access.id : access.userId;
+      const userAccess = await this.userAccessRepository.findByUserId(access.userId);
+      await Promise.all(userAccess.map((entry) => this.userAccessRepository.deleteById(entry.id)));
+      await this.userRepository.deleteById(userId);
       return;
     }
 
@@ -183,6 +284,9 @@ export class UserAccessService {
     accessId: string;
     scope: RoleScope;
     scopeId?: string;
+    organizationName?: string;
+    inviteUrl?: string;
+    invitedBy?: string | null;
   }): Promise<UserAccessRow> {
     const access = await this.findAccessInScope(input.accessId, input.scope, input.scopeId);
     if (input.scope === 'cluster') {
@@ -200,6 +304,20 @@ export class UserAccessService {
     await this.userAccessRepository.update(access.id, { status: 'invited' });
     const updated = await this.userAccessRepository.findById(access.id);
     if (!updated) throw new Error('Failed to resend invitation');
+
+    if (input.inviteUrl && updated.user?.email) {
+      const invitation = await this.invitationTokens.issueToken(updated.userId);
+      await this.invitationNotifier.sendInvitation({
+        email: updated.user.email,
+        username: updated.user.username,
+        organizationName: input.organizationName ?? updated.organization?.name ?? '',
+        roleName: updated.role?.name ?? '',
+        inviteUrl: this.buildInviteUrl(input.inviteUrl, invitation.token),
+        expiresAt: invitation.expiresAt,
+        invitedBy: input.invitedBy ?? null,
+      });
+    }
+
     return this.toRow(updated);
   }
 
@@ -209,8 +327,10 @@ export class UserAccessService {
     scope: RoleScope;
     organizationId?: string;
     projectId?: string;
+    status?: UserAccessStatus;
   }): Promise<UserAccessDomain> {
-    const existing = await this.userAccessRepository.findOne(input);
+    const { status, ...lookup } = input;
+    const existing = await this.userAccessRepository.findOne(lookup);
     if (existing) throw new Error('User already has access in this scope');
 
     await this.userAccessRepository.create({
@@ -220,12 +340,43 @@ export class UserAccessService {
       scope: input.scope,
       organizationId: input.organizationId,
       projectId: input.projectId,
-      status: 'active',
+      status: status ?? 'active',
     });
 
-    const created = await this.userAccessRepository.findOne(input);
+    const created = await this.userAccessRepository.findOne(lookup);
     if (!created) throw new Error('Failed to create user access');
     return created;
+  }
+
+  private buildInviteUrl(baseUrl: string, token: string): string {
+    const url = new URL(baseUrl);
+    url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  private async findDefaultOrganizationRole(organizationId: string) {
+    const role = await this.roleRepository.findBySlug(
+      'org-developer',
+      'organization',
+      organizationId,
+    );
+    if (!role) throw new Error('Default organization role not found');
+    return role;
+  }
+
+  /** Derives a unique username from the email local part. */
+  private async buildUsernameFromEmail(email: string): Promise<string> {
+    const base =
+      email
+        .split('@')[0]
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+        .toLowerCase() || 'user';
+
+    let candidate = base;
+    for (let suffix = 1; await this.userRepository.findByUsername(candidate); suffix += 1) {
+      candidate = `${base}-${suffix}`;
+    }
+    return candidate;
   }
 
   private async findRoleForScope(roleId: string, scope: RoleScope, scopeId: string) {

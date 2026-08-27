@@ -6,7 +6,6 @@ import {
   requireRepositoryConfig,
   resolveRepositoryWebUrl,
 } from './config';
-import { gitDbSyncService } from './sync';
 import { getCurrentActor } from '../request-context';
 
 let instance: GitDB | null = null;

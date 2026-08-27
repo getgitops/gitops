@@ -27,6 +27,28 @@ export class UserRepository extends Repository {
     return row ? this.toDomain(row) : null;
   }
 
+  async findByEmail(email: string): Promise<UserDomain | null> {
+    const result = await this.db
+      .with({ role: true })
+      .select()
+      .from(UserEntity)
+      .where({ email })
+      .limit(1);
+    const row = result.rows[0];
+    return row ? this.toDomain(row) : null;
+  }
+
+  async findByInvitationTokenHash(invitationTokenHash: string): Promise<UserDomain | null> {
+    const result = await this.db
+      .with({ role: true })
+      .select()
+      .from(UserEntity)
+      .where({ invitationTokenHash })
+      .limit(1);
+    const row = result.rows[0];
+    return row ? this.toDomain(row) : null;
+  }
+
   async listUsers(): Promise<UserDomain[]> {
     const result = await this.db
       .with({ role: true })
@@ -48,7 +70,7 @@ export class UserRepository extends Repository {
       email: input.email,
       passwordHash: input.passwordHash,
       roleId: input.role.id,
-      status: 'active',
+      status: input.status ?? 'active',
       authProviders: [{ provider: 'local', providerId: null }],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -85,6 +107,30 @@ export class UserRepository extends Repository {
       .where({ id: userId });
   }
 
+  async setInvitationToken(
+    userId: string,
+    invitationTokenHash: string,
+    invitationExpiresAt: string,
+  ): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({ invitationTokenHash, invitationExpiresAt, updatedAt: new Date().toISOString() })
+      .where({ id: userId });
+  }
+
+  async acceptInvitation(userId: string, passwordHash: string): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({
+        passwordHash,
+        status: 'active',
+        invitationTokenHash: null,
+        invitationExpiresAt: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where({ id: userId });
+  }
+
   async deleteById(userId: string): Promise<void> {
     await this.db.delete(ApiKeyEntity).where({ userId });
     await this.db.delete(UserEntity).where({ id: userId });
@@ -107,6 +153,7 @@ export class UserRepository extends Repository {
       email: user.email ?? null,
       password: user.passwordHash,
       status: user.status,
+      invitationExpiresAt: user.invitationExpiresAt ?? null,
       role: user.role,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

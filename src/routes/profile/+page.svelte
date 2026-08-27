@@ -82,12 +82,12 @@
   function toggleDarkMode() {
     darkMode = !darkMode;
     document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('gitvault-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem('gitops-theme', darkMode ? 'dark' : 'light');
   }
 </script>
 
 <svelte:head>
-  <title>Profile - GitVault Suite</title>
+  <title>Profile - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto max-w-6xl space-y-6">

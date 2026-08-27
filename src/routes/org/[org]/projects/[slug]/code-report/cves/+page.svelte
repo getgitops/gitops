@@ -19,7 +19,7 @@
 </script>
 
 <svelte:head>
-  <title>Code Report - CVEs - GitVault Suite</title>
+  <title>Code Report - CVEs - GitOps</title>
 </svelte:head>
 
 <CveListView
