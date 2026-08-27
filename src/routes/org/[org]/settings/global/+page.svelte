@@ -156,7 +156,7 @@
               type="text"
               bind:value={samlIssuer}
               class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              placeholder="gitvault-suite"
+              placeholder="gitops"
             />
           </div>
 

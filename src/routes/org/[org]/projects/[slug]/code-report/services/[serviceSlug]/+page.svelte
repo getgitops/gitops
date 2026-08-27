@@ -27,7 +27,7 @@
   $: if (form?.error) deleteError = form.error;
 </script>
 
-<svelte:head><title>{data.service.name} - Code Report - GitVault Suite</title></svelte:head>
+<svelte:head><title>{data.service.name} - Code Report - GitOps</title></svelte:head>
 
 <div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">

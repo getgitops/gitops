@@ -156,7 +156,7 @@
 </script>
 
 <svelte:head>
-  <title>Code Report - Dashboard - GitVault Suite</title>
+  <title>Code Report - Dashboard - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">

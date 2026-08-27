@@ -15,7 +15,7 @@
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
 </script>
 
-<svelte:head><title>Nueva política de seguridad - GitVault Suite</title></svelte:head>
+<svelte:head><title>Nueva política de seguridad - GitOps</title></svelte:head>
 
 <div class="space-y-4">
   <a href={baseHref} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">

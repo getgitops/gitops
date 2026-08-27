@@ -1,5 +1,5 @@
 <svelte:head>
-  <title>Settings - GitVault Suite</title>
+  <title>Settings - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-7xl">

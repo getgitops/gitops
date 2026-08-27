@@ -1,6 +1,5 @@
 import { json } from '@sveltejs/kit';
 import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
-import { apiKeysService } from '$modules/auth';
 import { projectService } from '$modules/projects';
 
 type ProjectSettingsTool = {

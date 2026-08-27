@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-  <title>Organization CVEs - GitVault Suite</title>
+  <title>Organization CVEs - GitOps</title>
 </svelte:head>
 
 <CveListView

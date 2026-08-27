@@ -80,13 +80,13 @@
 </script>
 
 <svelte:head>
-  <title>Overview - GitVault Suite</title>
+  <title>Overview - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-7xl space-y-6">
   <section>
     <h2 class="text-2xl font-semibold text-slate-900">Overview</h2>
-    <p class="mt-2 text-sm text-slate-600">Bienvenido a GitVault Suite.</p>
+    <p class="mt-2 text-sm text-slate-600">Bienvenido a GitOps.</p>
   </section>
 
   <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

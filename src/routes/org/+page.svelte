@@ -18,7 +18,7 @@
 </script>
 
 <svelte:head>
-  <title>Organizations - GitVault Suite</title>
+  <title>Organizations - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl px-4 py-10">

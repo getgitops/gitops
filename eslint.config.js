@@ -48,6 +48,14 @@ export default [
         ...globals.node,
       },
     },
+    rules: {
+      'no-unused-vars': 'off',
+      'svelte/no-reactive-functions': 'off',
+      'svelte/no-navigation-without-resolve': 'off',
+      'svelte/require-each-key': 'off',
+      'svelte/prefer-svelte-reactivity': 'off',
+      'no-useless-assignment': 'off',
+    },
   },
   prettier,
 ];
