@@ -127,9 +127,10 @@
     const rootRows = rootPermissions.length
       ? flattenSection({ ...root, sections: [] }, currentScope, 0, [], [])
       : [];
-    const rootPrefixes = [...new Set(rootPermissions.map(prefixFrom).filter(Boolean))];
+    // the scope's own grants (`project:project:*`) cover the entity itself, not its sibling
+    // sections, so they must not be inherited by `users`, `roles`, `modules`, ...
     const childRows = sectionChildren(root).flatMap((child) =>
-      flattenSection(child, root.section ?? currentScope, 0, rootPrefixes, []),
+      flattenSection(child, root.section ?? currentScope, 0, [], []),
     );
 
     return [...rootRows, ...childRows];
