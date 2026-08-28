@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { ArrowLeft } from '@lucide/svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: {
     services: { id: string; slug: string; name: string; tags: string[] }[];
@@ -15,16 +16,16 @@
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
 </script>
 
-<svelte:head><title>Nueva política de seguridad - GitOps</title></svelte:head>
+<svelte:head><title>{$_('codeReport.securityPolicy.newPolicy')} - GitOps</title></svelte:head>
 
 <div class="space-y-4">
   <a href={baseHref} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
-    <ArrowLeft class="h-3.5 w-3.5" />Volver a políticas
+    <ArrowLeft class="h-3.5 w-3.5" />{$_('codeReport.securityPolicy.backToPolicies')}
   </a>
 
   <SecurityPolicyForm
     action="?/create"
-    submitLabel="Crear política"
+    submitLabel={$_('codeReport.securityPolicy.createPolicy')}
     services={data.services}
     tags={data.tags}
     errorMessage={form?.error ?? null}

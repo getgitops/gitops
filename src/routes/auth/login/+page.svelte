@@ -3,6 +3,7 @@
   import { page } from '$app/stores';
   import type { ActionData } from './$types';
   import { ShieldCheck } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   export let form: ActionData;
 
@@ -13,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>Login - GitOps</title>
+  <title>{$_('auth.loginTitle')} - GitOps</title>
 </svelte:head>
 
 <div
@@ -31,10 +32,10 @@
 
       <div>
         <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-          Workspace
+          {$_('auth.workspace')}
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-slate-900">Sign in to GitOps</h1>
-        <p class="mt-2 text-sm text-slate-600">Continue with your private admin workspace.</p>
+        <h1 class="mt-2 text-2xl font-bold text-slate-900">{$_('auth.signInTitle')}</h1>
+        <p class="mt-2 text-sm text-slate-600">{$_('auth.signInSubtitle')}</p>
       </div>
     </div>
 
@@ -42,7 +43,7 @@
       <div
         class="mb-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
       >
-        You have been signed out.
+        {$_('auth.signedOut')}
       </div>
     {/if}
 
@@ -66,7 +67,7 @@
     >
       <div>
         <label class="mb-1.5 block text-sm font-medium text-slate-700" for="email"
-          >Email</label
+          >{$_('common.email')}</label
         >
         <input
           id="email"
@@ -80,7 +81,7 @@
 
       <div>
         <label class="mb-1.5 block text-sm font-medium text-slate-700" for="password"
-          >Password</label
+          >{$_('common.password')}</label
         >
         <input
           id="password"
@@ -97,7 +98,7 @@
         class="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold"
       >
         <ShieldCheck class="h-4 w-4" />
-        {isSubmitting ? 'Signing in...' : 'Sign in'}
+        {isSubmitting ? $_('auth.signingIn') : $_('auth.signIn')}
       </button>
     </form>
   </div>

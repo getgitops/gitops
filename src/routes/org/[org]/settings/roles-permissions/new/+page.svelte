@@ -1,11 +1,12 @@
 <script lang="ts">
   import RoleDetail from '$lib/components/RoleDetail.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: { organization: { slug: string } };
 </script>
 
 <RoleDetail
   scope="organization"
-  title="Add Organization Role"
+  title={$_('roleDetail.addOrganizationRole')}
   cancelHref={`/org/${data.organization.slug}/settings/roles-permissions`}
 />

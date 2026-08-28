@@ -1,6 +1,7 @@
 <script lang="ts">
   import AuditLog from '$lib/components/AuditLog.svelte';
   import type { AuditEvent } from '$modules/audit';
+  import { _ } from 'svelte-i18n';
 
   type Organization = { id: string; name: string };
   type Pagination = { page: number; perPage: number; total: number; totalPages: number };
@@ -18,6 +19,6 @@
   pagination={data.pagination}
   organizations={data.organizations}
   commitBaseUrl={data.commitBaseUrl}
-  title="Cluster Audit Log"
-  description="History of changes recorded across the cluster's data repository."
+  title={$_('clusterSettings.audit.title')}
+  description={$_('clusterSettings.audit.description')}
 />

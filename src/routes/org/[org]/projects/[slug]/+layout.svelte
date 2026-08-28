@@ -11,6 +11,7 @@
     Shield,
     Users,
   } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: {
     project: {
@@ -28,58 +29,58 @@
 
   $: tabs = [
     {
-      label: 'Overview',
+      label: $_('project.layout.overview'),
       href: overviewHref,
       icon: LayoutDashboard,
-      subtitle: 'Resumen general del proyecto.',
+      subtitle: $_('project.layout.overviewSubtitle'),
     },
     {
       label: 'Vault',
       href: `/org/${orgSlug}/projects/${project.slug}/vault`,
       icon: Shield,
-      subtitle: 'Secretos, credenciales y controles de acceso del proyecto.',
+      subtitle: $_('project.layout.vaultSubtitle'),
     },
     {
       label: 'Open Report',
       href: `/org/${orgSlug}/projects/${project.slug}/code-report/dashboard`,
       icon: BarChart3,
-      subtitle: 'Reportes de vulnerabilidades y dependencias del proyecto.',
+      subtitle: $_('project.layout.codeReportSubtitle'),
     },
     {
       label: 'State IaC',
       href: `/org/${orgSlug}/projects/${project.slug}/state-iac`,
       icon: GitBranch,
-      subtitle: 'Estado de Pulumi y backends de almacenamiento del proyecto.',
+      subtitle: $_('project.layout.stateIacSubtitle'),
     },
     {
-      label: 'Información',
+      label: $_('project.layout.information'),
       href: `/org/${orgSlug}/projects/${project.slug}/settings/overview`,
       icon: Info,
-      subtitle: 'Datos generales, módulos y zona de peligro del proyecto.',
+      subtitle: $_('project.layout.informationSubtitle'),
     },
     {
-      label: 'Usuarios y Grupos',
+      label: $_('project.layout.usersAndGroups'),
       href: `/org/${orgSlug}/projects/${project.slug}/settings/users-groups`,
       icon: Users,
-      subtitle: 'Gestiona qué usuarios y grupos tienen acceso a este proyecto.',
+      subtitle: $_('project.layout.usersAndGroupsSubtitle'),
     },
     {
-      label: 'Roles y Permisos',
+      label: $_('project.layout.rolesAndPermissions'),
       href: `/org/${orgSlug}/projects/${project.slug}/settings/roles-permissions`,
       icon: Shield,
-      subtitle: 'Define roles y permisos específicos para este proyecto.',
+      subtitle: $_('project.layout.rolesAndPermissionsSubtitle'),
     },
     {
       label: 'Server Access Keys',
       href: `/org/${orgSlug}/projects/${project.slug}/settings/server-access-keys`,
       icon: KeyRound,
-      subtitle: 'Credenciales para que herramientas externas reporten análisis a este proyecto.',
+      subtitle: $_('project.layout.serverAccessKeysSubtitle'),
     },
     {
-      label: 'Auditoría',
+      label: $_('project.layout.audit'),
       href: `/org/${orgSlug}/projects/${project.slug}/settings/audit`,
       icon: ScrollText,
-      subtitle: 'Historial de cambios y actividad relevante del proyecto.',
+      subtitle: $_('project.layout.auditSubtitle'),
     },
   ];
 

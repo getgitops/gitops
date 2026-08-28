@@ -5,6 +5,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { diffListItems, summarizeChange, type EntityRowChange } from './audit-summary';
   import AuditFieldValue from './AuditFieldValue.svelte';
+  import { _ } from 'svelte-i18n';
 
   type AuditAction = 'insert' | 'update' | 'delete' | 'other';
 
@@ -21,8 +22,8 @@
   type Pagination = { page: number; perPage: number; total: number; totalPages: number };
 
   export let events: AuditEvent[] = [];
-  export let title = 'Audit Log';
-  export let description = 'History of changes recorded in the data repository.';
+  export let title = '';
+  export let description = '';
   /** Form action (in the current route's +page.server.ts) that returns the row-level diff. */
   export let diffAction = '?/viewDiff';
   /** Repo web URL (no trailing slash) used to build "View commit" links; null hides the button. */
@@ -52,14 +53,23 @@
 
   type DatePreset = 'all' | 'today' | '7d' | '30d' | '3m' | 'custom';
 
-  const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
-    { value: 'all', label: 'All time' },
-    { value: 'today', label: 'Today' },
-    { value: '7d', label: 'Last 7 days' },
-    { value: '30d', label: 'Last 30 days' },
-    { value: '3m', label: 'Last 3 months' },
-    { value: 'custom', label: 'Custom range...' },
+  $: DATE_PRESET_OPTIONS = [
+    { value: 'all', label: $_('auditLog.allTime') },
+    { value: 'today', label: $_('auditLog.today') },
+    { value: '7d', label: $_('auditLog.last7Days') },
+    { value: '30d', label: $_('auditLog.last30Days') },
+    { value: '3m', label: $_('auditLog.last3Months') },
+    { value: 'custom', label: $_('auditLog.customRange') },
   ];
+
+  $: resolvedTitle = title || $_('auditLog.defaultTitle');
+  $: resolvedDescription = description || $_('auditLog.defaultDescription');
+  $: actionLabels = {
+    insert: $_('auditLog.actions.insert'),
+    update: $_('auditLog.actions.update'),
+    delete: $_('auditLog.actions.delete'),
+    other: $_('auditLog.actions.other'),
+  } as const;
 
   function toLocalIsoDate(date: Date): string {
     const year = date.getFullYear();
@@ -166,7 +176,7 @@
         diffError =
           result.type === 'failure' && result.data?.error
             ? String(result.data.error)
-            : 'Failed to load changes.';
+            : $_('auditLog.loadFailed');
       };
     };
   }
@@ -179,13 +189,13 @@
 </script>
 
 <svelte:head>
-  <title>{title}</title>
+  <title>{resolvedTitle}</title>
 </svelte:head>
 
 <div class="space-y-6">
   <section>
-    <h3 class="text-xl font-semibold text-slate-900">{title}</h3>
-    <p class="mt-2 text-sm text-slate-600">{description}</p>
+    <h3 class="text-xl font-semibold text-slate-900">{resolvedTitle}</h3>
+    <p class="mt-2 text-sm text-slate-600">{resolvedDescription}</p>
   </section>
 
   <form method="GET" class="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-wrap">
@@ -197,7 +207,7 @@
         type="text"
         name="search"
         value={currentSearch}
-        placeholder="Search by entity, action, author or commit..."
+        placeholder={$_('auditLog.searchPlaceholder')}
         class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
       />
     </div>
@@ -216,7 +226,7 @@
           type="date"
           name="from"
           value={currentFrom}
-          title="From date"
+          title={$_('auditLog.fromDate')}
           class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
         />
         <span class="text-slate-400">–</span>
@@ -224,7 +234,7 @@
           type="date"
           name="to"
           value={currentTo}
-          title="To date"
+          title={$_('auditLog.toDate')}
           class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
         />
       {:else}
@@ -237,7 +247,7 @@
         name="organizationId"
         class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
       >
-        <option value="">All organizations</option>
+        <option value="">{$_('auditLog.allOrganizations')}</option>
         {#each organizations as organization}
           <option value={organization.id} selected={organization.id === currentOrganizationId}>
             {organization.name}
@@ -246,9 +256,9 @@
       </select>
     {/if}
     <input type="hidden" name="perPage" value={pagination.perPage} />
-    <button type="submit" class="btn-primary rounded-md px-3 py-2 text-sm font-medium">Filter</button>
+    <button type="submit" class="btn-primary rounded-md px-3 py-2 text-sm font-medium">{$_('auditLog.filter')}</button>
     {#if hasActiveFilters}
-      <a href="?" class="btn-secondary rounded-md px-3 py-2 text-sm font-medium">Clear</a>
+      <a href="?" class="btn-secondary rounded-md px-3 py-2 text-sm font-medium">{$_('auditLog.clear')}</a>
     {/if}
   </form>
 
@@ -256,7 +266,7 @@
     <div
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
     >
-      {hasActiveFilters ? 'No audit events match your filters.' : 'No audit events found.'}
+      {hasActiveFilters ? $_('auditLog.emptyFiltered') : $_('auditLog.empty') }
     </div>
   {:else}
     <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -266,12 +276,12 @@
             <tr
               class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
             >
-              <th class="px-4 py-3">Date</th>
-              <th class="px-4 py-3">Action</th>
-              <th class="px-4 py-3">Entity</th>
-              <th class="px-4 py-3">Author</th>
-              <th class="px-4 py-3">Commit</th>
-              <th class="px-4 py-3 text-right">Actions</th>
+              <th class="px-4 py-3">{$_('common.date')}</th>
+              <th class="px-4 py-3">{$_('auditLog.actionsLabel')}</th>
+              <th class="px-4 py-3">{$_('auditLog.entity')}</th>
+              <th class="px-4 py-3">{$_('auditLog.author')}</th>
+              <th class="px-4 py-3">{$_('auditLog.commit')}</th>
+              <th class="px-4 py-3 text-right">{$_('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -282,7 +292,7 @@
                   <span
                     class={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${actionStyles[event.action]}`}
                   >
-                    {event.action}
+                    {actionLabels[event.action]}
                   </span>
                 </td>
                 <td class="px-4 py-3 font-medium text-slate-900">{event.entity ?? '-'}</td>
@@ -296,10 +306,10 @@
                         target="_blank"
                         rel="noopener noreferrer"
                         class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
-                        title="View commit in repository"
+                        title={$_('auditLog.viewCommit')}
                       >
                         <ExternalLink class="h-3.5 w-3.5" />
-                        Commit
+                        {$_('auditLog.commit')}
                       </a>
                     {/if}
                     {#if event.entity}
@@ -311,7 +321,7 @@
                           class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
                         >
                           <Eye class="h-3.5 w-3.5" />
-                          View changes
+                          {$_('auditLog.viewChanges')}
                         </button>
                       </form>
                     {/if}
@@ -331,7 +341,7 @@
             {(pagination.page - 1) * pagination.perPage + 1}–{Math.min(
               pagination.page * pagination.perPage,
               pagination.total,
-            )} of {pagination.total}
+            )} {$_('common.of')} {pagination.total}
           </span>
           <select
             value={String(pagination.perPage)}
@@ -341,7 +351,7 @@
             class="field-input rounded-md border px-2 py-1 text-xs outline-none transition"
           >
             {#each PER_PAGE_OPTIONS as size}
-              <option value={String(size)}>{size} / page</option>
+              <option value={String(size)}>{size} / {$_('auditLog.perPage')}</option>
             {/each}
           </select>
         </div>
@@ -353,32 +363,32 @@
               class="btn-secondary inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
             >
               <ChevronLeft class="h-3.5 w-3.5" />
-              Previous
+              {$_('auditLog.previous')}
             </a>
           {:else}
             <span
               class="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-300"
             >
               <ChevronLeft class="h-3.5 w-3.5" />
-              Previous
+              {$_('auditLog.previous')}
             </span>
           {/if}
 
-          <span class="text-xs text-slate-500">Page {pagination.page} of {pagination.totalPages}</span>
+          <span class="text-xs text-slate-500">{$_('auditLog.page')} {pagination.page} {$_('common.of')} {pagination.totalPages}</span>
 
           {#if pagination.page < pagination.totalPages}
             <a
               href={hrefWithParam('page', String(pagination.page + 1))}
               class="btn-secondary inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
             >
-              Next
+              {$_('auditLog.next')}
               <ChevronRight class="h-3.5 w-3.5" />
             </a>
           {:else}
             <span
               class="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-300"
             >
-              Next
+              {$_('auditLog.next')}
               <ChevronRight class="h-3.5 w-3.5" />
             </span>
           {/if}
@@ -393,27 +403,27 @@
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"
     on:click={closeDiff}
-    aria-label="Close changes modal"
+    aria-label={$_('auditLog.closeChangesModal')}
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div
       class="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-md border border-slate-200 bg-white shadow-xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Audit change details"
+      aria-label={$_('auditLog.changeDetails')}
     >
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
-          <h5 class="text-sm font-semibold text-slate-900">Detalle del cambio</h5>
+          <h5 class="text-sm font-semibold text-slate-900">{$_('auditLog.changeDetails')}</h5>
           <p class="mt-0.5 text-xs text-slate-500">
-            {formatDate(diffModalEvent.timestamp)} por {diffModalEvent.author} · {diffModalEvent.commitHash.slice(0, 7)}
+            {formatDate(diffModalEvent.timestamp)} {$_('auditLog.by')} {diffModalEvent.author} · {diffModalEvent.commitHash.slice(0, 7)}
           </p>
         </div>
         <button
           type="button"
           on:click={closeDiff}
           class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
-          aria-label="Close"
+          aria-label={$_('common.close')}
         >
           <X class="h-4 w-4" />
         </button>
@@ -421,13 +431,13 @@
 
       <div class="overflow-y-auto px-4 py-4">
         {#if diffLoading}
-          <p class="text-sm text-slate-500">Loading changes...</p>
+          <p class="text-sm text-slate-500">{$_('auditLog.loadingChanges')}</p>
         {:else if diffError}
           <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {diffError}
           </div>
         {:else if diffChanges.length === 0}
-          <p class="text-sm text-slate-500">No se detectaron cambios.</p>
+          <p class="text-sm text-slate-500">{$_('auditLog.noChanges')}</p>
         {:else}
           <div class="space-y-4">
             {#each diffChanges as change}
@@ -492,13 +502,13 @@
                               <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <div>
                                   <p class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                                    Antes
+                                    {$_('auditLog.before')}
                                   </p>
                                   <AuditFieldValue value={field.before} />
                                 </div>
                                 <div>
                                   <p class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                                    Después
+                                    {$_('auditLog.after')}
                                   </p>
                                   <AuditFieldValue value={field.after} />
                                 </div>
@@ -520,4 +530,3 @@
     </div>
   </div>
 {/if}
-

@@ -9,6 +9,7 @@
     UserPlus,
   } from '@lucide/svelte';
   import { page } from '$app/stores';
+  import { _ } from 'svelte-i18n';
 
   type ProjectModules = {
     vault: boolean;
@@ -42,21 +43,21 @@
     {
       key: 'vault',
       label: 'Vault',
-      description: 'Secretos, credenciales y controles de acceso.',
+      description: $_('project.vault.description'),
       href: `/org/${orgSlug}/projects/${project.slug}/vault`,
       icon: Shield,
     },
     {
       key: 'codereport',
       label: 'Code Report',
-      description: 'Reportes de vulnerabilidades y dependencias.',
+      description: $_('project.layout.codeReportSubtitle'),
       href: `/org/${orgSlug}/projects/${project.slug}/code-report`,
       icon: BarChart3,
     },
     {
       key: 'stateiac',
       label: 'State IaC',
-      description: 'Estado y backends de Pulumi.',
+      description: $_('project.layout.stateIacSubtitle'),
       href: `/org/${orgSlug}/projects/${project.slug}/state-iac`,
       icon: GitBranch,
     },
@@ -64,22 +65,22 @@
 
   $: activeModules = moduleInfo.filter((module) => project.modules[module.key]);
 
-  const quickActions = [
+  $: quickActions = [
     {
-      label: 'Invite members',
-      description: 'Invita usuarios a colaborar en este proyecto.',
+      label: $_('project.overview.inviteMembers'),
+      description: $_('project.overview.inviteMembersDescription'),
       icon: UserPlus,
     },
     {
-      label: 'Add Secret Token',
-      description: 'Genera un token para integraciones y CI/CD.',
+      label: $_('project.overview.addSecretToken'),
+      description: $_('project.overview.addSecretTokenDescription'),
       icon: KeyRound,
     },
   ];
 </script>
 
 <svelte:head>
-  <title>Overview - {project.name}</title>
+  <title>{$_('project.layout.overview')} - {project.name}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -89,7 +90,7 @@
         <FolderKanban class="h-5 w-5 text-slate-900" />
         <div>
           <h3 class="text-lg font-semibold text-slate-900">{project.name}</h3>
-          <p class="text-xs text-slate-500">Slug: {project.slug}</p>
+          <p class="text-xs text-slate-500">{$_('common.slug')}: {project.slug}</p>
         </div>
       </div>
 
@@ -99,24 +100,24 @@
           ? 'bg-emerald-50 text-emerald-700'
           : 'bg-slate-100 text-slate-600'}"
       >
-        {project.status === 'active' ? 'Active' : 'Inactive'}
+        {project.status === 'active' ? $_('common.active') : $_('common.inactive')}
       </span>
     </div>
 
     <div class="px-4 py-4">
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Descripción</p>
-      <p class="mt-1 text-sm text-slate-700">{project.description || 'Sin descripción.'}</p>
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{$_('project.overview.description')}</p>
+      <p class="mt-1 text-sm text-slate-700">{project.description || $_('project.overview.noDescription')}</p>
     </div>
   </section>
 
   <section>
-    <h3 class="text-sm font-semibold text-slate-900">Módulos activos</h3>
+    <h3 class="text-sm font-semibold text-slate-900">{$_('project.overview.activeModules')}</h3>
 
     {#if activeModules.length === 0}
       <div
         class="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-600"
       >
-        Este proyecto no tiene módulos activos. Actívalos desde la configuración del proyecto.
+        {$_('project.overview.noActiveModules')}
       </div>
     {:else}
       <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -144,8 +145,8 @@
   </section>
 
   <section>
-    <h3 class="text-sm font-semibold text-slate-900">Guías</h3>
-    <p class="mt-1 text-xs text-slate-500">Aprende a sacarle partido a cada módulo.</p>
+    <h3 class="text-sm font-semibold text-slate-900">{$_('project.overview.guides')}</h3>
+    <p class="mt-1 text-xs text-slate-500">{$_('project.overview.guidesDescription')}</p>
 
     <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each moduleInfo as module (module.key)}
@@ -159,7 +160,7 @@
             <svelte:component this={module.icon} class="h-4 w-4" />
           </div>
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-slate-900">Guía de {module.label}</p>
+            <p class="text-sm font-semibold text-slate-900">{$_('project.overview.guidePrefix')} {module.label}</p>
             <p class="mt-1 text-xs leading-5 text-slate-600">{module.description}</p>
           </div>
           <ArrowRight
@@ -171,14 +172,14 @@
   </section>
 
   <section>
-    <h3 class="text-sm font-semibold text-slate-900">Acceso rápido</h3>
+    <h3 class="text-sm font-semibold text-slate-900">{$_('project.overview.quickAccess')}</h3>
 
     <div class="mt-3 grid gap-4 sm:grid-cols-2">
       {#each quickActions as action (action.label)}
         <button
           type="button"
           disabled
-          title="Próximamente"
+          title={$_('common.comingSoon')}
           class="flex items-start gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-left opacity-75"
         >
           <div
@@ -192,7 +193,7 @@
               <span
                 class="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
               >
-                Próximamente
+                {$_('common.comingSoon')}
               </span>
             </div>
             <p class="mt-1 text-xs leading-5 text-slate-600">{action.description}</p>

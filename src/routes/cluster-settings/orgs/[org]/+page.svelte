@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { CheckCircle, Copy, Save, Trash2 } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type OrganizationRow = {
     id: string;
@@ -44,14 +45,14 @@
         slugCopied = false;
       }, 2000);
     } catch {
-      error = 'Failed to copy slug.';
+      error = $_('clusterSettings.organizationDetail.copySlugFailed');
     }
   }
 
   const saveOrganization: SubmitFunction = ({ cancel }) => {
     error = '';
     if (!editName.trim()) {
-      error = 'Organization name is required.';
+      error = $_('clusterSettings.organizationDetail.nameRequired');
       cancel();
       return;
     }
@@ -62,14 +63,14 @@
       saving = false;
 
       if (result.type === 'success') {
-        flashSuccess('Organization updated.');
+        flashSuccess($_('clusterSettings.organizationDetail.updated'));
         return;
       }
 
       error =
         result.type === 'failure' && result.data?.error
           ? String(result.data.error)
-          : 'Failed to update organization.';
+          : $_('clusterSettings.organizationDetail.updateFailed');
     };
   };
 
@@ -91,7 +92,7 @@
       if (result.type === 'failure') {
         deleteError = result.data?.error
           ? String(result.data.error)
-          : 'Failed to delete organization.';
+          : $_('clusterSettings.organizationDetail.deleteFailed');
         deleteLoading = false;
       }
     };
@@ -99,7 +100,7 @@
 </script>
 
 <svelte:head>
-  <title>{organization.name} - Cluster Settings</title>
+  <title>{organization.name} - {$_('clusterSettings.organizationDetail.titleSuffix')}</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -125,21 +126,21 @@
   >
     <input type="hidden" name="id" value={organization.id} />
     <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
-      <h3 class="text-sm font-semibold text-slate-900">Información</h3>
+      <h3 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizationDetail.information')}</h3>
       <button
         type="button"
         on:click={copySlug}
         class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
       >
         <Copy class="h-3.5 w-3.5" />
-        {slugCopied ? 'Slug copiado' : 'Copy Organization Slug'}
+        {slugCopied ? $_('clusterSettings.organizationDetail.slugCopied') : $_('clusterSettings.organizationDetail.copySlug')}
       </button>
     </div>
 
     <div class="space-y-4 px-4 py-4">
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="edit-org-name">Nombre</label>
+          <label class="block text-sm font-medium text-slate-700" for="edit-org-name">{$_('common.name')}</label>
           <input
             id="edit-org-name"
             name="name"
@@ -150,7 +151,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="edit-org-slug">Slug</label>
+          <label class="block text-sm font-medium text-slate-700" for="edit-org-slug">{$_('common.slug')}</label>
           <input
             id="edit-org-slug"
             name="slug"
@@ -162,16 +163,14 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-slate-700" for="edit-org-description">
-          Descripción
-        </label>
+        <label class="block text-sm font-medium text-slate-700" for="edit-org-description">{$_('common.description')}</label>
         <textarea
           id="edit-org-description"
           name="description"
           bind:value={editDescription}
           rows="4"
           class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          placeholder="Optional description"
+          placeholder={$_('clusterSettings.organizationDetail.optionalDescription')}
         ></textarea>
       </div>
     </div>
@@ -183,30 +182,26 @@
         class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
       >
         <Save class="h-4 w-4" />
-        {saving ? 'Saving...' : 'Save changes'}
+        {saving ? $_('common.saving') : $_('clusterSettings.organizationDetail.saveChanges')}
       </button>
     </div>
   </form>
 
   <section class="overflow-hidden rounded-md border border-red-200 bg-white">
     <div class="border-b border-red-200 px-4 py-3">
-      <h3 class="text-sm font-semibold text-red-700">Danger Zone</h3>
+      <h3 class="text-sm font-semibold text-red-700">{$_('clusterSettings.organizationDetail.dangerZone')}</h3>
     </div>
     <div class="flex items-center justify-between gap-3 px-4 py-4">
       <div>
-        <p class="text-sm font-medium text-slate-900">Delete organization</p>
-        <p class="mt-1 text-xs text-slate-500">
-          Permanently deletes this organization. This action cannot be undone.
-        </p>
+        <p class="text-sm font-medium text-slate-900">{$_('clusterSettings.organizationDetail.deleteTitle')}</p>
+        <p class="mt-1 text-xs text-slate-500">{$_('clusterSettings.organizationDetail.deleteDescription')}</p>
       </div>
       <button
         type="button"
         on:click={openDeleteModal}
         class="btn-danger inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium"
       >
-        <Trash2 class="h-3.5 w-3.5" />
-        Delete organization
-      </button>
+        <Trash2 class="h-3.5 w-3.5" />{$_('clusterSettings.organizationDetail.deleteTitle')}</button>
     </div>
   </section>
 </div>
@@ -216,17 +211,17 @@
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"
     on:click={closeDeleteModal}
-    aria-label="Close delete organization modal"
+    aria-label={$_('clusterSettings.organizationDetail.closeDeleteModal')}
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div
       class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Delete organization modal"
+      aria-label={$_('clusterSettings.organizationDetail.deleteModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">Delete organization</h5>
+        <h5 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizationDetail.deleteConfirmTitle')}</h5>
       </div>
 
       <form method="POST" action="?/deleteOrganization" use:enhance={confirmDelete}>
@@ -239,9 +234,9 @@
           {/if}
 
           <p class="text-sm text-slate-600">
-            Are you sure you want to delete <span class="font-medium text-slate-900"
+            {$_('clusterSettings.organizationDetail.deleteConfirmStart')}<span class="font-medium text-slate-900"
               >{organization.name}</span
-            >? This action cannot be undone.
+            >{$_('clusterSettings.organizationDetail.deleteConfirmEnd')}
           </p>
         </div>
 
@@ -251,7 +246,7 @@
             on:click={closeDeleteModal}
             class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
           >
-            Cancel
+            {$_('common.cancel')}
           </button>
           <button
             type="submit"
@@ -259,7 +254,7 @@
             class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
             <Trash2 class="h-4 w-4" />
-            {deleteLoading ? 'Deleting...' : 'Delete organization'}
+            {deleteLoading ? $_('clusterSettings.organizationDetail.deleting') : $_('clusterSettings.organizationDetail.deleteTitle')}
           </button>
         </div>
       </form>

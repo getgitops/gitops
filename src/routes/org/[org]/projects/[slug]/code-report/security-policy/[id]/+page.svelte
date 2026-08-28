@@ -3,6 +3,7 @@
   import { enhance } from '$app/forms';
   import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from '@lucide/svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
+  import { _ } from 'svelte-i18n';
   import {
     describeScope,
     SECURITY_POLICY_ENFORCEMENT_META,
@@ -92,7 +93,7 @@
 <div class="space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <a href={baseHref} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
-      <ArrowLeft class="h-3.5 w-3.5" />Volver a políticas
+      <ArrowLeft class="h-3.5 w-3.5" />{$_('codeReport.securityPolicy.backToPolicies')}
     </a>
     <div class="flex flex-wrap items-center gap-2">
       <form
@@ -112,7 +113,7 @@
           class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
         >
           <RefreshCw class={`h-4 w-4 ${evaluating ? 'animate-spin' : ''}`} />
-          {evaluating ? 'Analizando...' : 'Analizar servicios'}
+          {evaluating ? $_('codeReport.securityPolicy.evaluating') : $_('codeReport.securityPolicy.evaluateServices')}
         </button>
       </form>
       <button
@@ -120,14 +121,16 @@
         on:click={() => (editing = !editing)}
         class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
       >
-        <Pencil class="h-4 w-4" />{editing ? 'Cancelar edición' : 'Editar'}
+        <Pencil class="h-4 w-4" />{editing
+          ? $_('codeReport.securityPolicy.cancelEditing')
+          : $_('codeReport.securityPolicy.editing')}
       </button>
       <button
         type="button"
         on:click={() => (deleteModalOpen = true)}
         class="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
       >
-        <Trash2 class="h-4 w-4" />Borrar
+        <Trash2 class="h-4 w-4" />{$_('codeReport.securityPolicy.delete')}
       </button>
     </div>
   </div>
@@ -140,12 +143,12 @@
           : 'border-emerald-200 bg-emerald-50 text-emerald-800'
       }`}
     >
-      {form.evaluated.servicesEvaluated} servicios reevaluados ({form.evaluated.analysesUpdated} análisis
-      actualizados).
+      {form.evaluated.servicesEvaluated} {$_('codeReport.securityPolicy.servicesReevaluated')} ({form.evaluated.analysesUpdated}
+      {$_('codeReport.securityPolicy.analysesUpdated')}).
       {#if form.evaluated.failingServices > 0}
-        <strong>{form.evaluated.failingServices}</strong> incumplen esta política.
+        <strong>{form.evaluated.failingServices}</strong> {$_('codeReport.securityPolicy.failingPolicy')}
       {:else}
-        Ninguno incumple esta política.
+        {$_('codeReport.securityPolicy.noneFailPolicy')}
       {/if}
     </p>
   {/if}
@@ -154,7 +157,7 @@
     {#key policy.updatedAt}
       <SecurityPolicyForm
         action="?/update"
-        submitLabel="Guardar cambios"
+        submitLabel={$_('projectSettings.overview.saveChanges')}
         services={data.services}
         tags={data.tags}
         {policy}
@@ -170,7 +173,7 @@
         on:click={() => (activeTab = 'detail')}
         class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'detail' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
       >
-        Detalle
+        {$_('codeReport.securityPolicy.detailTab')}
       </button>
       <button
         type="button"
@@ -179,7 +182,7 @@
         on:click={() => (activeTab = 'services')}
         class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'services' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
       >
-        Servicios afectados
+        {$_('codeReport.securityPolicy.affectedServicesTab')}
         <span class="ml-1 text-xs font-normal text-slate-400">{data.affectedServices.length}</span>
       </button>
     </div>
@@ -188,22 +191,21 @@
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 class="text-sm font-semibold text-slate-900">Servicios afectados</h2>
+          <h2 class="text-sm font-semibold text-slate-900">{$_('codeReport.securityPolicy.affectedServices')}</h2>
           <p class="mt-1 text-xs text-slate-500">
-            Servicios con análisis evaluados contra esta política.
+            {$_('codeReport.securityPolicy.affectedServicesDescription')}
           </p>
         </div>
         {#if failingServicesCount > 0}
           <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
-            {failingServicesCount} incumpliendo
+            {failingServicesCount} {$_('codeReport.securityPolicy.failing')}
           </span>
         {/if}
       </div>
 
       {#if data.affectedServices.length === 0}
         <p class="mt-6 text-sm text-slate-500">
-          Ningún análisis se ha evaluado contra esta política todavía. Usa "Analizar servicios" para
-          evaluarlos.
+          {$_('codeReport.securityPolicy.noEvaluations')}
         </p>
       {:else}
         <ul class="mt-4 space-y-2">
@@ -220,7 +222,7 @@
                     {service.name}
                   </a>
                   <p class="mt-0.5 text-xs text-slate-500">
-                    {service.evaluatedAnalyses} análisis evaluados · último con {service.lastTool} el
+                    {service.evaluatedAnalyses} {$_('codeReport.securityPolicy.analysesEvaluated')} · {$_('codeReport.securityPolicy.lastWith')} {service.lastTool} {$_('codeReport.securityPolicy.onDate')}
                     {new Date(service.lastEvaluatedAt).toLocaleString()}
                   </p>
                   {#if service.violations.length > 0}
@@ -241,10 +243,10 @@
                   <span
                     class={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase ${service.passing ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
                   >
-                    {service.passing ? 'Cumple' : 'Incumple'}
+                    {service.passing ? $_('codeReport.securityPolicy.compliant') : $_('codeReport.securityPolicy.nonCompliant')}
                   </span>
                   <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                    {service.failingAnalyses} análisis afectados
+                    {service.failingAnalyses} {$_('codeReport.securityPolicy.analysesAffected')}
                   </span>
                 </div>
               </div>
@@ -268,19 +270,19 @@
             policy.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
           }`}
         >
-          {policy.enabled ? 'Activa' : 'Inactiva'}
+          {policy.enabled ? $_('codeReport.securityPolicy.active') : $_('codeReport.securityPolicy.inactive')}
         </span>
       </div>
 
       <div class="mt-5 grid gap-4 sm:grid-cols-3">
         <div class="rounded-xl border border-slate-200 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tipo</p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{$_('codeReport.securityPolicy.type')}</p>
           <p class="mt-1 text-sm font-semibold text-slate-900">
             {SECURITY_POLICY_TYPE_META[policy.type].label}
           </p>
         </div>
         <div class="rounded-xl border border-slate-200 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Aplicación</p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{$_('codeReport.securityPolicy.application')}</p>
           <p class="mt-1 text-sm font-semibold text-slate-900">
             {SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].label}
           </p>
@@ -289,7 +291,7 @@
           </p>
         </div>
         <div class="rounded-xl border border-slate-200 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Alcance</p>
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{$_('codeReport.securityPolicy.scope')}</p>
           <p class="mt-1 text-sm font-semibold text-slate-900">{describeScope(policy.scope)}</p>
           {#if scopedServices.length > 0}
             <div class="mt-2 flex flex-wrap gap-1.5">
@@ -305,7 +307,7 @@
     </section>
 
     <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-900">Reglas</h2>
+      <h2 class="text-sm font-semibold text-slate-900">{$_('codeReport.securityPolicy.rules')}</h2>
       <dl class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {#each ruleEntries(policy.rules) as [key, value]}
           <div class="rounded-xl border border-slate-200 p-3">
@@ -319,7 +321,7 @@
     </section>
 
     <p class="text-xs text-slate-400">
-      Creada el {new Date(policy.createdAt).toLocaleString()} · Actualizada el
+      {$_('codeReport.securityPolicy.createdOn')} {new Date(policy.createdAt).toLocaleString()} · {$_('codeReport.securityPolicy.updatedOn')}
       {new Date(policy.updatedAt).toLocaleString()}
     </p>
     {/if}
@@ -330,13 +332,13 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
     <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
       <div class="flex items-start justify-between">
-        <h3 class="text-lg font-semibold">Borrar política</h3>
+        <h3 class="text-lg font-semibold">{$_('codeReport.securityPolicy.deletePolicy')}</h3>
         <button type="button" on:click={() => (deleteModalOpen = false)}>
           <X class="h-5 w-5" />
         </button>
       </div>
       <p class="mt-3 text-sm text-slate-600">
-        Vas a borrar <strong>{policy.name}</strong>. Esta acción no se puede deshacer.
+        {$_('codeReport.securityPolicy.deleteDescriptionStart')} <strong>{policy.name}</strong>{$_('codeReport.securityPolicy.deleteDescriptionEnd')}
       </p>
       <form
         method="POST"
@@ -353,14 +355,14 @@
         <button
           type="button"
           on:click={() => (deleteModalOpen = false)}
-          class="rounded-full border px-4 py-2 text-sm">Cancelar</button
+          class="rounded-full border px-4 py-2 text-sm">{$_('codeReport.services.cancel')}</button
         >
         <button
           type="submit"
           disabled={deleting}
           class="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white"
         >
-          {deleting ? 'Borrando...' : 'Borrar política'}
+          {deleting ? $_('codeReport.securityPolicy.deleting') : $_('codeReport.securityPolicy.deletePolicy')}
         </button>
       </form>
     </div>

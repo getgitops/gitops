@@ -1,18 +1,18 @@
+<script lang="ts">
+  import { _ } from 'svelte-i18n';
+</script>
+
 <svelte:head>
-  <title>System & Backup - Settings</title>
+  <title>{$_('orgSettings.systemBackup.title')} - {$_('orgSettings.title')}</title>
 </svelte:head>
 
 <div class="space-y-6">
   <section>
-    <h3 class="text-xl font-semibold text-slate-900">System & Backup</h3>
-    <p class="mt-2 text-sm text-slate-600">
-      Configure system behavior, exports, and backup lifecycle.
-    </p>
+    <h3 class="text-xl font-semibold text-slate-900">{$_('orgSettings.systemBackup.title')}</h3>
+    <p class="mt-2 text-sm text-slate-600">{$_('orgSettings.systemBackup.description')}</p>
   </section>
 
   <section class="rounded-md border border-slate-200 bg-slate-50 p-4">
-    <p class="text-sm text-slate-600">
-      Backup schedules, retention, and import/export controls will be available here.
-    </p>
+    <p class="text-sm text-slate-600">{$_('orgSettings.systemBackup.comingSoonDescription')}</p>
   </section>
 </div>

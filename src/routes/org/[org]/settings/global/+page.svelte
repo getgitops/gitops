@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { Building2, CheckCircle, KeyRound, LockKeyhole, RefreshCw, Shield } from '@lucide/svelte';
+  import {
+    Building2,
+    CheckCircle,
+    KeyRound,
+    LockKeyhole,
+    RefreshCw,
+    Shield,
+  } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   let googleSsoEnabled = false;
   let googleClientId = '';
@@ -16,7 +24,7 @@
 
   function saveSettings() {
     isSaving = true;
-    configError = 'Global authentication settings are not wired to a server action yet.';
+    configError = $_('orgSettings.global.saveNotWired');
     saveSuccess = false;
     setTimeout(() => {
       isSaving = false;
@@ -25,23 +33,20 @@
 </script>
 
 <svelte:head>
-  <title>Global Settings - Settings</title>
+  <title>{$_('orgSettings.global.title')} - {$_('orgSettings.title')}</title>
 </svelte:head>
 
 <div class="space-y-8">
   <section>
-    <h3 class="text-xl font-semibold text-slate-900">Global Settings</h3>
-    <p class="mt-2 text-sm text-slate-600">
-      Configure organization-wide authentication methods and security defaults.
-    </p>
+    <h3 class="text-xl font-semibold text-slate-900">{$_('orgSettings.global.title')}</h3>
+    <p class="mt-2 text-sm text-slate-600">{$_('orgSettings.global.description')}</p>
   </section>
 
   <section class="space-y-4">
     <div>
-      <h4 class="text-base font-semibold text-slate-900">Authentication</h4>
+      <h4 class="text-base font-semibold text-slate-900">{$_('orgSettings.global.authentication')}</h4>
       <p class="mt-1 text-sm text-slate-600">
-        Local login is always enabled. Optionally connect GCP Workspace and SAML as additional
-        providers.
+        {$_('orgSettings.global.authenticationDescription')}
       </p>
     </div>
 
@@ -49,10 +54,8 @@
       <div class="flex items-start gap-3">
         <Shield class="mt-0.5 h-5 w-5 text-emerald-700" />
         <div>
-          <p class="text-sm font-semibold text-emerald-900">Local authentication: always ON</p>
-          <p class="mt-1 text-sm text-emerald-800">
-            Username/password access remains available even when external providers are enabled.
-          </p>
+          <p class="text-sm font-semibold text-emerald-900">{$_('orgSettings.global.localAuthTitle')}</p>
+          <p class="mt-1 text-sm text-emerald-800">{$_('orgSettings.global.localAuthDescription')}</p>
         </div>
       </div>
     </div>
@@ -73,18 +76,14 @@
             <Building2 class="h-4 w-4" />
             GCP Workspace (Google SSO)
           </label>
-          <p class="mt-1 text-sm text-slate-600">
-            Allow users to authenticate with Google Workspace accounts.
-          </p>
+          <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.googleDescription')}</p>
         </div>
       </div>
 
       {#if googleSsoEnabled}
         <div class="space-y-4 bg-slate-50 px-4 py-4">
           <div>
-            <label for="google-client-id" class="block text-sm font-medium text-slate-700">
-              Google Client ID
-            </label>
+            <label for="google-client-id" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.googleClientId')}</label>
             <input
               id="google-client-id"
               type="text"
@@ -95,9 +94,7 @@
           </div>
 
           <div>
-            <label for="google-client-secret" class="block text-sm font-medium text-slate-700">
-              Google Client Secret
-            </label>
+            <label for="google-client-secret" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.googleClientSecret')}</label>
             <input
               id="google-client-secret"
               type="password"
@@ -126,18 +123,14 @@
             <KeyRound class="h-4 w-4" />
             SAML
           </label>
-          <p class="mt-1 text-sm text-slate-600">
-            Connect an enterprise identity provider through SAML.
-          </p>
+          <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.samlDescription')}</p>
         </div>
       </div>
 
       {#if samlEnabled}
         <div class="space-y-4 bg-slate-50 px-4 py-4">
           <div>
-            <label for="saml-entry" class="block text-sm font-medium text-slate-700">
-              SAML Entry Point
-            </label>
+            <label for="saml-entry" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.samlEntryPoint')}</label>
             <input
               id="saml-entry"
               type="text"
@@ -148,9 +141,7 @@
           </div>
 
           <div>
-            <label for="saml-issuer" class="block text-sm font-medium text-slate-700">
-              SAML Issuer
-            </label>
+            <label for="saml-issuer" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.samlIssuer')}</label>
             <input
               id="saml-issuer"
               type="text"
@@ -161,9 +152,7 @@
           </div>
 
           <div>
-            <label for="saml-cert" class="block text-sm font-medium text-slate-700">
-              SAML Certificate (PEM)
-            </label>
+            <label for="saml-cert" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.samlCertificate')}</label>
             <textarea
               id="saml-cert"
               bind:value={samlCert}
@@ -187,7 +176,7 @@
         class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
       >
         <span class="inline-flex items-center gap-2">
-          <CheckCircle class="h-4 w-4" /> Global settings saved.
+          <CheckCircle class="h-4 w-4" /> {$_('orgSettings.global.saved')}
         </span>
       </div>
     {/if}
@@ -199,16 +188,14 @@
       disabled={isSaving}
     >
       <RefreshCw class="h-4 w-4 {isSaving ? 'animate-spin' : ''}" />
-      {isSaving ? 'Saving...' : 'Save global settings'}
+      {isSaving ? $_('orgSettings.global.saving') : $_('orgSettings.global.save')}
     </button>
   </section>
 
   <section class="space-y-4">
     <div>
-      <h4 class="text-base font-semibold text-slate-900">Encryption</h4>
-      <p class="mt-1 text-sm text-slate-600">
-        Organization encryption controls will be managed here.
-      </p>
+      <h4 class="text-base font-semibold text-slate-900">{$_('orgSettings.global.encryption')}</h4>
+      <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.encryptionDescription')}</p>
     </div>
 
     <div class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-14">
@@ -219,10 +206,9 @@
           <LockKeyhole class="h-6 w-6" />
         </div>
         <div>
-          <p class="text-sm font-semibold text-slate-900">Coming soon</p>
+          <p class="text-sm font-semibold text-slate-900">{$_('orgSettings.global.comingSoon')}</p>
           <p class="mt-1 max-w-md text-sm text-slate-500">
-            Key rotation, encryption policy, and scoped secret protection settings are planned for a
-            future release.
+            {$_('orgSettings.global.comingSoonDescription')}
           </p>
         </div>
       </div>
