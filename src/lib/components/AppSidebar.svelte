@@ -170,7 +170,7 @@
                   { label: $_('sidebar.items.audit'), href: `${projectBase}/settings/audit`, icon: ScrollText },
                   {
                     label: $_('sidebar.items.serverKeys'),
-                    href: `${projectBase}/settings/server-keys`,
+                    href: `${projectBase}/settings/server-access-keys`,
                     icon: Shield,
                   },
                 ],

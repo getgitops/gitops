@@ -54,13 +54,7 @@ export class UserAccessService {
     private readonly roleRepository: Pick<RoleRepository, 'findById' | 'findBySlug'>,
     private readonly userAccessRepository: Pick<
       UserAccessRepository,
-      | 'findByScope'
-      | 'findByUserId'
-      | 'findOne'
-      | 'findById'
-      | 'create'
-      | 'update'
-      | 'deleteById'
+      'findByScope' | 'findByUserId' | 'findOne' | 'findById' | 'create' | 'update' | 'deleteById'
     >,
     private readonly passwordService: Pick<PasswordService, 'hashPassword'>,
     private readonly invitationNotifier: InvitationNotifierPort,

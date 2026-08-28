@@ -40,10 +40,14 @@ export const RoleEntity = entity('roles', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+// exactly one of `userId` (personal key) or `projectId` (machine-to-machine project key) is set;
+// `roleId` is only meaningful for project keys and points to a project-scoped role
 export const ApiKeyEntity = entity('api_keys', {
   id: uuid().primaryKey(),
-  userId: uuid().notNull(),
+  userId: uuid(),
   projectId: uuid(),
+  roleId: uuid(),
+  createdByUserId: uuid(),
   name: text().notNull(),
   keyPrefix: text().notNull(),
   keyHash: text().notNull(),

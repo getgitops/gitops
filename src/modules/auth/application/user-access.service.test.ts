@@ -478,7 +478,12 @@ describe('UserAccessService', () => {
   it('removes all user access and the user when removed from an organization', async () => {
     userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
     roleRepository.rows.push(
-      role({ id: 'org-admin-id', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({
+        id: 'org-admin-id',
+        slug: 'org-admin',
+        scope: 'organization',
+        organizationId: 'gitops',
+      }),
       role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
       role({ id: 'project-developer-id', slug: 'developer', scope: 'project', projectId: 'other' }),
     );
@@ -517,7 +522,12 @@ describe('UserAccessService', () => {
   it('removes all user access and the user when removed from cluster settings', async () => {
     userRepository.rows.push(user({ id: 'jose-id', username: 'jose', role: null }));
     roleRepository.rows.push(
-      role({ id: 'org-admin-id', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({
+        id: 'org-admin-id',
+        slug: 'org-admin',
+        scope: 'organization',
+        organizationId: 'gitops',
+      }),
       role({ id: 'project-admin-id', slug: 'project-admin', scope: 'project', projectId: 'kettu' }),
     );
     await userAccessRepository.create({

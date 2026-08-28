@@ -1,11 +1,38 @@
 import { error, fail } from '@sveltejs/kit';
-import { apiKeysService, cancanService } from '$modules/auth';
+import type { PermissionGrant } from '$lib/permissions';
+import { apiKeysService, cancanService, roleService } from '$modules/auth';
 import { projectService } from '$modules/projects';
+
+async function authorize(
+  user: Parameters<typeof cancanService.canSessionUser>[0],
+  projectSlug: string,
+  permission: PermissionGrant,
+) {
+  const project = await projectService.getProjectBySlug(projectSlug);
+  const allowed = await cancanService.canSessionUser(user, permission, {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+  return { project, allowed };
+}
+
+function expiresAtFromDays(expiresInDays: string): string | null {
+  const days = Number(expiresInDays);
+  if (!expiresInDays || !Number.isFinite(days) || days <= 0) {
+    return null;
+  }
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function errorResponse(err: unknown) {
+  return fail(400, { error: err instanceof Error ? err.message : 'Server key action failed.' });
+}
 
 export async function load({ parent, locals }) {
   const { project } = await parent();
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'openreport:read', {
+  const canRead = await cancanService.canSessionUser(locals.user, 'project:server-keys:read', {
     scope: 'project',
     projectId: project.id,
     organizationId: project.organization?.id,
@@ -15,70 +42,79 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const apiKeys = await apiKeysService.listActiveApiKeysByProject(project.id);
+  const [apiKeys, roles] = await Promise.all([
+    apiKeysService.listActiveApiKeysByProject(project.id),
+    roleService.listRoles('project', project.id),
+  ]);
 
-  return { apiKeys };
+  return {
+    apiKeys,
+    roles: roles.map((role) => ({ id: role.id, name: role.name, slug: role.slug })),
+  };
 }
 
 export const actions = {
   create: async ({ request, params, locals }) => {
-    const project = await projectService.getProjectBySlug(params.slug);
-
-    const canCreate = await cancanService.canSessionUser(locals.user, 'openreport:create', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
-
-    if (!canCreate) {
-      return fail(403, { error: 'Forbidden' });
-    }
+    const { project, allowed } = await authorize(
+      locals.user,
+      params.slug,
+      'project:server-keys:create',
+    );
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     const formData = await request.formData();
-    const name = String(formData.get('name') || '').trim();
-    const expiresInDays = String(formData.get('expiresInDays') || '').trim();
 
-    if (!name) {
-      return fail(400, { error: 'Key name is required.' });
+    try {
+      const { token } = await apiKeysService.createProjectApiKey({
+        projectId: project.id,
+        roleId: String(formData.get('roleId') || ''),
+        name: String(formData.get('name') || ''),
+        expiresAt: expiresAtFromDays(String(formData.get('expiresInDays') || '').trim()),
+        createdByUserId: locals.user!.id,
+      });
+
+      return { success: true, createdKey: token };
+    } catch (err) {
+      return errorResponse(err);
     }
+  },
 
-    const expiresAt = expiresInDays
-      ? new Date(Date.now() + Number(expiresInDays) * 24 * 60 * 60 * 1000).toISOString()
-      : null;
-
-    const { token } = await apiKeysService.createProjectApiKey(
-      locals.user!.id,
-      project.id,
-      name,
-      expiresAt,
+  rotate: async ({ request, params, locals }) => {
+    const { project, allowed } = await authorize(
+      locals.user,
+      params.slug,
+      'project:server-keys:update',
     );
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
-    return { success: true, createdKey: token };
+    const formData = await request.formData();
+
+    try {
+      const { token } = await apiKeysService.regenerateProjectApiKey(
+        project.id,
+        String(formData.get('keyId') || ''),
+      );
+      return { success: true, createdKey: token };
+    } catch (err) {
+      return errorResponse(err);
+    }
   },
 
   revoke: async ({ request, params, locals }) => {
-    const project = await projectService.getProjectBySlug(params.slug);
-
-    const canDelete = await cancanService.canSessionUser(locals.user, 'openreport:delete', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
-
-    if (!canDelete) {
-      return fail(403, { error: 'Forbidden' });
-    }
+    const { project, allowed } = await authorize(
+      locals.user,
+      params.slug,
+      'project:server-keys:delete',
+    );
+    if (!allowed) return fail(403, { error: 'Forbidden' });
 
     const formData = await request.formData();
-    const keyId = String(formData.get('keyId') || '');
 
     try {
-      await apiKeysService.revokeProjectApiKey(project.id, keyId);
+      await apiKeysService.revokeProjectApiKey(project.id, String(formData.get('keyId') || ''));
+      return { success: true };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to revoke key';
-      return fail(400, { error: message });
+      return errorResponse(err);
     }
-
-    return { success: true };
   },
 };

@@ -106,6 +106,47 @@ describe('CanCanService', () => {
     expect(CanCanService.hasPermission(['vault:all'], 'openreport:read')).toBe(false);
     expect(CanCanService.hasPermission(['project:vault:read'], 'vault:read')).toBe(true);
     expect(CanCanService.hasPermission(['project:vault:all'], 'vault:delete')).toBe(true);
+    expect(
+      CanCanService.hasPermission(['project:server-keys:all'], 'project:server-keys:read'),
+    ).toBe(true);
+    expect(CanCanService.hasPermission(['project:server-keys:read'], 'project:roles:read')).toBe(
+      false,
+    );
+  });
+
+  it('authorizes an api key only inside its own project', () => {
+    const apiKey = {
+      projectId: 'kettu',
+      role: role({
+        id: 'role-1',
+        slug: 'project-developer',
+        scope: 'project',
+        permissions: ['project:codereport:reports:create'],
+      }),
+    };
+
+    expect(
+      service.canApiKey(apiKey, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: 'kettu',
+      }),
+    ).toBe(true);
+    expect(
+      service.canApiKey(apiKey, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: 'other',
+      }),
+    ).toBe(false);
+    expect(service.canApiKey(apiKey, 'cluster:settings:read', { scope: 'cluster' })).toBe(false);
+    expect(
+      service.canApiKey(apiKey, 'project:roles:delete', { scope: 'project', projectId: 'kettu' }),
+    ).toBe(false);
+    expect(
+      service.canApiKey(null, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: 'kettu',
+      }),
+    ).toBe(false);
   });
 
   it('allows a cluster admin without organization or project access rows', async () => {

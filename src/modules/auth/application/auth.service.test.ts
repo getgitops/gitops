@@ -15,7 +15,12 @@ function role(input: { id: string; slug: string; permissions?: string[] }) {
   });
 }
 
-function user(input: { id: string; username: string; role: RoleDomain | null; email?: string | null }) {
+function user(input: {
+  id: string;
+  username: string;
+  role: RoleDomain | null;
+  email?: string | null;
+}) {
   return new UserDomain({
     id: input.id,
     username: input.username,
