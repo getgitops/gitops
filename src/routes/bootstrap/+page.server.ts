@@ -60,11 +60,13 @@ export const actions = {
     try {
       const form = await request.formData();
       const { organizationService } = await import('$modules/organization');
-      await organizationService.createOrganization({
+      const { roleService } = await import('$modules/auth');
+      const organization = await organizationService.createOrganization({
         name: String(form.get('name') ?? ''),
         slug: String(form.get('slug') ?? '') || undefined,
         description: String(form.get('description') ?? '') || undefined,
       });
+      await roleService.createDefaultOrganizationRoles(organization.id);
 
       await refreshBootstrapState();
     } catch (error: unknown) {

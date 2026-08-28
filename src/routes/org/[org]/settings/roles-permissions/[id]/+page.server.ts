@@ -15,8 +15,18 @@ function errorResponse(errorValue: unknown) {
   });
 }
 
-export async function load({ parent, params }) {
+export async function load({ parent, params, locals }) {
   const { organization } = await parent();
+
+  if (
+    !(await cancanService.canSessionUser(locals.user, 'organization:roles:read', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }))
+  ) {
+    throw error(403, 'Forbidden');
+  }
+
   const roles = await roleService.listRoles('organization', organization.id);
   const role = roles.find((row) => row.id === params.id);
   if (!role) throw error(404, 'Role not found');
@@ -26,7 +36,12 @@ export async function load({ parent, params }) {
 export const actions = {
   async updateRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:roles:update', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -44,7 +59,12 @@ export const actions = {
 
   async deleteRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:roles:delete', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 

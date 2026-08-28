@@ -27,8 +27,8 @@ export const RoleEntity = entity('roles', {
   slug: text().notNull(),
   name: text().notNull(),
   scope: text().notNull().default('cluster'),
-  organizationId: uuid(),
-  projectId: uuid(),
+  organizationId: uuid().$defaultFn(() => null),
+  projectId: uuid().$defaultFn(() => null),
   permissions: json()
     .notNull()
     .$defaultFn(() => []),
@@ -43,7 +43,7 @@ export const RoleEntity = entity('roles', {
 export const ApiKeyEntity = entity('api_keys', {
   id: uuid().primaryKey(),
   userId: uuid().notNull(),
-  projectId: uuid(),
+  projectId: uuid().$defaultFn(() => null),
   name: text().notNull(),
   keyPrefix: text().notNull(),
   keyHash: text().notNull(),
@@ -60,8 +60,8 @@ export const UserAccessEntity = entity('user_access', {
   userId: uuid().notNull(),
   roleId: uuid().notNull(),
   scope: text().notNull(),
-  organizationId: uuid(),
-  projectId: uuid(),
+  organizationId: uuid().$defaultFn(() => null),
+  projectId: uuid().$defaultFn(() => null),
   status: text().notNull().default('active'),
   createdAt: timestamp()
     .notNull()

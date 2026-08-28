@@ -23,7 +23,12 @@ export async function load({ parent }) {
 export const actions = {
   async createRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:roles:create', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 

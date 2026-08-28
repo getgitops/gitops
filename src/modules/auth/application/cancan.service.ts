@@ -66,8 +66,29 @@ export class CanCanService {
     return this.can(user.id, permission, context);
   }
 
+  // coarse organization-scope membership check: gates the /settings area shell and nav visibility.
+  // does not cascade from project access — per-page/action checks decide what's actually visible.
   async canManageOrganization(user: PermissionAwareUser, organizationId: string): Promise<boolean> {
-    return this.canSessionUser(user, 'stateiac:read', { scope: 'organization', organizationId });
+    if (!user?.id) return false;
+    if (this.isClusterAdmin(user.role ?? null)) return true;
+
+    const access = await this.userAccessRepository.findByUserId(user.id);
+    return access.some(
+      (entry) => entry.scope === 'organization' && entry.organizationId === organizationId,
+    );
+  }
+
+  // read-only visibility into an organization: same as canManageOrganization, plus a user whose
+  // only access is to a project under this organization (they can see the org's overview, not
+  // manage it — every org-scope action still requires an actual organization:* permission grant).
+  async canViewOrganization(user: PermissionAwareUser, organizationId: string): Promise<boolean> {
+    if (await this.canManageOrganization(user, organizationId)) return true;
+    if (!user?.id) return false;
+
+    const access = await this.userAccessRepository.findByUserId(user.id);
+    return access.some(
+      (entry) => entry.scope === 'project' && entry.project?.organization?.id === organizationId,
+    );
   }
 
   async canManageProject(
@@ -122,22 +143,39 @@ export class CanCanService {
     }
 
     const access = await this.userAccessRepository.findByUserId(user.id);
-    const candidateRoles = await this.rolesForContext(access, context);
-    return candidateRoles.some((role) => this.roleCan(role, permission));
+    const candidates = await this.rolesForContext(access, context);
+
+    return candidates.some(({ role, scope }) => {
+      // an organization-scope role reaching into one of its own projects doesn't hold any
+      // project:* grant directly (different namespace) — its authority over "this org's
+      // projects" as a whole (organization:projects:<action>) carries the same action down
+      // into every project resource, top-down: cluster > organization > project. Only applies
+      // to the granular project:* vocabulary — legacy flat permissions (stateiac:*, vault:*)
+      // are scope-agnostic by design and keep matching literally.
+      if (
+        context.scope === 'project' &&
+        scope === 'organization' &&
+        permission.startsWith('project:')
+      ) {
+        const action = permission.split(':').pop();
+        return this.roleCan(role, `organization:projects:${action}` as PermissionGrant);
+      }
+      return this.roleCan(role, permission);
+    });
   }
 
   private async rolesForContext(
     access: UserAccessDomain[],
     context: CanCanContext,
-  ): Promise<RoleDomain[]> {
+  ): Promise<{ role: RoleDomain; scope: 'organization' | 'project' }[]> {
     if (context.scope === 'organization') {
       return access
         .filter(
           (entry) =>
             entry.scope === 'organization' && entry.organizationId === context.organizationId,
         )
-        .map((entry) => entry.role)
-        .filter((role): role is RoleDomain => Boolean(role));
+        .filter((entry): entry is UserAccessDomain & { role: RoleDomain } => Boolean(entry.role))
+        .map((entry) => ({ role: entry.role, scope: 'organization' as const }));
     }
 
     if (context.scope !== 'project') return [];
@@ -151,8 +189,8 @@ export class CanCanService {
         if (entry.scope === 'organization') return entry.organizationId === organizationId;
         return false;
       })
-      .map((entry) => entry.role)
-      .filter((role): role is RoleDomain => Boolean(role));
+      .filter((entry): entry is UserAccessDomain & { role: RoleDomain } => Boolean(entry.role))
+      .map((entry) => ({ role: entry.role, scope: entry.scope as 'organization' | 'project' }));
   }
 
   private roleCan(role: PermissionRole, permission: PermissionGrant): boolean {
@@ -177,10 +215,15 @@ export class CanCanService {
     if (!grants || grants.length === 0) return false;
 
     const [section] = permission.split(':') as [string, string];
+    const lastColon = permission.lastIndexOf(':');
+    const resourcePath = lastColon === -1 ? permission : permission.slice(0, lastColon);
+    const resourceWildcard = `${resourcePath}:all`;
+
     return grants.some(
       (grant) =>
         grant === permission ||
         grant === `${section}:all` ||
+        grant === resourceWildcard ||
         grant.endsWith(`:${permission}`) ||
         grant.endsWith(`:${section}:all`),
     );

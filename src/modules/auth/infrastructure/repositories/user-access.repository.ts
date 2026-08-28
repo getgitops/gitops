@@ -118,4 +118,9 @@ export class UserAccessRepository extends Repository {
   async deleteById(id: string): Promise<void> {
     await this.db.delete(UserAccessEntity).where({ id });
   }
+
+  async countByRoleId(roleId: string): Promise<number> {
+    const result = await this.db.select().from(UserAccessEntity).where({ roleId });
+    return result.rows.length;
+  }
 }

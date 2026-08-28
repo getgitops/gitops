@@ -40,24 +40,13 @@ function collectPermissionGrants(section: PermissionConfigSection): string[] {
   ];
 }
 
-function storedPermissionFor(permission: string): string {
-  const parts = permission.split(':');
-  if (parts.length < 3) return permission;
-  return parts.slice(1).join(':');
-}
-
+// historically stripped the leading scope segment for a shorter "canonical" stored form, but
+// CanCanService.hasPermission compares raw strings with no scope-aware reconstruction — the
+// catalog permission string (e.g. 'organization:projects:read') IS the stored/checked grant.
 export function toStoredPermissionGrant(
   permission: string,
-  scope: PermissionScope,
+  _scope: PermissionScope,
 ): PermissionGrant {
-  if (permission.startsWith(`${scope}:${scope}:`)) {
-    return permission.replace(`${scope}:${scope}:`, `${scope}:`);
-  }
-
-  if (permission.startsWith(`${scope}:`)) {
-    return permission.slice(scope.length + 1);
-  }
-
   return permission;
 }
 
@@ -67,7 +56,6 @@ const CATALOG_PERMISSION_GRANTS = Object.values(permissionsCatalog.sections).fla
 
 export const ALL_PERMISSION_GRANTS: PermissionGrant[] = [
   ...CATALOG_PERMISSION_GRANTS,
-  ...CATALOG_PERMISSION_GRANTS.map((permission) => storedPermissionFor(permission)),
   ...PERMISSION_SECTIONS.flatMap((section) =>
     PERMISSION_ACTIONS.map((action) => `${section}:${action}` as Permission),
   ),

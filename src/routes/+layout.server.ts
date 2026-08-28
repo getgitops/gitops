@@ -44,11 +44,11 @@ export async function load({ locals, url }) {
             .filter((project) => project.status === 'active')
             .map(async (project) => ({
               project,
-              allowed: await cancanService.canSessionUser(locals.user, 'stateiac:read', {
-                scope: 'project',
-                projectId: project.id,
-                organizationId: project.organization?.id,
-              }),
+              allowed: await cancanService.canManageProject(
+                locals.user,
+                project.id,
+                project.organization?.id,
+              ),
             })),
         )
       )

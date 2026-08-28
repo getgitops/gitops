@@ -133,21 +133,17 @@
     return [...rootRows, ...childRows];
   }
 
-  function storedPermissionFor(uiPermission: string): string {
-    return toStoredPermissionGrant(uiPermission, scope);
-  }
-
   function toStoredPermissions(uiPermissions: readonly string[]): string[] {
-    return [...new Set(uiPermissions.map((permission) => storedPermissionFor(permission)))];
+    return [
+      ...new Set(uiPermissions.map((permission) => toStoredPermissionGrant(permission, scope))),
+    ];
   }
 
   function toUiPermissions(storedPermissions: readonly string[]): string[] {
     const storedSet = new Set(storedPermissions);
     const rows = getPermissionRows(scope);
     const mappedPermissions = rows.flatMap((row) =>
-      row.permissions.filter(
-        (permission) => storedSet.has(permission) || storedSet.has(storedPermissionFor(permission)),
-      ),
+      row.permissions.filter((permission) => storedSet.has(permission)),
     );
 
     return [...new Set(mappedPermissions)];
@@ -434,7 +430,9 @@
         {/if}
 
         <div>
-          <label class="block font-semibold text-slate-400" for="role-name">{$_('common.name')}</label>
+          <label class="block font-semibold text-slate-400" for="role-name"
+            >{$_('common.name')}</label
+          >
           <input
             id="role-name"
             type="text"
@@ -445,7 +443,9 @@
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-400" for="role-slug">{$_('common.slug')}</label>
+          <label class="block font-semibold text-slate-400" for="role-slug"
+            >{$_('common.slug')}</label
+          >
           <input
             id="role-slug"
             type="text"
@@ -459,7 +459,9 @@
         <div>
           <div class="font-semibold text-slate-400">{$_('common.description')}</div>
           <div class="mt-1 text-slate-300">
-            {isCreate ? $_('roleDetail.newRole') : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
+            {isCreate
+              ? $_('roleDetail.newRole')
+              : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
           </div>
         </div>
       </div>
@@ -560,7 +562,9 @@
                       </select>
                     {/key}
                   {:else}
-                    <span class="text-sm font-medium text-slate-500">{$_('roleDetail.sectionGroup')}</span>
+                    <span class="text-sm font-medium text-slate-500"
+                      >{$_('roleDetail.sectionGroup')}</span
+                    >
                   {/if}
                 </td>
               </tr>

@@ -18,7 +18,7 @@ function errorResponse(errorValue: unknown) {
 async function canManageProjectRole(
   user: Parameters<typeof cancanService.canSessionUser>[0],
   projectSlug: string,
-  permission: 'stateiac:create' | 'stateiac:update' | 'stateiac:delete',
+  permission: 'project:roles:create' | 'project:roles:update' | 'project:roles:delete',
 ) {
   const project = await projectService.getProjectBySlug(projectSlug);
   const allowed = await cancanService.canSessionUser(user, permission, {
@@ -39,7 +39,11 @@ export async function load({ parent, params }) {
 
 export const actions = {
   async updateRole({ request, locals, params }) {
-    const { allowed } = await canManageProjectRole(locals.user, params.slug, 'stateiac:update');
+    const { allowed } = await canManageProjectRole(
+      locals.user,
+      params.slug,
+      'project:roles:update',
+    );
     if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
@@ -55,7 +59,11 @@ export const actions = {
   },
 
   async deleteRole({ request, locals, params }) {
-    const { allowed } = await canManageProjectRole(locals.user, params.slug, 'stateiac:delete');
+    const { allowed } = await canManageProjectRole(
+      locals.user,
+      params.slug,
+      'project:roles:delete',
+    );
     if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {

@@ -28,9 +28,7 @@ describe('isValidPermissionGrant', () => {
     expect(isValidPermissionGrant('openreport:all')).toBe(true);
     expect(isValidPermissionGrant('project:vault:secrets:import')).toBe(true);
     expect(isValidPermissionGrant('organization:users:invite')).toBe(true);
-    expect(isValidPermissionGrant('project:all')).toBe(true);
-    expect(isValidPermissionGrant('users:invite')).toBe(true);
-    expect(isValidPermissionGrant('vault:secrets:import')).toBe(true);
+    expect(isValidPermissionGrant('project:project:all')).toBe(true);
   });
 
   it('rejects unknown sections, actions, or malformed strings', () => {
@@ -38,17 +36,22 @@ describe('isValidPermissionGrant', () => {
     expect(isValidPermissionGrant('unknown-section:read')).toBe(false);
     expect(isValidPermissionGrant('vault')).toBe(false);
     expect(isValidPermissionGrant('*')).toBe(false);
+    // stripped forms with the scope prefix removed are no longer a valid stored grant —
+    // CanCanService checks the full catalog string verbatim, with no scope reconstruction.
+    expect(isValidPermissionGrant('project:all')).toBe(false);
+    expect(isValidPermissionGrant('users:invite')).toBe(false);
+    expect(isValidPermissionGrant('vault:secrets:import')).toBe(false);
   });
 });
 
 describe('toStoredPermissionGrant', () => {
-  it('maps UI permissions to canonical stored grants for the role scope', () => {
-    expect(toStoredPermissionGrant('project:project:all', 'project')).toBe('project:all');
+  it('stores the catalog permission string as-is — CanCanService checks it verbatim', () => {
+    expect(toStoredPermissionGrant('project:project:all', 'project')).toBe('project:project:all');
     expect(toStoredPermissionGrant('project:vault:secrets:read', 'project')).toBe(
-      'vault:secrets:read',
+      'project:vault:secrets:read',
     );
     expect(toStoredPermissionGrant('organization:users:invite', 'organization')).toBe(
-      'users:invite',
+      'organization:users:invite',
     );
   });
 });

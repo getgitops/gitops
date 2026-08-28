@@ -15,6 +15,7 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 
 - SvelteKit 2, Svelte 5, Vite 8, TypeScript 6 strict mode
 - Tailwind CSS 4 and `@lucide/svelte`
+- Internationalization via `svelte-i18n` (Spanish and English)
 - Bun package manager; do not use npm or yarn
 - GitDB (`@getgitops/gitdb`) as the only persistence layer
 - Vitest, ESLint, and Prettier
@@ -37,11 +38,15 @@ the Vite/SvelteKit aliases and plugins used by this project.
 Business logic lives in `src/modules/<module>/`:
 
 ```text
- domain/                    entities and business rules
+ domain/                    entities, business rules, and data constants
  application/               use cases and services
  infrastructure/            repositories and adapters
  index.ts                   public API and composition root
 ```
+
+Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data files (e.g.,
+`*.data.ts`) for configuration constants: role permissions, default project settings, risk weights,
+and tool policy mappings.
 
 Current modules include `auth`, `config`, `organization`, `projects`, `storage`, and
 `code-report`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
@@ -67,7 +72,24 @@ if (!can(locals.user, 'stateiac:read')) {
 ```
 
 `locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or `can()`.
-Keep authorization tests beside changes to permission behavior.
+
+Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
+Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
+`project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
+- **Cluster Admin** (`vault:all`, `openreport:all`, `stateiac:all`)
+- **Organization Admin** (all org-level permissions: projects, users, roles, backups, audit)
+- **Organization Developer** (read/create/update projects only)
+- **Project Admin** (all project-level permissions across vault, codereport, stateiac)
+- **Project Developer** (read/create/update resources; no deletion/admin)
+- **Project Viewer** (read-only across all project modules)
+
+Organization-level permissions cascade into their projects: a user with `organization:projects:read` can satisfy
+a `project:project:read` check on any project in that organization. This allows coarse-grained org roles
+to delegate authority downward without creating a separate per-project role grant.
+
+When creating an organization (via bootstrap or cluster settings), `roleService.createDefaultOrganizationRoles()` is
+automatically invoked. When creating a project, `roleService.createDefaultProjectRoles()` is automatically invoked. Both
+operations initialize their respective default roles. Keep authorization tests beside changes to permission behavior.
 
 ## Security rules
 

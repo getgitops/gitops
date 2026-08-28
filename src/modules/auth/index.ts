@@ -33,7 +33,7 @@ export const authService = new AuthService(
 );
 export const userService = new UserService(userRepository, roleRepository, passwordService);
 export const profileService = new ProfileService(userRepository, passwordService);
-export const roleService = new RoleService(roleRepository, userRepository);
+export const roleService = new RoleService(roleRepository, userRepository, userAccessRepository);
 export const invitationService = new InvitationService(
   userRepository,
   userAccessRepository,

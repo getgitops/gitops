@@ -53,15 +53,29 @@ class FakeUserRepository {
   }
 }
 
+class FakeUserAccessRepository {
+  roleIdCounts = new Map<string, number>();
+
+  async countByRoleId(roleId: string) {
+    return this.roleIdCounts.get(roleId) ?? 0;
+  }
+}
+
 describe('RoleService', () => {
   let roleRepository: FakeRoleRepository;
   let userRepository: FakeUserRepository;
+  let userAccessRepository: FakeUserAccessRepository;
   let service: RoleService;
 
   beforeEach(async () => {
     roleRepository = new FakeRoleRepository();
     userRepository = new FakeUserRepository();
-    service = new RoleService(roleRepository as any, userRepository as any);
+    userAccessRepository = new FakeUserAccessRepository();
+    service = new RoleService(
+      roleRepository as any,
+      userRepository as any,
+      userAccessRepository as any,
+    );
 
     await roleRepository.create({
       id: 'admin-id',
@@ -181,6 +195,13 @@ describe('RoleService', () => {
   it('blocks deleting a role assigned to existing users', async () => {
     const created = await service.createRole({ name: 'Auditor', slug: 'auditor', permissions: [] });
     userRepository.roleIdCounts.set(created.id, 2);
+
+    await expect(service.deleteRole(created.id)).rejects.toThrow(/assigned to existing users/);
+  });
+
+  it('blocks deleting a role assigned via a scoped user_access row', async () => {
+    const created = await service.createRole({ name: 'Auditor', slug: 'auditor', permissions: [] });
+    userAccessRepository.roleIdCounts.set(created.id, 1);
 
     await expect(service.deleteRole(created.id)).rejects.toThrow(/assigned to existing users/);
   });

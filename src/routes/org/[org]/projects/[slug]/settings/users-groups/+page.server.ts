@@ -7,9 +7,17 @@ function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
 }
 
-async function canUpdateProjectUsers(user: AuthenticatedUser | null | undefined, projectSlug: string) {
+async function canUpdateProjectUsers(
+  user: AuthenticatedUser | null | undefined,
+  projectSlug: string,
+  permission:
+    | 'project:users:create'
+    | 'project:users:update'
+    | 'project:users:delete'
+    | 'project:users:invite',
+) {
   const project = await projectService.getProjectBySlug(projectSlug);
-  const allowed = await cancanService.canSessionUser(user, 'stateiac:update', {
+  const allowed = await cancanService.canSessionUser(user, permission, {
     scope: 'project',
     projectId: project.id,
     organizationId: project.organization?.id,
@@ -29,7 +37,11 @@ export async function load({ parent }) {
 
 export const actions = {
   async addUser({ request, locals, params }) {
-    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    const { project, allowed } = await canUpdateProjectUsers(
+      locals.user,
+      params.slug,
+      'project:users:create',
+    );
     if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
@@ -46,7 +58,11 @@ export const actions = {
   },
 
   async updateUserAccess({ request, locals, params }) {
-    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    const { project, allowed } = await canUpdateProjectUsers(
+      locals.user,
+      params.slug,
+      'project:users:update',
+    );
     if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
@@ -65,7 +81,11 @@ export const actions = {
   },
 
   async removeUserAccess({ request, locals, params }) {
-    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    const { project, allowed } = await canUpdateProjectUsers(
+      locals.user,
+      params.slug,
+      'project:users:delete',
+    );
     if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
@@ -82,7 +102,11 @@ export const actions = {
   },
 
   async resendInvitation({ request, locals, params }) {
-    const { project, allowed } = await canUpdateProjectUsers(locals.user, params.slug);
+    const { project, allowed } = await canUpdateProjectUsers(
+      locals.user,
+      params.slug,
+      'project:users:invite',
+    );
     if (!allowed) return fail(403, { error: 'Forbidden' });
 
     try {
