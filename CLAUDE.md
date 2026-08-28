@@ -95,6 +95,13 @@ const canCreate = await cancanService.canSessionUser(locals.user, 'project:roles
 return { roles, canCreate };
 ```
 
+The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
+passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
+- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`
+
+This ensures the UI only displays navigation items for sections the user has permission to view.
+
 Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
 Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:

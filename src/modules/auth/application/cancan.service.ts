@@ -89,10 +89,6 @@ export class CanCanService {
     return access.some(
       (entry) => entry.scope === 'project' && entry.project?.organization?.id === organizationId,
     );
-    return this.canSessionUser(user, 'organization:projects:read', {
-      scope: 'organization',
-      organizationId,
-    });
   }
 
   /**

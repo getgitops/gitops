@@ -3,7 +3,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { CheckCircle, ChevronDown, ChevronRight, Pencil, Save, Trash2, X } from '@lucide/svelte';
   import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
-  import { normalizePermissionGrant } from '$lib/permissions';
+  import { normalizePermissionGrant, toStoredPermissionGrant } from '$lib/permissions';
   import { _ } from 'svelte-i18n';
 
   export let scope: 'cluster' | 'organization' | 'project';

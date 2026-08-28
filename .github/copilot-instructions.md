@@ -52,7 +52,9 @@ Los permisos usan `section:action` con scope global, de organizacion o de proyec
 
 **Gating de permisos en UI:** En loaders de rutas, usar `cancanService.canSessionUser()` para verificar
 permisos específicos y pasarlos a componentes como props (`canCreate`, `canUpdate`, `canDelete`) para
-ocultar acciones que el usuario no puede realizar.
+ocultar acciones que el usuario no puede realizar. El layout raíz (`+layout.server.ts`) calcula permisos
+de lectura granulares para cada sección de settings (proyectos, usuarios, roles, backups, servidor-keys,
+audit) y los filtra en AppSidebar según si el usuario tiene acceso a esa sección específica.
 
 Roles por defecto en `src/modules/auth/domain/role-permissions.data.ts`. Los permisos incluyen scope
 como prefijo (ej: `organization:projects:read`, `project:vault:secrets:all`) y se almacenan verbatim sin
