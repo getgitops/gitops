@@ -1,5 +1,6 @@
 <script lang="ts">
   import Users from '$lib/components/Users.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: {
     users: any[];
@@ -14,6 +15,6 @@
   initialUsers={data.users}
   roles={data.roles}
   assignableUsers={data.assignableUsers}
-  title="Project Users"
-  description={`Assign existing organization users to ${data.project.name}.`}
+  title={$_('projectSettings.users.title')}
+  description={`${$_('projectSettings.users.descriptionPrefix')} ${data.project.name}${$_('projectSettings.users.descriptionSuffix')}`}
 />

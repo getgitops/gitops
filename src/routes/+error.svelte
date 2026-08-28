@@ -2,6 +2,7 @@
   import '../app.css';
   import { page } from '$app/stores';
   import { ShieldAlert, FileQuestion, ServerCrash, ArrowLeft, Home } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   $: status = $page.status;
   $: message = $page.error?.message;
@@ -10,21 +11,21 @@
     status === 404
       ? {
           icon: FileQuestion,
-          title: 'Página no encontrada',
-          description: 'La página que buscas no existe o fue movida a otra ubicación.',
+          title: $_('error.notFoundTitle'),
+          description: $_('error.notFoundDescription'),
           accent: 'slate',
         }
       : status === 403
         ? {
             icon: ShieldAlert,
-            title: 'No tienes permisos',
-            description: 'No cuentas con los permisos necesarios para acceder a este recurso.',
+            title: $_('error.forbiddenTitle'),
+            description: $_('error.forbiddenDescription'),
             accent: 'amber',
           }
         : {
             icon: ServerCrash,
-            title: 'Algo salió mal',
-            description: message || 'Ocurrió un error inesperado. Intenta nuevamente más tarde.',
+            title: $_('error.genericTitle'),
+            description: message || $_('error.genericDescription'),
             accent: 'red',
           };
 </script>
@@ -43,7 +44,7 @@
     </div>
 
     <p class="mt-6 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">
-      Error {status}
+      {$_('error.statusLabel')} {status}
     </p>
     <h1 class="mt-2 text-2xl font-semibold text-slate-900">{content.title}</h1>
     <p class="mt-3 text-sm leading-relaxed text-slate-600">{content.description}</p>
@@ -51,7 +52,7 @@
     <div class="mt-8 flex items-center justify-center gap-3">
       <a href="/" class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium">
         <Home class="h-4 w-4" />
-        Ir al inicio
+        {$_('error.goHome')}
       </a>
       <button
         type="button"
@@ -59,7 +60,7 @@
         class="btn-secondary inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
       >
         <ArrowLeft class="h-4 w-4" />
-        Volver
+        {$_('common.back')}
       </button>
     </div>
   </div>

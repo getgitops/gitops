@@ -1,9 +1,10 @@
 <script lang="ts">
   import RoleDetail from '$lib/components/RoleDetail.svelte';
+  import { _ } from 'svelte-i18n';
 </script>
 
 <RoleDetail
   scope="cluster"
-  title="Add Cluster Role"
+  title={$_('roleDetail.addClusterRole')}
   cancelHref="/cluster-settings/roles-permissions"
 />

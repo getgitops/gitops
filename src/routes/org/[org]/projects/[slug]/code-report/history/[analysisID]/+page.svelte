@@ -3,6 +3,8 @@
   import { ArrowLeft } from '@lucide/svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
+  import { _ } from 'svelte-i18n';
+
   export let data: {
     service: { id: string; name: string; slug: string; tags?: string[] };
     analysis: any;
@@ -15,13 +17,13 @@
   $: historyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/history`;
 </script>
 
-<svelte:head><title>{data.service.name} - Histórico de Code Report</title></svelte:head>
+<svelte:head><title>{data.service.name} - {$_('codeReport.history.title')}</title></svelte:head>
 <div class="space-y-6">
   <a href={historyHref} class="inline-flex items-center gap-1.5 text-sm text-slate-600"
-    ><ArrowLeft class="h-3.5 w-3.5" />Volver al histórico</a
+    ><ArrowLeft class="h-3.5 w-3.5" />{$_('codeReport.history.backToHistory')}</a
   >
   <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Informe consultado</p>
+    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{$_('codeReport.history.reportViewed')}</p>
     <h1 class="mt-2 text-2xl font-bold text-slate-950">{data.service.name}</h1>
     <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-600">
       <span class="font-mono">{data.analysis.id}</span><CodeReportToolBadge

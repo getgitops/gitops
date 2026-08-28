@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { ArrowRight, Building2 } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type OrganizationRow = {
     id: string;
@@ -12,19 +13,17 @@
   export let data: { organizations: OrganizationRow[] };
 
   $: errorMessage =
-    $page?.url?.searchParams?.get('error') === 'organization-not-found'
-      ? 'Organization not found.'
-      : '';
+    $page?.url?.searchParams?.get('error') === 'organization-not-found' ? $_('org.notFound') : '';
 </script>
 
 <svelte:head>
-  <title>Organizations - GitOps</title>
+  <title>{$_('sidebar.items.organizations')} - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl px-4 py-10">
   <div class="mb-6">
-    <h1 class="text-xl font-semibold text-slate-900">Select an organization</h1>
-    <p class="mt-2 text-sm text-slate-600">Choose an organization to continue.</p>
+    <h1 class="text-xl font-semibold text-slate-900">{$_('org.selectorTitle')}</h1>
+    <p class="mt-2 text-sm text-slate-600">{$_('org.selectorDescription')}</p>
   </div>
 
   {#if errorMessage}
@@ -38,10 +37,8 @@
       class="flex flex-col items-center gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center"
     >
       <Building2 class="h-8 w-8 text-slate-400" />
-      <p class="text-sm font-medium text-slate-700">You don't belong to any organization yet</p>
-      <p class="max-w-sm text-sm text-slate-500">
-        Ask an administrator to add you to an organization to get started.
-      </p>
+      <p class="text-sm font-medium text-slate-700">{$_('org.noMembershipTitle')}</p>
+      <p class="max-w-sm text-sm text-slate-500">{$_('org.noMembershipDescription')}</p>
     </div>
   {:else}
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

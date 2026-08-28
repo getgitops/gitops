@@ -1,5 +1,5 @@
 <script lang="ts">
-
+  import { _ } from 'svelte-i18n';
 </script>
 
 <svelte:head>
@@ -8,5 +8,5 @@
 
 <section class="p-8">
   <h1 class="text-3xl font-bold">GitOps</h1>
-  <p class="mt-4 text-lg">SvelteKit + Bun + DDD starter scaffold.</p>
+  <p class="mt-4 text-lg">{$_('landing.tagline')}</p>
 </section>

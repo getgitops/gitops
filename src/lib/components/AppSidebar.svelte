@@ -22,6 +22,7 @@
     Layers,
     ShieldAlert,
   } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type NavItem = { label: string; href: string; icon: ComponentType };
   type NavModule = { name: string; icon: ComponentType; items: NavItem[] };
@@ -55,27 +56,27 @@
   // one JSON-like tree drives the whole sidebar: category > module > items
   $: categories = [
     {
-      name: 'Inicio',
+      name: $_('sidebar.categories.inicio'),
       modules: [
         {
-          name: 'Overview',
+          name: $_('sidebar.modules.overview'),
           icon: LayoutDashboard,
           items: organizationSlug
             ? [
                 {
-                  label: 'Overview',
+                  label: $_('sidebar.items.overview'),
                   href: `/org/${organizationSlug}/overview`,
                   icon: LayoutDashboard,
                 },
                 {
-                  label: 'CVEs',
+                  label: $_('sidebar.items.cves'),
                   href: `/org/${organizationSlug}/cves`,
                   icon: ShieldAlert,
                 },
               ]
             : [
                 {
-                  label: 'Seleccionar organización',
+                  label: $_('sidebar.items.selectOrganization'),
                   href: '/cluster-settings/orgs',
                   icon: Building2,
                 },
@@ -86,12 +87,12 @@
     ...(currentProject?.modules?.vault
       ? [
           {
-            name: 'Seguridad',
+            name: $_('sidebar.categories.seguridad'),
             modules: [
               {
-                name: 'Vault',
+                name: $_('sidebar.modules.vault'),
                 icon: Shield,
-                items: [{ label: 'Vault', href: `${projectBase}/vault`, icon: Shield }],
+                items: [{ label: $_('sidebar.modules.vault'), href: `${projectBase}/vault`, icon: Shield }],
               },
             ],
           },
@@ -100,30 +101,30 @@
     ...(currentProject?.modules?.codereport
       ? [
           {
-            name: 'Analisis',
+            name: $_('sidebar.categories.analisis'),
             modules: [
               {
-                name: 'Code Report',
+                name: $_('sidebar.modules.codeReport'),
                 icon: BarChart3,
                 items: [
                   {
-                    label: 'Dashboard',
+                    label: $_('sidebar.items.dashboard'),
                     href: `${projectBase}/code-report/dashboard`,
                     icon: LayoutDashboard,
                   },
-                  { label: 'Services', href: `${projectBase}/code-report/services`, icon: Layers },
+                  { label: $_('sidebar.items.services'), href: `${projectBase}/code-report/services`, icon: Layers },
                   {
-                    label: 'CVEs',
+                    label: $_('sidebar.items.cves'),
                     href: `/org/${currentProjectOrgSlug}/cves?project=${currentProjectSlug}`,
                     icon: ShieldAlert,
                   },
                   {
-                    label: 'Security Policies',
+                    label: $_('sidebar.items.securityPolicies'),
                     href: `${projectBase}/code-report/security-policy`,
                     icon: Shield,
                   },
-                  { label: 'History', href: `${projectBase}/code-report/history`, icon: GitBranch },
-                  { label: 'Settings', href: `${projectBase}/code-report/settings`, icon: Settings },
+                  { label: $_('sidebar.items.history'), href: `${projectBase}/code-report/history`, icon: GitBranch },
+                  { label: $_('sidebar.items.settings'), href: `${projectBase}/code-report/settings`, icon: Settings },
                 ],
               },
             ],
@@ -133,13 +134,13 @@
     ...(currentProject?.modules?.stateiac
       ? [
           {
-            name: 'GitOps',
+            name: $_('sidebar.categories.gitops'),
             modules: [
               {
-                name: 'State IaC',
+                name: $_('sidebar.modules.stateIac'),
                 icon: GitBranch,
                 items: [
-                  { label: 'State IaC', href: `${projectBase}/state-iac`, icon: GitBranch },
+                  { label: $_('sidebar.modules.stateIac'), href: `${projectBase}/state-iac`, icon: GitBranch },
                 ],
               },
             ],
@@ -149,26 +150,26 @@
     ...(currentProjectSlug && canManageProject
       ? [
           {
-            name: 'Proyecto',
+            name: $_('sidebar.categories.proyecto'),
             modules: [
               {
-                name: 'Project Settings',
+                name: $_('sidebar.modules.projectSettings'),
                 icon: FolderKanban,
                 items: [
-                  { label: 'Información', href: `${projectBase}/settings/overview`, icon: Info },
+                  { label: $_('sidebar.items.information'), href: `${projectBase}/settings/overview`, icon: Info },
                   {
-                    label: 'Users and Groups',
+                    label: $_('sidebar.items.usersAndGroups'),
                     href: `${projectBase}/settings/users-groups`,
                     icon: Users,
                   },
                   {
-                    label: 'Roles and Permissions',
+                    label: $_('sidebar.items.rolesAndPermissions'),
                     href: `${projectBase}/settings/roles-permissions`,
                     icon: Shield,
                   },
-                  { label: 'Audit', href: `${projectBase}/settings/audit`, icon: ScrollText },
+                  { label: $_('sidebar.items.audit'), href: `${projectBase}/settings/audit`, icon: ScrollText },
                   {
-                    label: 'Server Keys',
+                    label: $_('sidebar.items.serverKeys'),
                     href: `${projectBase}/settings/server-keys`,
                     icon: Shield,
                   },
@@ -179,46 +180,46 @@
         ]
       : []),
     {
-      name: 'Sistema',
+      name: $_('sidebar.categories.sistema'),
       modules: [
         ...(organizationSlug && canManageOrganization
           ? [
               {
-                name: 'Organization Settings',
+                name: $_('sidebar.modules.organizationSettings'),
                 icon: Settings,
                 items: [
                   {
-                    label: 'Projects',
+                    label: $_('sidebar.items.projects'),
                     href: `/org/${organizationSlug}/settings/projects`,
                     icon: FolderKanban,
                   },
                   {
-                    label: 'Global',
+                    label: $_('sidebar.items.global'),
                     href: `/org/${organizationSlug}/settings/global`,
                     icon: Shield,
                   },
                   {
-                    label: 'Users',
+                    label: $_('sidebar.items.users'),
                     href: `/org/${organizationSlug}/settings/users`,
                     icon: Users,
                   },
                   {
-                    label: 'Roles & Permissions',
+                    label: $_('sidebar.items.rolesAndPermissions'),
                     href: `/org/${organizationSlug}/settings/roles-permissions`,
                     icon: Users,
                   },
                   {
-                    label: 'System & Backup',
+                    label: $_('sidebar.items.systemAndBackup'),
                     href: `/org/${organizationSlug}/settings/system-backup`,
                     icon: Database,
                   },
                   {
-                    label: 'Server Access Keys',
+                    label: $_('sidebar.items.serverAccessKeys'),
                     href: `/org/${organizationSlug}/settings/server-access-keys`,
                     icon: KeyRound,
                   },
                   {
-                    label: 'Audit',
+                    label: $_('sidebar.items.audit'),
                     href: `/org/${organizationSlug}/settings/audit`,
                     icon: ScrollText,
                   },
@@ -229,18 +230,18 @@
         ...(canAccessClusterSettings
           ? [
               {
-                name: 'Cluster Settings',
+                name: $_('sidebar.modules.clusterSettings'),
                 icon: Building2,
                 items: [
-                  { label: 'Organizations', href: '/cluster-settings/orgs', icon: Building2 },
+                  { label: $_('sidebar.items.organizations'), href: '/cluster-settings/orgs', icon: Building2 },
                   {
-                    label: 'Roles & Permissions',
+                    label: $_('sidebar.items.rolesAndPermissions'),
                     href: '/cluster-settings/roles-permissions',
                     icon: Shield,
                   },
-                  { label: 'Users', href: '/cluster-settings/users', icon: Users },
-                  { label: 'Database', href: '/cluster-settings/database', icon: Database },
-                  { label: 'Audit Log', href: '/cluster-settings/audit', icon: ScrollText },
+                  { label: $_('sidebar.items.users'), href: '/cluster-settings/users', icon: Users },
+                  { label: $_('sidebar.items.database'), href: '/cluster-settings/database', icon: Database },
+                  { label: $_('sidebar.items.auditLog'), href: '/cluster-settings/audit', icon: ScrollText },
                 ],
               },
             ]
@@ -273,7 +274,7 @@
       {#if !collapsed && organizationName}
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Organization
+            {$_('sidebar.organization')}
           </p>
           <h2 class="mt-1 truncate text-sm font-semibold text-slate-900">{organizationName}</h2>
         </div>
@@ -283,8 +284,8 @@
         type="button"
         class="btn-secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600"
         on:click={toggleCollapsed}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={collapsed ? $_('sidebar.expandSidebar') : $_('sidebar.collapseSidebar')}
+        title={collapsed ? $_('sidebar.expandSidebar') : $_('sidebar.collapseSidebar')}
       >
         {#if collapsed}
           <PanelLeftOpen class="h-4 w-4" />
@@ -310,17 +311,17 @@
       </div>
       {#if !collapsed}
         <div class="min-w-0">
-          <p class="text-sm font-medium">Setup pending</p>
+          <p class="text-sm font-medium">{$_('sidebar.setupPending')}</p>
         </div>
       {/if}
     </a>
   {/if}
 
   <div class="space-y-4">
-    {#each categories as category (category.name)}
+    {#each categories as category, categoryIndex (category.name)}
       <section
-        class:border-t={category.name === 'Sistema'}
-        class:pt-4={category.name === 'Sistema'}
+        class:border-t={categoryIndex === categories.length - 1}
+        class:pt-4={categoryIndex === categories.length - 1}
         class="border-slate-200"
       >
         {#if !collapsed}

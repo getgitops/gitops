@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import type { ActionData, PageData } from './$types';
   import { ShieldCheck } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: PageData;
   export let form: ActionData;
@@ -10,7 +11,7 @@
 </script>
 
 <svelte:head>
-  <title>Accept invitation - GitOps</title>
+  <title>{$_('auth.acceptInvitationTitle')} - GitOps</title>
 </svelte:head>
 
 <div
@@ -28,13 +29,12 @@
 
       <div>
         <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-          Invitation
+          {$_('auth.invitationLabel')}
         </p>
-        <h1 class="mt-2 text-2xl font-bold text-slate-900">Accept your invitation</h1>
+        <h1 class="mt-2 text-2xl font-bold text-slate-900">{$_('auth.acceptInvitationTitle')}</h1>
         {#if data.username}
           <p class="mt-2 text-sm text-slate-600">
-            Set a password for <span class="font-semibold text-slate-900">{data.username}</span> to activate
-            your account.
+            {$_('auth.setPasswordPrefix')} <span class="font-semibold text-slate-900">{data.username}</span> {$_('auth.setPasswordSuffix')}
           </p>
         {/if}
       </div>
@@ -48,7 +48,7 @@
         href="/auth/login"
         class="btn-secondary inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold"
       >
-        Go to sign in
+        {$_('auth.goToSignIn')}
       </a>
     {:else}
       {#if form?.error}
@@ -72,7 +72,7 @@
         <input type="hidden" name="token" value={data.token} />
 
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-700" for="email">Email</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-700" for="email">{$_('common.email')}</label>
           <input
             id="email"
             type="email"
@@ -84,7 +84,7 @@
 
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-700" for="password">
-            Password
+            {$_('common.password')}
           </label>
           <input
             id="password"
@@ -97,7 +97,7 @@
 
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-700" for="confirmPassword">
-            Confirm password
+            {$_('common.confirmPassword')}
           </label>
           <input
             id="confirmPassword"
@@ -114,7 +114,7 @@
           class="btn-primary inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold"
         >
           <ShieldCheck class="h-4 w-4" />
-          {isSubmitting ? 'Activating...' : 'Activate account'}
+          {isSubmitting ? $_('auth.activating') : $_('auth.activateAccount')}
         </button>
       </form>
     {/if}

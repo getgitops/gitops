@@ -1,5 +1,6 @@
 <script lang="ts">
   import CveListView from '$lib/components/code-report/CveListView.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: {
     orgSlug: string;
@@ -20,7 +21,7 @@
 </script>
 
 <svelte:head>
-  <title>Organization CVEs - GitOps</title>
+  <title>{$_('org.cves.title')} - GitOps</title>
 </svelte:head>
 
 <CveListView
@@ -29,6 +30,6 @@
   showProjectFilter={true}
   projectOptions={data.projects}
   initialProjectFilter={data.initialProjectFilter}
-  infoMessage="Este listado agrega CVEs de todos los proyectos de la organizacion, usando el ultimo analisis completado de cada servicio."
-  emptyMessage="Todavia no se han detectado CVEs en esta organizacion."
+  infoMessage={$_('org.cves.infoMessage')}
+  emptyMessage={$_('org.cves.emptyMessage')}
 />

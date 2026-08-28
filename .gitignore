@@ -3,6 +3,7 @@ node_modules
 build
 .vite
 bun.lockb
+package-lock.json
 .DS_Store
 coverage
 data/

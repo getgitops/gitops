@@ -11,6 +11,7 @@
     Shield,
     Terminal,
   } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type ProjectRow = {
     id: string;
@@ -28,40 +29,40 @@
 
   let searchQuery = '';
 
-  const guides = [
+  $: guides = [
     {
-      label: 'Guía de Vault',
-      description: 'Centraliza secretos, credenciales y controles de acceso.',
+      label: $_('org.overview.vaultGuide'),
+      description: $_('org.overview.vaultGuideDescription'),
       href: '/vault',
       icon: Shield,
     },
     {
-      label: 'Guía de Open Report',
-      description: 'Consulta reportes de vulnerabilidades y dependencias.',
+      label: $_('org.overview.openReportGuide'),
+      description: $_('org.overview.openReportGuideDescription'),
       href: '/open-report',
       icon: BarChart3,
     },
     {
-      label: 'Guía de State IaC',
-      description: 'Configura backends e inspecciona el estado de Pulumi.',
+      label: $_('org.overview.stateIacGuide'),
+      description: $_('org.overview.stateIacGuideDescription'),
       href: '/how-to',
       icon: GitBranch,
     },
     {
       label: 'GitOps CLI',
-      description: 'Gestiona proyectos y secretos desde la terminal.',
+      description: $_('org.overview.gitopsCliDescription'),
       href: null,
       icon: Terminal,
     },
     {
       label: 'GitOps Report CLI',
-      description: 'Genera y consulta reportes de vulnerabilidades desde la terminal.',
+      description: $_('org.overview.gitopsReportCliDescription'),
       href: null,
       icon: FileSearch,
     },
     {
       label: 'GitOps Bot',
-      description: 'CI/CD con análisis automatizado y PRs automáticas.',
+      description: $_('org.overview.gitopsBotDescription'),
       href: null,
       icon: Bot,
     },
@@ -80,13 +81,13 @@
 </script>
 
 <svelte:head>
-  <title>Overview - GitOps</title>
+  <title>{$_('org.overview.title')} - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-7xl space-y-6">
   <section>
-    <h2 class="text-2xl font-semibold text-slate-900">Overview</h2>
-    <p class="mt-2 text-sm text-slate-600">Bienvenido a GitOps.</p>
+    <h2 class="text-2xl font-semibold text-slate-900">{$_('org.overview.title')}</h2>
+    <p class="mt-2 text-sm text-slate-600">{$_('org.overview.welcome')}</p>
   </section>
 
   <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -110,7 +111,7 @@
               <span
                 class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-500"
               >
-                Próximamente
+                {$_('org.overview.comingSoon')}
               </span>
             {/if}
           </div>
@@ -126,8 +127,8 @@
   </section>
 
   <section>
-    <h3 class="text-lg font-semibold text-slate-900">Proyectos</h3>
-    <p class="mt-1 text-sm text-slate-600">Selecciona un proyecto activo para ver su detalle.</p>
+    <h3 class="text-lg font-semibold text-slate-900">{$_('org.overview.projectsTitle')}</h3>
+    <p class="mt-1 text-sm text-slate-600">{$_('org.overview.projectsDescription')}</p>
   </section>
 
   <section class="relative max-w-md">
@@ -137,7 +138,7 @@
     <input
       type="text"
       bind:value={searchQuery}
-      placeholder="Buscar proyectos..."
+      placeholder={$_('org.overview.searchProjects')}
       class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
     />
   </section>
@@ -146,9 +147,7 @@
     <div
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-16 text-center text-sm text-slate-600"
     >
-      {data.projects.length === 0
-        ? 'No hay proyectos activos.'
-        : 'Ningún proyecto coincide con la búsqueda.'}
+      {data.projects.length === 0 ? $_('org.overview.noActiveProjects') : $_('org.overview.noProjectMatches')}
     </div>
   {:else}
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -171,7 +170,7 @@
             <span
               class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700"
             >
-              Active
+              {$_('common.active')}
             </span>
             <ArrowRight
               class="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-slate-900"

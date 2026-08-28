@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { Building2, CheckCircle, Eye, Plus, Search, Trash2 } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type OrganizationRow = {
     id: string;
@@ -65,7 +66,7 @@
     createError = '';
 
     if (!newName.trim()) {
-      createError = 'Organization name is required.';
+      createError = $_('clusterSettings.organizations.nameRequired');
       cancel();
       return;
     }
@@ -77,14 +78,14 @@
 
       if (result.type === 'success') {
         closeCreateModal();
-        flashSuccess('Organization created.');
+        flashSuccess($_('clusterSettings.organizations.created'));
         return;
       }
 
       createError =
         result.type === 'failure' && result.data?.error
           ? String(result.data.error)
-          : 'Failed to create organization.';
+          : $_('clusterSettings.organizations.createFailed');
     };
   };
 
@@ -111,14 +112,14 @@
 
       if (result.type === 'success') {
         closeDeleteModal();
-        flashSuccess('Organization deleted.');
+        flashSuccess($_('clusterSettings.organizations.deleteSuccess'));
         return;
       }
 
       deleteError =
         result.type === 'failure' && result.data?.error
           ? String(result.data.error)
-          : 'Failed to delete organization.';
+          : $_('clusterSettings.organizations.deleteFailed');
     };
   };
 
@@ -133,14 +134,14 @@
 </script>
 
 <svelte:head>
-  <title>Organizations - Cluster Settings</title>
+  <title>{$_('clusterSettings.organizations.title')} - {$_('clusterSettings.title')}</title>
 </svelte:head>
 
 <div class="space-y-6">
   <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
-      <h3 class="text-xl font-semibold text-slate-900">Organizations</h3>
-      <p class="mt-2 text-sm text-slate-600">Create, view and manage cluster organizations.</p>
+      <h3 class="text-xl font-semibold text-slate-900">{$_('clusterSettings.organizations.title')}</h3>
+      <p class="mt-2 text-sm text-slate-600">{$_('clusterSettings.organizations.description')}</p>
     </div>
 
     <button
@@ -148,9 +149,7 @@
       on:click={openCreateModal}
       class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
     >
-      <Plus class="h-4 w-4" />
-      New organization
-    </button>
+      <Plus class="h-4 w-4" />{$_('clusterSettings.organizations.new')}</button>
   </section>
 
   <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -161,7 +160,7 @@
       <input
         type="text"
         bind:value={searchQuery}
-        placeholder="Search by name, slug or description..."
+        placeholder={$_('clusterSettings.organizations.searchPlaceholder')}
         class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
       />
     </div>
@@ -186,8 +185,8 @@
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
     >
       {organizations.length === 0
-        ? 'No organizations found.'
-        : 'No organizations match your search.'}
+        ? $_('clusterSettings.organizations.empty')
+        : $_('clusterSettings.organizations.emptySearch')}
     </div>
   {:else}
     <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -197,10 +196,10 @@
             <tr
               class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
             >
-              <th class="px-4 py-3">Name</th>
-              <th class="px-4 py-3">Slug</th>
-              <th class="px-4 py-3">Created</th>
-              <th class="px-4 py-3 text-right">Actions</th>
+              <th class="px-4 py-3">{$_('common.name')}</th>
+              <th class="px-4 py-3">{$_('common.slug')}</th>
+              <th class="px-4 py-3">{$_('clusterSettings.organizations.createdColumn')}</th>
+              <th class="px-4 py-3 text-right">{$_('common.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -224,20 +223,16 @@
                     <a
                       href={`/cluster-settings/orgs/${organization.slug}`}
                       class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                      title="View organization"
+                      title={$_('clusterSettings.organizations.viewOrganization')}
                     >
-                      <Eye class="h-3.5 w-3.5" />
-                      View
-                    </a>
+                      <Eye class="h-3.5 w-3.5" />{$_('common.view')}</a>
                     <button
                       type="button"
                       on:click={() => openDeleteModal(organization)}
                       class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                      title="Delete organization"
+                      title={$_('common.delete')}
                     >
-                      <Trash2 class="h-3.5 w-3.5" />
-                      Delete
-                    </button>
+                      <Trash2 class="h-3.5 w-3.5" />{$_('common.delete')}</button>
                   </div>
                 </td>
               </tr>
@@ -254,17 +249,17 @@
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"
     on:click={closeCreateModal}
-    aria-label="Close create organization modal"
+    aria-label={$_('clusterSettings.organizations.closeCreateModal')}
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div
       class="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Create organization modal"
+      aria-label={$_('clusterSettings.organizations.createModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">New organization</h5>
+        <h5 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizations.createModalTitle')}</h5>
       </div>
 
       <form method="POST" action="?/createOrganization" use:enhance={createOrganization}>
@@ -276,7 +271,7 @@
           {/if}
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-name">Name</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-name">{$_('common.name')}</label>
             <input
               id="new-org-name"
               name="name"
@@ -288,28 +283,26 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-slug">Slug</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-slug">{$_('common.slug')}</label>
             <input
               id="new-org-slug"
               name="slug"
               type="text"
               bind:value={newSlug}
               class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder="gitops (auto-generated if empty)"
+              placeholder={$_('clusterSettings.organizations.slugPlaceholder')}
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-description">
-              Description
-            </label>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-description">{$_('common.description')}</label>
             <textarea
               id="new-org-description"
               name="description"
               bind:value={newDescription}
               rows="3"
               class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder="Optional description"
+              placeholder={$_('clusterSettings.organizations.descriptionPlaceholder')}
             ></textarea>
           </div>
         </div>
@@ -320,7 +313,7 @@
             on:click={closeCreateModal}
             class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
           >
-            Cancel
+            {$_('common.cancel')}
           </button>
           <button
             type="submit"
@@ -328,7 +321,7 @@
             class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
             <Plus class="h-4 w-4" />
-            {creating ? 'Creating...' : 'Create organization'}
+            {creating ? $_('common.creating') : $_('clusterSettings.organizations.new')}
           </button>
         </div>
       </form>
@@ -341,17 +334,19 @@
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"
     on:click={closeDeleteModal}
-    aria-label="Close delete organization modal"
+    aria-label={$_('clusterSettings.organizationDetail.closeDeleteModal')}
   ></button>
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div
       class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Delete organization modal"
+      aria-label={$_('clusterSettings.organizationDetail.deleteModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">Delete organization</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {$_('clusterSettings.organizationDetail.deleteConfirmTitle')}
+        </h5>
       </div>
 
       <form method="POST" action="?/deleteOrganization" use:enhance={confirmDelete}>
@@ -364,9 +359,9 @@
           {/if}
 
           <p class="text-sm text-slate-600">
-            Are you sure you want to delete <span class="font-medium text-slate-900"
-              >{deleteModalOrganization.name}</span
-            >? This action cannot be undone.
+            {$_('clusterSettings.organizationDetail.deleteConfirmStart')}<span
+              class="font-medium text-slate-900">{deleteModalOrganization.name}</span
+            >{$_('clusterSettings.organizationDetail.deleteConfirmEnd')}
           </p>
         </div>
 
@@ -376,7 +371,7 @@
             on:click={closeDeleteModal}
             class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
           >
-            Cancel
+            {$_('common.cancel')}
           </button>
           <button
             type="submit"
@@ -384,7 +379,9 @@
             class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
             <Trash2 class="h-4 w-4" />
-            {deleteLoading ? 'Deleting...' : 'Delete organization'}
+            {deleteLoading
+              ? $_('clusterSettings.organizationDetail.deleting')
+              : $_('clusterSettings.organizationDetail.deleteTitle')}
           </button>
         </div>
       </form>

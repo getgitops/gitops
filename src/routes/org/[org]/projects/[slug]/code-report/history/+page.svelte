@@ -3,6 +3,7 @@
   import { ArrowLeft, Check, ChevronDown, Clock, Search } from '@lucide/svelte';
   import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
+  import { _ } from 'svelte-i18n';
   export let data: {
     services: { id: string; slug: string; name: string }[];
     analyses: any[];
@@ -88,10 +89,10 @@
   $: base = `/org/${data.project?.organization?.slug ?? $page?.params?.org ?? ''}/projects/${data.project?.slug ?? $page?.params?.slug ?? ''}/code-report`;
 </script>
 
-<svelte:head><title>Histórico de Code Report - GitOps</title></svelte:head>
+<svelte:head><title>{$_('codeReport.history.title')} - GitOps</title></svelte:head>
 <div class="space-y-6">
   <a href={`${base}/services`} class="inline-flex items-center gap-1.5 text-sm text-slate-600"
-    ><ArrowLeft class="h-3.5 w-3.5" />Volver a servicios</a
+    ><ArrowLeft class="h-3.5 w-3.5" />{$_('codeReport.history.backToServices')}</a
   >
   <div>
     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Code Report</p>

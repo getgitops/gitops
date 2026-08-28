@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { Building2, Check, ShieldCheck } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type BootstrapState = {
     administrator: boolean;
@@ -14,9 +15,9 @@
     step: 'administrator' | 'organization';
   };
 
-  const STEPS = [
-    { key: 'administrator', label: 'Create Cluster Administrator', icon: ShieldCheck },
-    { key: 'organization', label: 'Create Organization', icon: Building2 },
+  $: STEPS = [
+    { key: 'administrator', label: $_('bootstrap.stepAdministrator'), icon: ShieldCheck },
+    { key: 'organization', label: $_('bootstrap.stepOrganization'), icon: Building2 },
   ] as const;
 
   $: state = data.state;
@@ -58,14 +59,14 @@
 </script>
 
 <svelte:head>
-  <title>Setup - GitOps</title>
+  <title>{$_('bootstrap.title')} - GitOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-3xl px-4 py-12">
   <header class="mb-8">
-    <h1 class="text-2xl font-semibold text-slate-900">Cluster setup</h1>
+    <h1 class="text-2xl font-semibold text-slate-900">{$_('bootstrap.title')}</h1>
     <p class="mt-2 text-sm text-slate-600">
-      The GitDB repository is already connected. Complete these steps to finish the installation.
+      {$_('bootstrap.subtitle')}
     </p>
   </header>
 
@@ -107,20 +108,20 @@
     <form
       method="POST"
       action="?/createAdministrator"
-      use:enhance={submitStep('Failed to create the cluster administrator.')}
+      use:enhance={submitStep($_('bootstrap.createAdministratorFailed'))}
       class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
       <div class="border-b border-slate-200 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-900">1. Create Cluster Administrator</h2>
+        <h2 class="text-base font-semibold text-slate-900">{$_('bootstrap.administratorCardTitle')}</h2>
         <p class="mt-1 text-sm text-slate-600">
-          This account gets full access to cluster settings.
+          {$_('bootstrap.administratorCardDescription')}
         </p>
       </div>
 
       <div class="grid gap-4 px-6 py-6 sm:grid-cols-2">
         <div>
           <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-username">
-            Username
+            {$_('common.username')}
           </label>
           <input
             id="bootstrap-admin-username"
@@ -134,7 +135,7 @@
 
         <div>
           <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-email">
-            Email
+            {$_('common.email')}
           </label>
           <input
             id="bootstrap-admin-email"
@@ -148,7 +149,7 @@
 
         <div>
           <label class="block text-sm font-medium text-slate-700" for="bootstrap-admin-password">
-            Password
+            {$_('common.password')}
           </label>
           <input
             id="bootstrap-admin-password"
@@ -165,7 +166,7 @@
             class="block text-sm font-medium text-slate-700"
             for="bootstrap-admin-password-confirm"
           >
-            Confirm password
+            {$_('common.confirmPassword')}
           </label>
           <input
             id="bootstrap-admin-password-confirm"
@@ -184,7 +185,7 @@
           disabled={submitting}
           class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
         >
-          {submitting ? 'Creating...' : 'Create administrator'}
+          {submitting ? $_('bootstrap.creating') : $_('bootstrap.createAdministrator')}
         </button>
       </div>
     </form>
@@ -192,20 +193,20 @@
     <form
       method="POST"
       action="?/createOrganization"
-      use:enhance={submitStep('Failed to create the organization.')}
+      use:enhance={submitStep($_('bootstrap.createOrganizationFailed'))}
       class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
     >
       <div class="border-b border-slate-200 px-6 py-4">
-        <h2 class="text-base font-semibold text-slate-900">2. Create Organization</h2>
+        <h2 class="text-base font-semibold text-slate-900">{$_('bootstrap.organizationCardTitle')}</h2>
         <p class="mt-1 text-sm text-slate-600">
-          Organizations group projects and their members.
+          {$_('bootstrap.organizationCardDescription')}
         </p>
       </div>
 
       <div class="grid gap-4 px-6 py-6 sm:grid-cols-2">
         <div>
           <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-name">
-            Name
+            {$_('common.name')}
           </label>
           <input
             id="bootstrap-org-name"
@@ -218,7 +219,7 @@
 
         <div>
           <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-slug">
-            Slug (optional)
+            {$_('bootstrap.slugOptional')}
           </label>
           <input
             id="bootstrap-org-slug"
@@ -231,7 +232,7 @@
 
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-slate-700" for="bootstrap-org-description">
-            Description
+            {$_('common.description')}
           </label>
           <textarea
             id="bootstrap-org-description"
@@ -249,7 +250,7 @@
           disabled={submitting}
           class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium"
         >
-          {submitting ? 'Creating...' : 'Finish setup'}
+          {submitting ? $_('bootstrap.creating') : $_('bootstrap.finishSetup')}
         </button>
       </div>
     </form>

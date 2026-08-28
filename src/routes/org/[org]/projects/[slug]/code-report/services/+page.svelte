@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
   import { Boxes, Plus, Search, X } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   type SeverityCounts = {
     critical: number;
@@ -22,10 +23,10 @@
   };
 
   const severityStyles: { key: keyof SeverityCounts; label: string; className: string }[] = [
-    { key: 'critical', label: 'Critical', className: 'border-red-200 bg-red-50 text-red-700' },
-    { key: 'high', label: 'High', className: 'border-orange-200 bg-orange-50 text-orange-700' },
-    { key: 'medium', label: 'Medium', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-    { key: 'low', label: 'Low', className: 'border-slate-200 bg-slate-50 text-slate-600' },
+    { key: 'critical', label: 'critical', className: 'border-red-200 bg-red-50 text-red-700' },
+    { key: 'high', label: 'high', className: 'border-orange-200 bg-orange-50 text-orange-700' },
+    { key: 'medium', label: 'medium', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+    { key: 'low', label: 'low', className: 'border-slate-200 bg-slate-50 text-slate-600' },
   ];
 
   export let data: {
@@ -98,7 +99,7 @@
 </script>
 
 <svelte:head>
-  <title>Code Report - Services - GitOps</title>
+  <title>{$_('codeReport.servicesTitle')} - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">
@@ -108,7 +109,7 @@
       <input
         type="text"
         bind:value={searchQuery}
-        placeholder="Buscar servicios por nombre, slug o tag..."
+        placeholder={$_('codeReport.services.searchPlaceholder')}
         class="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
       />
     </div>
@@ -118,7 +119,7 @@
       class="inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
     >
       <Plus class="h-4 w-4" />
-      Add Service
+      {$_('codeReport.services.addService')}
     </button>
   </div>
 
@@ -129,8 +130,8 @@
       <Boxes class="mx-auto h-8 w-8 text-slate-400" />
       <p class="mt-3 text-sm font-medium text-slate-900">
         {data.services.length === 0
-          ? 'Todavía no hay servicios en este proyecto.'
-          : 'Sin resultados para tu búsqueda.'}
+          ? $_('codeReport.services.empty')
+          : $_('codeReport.services.emptySearch')}
       </p>
     </div>
   {:else}
@@ -167,18 +168,18 @@
                       {service.severity[severity.key]}
                     </p>
                     <p class="mt-1 text-[10px] font-bold uppercase tracking-wide">
-                      {severity.label}
+                      {$_(`codeReport.services.severity.${severity.label}`)}
                     </p>
                   </div>
                 {/each}
               </div>
               {#if service.lastScanAt}
                 <p class="mt-2 text-[11px] text-slate-400">
-                  Último escaneo: {new Date(service.lastScanAt).toLocaleString()}
+                  {$_('codeReport.services.lastScan')}: {new Date(service.lastScanAt).toLocaleString()}
                 </p>
               {/if}
             {:else}
-              <p class="text-[11px] text-slate-400">Sin análisis de vulnerabilidades todavía.</p>
+              <p class="text-[11px] text-slate-400">{$_('codeReport.services.noAnalysis')}</p>
             {/if}
           </div>
         </a>
@@ -191,7 +192,7 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
     <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
       <div class="flex items-start justify-between">
-        <h3 class="text-lg font-semibold text-slate-900">Add Service</h3>
+        <h3 class="text-lg font-semibold text-slate-900">{$_('codeReport.services.addService')}</h3>
         <button type="button" on:click={closeModal} class="text-slate-400 hover:text-slate-600">
           <X class="h-5 w-5" />
         </button>
@@ -214,7 +215,7 @@
         {/if}
 
         <div>
-          <label for="service-name" class="block text-sm font-medium text-slate-700">Name</label>
+          <label for="service-name" class="block text-sm font-medium text-slate-700">{$_('codeReport.services.name')}</label>
           <input
             id="service-name"
             name="name"
@@ -227,7 +228,7 @@
 
         <div>
           <label for="service-slug" class="block text-sm font-medium text-slate-700">
-            Slug <span class="font-normal text-slate-400">(opcional, se genera del nombre)</span>
+            Slug <span class="font-normal text-slate-400">{$_('codeReport.services.slugHelp')}</span>
           </label>
           <input
             id="service-slug"
@@ -240,7 +241,7 @@
 
         <div>
           <label for="service-description" class="block text-sm font-medium text-slate-700">
-            Description
+            {$_('codeReport.services.description')}
           </label>
           <textarea
             id="service-description"
@@ -252,7 +253,7 @@
         </div>
 
         <div>
-          <label for="service-tags" class="block text-sm font-medium text-slate-700">Tags</label>
+          <label for="service-tags" class="block text-sm font-medium text-slate-700">{$_('codeReport.services.tags')}</label>
           <div
             class="mt-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1.5 focus-within:border-slate-400"
           >
@@ -276,7 +277,7 @@
               bind:value={tagInput}
               on:keydown={handleTagKeydown}
               on:blur={addTag}
-              placeholder={tags.length === 0 ? 'Añade un tag y pulsa Enter' : ''}
+              placeholder={tags.length === 0 ? $_('codeReport.services.tagPlaceholder') : ''}
               class="min-w-[8rem] flex-1 border-none px-1 py-1 text-sm text-slate-900 focus:outline-none"
             />
           </div>
@@ -291,14 +292,14 @@
             on:click={closeModal}
             class="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Cancelar
+            {$_('codeReport.services.cancel')}
           </button>
           <button
             type="submit"
             disabled={submitting}
             class="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            {submitting ? 'Creando...' : 'Crear servicio'}
+            {submitting ? $_('codeReport.services.creating') : $_('codeReport.services.createService')}
           </button>
         </div>
       </form>

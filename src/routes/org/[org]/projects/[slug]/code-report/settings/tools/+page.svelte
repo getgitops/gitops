@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { Wrench, CheckCircle2, XCircle } from '@lucide/svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data;
 
@@ -22,19 +23,16 @@
 </script>
 
 <svelte:head>
-  <title>Tools - Code Report</title>
+  <title>{$_('codeReport.settings.tools')} - Code Report</title>
 </svelte:head>
 
 <div class="space-y-6">
   <div>
     <div class="mb-1 flex items-center gap-2">
       <Wrench class="h-5 w-5 text-slate-700" />
-      <h1 class="text-lg font-semibold text-slate-900">Herramientas de Análisis</h1>
+      <h1 class="text-lg font-semibold text-slate-900">{$_('codeReport.settings.toolsTitle')}</h1>
     </div>
-    <p class="text-sm text-slate-500">
-      Gestiona las categorías de análisis habilitadas para este proyecto. Lo que actives aquí se guarda
-      en settings del proyecto y se devolverá en la API de scan.
-    </p>
+    <p class="text-sm text-slate-500">{$_('codeReport.settings.toolsDescription')}</p>
   </div>
 
   <form
@@ -52,30 +50,22 @@
       {#each localTools as tool}
         <div class="flex items-start gap-4 rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50">
           <div class="flex h-6 items-center">
-            <input
-              type="checkbox"
-              id={`tool-${tool.id}`}
-              name="tools"
-              value={tool.id}
-              bind:checked={tool.enabled}
-              disabled={tool.soon}
-              class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-            />
+            <input type="checkbox" id={`tool-${tool.id}`} name="tools" value={tool.id} bind:checked={tool.enabled} disabled={tool.soon} class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
           </div>
           <div class="flex-1">
             <label for={`tool-${tool.id}`} class="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-900 {tool.soon ? 'opacity-70' : ''}">
               {tool.name}
               {#if tool.soon}
                 <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
-                  Soon
+                  {$_('codeReport.settings.soon')}
                 </span>
               {:else if tool.enabled}
                 <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
-                  <CheckCircle2 class="h-3 w-3" /> Habilitada
+                  <CheckCircle2 class="h-3 w-3" /> {$_('codeReport.settings.enabled')}
                 </span>
               {:else}
                 <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                  <XCircle class="h-3 w-3" /> Deshabilitada
+                  <XCircle class="h-3 w-3" /> {$_('codeReport.settings.disabled')}
                 </span>
               {/if}
             </label>
@@ -86,12 +76,8 @@
     </div>
 
     <div class="mt-6 flex justify-end border-t border-slate-100 pt-5">
-      <button
-        type="submit"
-        disabled={loading}
-        class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50"
-      >
-        {loading ? 'Guardando...' : 'Guardar cambios'}
+      <button type="submit" disabled={loading} class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50">
+        {loading ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
       </button>
     </div>
   </form>

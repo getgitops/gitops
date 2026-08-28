@@ -1,5 +1,6 @@
 <script lang="ts">
   import Users from '$lib/components/Users.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: { users: any[]; roles: any[] };
 </script>
@@ -8,6 +9,6 @@
   scope="cluster"
   initialUsers={data.users}
   roles={data.roles}
-  title="Cluster Users"
-  description="Create users and grant them access to this cluster."
+  title={$_('clusterSettings.users.title')}
+  description={$_('clusterSettings.users.description')}
 />

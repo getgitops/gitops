@@ -1,5 +1,6 @@
 <script lang="ts">
   import RolePermissions from '$lib/components/RolePermissions.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: {
     project: { slug: string; organization: { slug: string } | null };
@@ -11,7 +12,7 @@
 
 <RolePermissions
   initialRoles={data.roles}
-  title="Project Roles & Permissions"
-  description="Manage roles and granular access policies inside this project."
+  title={$_('projectSettings.roles.title')}
+  description={$_('projectSettings.roles.description')}
   {baseHref}
 />

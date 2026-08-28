@@ -1,6 +1,7 @@
 <script lang="ts">
   import AuditLog from '$lib/components/AuditLog.svelte';
   import type { AuditEvent } from '$modules/audit';
+  import { _ } from 'svelte-i18n';
 
   type Pagination = { page: number; perPage: number; total: number; totalPages: number };
 
@@ -11,6 +12,6 @@
   events={data.events}
   pagination={data.pagination}
   commitBaseUrl={data.commitBaseUrl}
-  title="Auditoría"
-  description="Historial de cambios registrados en los datos de esta organización."
+  title={$_('orgSettings.audit.title')}
+  description={$_('orgSettings.audit.description')}
 />

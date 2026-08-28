@@ -1,5 +1,6 @@
 <script lang="ts">
   import Users from '$lib/components/Users.svelte';
+  import { _ } from 'svelte-i18n';
 
   export let data: { users: any[]; roles: any[] };
 </script>
@@ -8,6 +9,6 @@
   scope="organization"
   initialUsers={data.users}
   roles={data.roles}
-  title="Organization Users"
-  description="Create users and grant them access to this organization."
+  title={$_('orgSettings.users.title')}
+  description={$_('orgSettings.users.description')}
 />

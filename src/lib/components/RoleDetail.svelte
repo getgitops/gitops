@@ -4,11 +4,12 @@
   import { CheckCircle, ChevronDown, ChevronRight, Pencil, Save, Trash2, X } from '@lucide/svelte';
   import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
   import { toStoredPermissionGrant } from '$lib/permissions';
+  import { _ } from 'svelte-i18n';
 
   export let scope: 'cluster' | 'organization' | 'project';
   export let role: RoleRow | null = null;
   export let cancelHref = './';
-  export let title = 'Role detail';
+  export let title = '';
 
   type RoleRow = {
     id: string;
@@ -341,7 +342,7 @@
     const result = deserialize(await response.text());
     if (result.type === 'failure' || result.type === 'error') {
       const data = result.type === 'failure' ? result.data : null;
-      throw new Error(typeof data?.error === 'string' ? data.error : 'Role action failed.');
+      throw new Error(typeof data?.error === 'string' ? data.error : $_('roleDetail.actionFailed'));
     }
 
     return result.data as { role?: RoleRow } | null;
@@ -365,9 +366,9 @@
       }
 
       await invalidateAll();
-      flashSuccess('Role saved.');
+      flashSuccess($_('roleDetail.saved'));
     } catch (error: unknown) {
-      detailError = error instanceof Error ? error.message : 'Failed to save role.';
+      detailError = error instanceof Error ? error.message : $_('roleDetail.saveFailed');
     } finally {
       saving = false;
     }
@@ -382,7 +383,7 @@
       await submitAction('deleteRole', { id: role.id });
       await goto(cancelHref);
     } catch (error: unknown) {
-      detailError = error instanceof Error ? error.message : 'Failed to delete role.';
+      detailError = error instanceof Error ? error.message : $_('roleDetail.deleteFailed');
     } finally {
       deleting = false;
     }
@@ -390,7 +391,7 @@
 </script>
 
 <svelte:head>
-  <title>{title}</title>
+  <title>{title || $_('roleDetail.defaultTitle')}</title>
 </svelte:head>
 
 <div class="">
@@ -416,10 +417,10 @@
       <div class="flex items-center justify-between gap-3 border-b border-[#5c5f66] pb-4">
         <h3 class="text-base font-semibold text-white">
           {scope === 'organization'
-            ? 'Org Role Details'
+            ? $_('roleDetail.orgRoleDetails')
             : scope === 'project'
-              ? 'Project Role Details'
-              : 'Cluster Role Details'}
+              ? $_('roleDetail.projectRoleDetails')
+              : $_('roleDetail.clusterRoleDetails')}
         </h3>
         <Pencil class="h-4 w-4 text-slate-400" />
       </div>
@@ -427,24 +428,24 @@
       <div class="mt-5 space-y-5 text-sm">
         {#if !isCreate && role?.id}
           <div>
-            <div class="font-semibold text-slate-400">Role ID</div>
+            <div class="font-semibold text-slate-400">{$_('roleDetail.roleId')}</div>
             <div class="mt-1 break-all text-slate-300">{role.id}</div>
           </div>
         {/if}
 
         <div>
-          <label class="block font-semibold text-slate-400" for="role-name">Name</label>
+          <label class="block font-semibold text-slate-400" for="role-name">{$_('common.name')}</label>
           <input
             id="role-name"
             type="text"
             bind:value={roleName}
             class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
-            placeholder="Developer"
+            placeholder={$_('roleDetail.developerPlaceholder')}
           />
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-400" for="role-slug">Slug</label>
+          <label class="block font-semibold text-slate-400" for="role-slug">{$_('common.slug')}</label>
           <input
             id="role-slug"
             type="text"
@@ -456,9 +457,9 @@
         </div>
 
         <div>
-          <div class="font-semibold text-slate-400">Description</div>
+          <div class="font-semibold text-slate-400">{$_('common.description')}</div>
           <div class="mt-1 text-slate-300">
-            {isCreate ? 'New role' : `${roleName || 'Role'} role`}
+            {isCreate ? $_('roleDetail.newRole') : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
           </div>
         </div>
       </div>
@@ -466,7 +467,7 @@
 
     <section class="min-w-0 rounded-md border border-[#34363d] bg-[#1a1b1f] shadow-sm">
       <div class="flex items-center justify-between gap-4 border-b border-[#5c5f66] px-4 py-4">
-        <h4 class="text-lg font-semibold text-white">Permissions</h4>
+        <h4 class="text-lg font-semibold text-white">{$_('roleDetail.permissions')}</h4>
         <div class="flex items-center gap-3">
           {#if !isCreate}
             <button
@@ -476,7 +477,7 @@
               class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-red-300 transition hover:bg-red-950/50 disabled:opacity-60"
             >
               <Trash2 class="h-4 w-4" />
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? $_('roleDetail.deleting') : $_('common.delete')}
             </button>
           {/if}
           <button
@@ -486,14 +487,14 @@
             class="inline-flex h-10 items-center gap-2 rounded-md bg-[#dfff22] px-4 text-sm font-semibold text-[#141510] transition hover:bg-[#e8ff4d] disabled:opacity-60"
           >
             <Save class="h-4 w-4" />
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? $_('roleDetail.saving') : $_('common.save')}
           </button>
           <a
             href={cancelHref}
             class="inline-flex h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-slate-400 transition hover:text-white"
           >
             <X class="h-4 w-4" />
-            Cancel
+            {$_('common.cancel')}
           </a>
         </div>
       </div>
@@ -501,8 +502,8 @@
         <table class="w-full overflow-hidden rounded-md border border-[#282a30] text-sm">
           <thead>
             <tr class="bg-[#202126] text-left text-xs font-semibold uppercase text-slate-400">
-              <th class="w-[58%] px-18 py-4">Resource</th>
-              <th class="px-4 py-4">Permission</th>
+              <th class="w-[58%] px-18 py-4">{$_('roleDetail.resource')}</th>
+              <th class="px-4 py-4">{$_('roleDetail.permission')}</th>
             </tr>
           </thead>
           <tbody>
@@ -519,8 +520,8 @@
                         on:click={() => toggleExpanded(permissionRow)}
                         class="mr-6 inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-[#30323a] hover:text-white"
                         aria-label={expanded[permissionRow.key]
-                          ? 'Collapse section'
-                          : 'Expand section'}
+                          ? $_('roleDetail.collapseSection')
+                          : $_('roleDetail.expandSection')}
                       >
                         {#if expanded[permissionRow.key]}
                           <ChevronDown class="h-4 w-4" />
@@ -548,18 +549,18 @@
                         {#each selectableAccessLevels(permissionRow) as level}
                           <option value={level}>
                             {level === 'none'
-                              ? 'No Access'
+                              ? $_('roleDetail.noAccess')
                               : level === 'read'
-                                ? 'Read Only'
+                                ? $_('roleDetail.readOnly')
                                 : level === 'full'
-                                  ? 'Full Access'
-                                  : 'Custom'}
+                                  ? $_('roleDetail.fullAccess')
+                                  : $_('roleDetail.custom')}
                           </option>
                         {/each}
                       </select>
                     {/key}
                   {:else}
-                    <span class="text-sm font-medium text-slate-500">Section group</span>
+                    <span class="text-sm font-medium text-slate-500">{$_('roleDetail.sectionGroup')}</span>
                   {/if}
                 </td>
               </tr>
