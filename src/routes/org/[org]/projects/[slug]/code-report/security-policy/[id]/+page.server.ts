@@ -10,11 +10,15 @@ import { projectService } from '$modules/projects';
 export async function load({ parent, params, locals }) {
   const { project } = await parent();
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'openreport:read', {
-    scope: 'project',
-    projectId: project.id,
-    organizationId: project.organization?.id,
-  });
+  const canRead = await cancanService.canSessionUser(
+    locals.user,
+    'project:codereport:reports:read',
+    {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    },
+  );
 
   if (!canRead) {
     throw error(403, 'Forbidden');
@@ -93,11 +97,15 @@ export const actions = {
   update: async ({ request, params, locals }) => {
     const { project, policy } = await resolvePolicy(params.slug, params.id);
 
-    const canUpdate = await cancanService.canSessionUser(locals.user, 'openreport:update', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
+    const canUpdate = await cancanService.canSessionUser(
+      locals.user,
+      'project:codereport:reports:update',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId: project.organization?.id,
+      },
+    );
 
     if (!canUpdate) {
       return fail(403, { error: 'Forbidden' });
@@ -123,11 +131,15 @@ export const actions = {
   evaluate: async ({ params, locals }) => {
     const { project, policy } = await resolvePolicy(params.slug, params.id);
 
-    const canUpdate = await cancanService.canSessionUser(locals.user, 'openreport:update', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
+    const canUpdate = await cancanService.canSessionUser(
+      locals.user,
+      'project:codereport:reports:update',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId: project.organization?.id,
+      },
+    );
 
     if (!canUpdate) {
       return fail(403, { error: 'Forbidden' });
@@ -158,11 +170,15 @@ export const actions = {
   delete: async ({ params, locals }) => {
     const { project, policy } = await resolvePolicy(params.slug, params.id);
 
-    const canDelete = await cancanService.canSessionUser(locals.user, 'openreport:delete', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
+    const canDelete = await cancanService.canSessionUser(
+      locals.user,
+      'project:codereport:reports:delete',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId: project.organization?.id,
+      },
+    );
 
     if (!canDelete) {
       return fail(403, { error: 'Forbidden' });

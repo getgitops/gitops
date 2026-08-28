@@ -3,7 +3,9 @@ import { projectService } from '../../../modules/projects';
 import { cancanService, roleService } from '../../../modules/auth';
 
 export async function GET({ url, locals }) {
-  if (!(await cancanService.canSessionUser(locals.user, 'stateiac:read', { scope: 'cluster' }))) {
+  if (
+    !(await cancanService.canSessionUser(locals.user, 'cluster:projects:read', { scope: 'cluster' }))
+  ) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -31,11 +33,13 @@ export async function POST({ request, locals }) {
     };
 
     const canCreate = data.organizationId
-      ? await cancanService.canSessionUser(locals.user, 'stateiac:create', {
+      ? await cancanService.canSessionUser(locals.user, 'organization:projects:create', {
           scope: 'organization',
           organizationId: data.organizationId,
         })
-      : await cancanService.canSessionUser(locals.user, 'stateiac:create', { scope: 'cluster' });
+      : await cancanService.canSessionUser(locals.user, 'cluster:projects:create', {
+          scope: 'cluster',
+        });
 
     if (!canCreate) {
       return json({ error: 'Forbidden' }, { status: 403 });

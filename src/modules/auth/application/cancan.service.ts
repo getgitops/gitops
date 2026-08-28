@@ -67,7 +67,10 @@ export class CanCanService {
   }
 
   async canManageOrganization(user: PermissionAwareUser, organizationId: string): Promise<boolean> {
-    return this.canSessionUser(user, 'stateiac:read', { scope: 'organization', organizationId });
+    return this.canSessionUser(user, 'organization:projects:read', {
+      scope: 'organization',
+      organizationId,
+    });
   }
 
   /**
@@ -194,16 +197,12 @@ export class CanCanService {
   ): boolean {
     if (!grants || grants.length === 0) return false;
 
-    const [section] = permission.split(':') as [string, string];
+    // grants are canonical (`project:vault:secrets:read`), and a `<resource>:all`
+    // grant covers every action on that resource
     return grants.some(
       (grant) =>
         grant === permission ||
-        grant === `${section}:all` ||
-        grant.endsWith(`:${permission}`) ||
-        grant.endsWith(`:${section}:all`) ||
-        // a `<resource>:all` grant covers every action on that resource, e.g.
-        // `project:server-keys:all` covers `project:server-keys:read`
-        (grant.endsWith(':all') && permission.startsWith(grant.slice(0, -3))),
+        (grant.endsWith(':all') && permission.startsWith(grant.slice(0, -'all'.length))),
     );
   }
 

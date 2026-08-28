@@ -16,11 +16,15 @@ const STALE_AFTER_DAYS = 30;
 export async function load({ parent, locals }) {
   const { project } = await parent();
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'openreport:read', {
-    scope: 'project',
-    projectId: project.id,
-    organizationId: project.organization?.id,
-  });
+  const canRead = await cancanService.canSessionUser(
+    locals.user,
+    'project:codereport:reports:read',
+    {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    },
+  );
 
   if (!canRead) {
     throw error(403, 'Forbidden');
@@ -28,12 +32,13 @@ export async function load({ parent, locals }) {
 
   const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
 
-
   const services = await codeReportService.listByProject(project.id);
   const securityPolicies = await codeReportSecurityPolicyService.listByProject(project.id);
 
-  const policyEvaluations: { service: (typeof services)[number]; report: PolicyComplianceReport }[] =
-    [];
+  const policyEvaluations: {
+    service: (typeof services)[number];
+    report: PolicyComplianceReport;
+  }[] = [];
 
   const serviceStats = await Promise.all(
     services.map(async (service) => {
@@ -58,9 +63,10 @@ export async function load({ parent, locals }) {
         policyEvaluations.push({ service, report });
       }
 
-      const lastScanAt = [latest.trivy?.createdAt, latest.gitleaks?.createdAt]
-        .filter((value): value is Date => Boolean(value))
-        .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
+      const lastScanAt =
+        [latest.trivy?.createdAt, latest.gitleaks?.createdAt]
+          .filter((value): value is Date => Boolean(value))
+          .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
 
       return {
         id: service.id,
@@ -94,7 +100,9 @@ export async function load({ parent, locals }) {
 
   const staleCutoff = Date.now() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
   const staleServices = serviceStats
-    .filter((service) => !service.lastScanAt || new Date(service.lastScanAt).getTime() < staleCutoff)
+    .filter(
+      (service) => !service.lastScanAt || new Date(service.lastScanAt).getTime() < staleCutoff,
+    )
     .sort((left, right) => {
       if (!left.lastScanAt) return -1;
       if (!right.lastScanAt) return 1;

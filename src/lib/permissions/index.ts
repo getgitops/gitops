@@ -1,25 +1,5 @@
 import permissionsCatalog from '$lib/config/permissions';
 
-export const PERMISSION_SECTIONS = ['vault', 'openreport', 'stateiac'] as const;
-export type PermissionSection = (typeof PERMISSION_SECTIONS)[number];
-
-export const PERMISSION_ACTIONS = ['read', 'create', 'update', 'delete'] as const;
-export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
-
-export const PERMISSION_SECTION_LABELS: Record<PermissionSection, string> = {
-  vault: 'Vault',
-  openreport: 'Open Report',
-  stateiac: 'State IaC',
-};
-
-export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
-  read: 'View / List',
-  create: 'Create',
-  update: 'Update',
-  delete: 'Delete',
-};
-
-export type Permission = `${PermissionSection}:${PermissionAction}`;
 export type PermissionGrant = string;
 export type PermissionScope = 'cluster' | 'organization' | 'project';
 
@@ -40,91 +20,43 @@ function collectPermissionGrants(section: PermissionConfigSection): string[] {
   ];
 }
 
-function storedPermissionFor(permission: string): string {
-  const parts = permission.split(':');
-  if (parts.length < 3) return permission;
-  return parts.slice(1).join(':');
-}
+/**
+ * Grants are always canonical: `<scope>:<resource path>:<action>`, exactly as declared in the
+ * catalog (`project:vault:secrets:read`, `organization:projects:create`, `cluster:users:invite`).
+ */
+const GRANTS_BY_SCOPE = Object.fromEntries(
+  Object.entries(permissionsCatalog.sections).map(([scope, section]) => [
+    scope,
+    collectPermissionGrants(section as PermissionConfigSection),
+  ]),
+) as Record<PermissionScope, PermissionGrant[]>;
 
-export function toStoredPermissionGrant(
-  permission: string,
-  scope: PermissionScope,
-): PermissionGrant {
-  if (permission.startsWith(`${scope}:${scope}:`)) {
-    return permission.replace(`${scope}:${scope}:`, `${scope}:`);
-  }
-
-  if (permission.startsWith(`${scope}:`)) {
-    return permission.slice(scope.length + 1);
-  }
-
-  return permission;
-}
-
-const CATALOG_PERMISSION_GRANTS = Object.values(permissionsCatalog.sections).flatMap((section) =>
-  collectPermissionGrants(section),
-);
-
-export const ALL_PERMISSION_GRANTS: PermissionGrant[] = [
-  ...CATALOG_PERMISSION_GRANTS,
-  ...CATALOG_PERMISSION_GRANTS.map((permission) => storedPermissionFor(permission)),
-  ...PERMISSION_SECTIONS.flatMap((section) =>
-    PERMISSION_ACTIONS.map((action) => `${section}:${action}` as Permission),
-  ),
-  ...PERMISSION_SECTIONS.map((section) => `${section}:all`),
-];
+export const ALL_PERMISSION_GRANTS: PermissionGrant[] = Object.values(GRANTS_BY_SCOPE).flat();
 
 const ALL_PERMISSION_GRANTS_SET = new Set<string>(ALL_PERMISSION_GRANTS);
+
+// grants used to be stored without their scope prefix (`vault:secrets:read`, `project:all`);
+// each scope keeps a lookup from that legacy shape back to its canonical grant
+const LEGACY_ALIASES_BY_SCOPE = Object.fromEntries(
+  Object.entries(GRANTS_BY_SCOPE).map(([scope, grants]) => [
+    scope,
+    new Map(grants.map((grant) => [grant.slice(scope.length + 1), grant])),
+  ]),
+) as Record<PermissionScope, Map<string, PermissionGrant>>;
 
 export function isValidPermissionGrant(value: string): value is PermissionGrant {
   return ALL_PERMISSION_GRANTS_SET.has(value);
 }
 
-export function isPermissionActionSelected(
+/** Upgrades a legacy scope-less grant to its canonical form; canonical and unknown grants pass through. */
+export function normalizePermissionGrant(grant: string, scope: PermissionScope): PermissionGrant {
+  if (ALL_PERMISSION_GRANTS_SET.has(grant)) return grant;
+  return LEGACY_ALIASES_BY_SCOPE[scope]?.get(grant) ?? grant;
+}
+
+export function normalizePermissionGrants(
   grants: readonly string[],
-  section: PermissionSection,
-  action: PermissionAction,
-): boolean {
-  if (!grants || grants.length === 0) return false;
-
-  const permission: Permission = `${section}:${action}`;
-
-  return grants.includes(permission) || grants.includes(`${section}:all`);
-}
-
-export function isSectionFullyGranted(
-  permissions: readonly string[],
-  section: PermissionSection,
-): boolean {
-  return permissions.includes(`${section}:all`);
-}
-
-/** Toggles a single section:action grant, expanding a `section:all` shortcut if present. */
-export function togglePermissionAction(
-  permissions: readonly string[],
-  section: PermissionSection,
-  action: PermissionAction,
-): string[] {
-  if (isSectionFullyGranted(permissions, section)) {
-    const expanded = PERMISSION_ACTIONS.filter((a) => a !== action).map(
-      (a) => `${section}:${a}` as Permission,
-    );
-    return [...permissions.filter((p) => p !== `${section}:all`), ...expanded];
-  }
-
-  const permission: Permission = `${section}:${action}`;
-  return permissions.includes(permission)
-    ? permissions.filter((p) => p !== permission)
-    : [...permissions, permission];
-}
-
-/** Toggles the `section:all` shortcut, replacing any explicit grants for that section. */
-export function toggleSectionAll(
-  permissions: readonly string[],
-  section: PermissionSection,
-): string[] {
-  const withoutSection = permissions.filter((p) => !p.startsWith(`${section}:`));
-  return isSectionFullyGranted(permissions, section)
-    ? withoutSection
-    : [...withoutSection, `${section}:all`];
+  scope: PermissionScope,
+): PermissionGrant[] {
+  return [...new Set(grants.map((grant) => normalizePermissionGrant(grant, scope)))];
 }

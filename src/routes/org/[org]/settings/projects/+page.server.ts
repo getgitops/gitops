@@ -18,10 +18,14 @@ export const actions = {
     try {
       const form = await request.formData();
       const organizationId = String(form.get('organizationId') ?? '');
-      const canCreate = await cancanService.canSessionUser(locals.user, 'stateiac:create', {
-        scope: 'organization',
-        organizationId,
-      });
+      const canCreate = await cancanService.canSessionUser(
+        locals.user,
+        'organization:projects:create',
+        {
+          scope: 'organization',
+          organizationId,
+        },
+      );
 
       if (!canCreate) return fail(403, { error: 'Forbidden' });
 
@@ -44,7 +48,7 @@ export const actions = {
       const form = await request.formData();
       const id = String(form.get('id') ?? '');
       const project = await projectService.getProject(id);
-      const canDelete = await cancanService.canSessionUser(locals.user, 'stateiac:delete', {
+      const canDelete = await cancanService.canSessionUser(locals.user, 'project:project:delete', {
         scope: 'project',
         projectId: project.id,
         organizationId: project.organization?.id,

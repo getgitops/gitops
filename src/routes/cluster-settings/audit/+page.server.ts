@@ -37,7 +37,9 @@ export const actions = {
       const changes = await auditService.getEntityDiff(commit, entity);
       return { success: true, changes };
     } catch (error: unknown) {
-      return fail(500, { error: error instanceof Error ? error.message : 'Failed to load changes.' });
+      return fail(500, {
+        error: error instanceof Error ? error.message : 'Failed to load changes.',
+      });
     }
   },
 };

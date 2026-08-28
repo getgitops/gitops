@@ -3,7 +3,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { CheckCircle, ChevronDown, ChevronRight, Pencil, Save, Trash2, X } from '@lucide/svelte';
   import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
-  import { toStoredPermissionGrant } from '$lib/permissions';
+  import { normalizePermissionGrant } from '$lib/permissions';
   import { _ } from 'svelte-i18n';
 
   export let scope: 'cluster' | 'organization' | 'project';
@@ -51,12 +51,14 @@
   let deleting = false;
   let detailError = '';
   let detailSuccess = '';
-  let expanded: Record<string, boolean> = {};
+  let expanded: Record<string, boolean> = defaultExpanded(getPermissionRows(scope));
   let accessLevelOverrides: Record<string, AccessLevel> = {};
 
   $: permissionRows = getPermissionRows(scope);
-  $: visiblePermissionRows = permissionRows.filter((row) => isRowVisible(row));
+  // `expanded` is read here (not only inside the helper) so Svelte recomputes the tree on toggle
+  $: visiblePermissionRows = permissionRows.filter((row) => isRowVisible(row, expanded));
   $: selectedPermissionsKey = selectedPermissions.join('|');
+  $: accessLevelKey = `${selectedPermissionsKey}|${JSON.stringify(accessLevelOverrides)}`;
 
   function sectionChildren(section: PermissionSection): PermissionSection[] {
     if (!section.sections) return [];
@@ -133,21 +135,13 @@
     return [...rootRows, ...childRows];
   }
 
-  function storedPermissionFor(uiPermission: string): string {
-    return toStoredPermissionGrant(uiPermission, scope);
-  }
-
-  function toStoredPermissions(uiPermissions: readonly string[]): string[] {
-    return [...new Set(uiPermissions.map((permission) => storedPermissionFor(permission)))];
-  }
-
   function toUiPermissions(storedPermissions: readonly string[]): string[] {
-    const storedSet = new Set(storedPermissions);
+    const storedSet = new Set(
+      storedPermissions.map((permission) => normalizePermissionGrant(permission, scope)),
+    );
     const rows = getPermissionRows(scope);
     const mappedPermissions = rows.flatMap((row) =>
-      row.permissions.filter(
-        (permission) => storedSet.has(permission) || storedSet.has(storedPermissionFor(permission)),
-      ),
+      row.permissions.filter((permission) => storedSet.has(permission)),
     );
 
     return [...new Set(mappedPermissions)];
@@ -318,9 +312,18 @@
     expanded = { ...expanded, [row.key]: !expanded[row.key] };
   }
 
-  function isRowVisible(row: PermissionRow): boolean {
+  function isRowVisible(row: PermissionRow, expandedRows: Record<string, boolean>): boolean {
     const ancestors = row.key.split('/').slice(0, -1);
-    return ancestors.every((_, index) => expanded[ancestors.slice(0, index + 1).join('/')]);
+    return ancestors.every((_, index) => expandedRows[ancestors.slice(0, index + 1).join('/')]);
+  }
+
+  // pure grouping rows (`modules`, `modules/vault`, ...) carry no grants, so they open by default
+  function defaultExpanded(rows: PermissionRow[]): Record<string, boolean> {
+    return Object.fromEntries(
+      rows
+        .filter((row) => row.hasChildren && !row.permissions.length)
+        .map((row) => [row.key, true]),
+    );
   }
 
   function hasExpandableContent(row: PermissionRow): boolean {
@@ -357,7 +360,7 @@
         id: role?.id ?? '',
         name: roleName.trim(),
         slug: roleSlug.trim(),
-        permissions: JSON.stringify(toStoredPermissions(selectedPermissions)),
+        permissions: JSON.stringify(selectedPermissions),
       });
 
       if (isCreate && result?.role?.id) {
@@ -394,17 +397,15 @@
   <title>{title || $_('roleDetail.defaultTitle')}</title>
 </svelte:head>
 
-<div class="">
+<div class="space-y-4">
   {#if detailError}
-    <div
-      class="w-full rounded-md border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200"
-    >
+    <div class="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
       {detailError}
     </div>
   {/if}
   {#if detailSuccess}
     <div
-      class="w-full rounded-md border border-emerald-500/40 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100"
+      class="w-full rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
     >
       <span class="inline-flex items-center gap-2"
         ><CheckCircle class="h-4 w-4" /> {detailSuccess}</span
@@ -413,9 +414,9 @@
   {/if}
 
   <div class="grid gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,4fr)]">
-    <aside class="self-start rounded-md border border-[#34363d] bg-[#1a1b1f] p-4 shadow-sm">
-      <div class="flex items-center justify-between gap-3 border-b border-[#5c5f66] pb-4">
-        <h3 class="text-base font-semibold text-white">
+    <aside class="self-start rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
+        <h3 class="text-base font-semibold text-slate-900">
           {scope === 'organization'
             ? $_('roleDetail.orgRoleDetails')
             : scope === 'project'
@@ -428,53 +429,59 @@
       <div class="mt-5 space-y-5 text-sm">
         {#if !isCreate && role?.id}
           <div>
-            <div class="font-semibold text-slate-400">{$_('roleDetail.roleId')}</div>
-            <div class="mt-1 break-all text-slate-300">{role.id}</div>
+            <div class="font-semibold text-slate-500">{$_('roleDetail.roleId')}</div>
+            <div class="mt-1 break-all text-slate-700">{role.id}</div>
           </div>
         {/if}
 
         <div>
-          <label class="block font-semibold text-slate-400" for="role-name">{$_('common.name')}</label>
+          <label class="block font-semibold text-slate-500" for="role-name"
+            >{$_('common.name')}</label
+          >
           <input
             id="role-name"
             type="text"
             bind:value={roleName}
-            class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
+            class="field-input mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400"
             placeholder={$_('roleDetail.developerPlaceholder')}
           />
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-400" for="role-slug">{$_('common.slug')}</label>
+          <label class="block font-semibold text-slate-500" for="role-slug"
+            >{$_('common.slug')}</label
+          >
           <input
             id="role-slug"
             type="text"
             bind:value={roleSlug}
             readonly={!isCreate}
-            class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 read-only:text-slate-300 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
+            class="field-input mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-900 outline-none transition placeholder:text-slate-400 read-only:bg-slate-50 read-only:text-slate-500"
             placeholder="developer"
           />
         </div>
 
         <div>
-          <div class="font-semibold text-slate-400">{$_('common.description')}</div>
-          <div class="mt-1 text-slate-300">
-            {isCreate ? $_('roleDetail.newRole') : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
+          <div class="font-semibold text-slate-500">{$_('common.description')}</div>
+          <div class="mt-1 text-slate-700">
+            {isCreate
+              ? $_('roleDetail.newRole')
+              : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
           </div>
         </div>
       </div>
     </aside>
 
-    <section class="min-w-0 rounded-md border border-[#34363d] bg-[#1a1b1f] shadow-sm">
-      <div class="flex items-center justify-between gap-4 border-b border-[#5c5f66] px-4 py-4">
-        <h4 class="text-lg font-semibold text-white">{$_('roleDetail.permissions')}</h4>
+    <section class="min-w-0 rounded-md border border-slate-200 bg-white shadow-sm">
+      <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-4">
+        <h4 class="text-lg font-semibold text-slate-900">{$_('roleDetail.permissions')}</h4>
         <div class="flex items-center gap-3">
           {#if !isCreate}
             <button
               type="button"
               on:click={deleteRole}
               disabled={deleting}
-              class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-red-300 transition hover:bg-red-950/50 disabled:opacity-60"
+              class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
             >
               <Trash2 class="h-4 w-4" />
               {deleting ? $_('roleDetail.deleting') : $_('common.delete')}
@@ -484,14 +491,14 @@
             type="button"
             on:click={saveRole}
             disabled={saving}
-            class="inline-flex h-10 items-center gap-2 rounded-md bg-[#dfff22] px-4 text-sm font-semibold text-[#141510] transition hover:bg-[#e8ff4d] disabled:opacity-60"
+            class="btn-primary inline-flex h-10 items-center gap-2 rounded-md px-4 text-sm font-semibold"
           >
             <Save class="h-4 w-4" />
             {saving ? $_('roleDetail.saving') : $_('common.save')}
           </button>
           <a
             href={cancelHref}
-            class="inline-flex h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-slate-400 transition hover:text-white"
+            class="inline-flex h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
           >
             <X class="h-4 w-4" />
             {$_('common.cancel')}
@@ -499,17 +506,17 @@
         </div>
       </div>
       <div class="overflow-hidden p-4">
-        <table class="w-full overflow-hidden rounded-md border border-[#282a30] text-sm">
+        <table class="w-full overflow-hidden rounded-md border border-slate-200 text-sm">
           <thead>
-            <tr class="bg-[#202126] text-left text-xs font-semibold uppercase text-slate-400">
-              <th class="w-[58%] px-18 py-4">{$_('roleDetail.resource')}</th>
+            <tr class="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
+              <th class="w-[58%] px-4 py-4">{$_('roleDetail.resource')}</th>
               <th class="px-4 py-4">{$_('roleDetail.permission')}</th>
             </tr>
           </thead>
           <tbody>
             {#each visiblePermissionRows as permissionRow (permissionRow.key)}
-              <tr class="border-t border-[#2d3036] bg-[#202126] first:border-t-0">
-                <td class="px-4 py-3 font-semibold text-slate-200">
+              <tr class="border-t border-slate-100 bg-white first:border-t-0">
+                <td class="px-4 py-3 font-semibold text-slate-900">
                   <div
                     class="flex items-center"
                     style={`padding-left: ${permissionRow.depth * 1.4}rem;`}
@@ -518,7 +525,7 @@
                       <button
                         type="button"
                         on:click={() => toggleExpanded(permissionRow)}
-                        class="mr-6 inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 transition hover:bg-[#30323a] hover:text-white"
+                        class="mr-3 inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                         aria-label={expanded[permissionRow.key]
                           ? $_('roleDetail.collapseSection')
                           : $_('roleDetail.expandSection')}
@@ -530,7 +537,7 @@
                         {/if}
                       </button>
                     {:else}
-                      <span class="mr-6 h-6 w-6"></span>
+                      <span class="mr-3 h-6 w-6"></span>
                     {/if}
                     <span class:text-slate-500={!permissionRow.permissions.length}>
                       {rowLabel(permissionRow)}
@@ -539,9 +546,9 @@
                 </td>
                 <td class="px-4 py-3">
                   {#if permissionRow.permissions.length}
-                    {#key `${permissionRow.key}:${accessLevel(permissionRow)}`}
+                    {#key `${permissionRow.key}:${accessLevelKey}`}
                       <select
-                        class="w-full max-w-40 rounded-md border border-[#30323a] bg-[#2b2c33] px-3 py-2 text-sm font-medium text-slate-200 outline-none transition focus:border-[#dfff22] disabled:opacity-60"
+                        class="field-input w-full max-w-40 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none transition disabled:opacity-60"
                         value={accessLevel(permissionRow)}
                         disabled={hasInheritedAccess(permissionRow)}
                         on:change={(event) => onAccessLevelChange(permissionRow, event)}
@@ -560,13 +567,15 @@
                       </select>
                     {/key}
                   {:else}
-                    <span class="text-sm font-medium text-slate-500">{$_('roleDetail.sectionGroup')}</span>
+                    <span class="text-sm font-medium text-slate-500"
+                      >{$_('roleDetail.sectionGroup')}</span
+                    >
                   {/if}
                 </td>
               </tr>
 
               {#if expanded[permissionRow.key] && permissionRow.permissions.length}
-                <tr class="border-t border-[#2d3036] bg-[#171a20]">
+                <tr class="border-t border-slate-100 bg-slate-50">
                   <td colspan="2" class="px-8 py-5">
                     <div
                       class="grid gap-x-16 gap-y-4 sm:grid-cols-2 lg:grid-cols-3"
@@ -574,16 +583,16 @@
                     >
                       {#each visibleRowPermissions(permissionRow) as permission}
                         {@const action = actionFrom(permission)}
-                        {#key `${permission}:${selectedPermissionsKey}`}
+                        {#key `${permission}:${accessLevelKey}`}
                           <label
-                            class="inline-flex items-center gap-3 text-sm font-medium text-slate-300"
+                            class="inline-flex items-center gap-3 text-sm font-medium text-slate-700"
                           >
                             <input
                               type="checkbox"
                               checked={isVisiblePermissionSelected(permissionRow, permission)}
                               disabled={isPermissionDisabled(permissionRow, permission)}
                               on:change={() => togglePermission(permissionRow, permission)}
-                              class="h-4 w-4 rounded border-[#636772] bg-[#15171c] text-[#dfff22] focus:ring-[#dfff22] disabled:opacity-50"
+                              class="h-4 w-4 rounded border-slate-300 accent-[color:var(--primary)] disabled:opacity-50"
                               title={inheritedPermission(permissionRow, action) ?? permission}
                             />
                             <span class="capitalize">{action}</span>

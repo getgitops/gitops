@@ -4,7 +4,12 @@ import { SessionService } from './session.service';
 import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { RoleRepository } from '../infrastructure/repositories/role.repository';
 
-const CLUSTER_ADMIN_PERMISSIONS = ['vault:all', 'openreport:all', 'stateiac:all'];
+const CLUSTER_ADMIN_PERMISSIONS = [
+  'cluster:organization:all',
+  'cluster:projects:all',
+  'cluster:users:all',
+  'cluster:settings:all',
+];
 const CLUSTER_USER_PERMISSIONS: string[] = [];
 
 export class AuthService {
