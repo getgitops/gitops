@@ -7,9 +7,12 @@ function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
 }
 
-async function canUpdateProjectUsers(user: AuthenticatedUser | null | undefined, projectSlug: string) {
+async function canUpdateProjectUsers(
+  user: AuthenticatedUser | null | undefined,
+  projectSlug: string,
+) {
   const project = await projectService.getProjectBySlug(projectSlug);
-  const allowed = await cancanService.canSessionUser(user, 'stateiac:update', {
+  const allowed = await cancanService.canSessionUser(user, 'project:users:update', {
     scope: 'project',
     projectId: project.id,
     organizationId: project.organization?.id,

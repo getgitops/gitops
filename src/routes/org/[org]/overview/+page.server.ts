@@ -6,7 +6,7 @@ export async function load({ locals, parent }) {
   const { organization } = await parent();
 
   if (
-    !(await cancanService.canSessionUser(locals.user, 'stateiac:read', {
+    !(await cancanService.canSessionUser(locals.user, 'organization:projects:read', {
       scope: 'organization',
       organizationId: organization.id,
     }))

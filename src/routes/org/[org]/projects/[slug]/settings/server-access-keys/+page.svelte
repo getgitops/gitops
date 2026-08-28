@@ -1,28 +1,35 @@
 <script lang="ts">
-  import { Check, Copy, KeyRound, Plus, Trash2 } from '@lucide/svelte';
+  import { Check, Copy, KeyRound, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
   import { _, locale } from 'svelte-i18n';
 
   type ApiKeyRow = {
     id: string;
     name: string;
     keyPrefix: string;
+    roleId: string | null;
     expiresAt: string | null;
     lastUsedAt: string | null;
     revokedAt: string | null;
     createdAt: string;
   };
 
-  export let data: { apiKeys: ApiKeyRow[] };
+  type RoleRow = { id: string; name: string; slug: string };
+
+  export let data: { apiKeys: ApiKeyRow[]; roles: RoleRow[] };
   export let form: { success?: boolean; error?: string; createdKey?: string } | null;
 
   let createModalOpen = false;
   let name = '';
   let expiresInDays = '';
+  let roleId = '';
   let copied = false;
+
+  $: roleNameById = new Map(data.roles.map((role) => [role.id, role.name]));
 
   function openCreateModal() {
     name = '';
     expiresInDays = '';
+    roleId = data.roles[0]?.id ?? '';
     createModalOpen = true;
   }
 
@@ -43,9 +50,10 @@
 
   function formatDateTime(value: string | null) {
     if (!value) return $_('projectSettings.serverAccessKeys.never');
-    return new Intl.DateTimeFormat($locale ?? 'es', { dateStyle: 'medium', timeStyle: 'short' }).format(
-      new Date(value),
-    );
+    return new Intl.DateTimeFormat($locale ?? 'es', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
   }
 
   function keyState(key: ApiKeyRow) {
@@ -68,8 +76,8 @@
           {$_('projectSettings.serverAccessKeys.title')}
         </h3>
         <p class="mt-2 text-sm text-slate-600">
-          {$_('projectSettings.serverAccessKeys.descriptionPrefix')} <code
-            class="rounded bg-slate-100 px-1.5 py-0.5 text-xs"
+          {$_('projectSettings.serverAccessKeys.descriptionPrefix')}
+          <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs"
             >POST /api/code-report/analyse-result</code
           >.
         </p>
@@ -121,7 +129,9 @@
         class="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-16 text-center"
       >
         <KeyRound class="h-8 w-8 text-slate-400" />
-        <p class="text-sm font-medium text-slate-700">{$_('projectSettings.serverAccessKeys.noKeys')}</p>
+        <p class="text-sm font-medium text-slate-700">
+          {$_('projectSettings.serverAccessKeys.noKeys')}
+        </p>
       </div>
     {:else}
       {#each data.apiKeys as key (key.id)}
@@ -132,9 +142,16 @@
             <p class="text-sm font-medium text-slate-900">{key.name}</p>
             <p class="mt-1 text-xs text-slate-500">
               {$_('projectSettings.serverAccessKeys.prefix')}: {key.keyPrefix} · {$_(
-                'projectSettings.serverAccessKeys.created'
-              )} {formatDateTime(key.createdAt)} · {$_('projectSettings.serverAccessKeys.expires')} {formatDateTime(
-                key.expiresAt,
+                'projectSettings.serverAccessKeys.created',
+              )}
+              {formatDateTime(key.createdAt)} · {$_('projectSettings.serverAccessKeys.expires')}
+              {formatDateTime(key.expiresAt)}
+            </p>
+            <p class="mt-1 text-xs text-slate-500">
+              {$_('projectSettings.serverAccessKeys.role')}: {(key.roleId &&
+                roleNameById.get(key.roleId)) ??
+                '—'} · {$_('projectSettings.serverAccessKeys.lastUsed')}: {formatDateTime(
+                key.lastUsedAt,
               )}
             </p>
             <p
@@ -147,16 +164,28 @@
           </div>
 
           {#if !key.revokedAt}
-            <form method="POST" action="?/revoke">
-              <input type="hidden" name="keyId" value={key.id} />
-              <button
-                type="submit"
-                class="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                <Trash2 class="h-4 w-4" />
-                {$_('projectSettings.serverAccessKeys.revoke')}
-              </button>
-            </form>
+            <div class="flex shrink-0 items-center gap-2">
+              <form method="POST" action="?/rotate">
+                <input type="hidden" name="keyId" value={key.id} />
+                <button
+                  type="submit"
+                  class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  <RefreshCw class="h-4 w-4" />
+                  {$_('projectSettings.serverAccessKeys.rotate')}
+                </button>
+              </form>
+              <form method="POST" action="?/revoke">
+                <input type="hidden" name="keyId" value={key.id} />
+                <button
+                  type="submit"
+                  class="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 class="h-4 w-4" />
+                  {$_('projectSettings.serverAccessKeys.revoke')}
+                </button>
+              </form>
+            </div>
           {/if}
         </div>
       {/each}
@@ -185,6 +214,26 @@
             placeholder="CI pipeline"
             class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
           />
+        </div>
+
+        <div>
+          <label for="key-role" class="block text-sm font-medium text-slate-700">
+            {$_('projectSettings.serverAccessKeys.role')}
+          </label>
+          <select
+            id="key-role"
+            name="roleId"
+            required
+            bind:value={roleId}
+            class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+          >
+            {#each data.roles as role (role.id)}
+              <option value={role.id}>{role.name}</option>
+            {/each}
+          </select>
+          <p class="mt-1 text-xs text-slate-500">
+            {$_('projectSettings.serverAccessKeys.roleHint')}
+          </p>
         </div>
 
         <div>

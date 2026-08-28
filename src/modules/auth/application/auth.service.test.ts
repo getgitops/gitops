@@ -15,7 +15,12 @@ function role(input: { id: string; slug: string; permissions?: string[] }) {
   });
 }
 
-function user(input: { id: string; username: string; role: RoleDomain | null; email?: string | null }) {
+function user(input: {
+  id: string;
+  username: string;
+  role: RoleDomain | null;
+  email?: string | null;
+}) {
   return new UserDomain({
     id: input.id,
     username: input.username,
@@ -115,7 +120,12 @@ describe('AuthService bootstrapDefaults', () => {
 
     const clusterAdmin = roleRepository.rows.find((entry) => entry.slug === 'cluster-admin');
     const clusterUser = roleRepository.rows.find((entry) => entry.slug === 'cluster-user');
-    expect(clusterAdmin?.permissions).toEqual(['vault:all', 'openreport:all', 'stateiac:all']);
+    expect(clusterAdmin?.permissions).toEqual([
+      'cluster:organization:all',
+      'cluster:projects:all',
+      'cluster:users:all',
+      'cluster:settings:all',
+    ]);
     expect(clusterUser?.permissions).toEqual([]);
     expect(userRepository.updatedRoleIds).toEqual([
       { userId: 'admin-user', roleId: clusterAdmin?.id },
@@ -133,7 +143,15 @@ describe('AuthService bootstrapDefaults', () => {
     await service.bootstrapDefaults();
 
     expect(roleRepository.updates).toEqual([
-      { id: 'cluster-admin-id', permissions: ['vault:all', 'openreport:all', 'stateiac:all'] },
+      {
+        id: 'cluster-admin-id',
+        permissions: [
+          'cluster:organization:all',
+          'cluster:projects:all',
+          'cluster:users:all',
+          'cluster:settings:all',
+        ],
+      },
     ]);
     expect(userRepository.updatedRoleIds).toEqual([]);
   });

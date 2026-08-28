@@ -67,9 +67,23 @@ export type ApiKeyView = {
   id: string;
   name: string;
   keyPrefix: string;
+  userId: string | null;
   projectId: string | null;
+  roleId: string | null;
+  createdByUserId: string | null;
   expiresAt: string | null;
   lastUsedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
+};
+
+/** Identity resolved from an `Authorization: Bearer` API key, the machine-to-machine counterpart of `AuthenticatedUser`. */
+export type AuthenticatedApiKey = {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  projectId: string | null;
+  organizationId: string | null;
+  userId: string | null;
+  role: SessionRole | null;
 };

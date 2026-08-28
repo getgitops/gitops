@@ -4,8 +4,10 @@ import type { ApiKeyView } from '../../domain/entities';
 
 type ApiKeyRow = {
   id: string;
-  userId: string;
+  userId: string | null;
   projectId: string | null;
+  roleId: string | null;
+  createdByUserId: string | null;
   name: string;
   keyPrefix: string;
   keyHash: string;
@@ -23,7 +25,9 @@ export class ApiKeyRepository extends Repository {
       .where({ userId })
       .orderBy('createdAt', 'desc');
 
-    return (result.rows as ApiKeyRow[]).map((row) => this.toJSON(row));
+    return (result.rows as ApiKeyRow[])
+      .filter((row) => !row.projectId)
+      .map((row) => this.toJSON(row));
   }
 
   async findById(userId: string, keyId: string): Promise<ApiKeyView | null> {
@@ -75,8 +79,10 @@ export class ApiKeyRepository extends Repository {
 
   async create(input: {
     id: string;
-    userId: string;
+    userId: string | null;
     projectId: string | null;
+    roleId: string | null;
+    createdByUserId: string | null;
     name: string;
     keyPrefix: string;
     keyHash: string;
@@ -86,6 +92,8 @@ export class ApiKeyRepository extends Repository {
       id: input.id,
       userId: input.userId,
       projectId: input.projectId,
+      roleId: input.roleId,
+      createdByUserId: input.createdByUserId,
       name: input.name,
       keyPrefix: input.keyPrefix,
       keyHash: input.keyHash,
@@ -118,7 +126,6 @@ export class ApiKeyRepository extends Repository {
   }
 
   async updateKeyMaterial(
-    userId: string,
     keyId: string,
     input: {
       keyPrefix: string;
@@ -135,7 +142,7 @@ export class ApiKeyRepository extends Repository {
         revokedAt: null,
         lastUsedAt: null,
       })
-      .where({ id: keyId, userId });
+      .where({ id: keyId });
   }
 
   protected override toJSON(row: ApiKeyRow): ApiKeyView {
@@ -143,7 +150,10 @@ export class ApiKeyRepository extends Repository {
       id: row.id,
       name: row.name,
       keyPrefix: row.keyPrefix.slice(0, 6),
+      userId: row.userId ?? null,
       projectId: row.projectId ?? null,
+      roleId: row.roleId ?? null,
+      createdByUserId: row.createdByUserId ?? null,
       expiresAt: row.expiresAt,
       lastUsedAt: row.lastUsedAt,
       revokedAt: row.revokedAt,

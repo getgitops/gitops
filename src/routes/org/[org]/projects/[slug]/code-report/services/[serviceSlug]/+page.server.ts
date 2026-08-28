@@ -1,19 +1,20 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import {
-  codeReportService,
-  codeReportAnalysisService,
-} from '$modules/code-report';
+import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
 import { projectService } from '$modules/projects';
 import { cancanService } from '$modules/auth';
 
 export async function load({ parent, params, locals }) {
   const { project } = await parent();
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'openreport:read', {
-    scope: 'project',
-    projectId: project.id,
-    organizationId: project.organization?.id,
-  });
+  const canRead = await cancanService.canSessionUser(
+    locals.user,
+    'project:codereport:reports:read',
+    {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    },
+  );
 
   if (!canRead) {
     throw error(403, 'Forbidden');
@@ -54,11 +55,15 @@ export const actions = {
   deleteService: async ({ params, locals }) => {
     const project = await projectService.getProjectBySlug(params.slug);
 
-    const canDelete = await cancanService.canSessionUser(locals.user, 'openreport:delete', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
+    const canDelete = await cancanService.canSessionUser(
+      locals.user,
+      'project:codereport:reports:delete',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId: project.organization?.id,
+      },
+    );
 
     if (!canDelete) {
       return fail(403, { error: 'Forbidden' });
@@ -78,11 +83,15 @@ export const actions = {
   uploadAnalysis: async ({ request, params, locals }) => {
     const project = await projectService.getProjectBySlug(params.slug);
 
-    const canCreate = await cancanService.canSessionUser(locals.user, 'openreport:create', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId: project.organization?.id,
-    });
+    const canCreate = await cancanService.canSessionUser(
+      locals.user,
+      'project:codereport:reports:create',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId: project.organization?.id,
+      },
+    );
 
     if (!canCreate) {
       return fail(403, { uploadError: 'Forbidden' });

@@ -15,7 +15,9 @@ export async function load({ cookies }) {
 export const actions = {
   async login({ request, cookies }) {
     const form = await request.formData();
-    const email = String(form.get('email') ?? '').trim().toLowerCase();
+    const email = String(form.get('email') ?? '')
+      .trim()
+      .toLowerCase();
     const password = String(form.get('password') ?? '');
 
     if (!email || !password) {

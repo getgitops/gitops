@@ -1,9 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import {
-  getBootstrapState,
-  nextBootstrapStep,
-  refreshBootstrapState,
-} from '$lib/server/bootstrap';
+import { getBootstrapState, nextBootstrapStep, refreshBootstrapState } from '$lib/server/bootstrap';
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'Setup step failed.' });
@@ -54,7 +50,8 @@ export const actions = {
 
   async createOrganization({ request }) {
     const state = getBootstrapState();
-    if (!state.administrator) return fail(409, { error: 'Create the cluster administrator first.' });
+    if (!state.administrator)
+      return fail(409, { error: 'Create the cluster administrator first.' });
     if (state.organization) return fail(409, { error: 'An organization already exists.' });
 
     try {

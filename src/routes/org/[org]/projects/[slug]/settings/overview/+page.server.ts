@@ -14,7 +14,7 @@ export async function load({ params, locals }) {
     throw error(404, 'Project not found');
   }
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'stateiac:read', {
+  const canRead = await cancanService.canSessionUser(locals.user, 'project:project:read', {
     scope: 'project',
     projectId: project.id,
     organizationId: project.organization?.id,
@@ -32,7 +32,7 @@ export const actions = {
       const form = await request.formData();
       const id = String(form.get('id') ?? '');
       const currentProject = await projectService.getProject(id);
-      const canUpdate = await cancanService.canSessionUser(locals.user, 'stateiac:update', {
+      const canUpdate = await cancanService.canSessionUser(locals.user, 'project:project:update', {
         scope: 'project',
         projectId: currentProject.id,
         organizationId: currentProject.organization?.id,
@@ -66,7 +66,7 @@ export const actions = {
       const form = await request.formData();
       const id = String(form.get('id') ?? '');
       const currentProject = await projectService.getProject(id);
-      const canUpdate = await cancanService.canSessionUser(locals.user, 'stateiac:update', {
+      const canUpdate = await cancanService.canSessionUser(locals.user, 'project:project:update', {
         scope: 'project',
         projectId: currentProject.id,
         organizationId: currentProject.organization?.id,
@@ -89,7 +89,7 @@ export const actions = {
       const form = await request.formData();
       const id = String(form.get('id') ?? '');
       const project = await projectService.getProject(id);
-      const canDelete = await cancanService.canSessionUser(locals.user, 'stateiac:delete', {
+      const canDelete = await cancanService.canSessionUser(locals.user, 'project:project:delete', {
         scope: 'project',
         projectId: project.id,
         organizationId: project.organization?.id,

@@ -67,7 +67,28 @@ export class CanCanService {
   }
 
   async canManageOrganization(user: PermissionAwareUser, organizationId: string): Promise<boolean> {
-    return this.canSessionUser(user, 'stateiac:read', { scope: 'organization', organizationId });
+    return this.canSessionUser(user, 'organization:projects:read', {
+      scope: 'organization',
+      organizationId,
+    });
+  }
+
+  /**
+   * Authorizes a machine identity. A project-scoped key can only ever act inside its own project,
+   * so any cluster- or cross-project context is denied regardless of the role permissions.
+   */
+  canApiKey(
+    apiKey: { projectId: string | null; role: PermissionRole } | null | undefined,
+    permission: PermissionGrant,
+    context: CanCanContext,
+  ): boolean {
+    if (!apiKey) return false;
+
+    if (apiKey.projectId) {
+      if (context.scope !== 'project' || context.projectId !== apiKey.projectId) return false;
+    }
+
+    return this.roleCan(apiKey.role ?? null, permission);
   }
 
   async canManageProject(
@@ -176,13 +197,12 @@ export class CanCanService {
   ): boolean {
     if (!grants || grants.length === 0) return false;
 
-    const [section] = permission.split(':') as [string, string];
+    // grants are canonical (`project:vault:secrets:read`), and a `<resource>:all`
+    // grant covers every action on that resource
     return grants.some(
       (grant) =>
         grant === permission ||
-        grant === `${section}:all` ||
-        grant.endsWith(`:${permission}`) ||
-        grant.endsWith(`:${section}:all`),
+        (grant.endsWith(':all') && permission.startsWith(grant.slice(0, -'all'.length))),
     );
   }
 

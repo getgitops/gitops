@@ -6,7 +6,7 @@ export async function load({ params, locals }) {
   try {
     const project = await projectService.getProjectBySlug(params.slug);
     const organizationId = project.organization?.id;
-    const canRead = await cancanService.canSessionUser(locals.user, 'stateiac:read', {
+    const canRead = await cancanService.canSessionUser(locals.user, 'project:project:read', {
       scope: 'project',
       projectId: project.id,
       organizationId,
@@ -17,17 +17,17 @@ export async function load({ params, locals }) {
     }
 
     const [canCreateVault, canCreateOpenReport, canCreateStateIac] = await Promise.all([
-      cancanService.canSessionUser(locals.user, 'vault:create', {
+      cancanService.canSessionUser(locals.user, 'project:vault:secrets:create', {
         scope: 'project',
         projectId: project.id,
         organizationId,
       }),
-      cancanService.canSessionUser(locals.user, 'openreport:create', {
+      cancanService.canSessionUser(locals.user, 'project:codereport:reports:create', {
         scope: 'project',
         projectId: project.id,
         organizationId,
       }),
-      cancanService.canSessionUser(locals.user, 'stateiac:create', {
+      cancanService.canSessionUser(locals.user, 'project:stateiac:stacks:create', {
         scope: 'project',
         projectId: project.id,
         organizationId,

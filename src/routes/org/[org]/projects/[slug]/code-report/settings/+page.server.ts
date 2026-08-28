@@ -13,7 +13,7 @@ export async function load({ params }) {
       high: 6,
       medium: 3,
       low: 1,
-    }
+    },
   };
 
   return {
@@ -52,5 +52,5 @@ export const actions = {
     });
 
     return { success: true };
-  }
+  },
 };
