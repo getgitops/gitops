@@ -59,10 +59,10 @@
       subtitle: $_('project.layout.informationSubtitle'),
     },
     {
-      label: $_('project.layout.usersAndGroups'),
-      href: `/org/${orgSlug}/projects/${project.slug}/settings/users-groups`,
+      label: $_('project.layout.accessControl'),
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/access-control`,
       icon: Users,
-      subtitle: $_('project.layout.usersAndGroupsSubtitle'),
+      subtitle: $_('project.layout.accessControlSubtitle'),
     },
     {
       label: $_('project.layout.rolesAndPermissions'),

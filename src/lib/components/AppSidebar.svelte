@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { ComponentType } from 'svelte';
   import { page } from '$app/stores';
   import {
     BarChart3,
@@ -24,8 +23,11 @@
   } from '@lucide/svelte';
   import { _ } from 'svelte-i18n';
 
-  type NavItem = { label: string; href: string; icon: ComponentType };
-  type NavModule = { name: string; icon: ComponentType; items: NavItem[] };
+  type NavIcon = typeof Building2;
+  type NavItem = { label: string; href: string; icon: NavIcon };
+  // `base` is the URL namespace a module owns, used to keep it highlighted and open on any
+  // sub-route, including ones with no entry of their own
+  type NavModule = { name: string; icon: NavIcon; items: NavItem[]; base?: string };
   type NavCategory = { name: string; modules: NavModule[] };
 
   export let pathname = '/';
@@ -44,6 +46,7 @@
 
   let currentPath = pathname;
   let openModules: Record<string, boolean> = {};
+  let lastPath: string | null = null;
 
   $: currentPath = $page?.url?.pathname || pathname;
   // sourced from the server load (parsed from the URL), so it never lags behind or
@@ -92,7 +95,13 @@
               {
                 name: $_('sidebar.modules.vault'),
                 icon: Shield,
-                items: [{ label: $_('sidebar.modules.vault'), href: `${projectBase}/vault`, icon: Shield }],
+                items: [
+                  {
+                    label: $_('sidebar.modules.vault'),
+                    href: `${projectBase}/vault`,
+                    icon: Shield,
+                  },
+                ],
               },
             ],
           },
@@ -106,13 +115,18 @@
               {
                 name: $_('sidebar.modules.codeReport'),
                 icon: BarChart3,
+                base: `${projectBase}/code-report`,
                 items: [
                   {
                     label: $_('sidebar.items.dashboard'),
                     href: `${projectBase}/code-report/dashboard`,
                     icon: LayoutDashboard,
                   },
-                  { label: $_('sidebar.items.services'), href: `${projectBase}/code-report/services`, icon: Layers },
+                  {
+                    label: $_('sidebar.items.services'),
+                    href: `${projectBase}/code-report/services`,
+                    icon: Layers,
+                  },
                   {
                     label: $_('sidebar.items.cves'),
                     href: `/org/${currentProjectOrgSlug}/cves?project=${currentProjectSlug}`,
@@ -123,8 +137,16 @@
                     href: `${projectBase}/code-report/security-policy`,
                     icon: Shield,
                   },
-                  { label: $_('sidebar.items.history'), href: `${projectBase}/code-report/history`, icon: GitBranch },
-                  { label: $_('sidebar.items.settings'), href: `${projectBase}/code-report/settings`, icon: Settings },
+                  {
+                    label: $_('sidebar.items.history'),
+                    href: `${projectBase}/code-report/history`,
+                    icon: GitBranch,
+                  },
+                  {
+                    label: $_('sidebar.items.settings'),
+                    href: `${projectBase}/code-report/settings`,
+                    icon: Settings,
+                  },
                 ],
               },
             ],
@@ -140,7 +162,11 @@
                 name: $_('sidebar.modules.stateIac'),
                 icon: GitBranch,
                 items: [
-                  { label: $_('sidebar.modules.stateIac'), href: `${projectBase}/state-iac`, icon: GitBranch },
+                  {
+                    label: $_('sidebar.modules.stateIac'),
+                    href: `${projectBase}/state-iac`,
+                    icon: GitBranch,
+                  },
                 ],
               },
             ],
@@ -155,11 +181,16 @@
               {
                 name: $_('sidebar.modules.projectSettings'),
                 icon: FolderKanban,
+                base: `${projectBase}/settings`,
                 items: [
-                  { label: $_('sidebar.items.information'), href: `${projectBase}/settings/overview`, icon: Info },
                   {
-                    label: $_('sidebar.items.usersAndGroups'),
-                    href: `${projectBase}/settings/users-groups`,
+                    label: $_('sidebar.items.information'),
+                    href: `${projectBase}/settings/overview`,
+                    icon: Info,
+                  },
+                  {
+                    label: $_('sidebar.items.accessControl'),
+                    href: `${projectBase}/settings/access-control`,
                     icon: Users,
                   },
                   {
@@ -167,7 +198,11 @@
                     href: `${projectBase}/settings/roles-permissions`,
                     icon: Shield,
                   },
-                  { label: $_('sidebar.items.audit'), href: `${projectBase}/settings/audit`, icon: ScrollText },
+                  {
+                    label: $_('sidebar.items.audit'),
+                    href: `${projectBase}/settings/audit`,
+                    icon: ScrollText,
+                  },
                   {
                     label: $_('sidebar.items.serverKeys'),
                     href: `${projectBase}/settings/server-access-keys`,
@@ -187,6 +222,7 @@
               {
                 name: $_('sidebar.modules.organizationSettings'),
                 icon: Settings,
+                base: `/org/${organizationSlug}/settings`,
                 items: [
                   {
                     label: $_('sidebar.items.projects'),
@@ -199,8 +235,8 @@
                     icon: Shield,
                   },
                   {
-                    label: $_('sidebar.items.users'),
-                    href: `/org/${organizationSlug}/settings/users`,
+                    label: $_('sidebar.items.accessControl'),
+                    href: `/org/${organizationSlug}/settings/access-control`,
                     icon: Users,
                   },
                   {
@@ -232,35 +268,67 @@
               {
                 name: $_('sidebar.modules.clusterSettings'),
                 icon: Building2,
+                base: '/cluster-settings',
                 items: [
-                  { label: $_('sidebar.items.organizations'), href: '/cluster-settings/orgs', icon: Building2 },
+                  {
+                    label: $_('sidebar.items.organizations'),
+                    href: '/cluster-settings/orgs',
+                    icon: Building2,
+                  },
                   {
                     label: $_('sidebar.items.rolesAndPermissions'),
                     href: '/cluster-settings/roles-permissions',
                     icon: Shield,
                   },
-                  { label: $_('sidebar.items.users'), href: '/cluster-settings/users', icon: Users },
-                  { label: $_('sidebar.items.database'), href: '/cluster-settings/database', icon: Database },
-                  { label: $_('sidebar.items.auditLog'), href: '/cluster-settings/audit', icon: ScrollText },
+                  {
+                    label: $_('sidebar.items.accessControl'),
+                    href: '/cluster-settings/access-control',
+                    icon: Users,
+                  },
+                  {
+                    label: $_('sidebar.items.database'),
+                    href: '/cluster-settings/database',
+                    icon: Database,
+                  },
+                  {
+                    label: $_('sidebar.items.auditLog'),
+                    href: '/cluster-settings/audit',
+                    icon: ScrollText,
+                  },
                 ],
               },
             ]
           : []),
-            
       ],
     },
   ].filter((category) => category.modules.length > 0) satisfies NavCategory[];
+
+  // navigating drops manual toggles, so the module owning the new route is the one left open
+  $: if (currentPath !== lastPath) {
+    lastPath = currentPath;
+    openModules = {};
+  }
+
+  $: moduleOpenState = Object.fromEntries(
+    categories.flatMap((category) =>
+      category.modules.map((navModule) => [
+        navModule.name,
+        openModules[navModule.name] ?? isModuleActive(navModule),
+      ]),
+    ),
+  ) as Record<string, boolean>;
 
   function isItemActive(href: string) {
     return currentPath.startsWith(href);
   }
 
   function isModuleActive(navModule: NavModule) {
+    if (navModule.base && currentPath.startsWith(navModule.base)) return true;
     return navModule.items.some((item) => isItemActive(item.href));
   }
 
   function toggleModule(navModule: NavModule) {
-    openModules = { ...openModules, [navModule.name]: !(openModules[navModule.name] ?? false) };
+    openModules = { ...openModules, [navModule.name]: !moduleOpenState[navModule.name] };
   }
 
   function toggleCollapsed() {
@@ -305,6 +373,7 @@
         ? 'justify-center'
         : 'items-start'}"
       title="Configure a storage backend"
+      data-sveltekit-preload-data
     >
       <div class="flex h-8 w-8 items-center justify-center rounded-md bg-amber-200 text-amber-900">
         <Lock class="h-3.5 w-3.5" />
@@ -338,12 +407,14 @@
               {@const item = navModule.items[0]}
               <a
                 href={item.href}
+                aria-current={isItemActive(item.href) ? 'page' : undefined}
                 class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed
                   ? 'justify-center'
                   : 'items-center'} {isItemActive(item.href)
-                  ? 'border-slate-900 bg-slate-900 text-white'
+                  ? 'btn-primary font-semibold text-white'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
                 title={navModule.name}
+                data-sveltekit-preload-data
               >
                 <div
                   class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isItemActive(
@@ -362,10 +433,11 @@
             {:else if collapsed}
               <a
                 href={navModule.items[0].href}
+                data-sveltekit-preload-data
                 class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isModuleActive(
                   navModule,
                 )
-                  ? 'border-slate-900 bg-slate-900 text-white'
+                  ? 'btn-primary text-white'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
                 title={navModule.name}
               >
@@ -389,7 +461,7 @@
                     ? 'btn-primary text-white'
                     : 'btn-secondary text-slate-700'}"
                   on:click={() => toggleModule(navModule)}
-                  aria-expanded={openModules[navModule.name] ?? false}
+                  aria-expanded={moduleOpenState[navModule.name]}
                 >
                   <div
                     class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isModuleActive(
@@ -401,26 +473,32 @@
                     <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
                   </div>
                   <p class="min-w-0 flex-1 truncate text-sm font-medium">{navModule.name}</p>
-                  {#if openModules[navModule.name] ?? false}
+                  {#if moduleOpenState[navModule.name]}
                     <ChevronDown class="h-4 w-4 shrink-0" />
                   {:else}
                     <ChevronRight class="h-4 w-4 shrink-0" />
                   {/if}
                 </button>
 
-                {#if openModules[navModule.name] ?? false}
+                {#if moduleOpenState[navModule.name]}
                   <div class="ml-4 border-l border-slate-200 pl-3">
                     <div class="space-y-1">
                       {#each navModule.items as item (item.href)}
                         <a
                           href={item.href}
-                          class="group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isItemActive(
+                          aria-current={isItemActive(item.href) ? 'page' : undefined}
+                          class="group relative flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isItemActive(
                             item.href,
                           )
-                            ? 'bg-slate-100 text-slate-900'
+                            ? 'bg-slate-100 font-semibold text-slate-900 before:absolute before:-left-[13px] before:top-1 before:bottom-1 before:w-0.5 before:rounded-full before:bg-[color:var(--primary)]'
                             : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
                         >
-                          <svelte:component this={item.icon} class="h-3.5 w-3.5 shrink-0" />
+                          <svelte:component
+                            this={item.icon}
+                            class="h-3.5 w-3.5 shrink-0 {isItemActive(item.href)
+                              ? 'text-[color:var(--primary)]'
+                              : ''}"
+                          />
                           <span class="truncate">{item.label}</span>
                         </a>
                       {/each}
