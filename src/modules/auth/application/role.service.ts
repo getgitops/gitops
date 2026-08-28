@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { isValidPermissionGrant } from '$lib/permissions';
+import { isValidPermissionGrant, normalizePermissionGrants } from '$lib/permissions';
 import type { RoleRepository } from '../infrastructure/repositories/role.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
@@ -67,7 +67,7 @@ export class RoleService {
       throw new Error('A role with this slug already exists');
     }
 
-    const permissions = this.sanitizePermissions(input.permissions);
+    const permissions = this.sanitizePermissions(input.permissions, scope);
     const organizationId = scope === 'organization' ? input.organizationId : null;
     const projectId = scope === 'project' ? input.projectId : null;
 
@@ -152,7 +152,7 @@ export class RoleService {
     }
 
     if (changes.permissions !== undefined) {
-      patch.permissions = this.sanitizePermissions(changes.permissions);
+      patch.permissions = this.sanitizePermissions(changes.permissions, role.scope);
     }
 
     await this.roleRepository.update(id, patch);
@@ -188,15 +188,15 @@ export class RoleService {
     await this.roleRepository.deleteById(id);
   }
 
-  private sanitizePermissions(permissions: string[]): string[] {
-    const unique = Array.from(new Set(permissions));
-    const invalid = unique.filter((permission) => !isValidPermissionGrant(permission));
+  private sanitizePermissions(permissions: string[], scope: RoleScope): string[] {
+    const canonical = normalizePermissionGrants(permissions, scope);
+    const invalid = canonical.filter((permission) => !isValidPermissionGrant(permission));
 
     if (invalid.length) {
       throw new Error(`Invalid permission(s): ${invalid.join(', ')}`);
     }
 
-    return unique;
+    return canonical;
   }
 
   private validateScope(scope?: RoleScope, scopeId?: string): void {

@@ -1,4 +1,5 @@
 import { Domain } from './domain';
+import { normalizePermissionGrants } from '$lib/permissions';
 import { OrganizationDomain } from '../../organization/domain/organization.domain';
 import { ProjectDomain } from '../../projects/domain/project.domain';
 
@@ -23,7 +24,10 @@ export class RoleDomain extends Domain {
     this.projectId = data.projectId ?? null;
     this.organization = data.organization ? new OrganizationDomain(data.organization) : null;
     this.project = data.project ? new ProjectDomain(data.project) : null;
-    this.permissions = Array.isArray(data.permissions) ? data.permissions : [];
+    // roles persisted before grants carried their scope are upgraded on read
+    this.permissions = Array.isArray(data.permissions)
+      ? normalizePermissionGrants(data.permissions, this.scope)
+      : [];
   }
 
   toJson() {

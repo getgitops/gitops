@@ -1,4 +1,9 @@
-export const CLUSTER_ADMIN_PERMISSIONS = ['vault:all', 'openreport:all', 'stateiac:all'];
+export const CLUSTER_ADMIN_PERMISSIONS = [
+  'cluster:organization:all',
+  'cluster:projects:all',
+  'cluster:users:all',
+  'cluster:settings:all',
+];
 
 export const CLUSTER_USER_PERMISSIONS: string[] = [];
 

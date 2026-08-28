@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
 import { projectService } from '$modules/projects';
+import { cancanService } from '$modules/auth';
 
 type ProjectSettingsTool = {
   id: string;
@@ -78,23 +79,14 @@ function normalizeGitInfo(gitInfo: AnalyseResultBody['gitInfo']) {
   };
 }
 
-
 // single machine-to-machine endpoint for CI/CD tools: authenticates via a project-scoped
 // server access key (Authorization: Bearer gvs_...), not a browser session
-export async function POST({ request }) {
+export async function POST({ request, locals }) {
+  const apiKey = locals.apiKey;
 
-  // console.log('REQUEST BODY:', await request.clone().text()); // Log the request body for debugging
-  // const authHeader = request.headers.get('authorization') || '';
-  // const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-
-  // if (!token) {
-  //   return json({ error: 'Missing API key' }, { status: 401 });
-  // }
-
-  // const apiKey = await apiKeysService.resolveApiKey(token);
-  // if (!apiKey || !apiKey.projectId) {
-  //   return json({ error: 'Invalid or unscoped API key' }, { status: 401 });
-  // }
+  if (!apiKey?.projectId) {
+    return json({ error: 'A project-scoped API key is required' }, { status: 401 });
+  }
 
   const body = (await request.json()) as AnalyseResultBody;
 
@@ -115,7 +107,7 @@ export async function POST({ request }) {
   let analysis;
   let tools: string[] = [];
   let activeSettingsTools: ProjectSettingsTool[] = [];
-  if(['start', 'in_progress'].includes(status)) {
+  if (['start', 'in_progress'].includes(status)) {
     //use service and project to find or create the service
     if (!body.service) {
       return json({ error: 'service is required' }, { status: 400 });
@@ -127,6 +119,19 @@ export async function POST({ request }) {
     const project = await projectService.getProjectBySlug(body.project).catch(() => null);
     if (!project) {
       return json({ error: 'project not found' }, { status: 404 });
+    }
+
+    if (project.id !== apiKey.projectId) {
+      return json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    if (
+      !cancanService.canApiKey(apiKey, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: project.id,
+      })
+    ) {
+      return json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const codeReportSettings = project.settings?.['code-report'] || {};
@@ -156,36 +161,38 @@ export async function POST({ request }) {
 
     tools = [...new Set(configuredScanners)];
 
-    let serviceCodeReport = await codeReportService.getByProjectAndSlug(body.project, body.service).catch(async (err) => {
-      console.log('err', err)
-      return await codeReportService.createService({
-        project: body.project,
-        name: body.service,
+    let serviceCodeReport = await codeReportService
+      .getByProjectAndSlug(body.project, body.service)
+      .catch(async (err) => {
+        console.log('err', err);
+        return await codeReportService.createService({
+          project: body.project,
+          name: body.service,
+        });
       });
-    });
     if (tools.length === 0) {
       tools = serviceCodeReport?.tools || [];
     }
     console.log('✅ Service found or created:', serviceCodeReport);
-    if(status === 'start') {
+    if (status === 'start') {
       message = 'Scan started';
-    } else if(status === 'in_progress') {
+    } else if (status === 'in_progress') {
       console.log('Starting analysis for service:', serviceCodeReport?.id, 'with tool:', body.tool);
       analysis = await codeReportAnalysisService.startAnalysis({
         serviceId: serviceCodeReport?.id || '',
         tool: body.tool,
         gitInfo: normalizeGitInfo(body.gitInfo),
       });
-      console.log('ANALYSIS', analysis)
+      console.log('ANALYSIS', analysis);
       message = `Scan in progress with tool ${body.tool}.`;
     }
   } else {
     // completed or failed
     // use analysisId to find
-    if(!body.analysisId) {
+    if (!body.analysisId) {
       return json({ error: 'analysisId is required for failed status' }, { status: 400 });
     }
-    if(status === 'failed') {
+    if (status === 'failed') {
       await codeReportAnalysisService.failAnalysis(body.analysisId, {
         error: body.error || 'Unknown error',
         gitInfo: normalizeGitInfo(body.gitInfo),
@@ -205,7 +212,7 @@ export async function POST({ request }) {
     message: message,
     analysis: {
       status,
-      id: analysis?.id
+      id: analysis?.id,
     },
     tools,
     activeSettingsTools,

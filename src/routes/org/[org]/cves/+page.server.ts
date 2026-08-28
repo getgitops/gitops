@@ -7,7 +7,7 @@ import { summarizeCves } from '$lib/code-report/cve-aggregation';
 export async function load({ parent, locals, url }) {
   const { organization } = await parent();
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'openreport:read', {
+  const canRead = await cancanService.canSessionUser(locals.user, 'organization:projects:read', {
     scope: 'organization',
     organizationId: organization.id,
   });
@@ -32,7 +32,9 @@ export async function load({ parent, locals, url }) {
     new Map([...occurrencesByCve.entries()].map(([id, occurrences]) => [id, occurrences])),
   ).map((cve) => ({
     ...cve,
-    projectSlugs: [...new Set((occurrencesByCve.get(cve.id) ?? []).map((entry) => entry.projectSlug))],
+    projectSlugs: [
+      ...new Set((occurrencesByCve.get(cve.id) ?? []).map((entry) => entry.projectSlug)),
+    ],
   }));
 
   return {

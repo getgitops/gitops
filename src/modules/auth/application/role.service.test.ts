@@ -81,7 +81,7 @@ describe('RoleService', () => {
       id: 'admin-id',
       slug: 'admin',
       name: 'Administrator',
-      permissions: ['vault:all', 'openreport:all', 'stateiac:all'],
+      permissions: ['cluster:organization:all', 'cluster:users:all', 'cluster:settings:all'],
     });
     userRepository.roleIdCounts.set('admin-id', 1);
   });
@@ -139,30 +139,42 @@ describe('RoleService', () => {
     ).rejects.toThrow(/project role requires its ID/);
   });
 
-  it('creates a role accepting the section:all shortcut', async () => {
+  it('creates a role accepting the resource:all shortcut', async () => {
     const role = await service.createRole({
       name: 'Auditor',
       slug: 'auditor',
-      permissions: ['vault:all'],
+      permissions: ['cluster:users:all'],
     });
 
     expect(role.slug).toBe('auditor');
-    expect(role.permissions).toEqual(['vault:all']);
+    expect(role.permissions).toEqual(['cluster:users:all']);
   });
 
-  it('creates a role with explicit per-section, per-action permissions', async () => {
+  it('creates a role with explicit per-resource, per-action permissions', async () => {
     const role = await service.createRole({
       name: 'Developer',
       slug: 'developer',
-      permissions: ['vault:read', 'vault:create', 'vault:update'],
+      permissions: ['cluster:users:read', 'cluster:users:create', 'cluster:users:update'],
     });
 
-    expect(role.permissions.sort()).toEqual(['vault:create', 'vault:read', 'vault:update'].sort());
+    expect(role.permissions.sort()).toEqual(
+      ['cluster:users:create', 'cluster:users:read', 'cluster:users:update'].sort(),
+    );
+  });
+
+  it('stores legacy scope-less permissions in canonical form', async () => {
+    const role = await service.createRole({
+      name: 'Legacy',
+      slug: 'legacy',
+      permissions: ['users:read'],
+    });
+
+    expect(role.permissions).toEqual(['cluster:users:read']);
   });
 
   it('rejects an invalid permission string', async () => {
     await expect(
-      service.createRole({ name: 'Bad', slug: 'bad', permissions: ['vault:frobnicate'] }),
+      service.createRole({ name: 'Bad', slug: 'bad', permissions: ['cluster:users:frobnicate'] }),
     ).rejects.toThrow(/Invalid permission/);
   });
 
@@ -176,16 +188,16 @@ describe('RoleService', () => {
     const created = await service.createRole({
       name: 'Auditor',
       slug: 'auditor',
-      permissions: ['vault:read'],
+      permissions: ['cluster:users:read'],
     });
 
-    const updated = await service.updateRole(created.id, { permissions: ['vault:all'] });
+    const updated = await service.updateRole(created.id, { permissions: ['cluster:users:all'] });
     expect(updated.name).toBe('Auditor');
-    expect(updated.permissions).toEqual(['vault:all']);
+    expect(updated.permissions).toEqual(['cluster:users:all']);
 
     const renamed = await service.updateRole(created.id, { name: 'Lead Auditor' });
     expect(renamed.name).toBe('Lead Auditor');
-    expect(renamed.permissions).toEqual(['vault:all']);
+    expect(renamed.permissions).toEqual(['cluster:users:all']);
   });
 
   it('blocks deleting the built-in admin role', async () => {

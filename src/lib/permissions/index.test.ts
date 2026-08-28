@@ -1,40 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
   isValidPermissionGrant,
-  isPermissionActionSelected,
-  togglePermissionAction,
-  toggleSectionAll,
-  isSectionFullyGranted,
+  normalizePermissionGrant,
+  normalizePermissionGrants,
   toStoredPermissionGrant,
 } from './index';
 
-describe('isPermissionActionSelected', () => {
-  it('matches an exact grant', () => {
-    expect(isPermissionActionSelected(['vault:read'], 'vault', 'read')).toBe(true);
-    expect(isPermissionActionSelected(['vault:read'], 'vault', 'delete')).toBe(false);
-  });
-
-  it('honors the section:all shortcut for UI checkboxes', () => {
-    expect(isPermissionActionSelected(['vault:all'], 'vault', 'read')).toBe(true);
-    expect(isPermissionActionSelected(['vault:all'], 'vault', 'delete')).toBe(true);
-    expect(isPermissionActionSelected(['vault:all'], 'openreport', 'read')).toBe(false);
-  });
-});
-
 describe('isValidPermissionGrant', () => {
-  it('accepts every concrete section:action and section:all combination', () => {
-    expect(isValidPermissionGrant('vault:read')).toBe(true);
-    expect(isValidPermissionGrant('stateiac:delete')).toBe(true);
-    expect(isValidPermissionGrant('openreport:all')).toBe(true);
+  it('accepts canonical scope-prefixed grants from the catalog', () => {
+    expect(isValidPermissionGrant('cluster:users:invite')).toBe(true);
+    expect(isValidPermissionGrant('organization:projects:create')).toBe(true);
+    expect(isValidPermissionGrant('project:project:all')).toBe(true);
+    expect(isValidPermissionGrant('project:server-keys:read')).toBe(true);
     expect(isValidPermissionGrant('project:vault:secrets:import')).toBe(true);
     expect(isValidPermissionGrant('organization:users:invite')).toBe(true);
     expect(isValidPermissionGrant('project:project:all')).toBe(true);
   });
 
-  it('rejects unknown sections, actions, or malformed strings', () => {
-    expect(isValidPermissionGrant('vault:frobnicate')).toBe(false);
-    expect(isValidPermissionGrant('unknown-section:read')).toBe(false);
-    expect(isValidPermissionGrant('vault')).toBe(false);
+  it('rejects grants without a scope, unknown actions and malformed strings', () => {
+    expect(isValidPermissionGrant('vault:secrets:read')).toBe(false);
+    expect(isValidPermissionGrant('vault:read')).toBe(false);
+    expect(isValidPermissionGrant('project:vault:secrets:frobnicate')).toBe(false);
+    expect(isValidPermissionGrant('project')).toBe(false);
     expect(isValidPermissionGrant('*')).toBe(false);
     // stripped forms with the scope prefix removed are no longer a valid stored grant —
     // CanCanService checks the full catalog string verbatim, with no scope reconstruction.
@@ -55,43 +42,35 @@ describe('toStoredPermissionGrant', () => {
     );
   });
 });
-
-describe('togglePermissionAction', () => {
-  it('adds and removes an individual grant', () => {
-    let permissions: string[] = [];
-    permissions = togglePermissionAction(permissions, 'vault', 'read');
-    expect(permissions).toEqual(['vault:read']);
-
-    permissions = togglePermissionAction(permissions, 'vault', 'read');
-    expect(permissions).toEqual([]);
+describe('normalizePermissionGrant', () => {
+  it('leaves canonical grants untouched', () => {
+    expect(normalizePermissionGrant('project:vault:secrets:read', 'project')).toBe(
+      'project:vault:secrets:read',
+    );
   });
 
-  it('expands section:all into explicit grants when unchecking one action', () => {
-    const permissions = togglePermissionAction(['vault:all'], 'vault', 'delete');
-    expect(permissions.sort()).toEqual(['vault:create', 'vault:read', 'vault:update'].sort());
-  });
-});
-
-describe('toggleSectionAll', () => {
-  it('collapses explicit grants into the all shortcut and clears other sections untouched', () => {
-    const permissions = toggleSectionAll(['vault:read', 'openreport:read'], 'vault');
-    expect(permissions.sort()).toEqual(['openreport:read', 'vault:all'].sort());
+  it('upgrades legacy scope-less grants using the role scope', () => {
+    expect(normalizePermissionGrant('vault:secrets:read', 'project')).toBe(
+      'project:vault:secrets:read',
+    );
+    expect(normalizePermissionGrant('project:all', 'project')).toBe('project:project:all');
+    expect(normalizePermissionGrant('users:invite', 'organization')).toBe(
+      'organization:users:invite',
+    );
   });
 
-  it('clears the section entirely when toggled off', () => {
-    const permissions = toggleSectionAll(['vault:all', 'openreport:read'], 'vault');
-    expect(permissions).toEqual(['openreport:read']);
+  it('resolves a legacy grant against its own scope only', () => {
+    expect(normalizePermissionGrant('users:invite', 'project')).toBe('project:users:invite');
+    expect(normalizePermissionGrant('projects:create', 'project')).toBe('projects:create');
   });
-});
 
-describe('isSectionFullyGranted', () => {
-  it('reports true only when the all shortcut is present', () => {
-    expect(isSectionFullyGranted(['vault:all'], 'vault')).toBe(true);
+  it('keeps unknown grants as-is so they stay visible instead of silently changing meaning', () => {
+    expect(normalizePermissionGrant('vault:read', 'project')).toBe('vault:read');
+  });
+
+  it('deduplicates when several legacy grants map to the same canonical grant', () => {
     expect(
-      isSectionFullyGranted(
-        ['vault:read', 'vault:create', 'vault:update', 'vault:delete'],
-        'vault',
-      ),
-    ).toBe(false);
+      normalizePermissionGrants(['vault:secrets:read', 'project:vault:secrets:read'], 'project'),
+    ).toEqual(['project:vault:secrets:read']);
   });
 });

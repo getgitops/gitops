@@ -23,7 +23,7 @@ const invitationNotifier = new InvitationNotifier();
 
 export const passwordService = new PasswordService();
 const sessionService = new SessionService(passwordService);
-export const apiKeysService = new ApiKeysService(apiKeyRepository);
+export const apiKeysService = new ApiKeysService(apiKeyRepository, roleRepository, projectService);
 
 export const authService = new AuthService(
   userRepository,

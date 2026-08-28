@@ -12,7 +12,7 @@ import {
 export async function load({ parent, locals, params }) {
   const { organization } = await parent();
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'openreport:read', {
+  const canRead = await cancanService.canSessionUser(locals.user, 'organization:projects:read', {
     scope: 'organization',
     organizationId: organization.id,
   });
@@ -40,7 +40,8 @@ export async function load({ parent, locals, params }) {
   }
 
   const first = occurrences[0].finding;
-  const publishedDate = occurrences.map((occurrence) => occurrence.finding.publishedDate).find(Boolean) ?? null;
+  const publishedDate =
+    occurrences.map((occurrence) => occurrence.finding.publishedDate).find(Boolean) ?? null;
   const lastModifiedDate =
     occurrences.map((occurrence) => occurrence.finding.lastModifiedDate).find(Boolean) ?? null;
 

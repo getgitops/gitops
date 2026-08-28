@@ -96,16 +96,74 @@ describe('CanCanService', () => {
     service = new CanCanService(userRepository, userAccessRepository, projectLookup);
   });
 
-  it('matches explicit grants and section:all shortcuts', () => {
-    expect(CanCanService.hasPermission([], 'vault:read')).toBe(false);
-    expect(CanCanService.hasPermission(null, 'vault:read')).toBe(false);
-    expect(CanCanService.hasPermission(undefined, 'vault:read')).toBe(false);
-    expect(CanCanService.hasPermission(['vault:read'], 'vault:read')).toBe(true);
-    expect(CanCanService.hasPermission(['vault:read'], 'vault:delete')).toBe(false);
-    expect(CanCanService.hasPermission(['vault:all'], 'vault:delete')).toBe(true);
-    expect(CanCanService.hasPermission(['vault:all'], 'openreport:read')).toBe(false);
-    expect(CanCanService.hasPermission(['project:vault:read'], 'vault:read')).toBe(true);
-    expect(CanCanService.hasPermission(['project:vault:all'], 'vault:delete')).toBe(true);
+  it('matches canonical grants and resource:all shortcuts', () => {
+    expect(CanCanService.hasPermission([], 'project:vault:secrets:read')).toBe(false);
+    expect(CanCanService.hasPermission(null, 'project:vault:secrets:read')).toBe(false);
+    expect(CanCanService.hasPermission(undefined, 'project:vault:secrets:read')).toBe(false);
+    expect(
+      CanCanService.hasPermission(['project:vault:secrets:read'], 'project:vault:secrets:read'),
+    ).toBe(true);
+    expect(
+      CanCanService.hasPermission(['project:vault:secrets:read'], 'project:vault:secrets:delete'),
+    ).toBe(false);
+    expect(
+      CanCanService.hasPermission(['project:vault:secrets:all'], 'project:vault:secrets:delete'),
+    ).toBe(true);
+    expect(
+      CanCanService.hasPermission(['project:vault:secrets:all'], 'project:codereport:reports:read'),
+    ).toBe(false);
+    expect(
+      CanCanService.hasPermission(['project:server-keys:all'], 'project:server-keys:read'),
+    ).toBe(true);
+    expect(CanCanService.hasPermission(['project:server-keys:read'], 'project:roles:read')).toBe(
+      false,
+    );
+  });
+
+  it('upgrades legacy scope-less grants when a role is loaded', () => {
+    const legacy = role({
+      id: 'legacy',
+      slug: 'legacy',
+      scope: 'project',
+      permissions: ['vault:secrets:read', 'project:all'],
+    });
+
+    expect(legacy.permissions).toEqual(['project:vault:secrets:read', 'project:project:all']);
+  });
+
+  it('authorizes an api key only inside its own project', () => {
+    const apiKey = {
+      projectId: 'kettu',
+      role: role({
+        id: 'role-1',
+        slug: 'project-developer',
+        scope: 'project',
+        permissions: ['project:codereport:reports:create'],
+      }),
+    };
+
+    expect(
+      service.canApiKey(apiKey, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: 'kettu',
+      }),
+    ).toBe(true);
+    expect(
+      service.canApiKey(apiKey, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: 'other',
+      }),
+    ).toBe(false);
+    expect(service.canApiKey(apiKey, 'cluster:settings:read', { scope: 'cluster' })).toBe(false);
+    expect(
+      service.canApiKey(apiKey, 'project:roles:delete', { scope: 'project', projectId: 'kettu' }),
+    ).toBe(false);
+    expect(
+      service.canApiKey(null, 'project:codereport:reports:create', {
+        scope: 'project',
+        projectId: 'kettu',
+      }),
+    ).toBe(false);
   });
 
   it('matches an N-segment wildcard grant against a narrower same-resource check', () => {
@@ -130,7 +188,7 @@ describe('CanCanService', () => {
     );
 
     await expect(
-      service.can('jose', 'stateiac:delete', { scope: 'project', projectId: 'kettu' }),
+      service.can('jose', 'project:project:delete', { scope: 'project', projectId: 'kettu' }),
     ).resolves.toBe(true);
   });
 
@@ -146,16 +204,22 @@ describe('CanCanService', () => {
           id: 'developer',
           slug: 'developer',
           scope: 'organization',
-          permissions: ['stateiac:read'],
+          permissions: ['organization:projects:read'],
         }),
       }),
     );
 
     await expect(
-      service.can('jose', 'stateiac:read', { scope: 'organization', organizationId: 'gitops' }),
+      service.can('jose', 'organization:projects:read', {
+        scope: 'organization',
+        organizationId: 'gitops',
+      }),
     ).resolves.toBe(true);
     await expect(
-      service.can('jose', 'stateiac:read', { scope: 'organization', organizationId: 'other' }),
+      service.can('jose', 'organization:projects:read', {
+        scope: 'organization',
+        organizationId: 'other',
+      }),
     ).resolves.toBe(false);
   });
 
@@ -172,13 +236,16 @@ describe('CanCanService', () => {
           id: 'developer',
           slug: 'developer',
           scope: 'organization',
-          permissions: ['stateiac:read'],
+          permissions: ['organization:projects:read'],
         }),
       }),
     );
 
     await expect(
-      service.can('jose', 'stateiac:read', { scope: 'project', projectId: 'kettu' }),
+      service.can('jose', 'organization:projects:read', {
+        scope: 'project',
+        projectId: 'kettu',
+      }),
     ).resolves.toBe(true);
   });
 
@@ -195,10 +262,10 @@ describe('CanCanService', () => {
     );
 
     await expect(
-      service.can('jose', 'stateiac:delete', { scope: 'project', projectId: 'kettu' }),
+      service.can('jose', 'project:project:delete', { scope: 'project', projectId: 'kettu' }),
     ).resolves.toBe(true);
     await expect(
-      service.can('jose', 'stateiac:delete', { scope: 'project', projectId: 'other' }),
+      service.can('jose', 'project:project:delete', { scope: 'project', projectId: 'other' }),
     ).resolves.toBe(false);
   });
 
@@ -207,14 +274,23 @@ describe('CanCanService', () => {
       'jose',
       user({
         id: 'jose',
-        role: role({ id: 'cluster-user', slug: 'cluster-user', permissions: ['stateiac:read'] }),
+        role: role({
+          id: 'cluster-user',
+          slug: 'cluster-user',
+          permissions: ['cluster:projects:read'],
+        }),
       }),
     );
 
     await expect(
-      service.can('jose', 'stateiac:read', { scope: 'organization', organizationId: 'gitops' }),
+      service.can('jose', 'cluster:projects:read', {
+        scope: 'organization',
+        organizationId: 'gitops',
+      }),
     ).resolves.toBe(false);
-    await expect(service.can('jose', 'stateiac:read', { scope: 'cluster' })).resolves.toBe(true);
+    await expect(service.can('jose', 'cluster:projects:read', { scope: 'cluster' })).resolves.toBe(
+      true,
+    );
   });
 
   describe('organization role authority cascades into its projects', () => {

@@ -60,18 +60,27 @@ architecture discussion and migration plan.
 
 ## Authorization
 
-Permissions use `section:action` and may be global, organization-scoped, or project-scoped. Use
-helpers exported by `$modules/auth`:
+Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`
+exactly: `<scope>:<resource path>:<action>`, where scope is `cluster`, `organization` or `project`
+(`project:vault:secrets:read`, `organization:projects:create`, `cluster:users:invite`). A
+`<resource>:all` grant covers every action on that resource. Grants stored before this convention
+are upgraded on read by `normalizePermissionGrant` in `$lib/permissions`.
+
+Use the helpers exported by `$modules/auth`:
 
 ```typescript
-import { can } from '$modules/auth';
+import { cancanService } from '$modules/auth';
 
-if (!can(locals.user, 'stateiac:read')) {
+const allowed = await cancanService.canSessionUser(locals.user, 'project:stateiac:stacks:read', {
+  scope: 'project',
+  projectId: project.id,
+  organizationId: project.organization?.id,
+});
+
+if (!allowed) {
   return json({ error: 'Forbidden' }, { status: 403 });
 }
 ```
-
-`locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or `can()`.
 
 **UI permission gating:** In route loaders, use `cancanService.canSessionUser()` to check specific
 action permissions and pass them to components as props (`canCreate`, `canUpdate`, `canDelete`) to conditionally
@@ -110,6 +119,12 @@ while `canViewOrganization()` also includes users whose only access is to a proj
 When creating an organization (via bootstrap or cluster settings), `roleService.createDefaultOrganizationRoles()` is
 automatically invoked. When creating a project, `roleService.createDefaultProjectRoles()` is automatically invoked. Both
 operations initialize their respective default roles. Keep authorization tests beside changes to permission behavior.
+Machine-to-machine requests authenticate with `Authorization: Bearer gvs_...`; `hooks.server.ts`
+resolves them into `locals.apiKey` and `cancanService.canApiKey()` confines a project key to its
+own project.
+
+`locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or the `can*`
+helpers. Keep authorization tests beside changes to permission behavior.
 
 ## Security rules
 

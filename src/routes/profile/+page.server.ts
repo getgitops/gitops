@@ -27,7 +27,6 @@ export async function load({ locals }) {
     throw redirect(302, '/auth/login');
   }
 
-
   const apiKeys = await apiKeysService.listActiveApiKeys(user.id);
 
   return {

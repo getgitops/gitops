@@ -89,6 +89,28 @@ export class CanCanService {
     return access.some(
       (entry) => entry.scope === 'project' && entry.project?.organization?.id === organizationId,
     );
+    return this.canSessionUser(user, 'organization:projects:read', {
+      scope: 'organization',
+      organizationId,
+    });
+  }
+
+  /**
+   * Authorizes a machine identity. A project-scoped key can only ever act inside its own project,
+   * so any cluster- or cross-project context is denied regardless of the role permissions.
+   */
+  canApiKey(
+    apiKey: { projectId: string | null; role: PermissionRole } | null | undefined,
+    permission: PermissionGrant,
+    context: CanCanContext,
+  ): boolean {
+    if (!apiKey) return false;
+
+    if (apiKey.projectId) {
+      if (context.scope !== 'project' || context.projectId !== apiKey.projectId) return false;
+    }
+
+    return this.roleCan(apiKey.role ?? null, permission);
   }
 
   async canManageProject(

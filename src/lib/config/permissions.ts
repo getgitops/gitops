@@ -14,6 +14,10 @@ const permissions = {
           resource: 'organization',
           permissions: grantsFor('cluster', 'organization'),
         },
+        projects: {
+          resource: 'projects',
+          permissions: grantsFor('cluster', 'projects'),
+        },
         users: {
           resource: 'users',
           permissions: grantsFor('cluster', 'users', ['invite']),

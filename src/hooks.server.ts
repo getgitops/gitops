@@ -1,5 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
-import { authService, cancanService, ensureAuthReady } from '$modules/auth';
+import { apiKeysService, authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 import { projectService } from '$modules/projects';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
@@ -20,9 +20,18 @@ serverReady.catch((error) => {
   markServerFailed(error);
 });
 
-const authWithToken = async (_token: string) => {
-  return true;
-};
+function bearerToken(request: Request): string | null {
+  const header = request.headers.get('Authorization') ?? '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() || null : null;
+}
+
+function unauthorized(message: string) {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: { 'content-type': 'application/json' },
+  });
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
@@ -68,18 +77,28 @@ export const handle: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  if (isApiRequest) {
-    const token = event.request.headers.get('Authorization') || '';
-    if (!token || token.trim() === '') {
-      return new Response(null, { status: 401 });
+  // machine-to-machine path: `Authorization: Bearer gvs_...` resolves a project + role identity.
+  // it coexists with the session cookie path below, which still serves browser requests to /api.
+  const token = bearerToken(event.request);
+
+  if (token) {
+    // a project key is confined to its own project and must never reach the admin/global UI areas
+    if (!isApiRequest) {
+      return unauthorized('API keys can only be used on /api routes');
     }
 
-    const isAuthenticated = await authWithToken(token);
+    const apiKey = await apiKeysService.authenticate(token);
 
-    if (!isAuthenticated) {
-      return new Response(null, { status: 401 });
+    if (!apiKey) {
+      return unauthorized('Invalid API key');
     }
-    return runWithActor({ name: 'apikey', email: 'apikey@gitops.local' }, () => resolve(event));
+
+    event.locals.apiKey = apiKey;
+
+    return runWithActor(
+      { name: `apikey:${apiKey.name}`, email: `apikey+${apiKey.id}@gitops.local` },
+      () => resolve(event),
+    );
   }
 
   const sessionCookie = event.cookies.get('pos_session');
@@ -90,6 +109,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   if (!currentUser) {
+    if (isApiRequest) {
+      return unauthorized('Authentication required');
+    }
     return new Response(null, { status: 302, headers: { location: '/auth/login' } });
   }
 
