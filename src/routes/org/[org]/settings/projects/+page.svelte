@@ -4,7 +4,12 @@
   import { CheckCircle, Eye, FolderKanban, Plus, Search, Trash2 } from '@lucide/svelte';
   import { _ } from 'svelte-i18n';
 
-  export let data: { organization: { id: string; slug: string } | null; projects: ProjectRow[] };
+  export let data: {
+    organization: { id: string; slug: string } | null;
+    projects: ProjectRow[];
+    canCreate: boolean;
+    canDelete: boolean;
+  };
 
   type ProjectRow = {
     id: string;
@@ -155,12 +160,15 @@
       <p class="mt-2 text-sm text-slate-600">{$_('orgSettings.projects.description')}</p>
     </div>
 
-    <button
-      type="button"
-      on:click={openCreateModal}
-      class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-    >
-      <Plus class="h-4 w-4" />{$_('orgSettings.projects.new')}</button>
+    {#if data.canCreate}
+      <button
+        type="button"
+        on:click={openCreateModal}
+        class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+      >
+        <Plus class="h-4 w-4" />{$_('orgSettings.projects.new')}</button
+      >
+    {/if}
   </section>
 
   <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -204,7 +212,9 @@
     <div
       class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
     >
-      {projects.length === 0 ? $_('orgSettings.projects.empty') : $_('orgSettings.projects.emptyFiltered')}
+      {projects.length === 0
+        ? $_('orgSettings.projects.empty')
+        : $_('orgSettings.projects.emptyFiltered')}
     </div>
   {:else}
     <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -256,14 +266,18 @@
                       class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                       title={$_('orgSettings.projects.viewProject')}
                     >
-                      <Eye class="h-3.5 w-3.5" />{$_('common.view')}</a>
-                    <button
-                      type="button"
-                      on:click={() => openDeleteModal(project)}
-                      class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                      title={$_('orgSettings.projects.deleteProject')}
+                      <Eye class="h-3.5 w-3.5" />{$_('common.view')}</a
                     >
-                      <Trash2 class="h-3.5 w-3.5" />{$_('common.delete')}</button>
+                    {#if data.canDelete}
+                      <button
+                        type="button"
+                        on:click={() => openDeleteModal(project)}
+                        class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                        title={$_('orgSettings.projects.deleteProject')}
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />{$_('common.delete')}</button
+                      >
+                    {/if}
                   </div>
                 </td>
               </tr>
@@ -290,7 +304,9 @@
       aria-label={$_('orgSettings.projects.createModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('orgSettings.projects.createModalTitle')}</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {$_('orgSettings.projects.createModalTitle')}
+        </h5>
       </div>
 
       <form method="POST" action="?/createProject" use:enhance={createProject}>
@@ -331,15 +347,16 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-project-description">{$_('common.description')}</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-project-description"
+              >{$_('common.description')}</label
+            >
             <textarea
               id="new-project-description"
               name="description"
               bind:value={newDescription}
               rows="3"
               class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder={$_('orgSettings.projects.descriptionPlaceholder')}
-            ></textarea>
+              placeholder={$_('orgSettings.projects.descriptionPlaceholder')}></textarea>
           </div>
 
           <div>
@@ -395,7 +412,9 @@
       aria-label={$_('orgSettings.projects.deleteModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('orgSettings.projects.deleteConfirmTitle')}</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {$_('orgSettings.projects.deleteConfirmTitle')}
+        </h5>
       </div>
 
       <form method="POST" action="?/deleteProject" use:enhance={confirmDelete}>
@@ -428,7 +447,9 @@
             class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
           >
             <Trash2 class="h-4 w-4" />
-            {deleteLoading ? $_('orgSettings.projects.deleting') : $_('orgSettings.projects.deleteProject')}
+            {deleteLoading
+              ? $_('orgSettings.projects.deleting')
+              : $_('orgSettings.projects.deleteProject')}
           </button>
         </div>
       </form>

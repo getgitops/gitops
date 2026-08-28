@@ -15,9 +15,13 @@ function errorResponse(errorValue: unknown) {
   });
 }
 
-export async function load({ parent }) {
+export async function load({ parent, locals }) {
   const { organization } = await parent();
-  return { organization };
+  const canCreate = await cancanService.canSessionUser(locals.user, 'organization:roles:create', {
+    scope: 'organization',
+    organizationId: organization.id,
+  });
+  return { organization, canCreate };
 }
 
 export const actions = {

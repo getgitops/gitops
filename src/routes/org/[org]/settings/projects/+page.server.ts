@@ -19,8 +19,18 @@ export async function load({ params, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const projects = await projectService.listProjectsByOrganization(organization.id);
-  return { organization, projects };
+  const [projects, canCreate, canDelete] = await Promise.all([
+    projectService.listProjectsByOrganization(organization.id),
+    cancanService.canSessionUser(locals.user, 'organization:projects:create', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'organization:projects:delete', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+  ]);
+  return { organization, projects, canCreate, canDelete };
 }
 
 export const actions = {

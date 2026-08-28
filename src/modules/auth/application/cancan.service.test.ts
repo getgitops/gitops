@@ -297,6 +297,52 @@ describe('CanCanService', () => {
         service.can('jose', 'project:project:read', { scope: 'project', projectId: 'kettu' }),
       ).resolves.toBe(false);
     });
+
+    it('a project-specific assignment wins over broader organization access (most-specific-wins)', async () => {
+      userRepository.rows.set('jose', user({ id: 'jose', role: null }));
+      userAccessRepository.rows.push(
+        // full authority over the organization's projects...
+        access({
+          id: 'access-org',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({
+            id: 'org-full-access',
+            slug: 'org-full-access',
+            scope: 'organization',
+            permissions: ['organization:projects:all'],
+          }),
+        }),
+        // ...but explicitly only a viewer on this one project
+        access({
+          id: 'access-project',
+          userId: 'jose',
+          scope: 'project',
+          projectId: 'kettu',
+          project: { id: 'kettu', organizationId: 'gitops' },
+          role: role({
+            id: 'project-viewer',
+            slug: 'project-viewer',
+            scope: 'project',
+            permissions: ['project:project:read'],
+          }),
+        }),
+      );
+
+      // the explicit project-viewer assignment is authoritative: read passes...
+      await expect(
+        service.can('jose', 'project:project:read', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(true);
+      // ...but the organization's organization:projects:all must NOT leak through and grant
+      // write access the project-level role doesn't have.
+      await expect(
+        service.can('jose', 'project:project:update', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(false);
+      await expect(
+        service.can('jose', 'project:project:delete', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(false);
+    });
   });
 
   describe('canManageOrganization / canViewOrganization', () => {

@@ -50,17 +50,26 @@ Los permisos usan `section:action` con scope global, de organizacion o de proyec
 `can()` o `isAdmin()` desde `$modules/auth`; `locals.user.role` es un objeto, no el string
 `admin`.
 
+**Gating de permisos en UI:** En loaders de rutas, usar `cancanService.canSessionUser()` para verificar
+permisos específicos y pasarlos a componentes como props (`canCreate`, `canUpdate`, `canDelete`) para
+ocultar acciones que el usuario no puede realizar.
+
 Roles por defecto en `src/modules/auth/domain/role-permissions.data.ts`. Los permisos incluyen scope
 como prefijo (ej: `organization:projects:read`, `project:vault:secrets:all`) y se almacenan verbatim sin
 transformaciones:
 - **Cluster Admin**: vault, openreport, stateiac (todos)
+- **Cluster User**: sin permisos propios; rol base para acceso a nivel cluster
 - **Organization Admin**: todos los permisos de org (proyectos, usuarios, roles, backups, audit)
 - **Organization Developer**: solo read/create/update de proyectos
 - **Project Admin/Developer/Viewer**: permisos granulares por modulo (vault, codereport, stateiac)
 
-Los permisos de organización se propagan a sus proyectos: un usuario con `organization:projects:read` puede
-satisfacer checks `project:project:read` en cualquier proyecto de esa organización, permitiendo delegacion
-de autoridad sin crear grants por-proyecto.
+Los permisos de organización se propagan a sus proyectos solo cuando no hay un assignment explícito a nivel de
+proyecto. Un usuario con `organization:projects:read` puede satisfacer `project:project:read` en cualquier
+proyecto—pero si tiene un rol específico del proyecto, ese assignment es autoritario y los permisos de org no
+aplican (regla most-specific-wins). Permite delegación de autoridad granular con restricciones por-proyecto.
+
+`canManageOrganization()` controla acceso al area `/settings`, mientras que `canViewOrganization()` incluye
+tambien usuarios con acceso solo a proyectos bajo la organización (ven el overview pero no pueden acciones de org-scope).
 
 Al crear una organizacion (via bootstrap o cluster-settings), se llama automaticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a

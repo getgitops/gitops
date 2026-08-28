@@ -29,9 +29,14 @@ async function canManageProjectRole(
   return { project, allowed };
 }
 
-export async function load({ parent }) {
+export async function load({ parent, locals }) {
   const { project } = await parent();
-  return { project };
+  const canCreate = await cancanService.canSessionUser(locals.user, 'project:roles:create', {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+  return { project, canCreate };
 }
 
 export const actions = {

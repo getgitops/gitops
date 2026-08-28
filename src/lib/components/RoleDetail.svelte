@@ -10,6 +10,9 @@
   export let role: RoleRow | null = null;
   export let cancelHref = './';
   export let title = '';
+  export let canCreate = true;
+  export let canUpdate = true;
+  export let canDelete = true;
 
   type RoleRow = {
     id: string;
@@ -44,6 +47,7 @@
 
   const visibleActions = defaultActions.filter((action) => action !== 'all');
   const isCreate = !role;
+  $: canSave = isCreate ? canCreate : canUpdate;
   let roleName = role?.name ?? '';
   let roleSlug = role?.slug ?? '';
   let selectedPermissions = toUiPermissions(role?.permissions ?? []);
@@ -437,7 +441,8 @@
             id="role-name"
             type="text"
             bind:value={roleName}
-            class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
+            readonly={!canSave}
+            class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 read-only:text-slate-300 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
             placeholder={$_('roleDetail.developerPlaceholder')}
           />
         </div>
@@ -450,7 +455,7 @@
             id="role-slug"
             type="text"
             bind:value={roleSlug}
-            readonly={!isCreate}
+            readonly={!isCreate || !canSave}
             class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 read-only:text-slate-300 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
             placeholder="developer"
           />
@@ -471,7 +476,7 @@
       <div class="flex items-center justify-between gap-4 border-b border-[#5c5f66] px-4 py-4">
         <h4 class="text-lg font-semibold text-white">{$_('roleDetail.permissions')}</h4>
         <div class="flex items-center gap-3">
-          {#if !isCreate}
+          {#if !isCreate && canDelete}
             <button
               type="button"
               on:click={deleteRole}
@@ -482,15 +487,17 @@
               {deleting ? $_('roleDetail.deleting') : $_('common.delete')}
             </button>
           {/if}
-          <button
-            type="button"
-            on:click={saveRole}
-            disabled={saving}
-            class="inline-flex h-10 items-center gap-2 rounded-md bg-[#dfff22] px-4 text-sm font-semibold text-[#141510] transition hover:bg-[#e8ff4d] disabled:opacity-60"
-          >
-            <Save class="h-4 w-4" />
-            {saving ? $_('roleDetail.saving') : $_('common.save')}
-          </button>
+          {#if canSave}
+            <button
+              type="button"
+              on:click={saveRole}
+              disabled={saving}
+              class="inline-flex h-10 items-center gap-2 rounded-md bg-[#dfff22] px-4 text-sm font-semibold text-[#141510] transition hover:bg-[#e8ff4d] disabled:opacity-60"
+            >
+              <Save class="h-4 w-4" />
+              {saving ? $_('roleDetail.saving') : $_('common.save')}
+            </button>
+          {/if}
           <a
             href={cancelHref}
             class="inline-flex h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-slate-400 transition hover:text-white"
@@ -545,7 +552,7 @@
                       <select
                         class="w-full max-w-40 rounded-md border border-[#30323a] bg-[#2b2c33] px-3 py-2 text-sm font-medium text-slate-200 outline-none transition focus:border-[#dfff22] disabled:opacity-60"
                         value={accessLevel(permissionRow)}
-                        disabled={hasInheritedAccess(permissionRow)}
+                        disabled={hasInheritedAccess(permissionRow) || !canSave}
                         on:change={(event) => onAccessLevelChange(permissionRow, event)}
                       >
                         {#each selectableAccessLevels(permissionRow) as level}
@@ -585,7 +592,7 @@
                             <input
                               type="checkbox"
                               checked={isVisiblePermissionSelected(permissionRow, permission)}
-                              disabled={isPermissionDisabled(permissionRow, permission)}
+                              disabled={isPermissionDisabled(permissionRow, permission) || !canSave}
                               on:change={() => togglePermission(permissionRow, permission)}
                               class="h-4 w-4 rounded border-[#636772] bg-[#15171c] text-[#dfff22] focus:ring-[#dfff22] disabled:opacity-50"
                               title={inheritedPermission(permissionRow, action) ?? permission}

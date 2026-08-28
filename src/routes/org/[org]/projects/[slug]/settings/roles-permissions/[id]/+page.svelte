@@ -5,6 +5,8 @@
   export let data: {
     project: { slug: string; organization: { slug: string } | null };
     role: any;
+    canUpdate: boolean;
+    canDelete: boolean;
   };
 
   $: baseHref = `/org/${data.project.organization?.slug ?? ''}/projects/${data.project.slug}/settings/roles-permissions`;
@@ -15,4 +17,6 @@
   role={data.role}
   title={`${$_('roleDetail.edit')} ${data.role.name}`}
   cancelHref={baseHref}
+  canUpdate={data.canUpdate}
+  canDelete={data.canDelete}
 />

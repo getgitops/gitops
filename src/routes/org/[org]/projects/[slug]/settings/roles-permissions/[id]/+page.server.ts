@@ -29,12 +29,24 @@ async function canManageProjectRole(
   return { project, allowed };
 }
 
-export async function load({ parent, params }) {
+export async function load({ parent, params, locals }) {
   const { project } = await parent();
-  const roles = await roleService.listRoles('project', project.id);
+  const [roles, canUpdate, canDelete] = await Promise.all([
+    roleService.listRoles('project', project.id),
+    cancanService.canSessionUser(locals.user, 'project:roles:update', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:roles:delete', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+  ]);
   const role = roles.find((row) => row.id === params.id);
   if (!role) throw error(404, 'Role not found');
-  return { project, role };
+  return { project, role, canUpdate, canDelete };
 }
 
 export const actions = {

@@ -25,8 +25,14 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const roles = await roleService.listRoles('organization', organization.id);
-  return { roles };
+  const [roles, canCreate] = await Promise.all([
+    roleService.listRoles('organization', organization.id),
+    cancanService.canSessionUser(locals.user, 'organization:roles:create', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+  ]);
+  return { roles, canCreate };
 }
 
 export const actions = {

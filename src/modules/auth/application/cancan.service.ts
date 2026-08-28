@@ -180,17 +180,27 @@ export class CanCanService {
 
     if (context.scope !== 'project') return [];
 
+    // most-specific-wins: an explicit project-level assignment for this exact project is
+    // authoritative on its own — it does not get supplemented (or overridden) by whatever the
+    // user's organization role would otherwise allow. The organization role only cascades down
+    // when the user has no project-level assignment here at all.
+    const projectEntries = access.filter(
+      (entry) => entry.scope === 'project' && entry.projectId === context.projectId,
+    );
+
+    if (projectEntries.length > 0) {
+      return projectEntries
+        .filter((entry): entry is UserAccessDomain & { role: RoleDomain } => Boolean(entry.role))
+        .map((entry) => ({ role: entry.role, scope: 'project' as const }));
+    }
+
     const organizationId =
       context.organizationId ?? (await this.findProjectOrganizationId(context.projectId));
 
     return access
-      .filter((entry) => {
-        if (entry.scope === 'project') return entry.projectId === context.projectId;
-        if (entry.scope === 'organization') return entry.organizationId === organizationId;
-        return false;
-      })
+      .filter((entry) => entry.scope === 'organization' && entry.organizationId === organizationId)
       .filter((entry): entry is UserAccessDomain & { role: RoleDomain } => Boolean(entry.role))
-      .map((entry) => ({ role: entry.role, scope: entry.scope as 'organization' | 'project' }));
+      .map((entry) => ({ role: entry.role, scope: 'organization' as const }));
   }
 
   private roleCan(role: PermissionRole, permission: PermissionGrant): boolean {

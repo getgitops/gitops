@@ -36,7 +36,7 @@
     updatedAt: string;
   };
 
-  export let data: { project: ProjectRow };
+  export let data: { project: ProjectRow; canDelete: boolean };
 
   $: project = data.project;
   $: orgSlug = $page?.params?.org ?? '';
@@ -81,7 +81,9 @@
   $: integrationCards = [
     {
       label: 'GitOps CLI',
-      description: $_('projectSettings.overview.gitopsCliDescription', { values: { slug: data.project.slug } }),
+      description: $_('projectSettings.overview.gitopsCliDescription', {
+        values: { slug: data.project.slug },
+      }),
       icon: Terminal,
     },
     {
@@ -194,8 +196,9 @@
       await update();
 
       if (result.type === 'failure') {
-        error =
-          result.data?.error ? String(result.data.error) : $_('projectSettings.overview.deleteFailed');
+        error = result.data?.error
+          ? String(result.data.error)
+          : $_('projectSettings.overview.deleteFailed');
         deleteLoading = false;
       }
     };
@@ -292,8 +295,7 @@
           bind:value={editDescription}
           rows="4"
           class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          placeholder={$_('projectSettings.overview.optionalDescription')}
-        ></textarea>
+          placeholder={$_('projectSettings.overview.optionalDescription')}></textarea>
       </div>
     </div>
 
@@ -372,7 +374,9 @@
 
   <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
     <div class="border-b border-slate-200 px-4 py-3">
-      <h3 class="text-sm font-semibold text-slate-900">{$_('projectSettings.overview.integrations')}</h3>
+      <h3 class="text-sm font-semibold text-slate-900">
+        {$_('projectSettings.overview.integrations')}
+      </h3>
       <p class="mt-1 text-xs text-slate-500">
         {$_('projectSettings.overview.integrationsDescription')}
       </p>
@@ -406,7 +410,9 @@
 
   <section class="overflow-hidden rounded-md border border-red-200 bg-white">
     <div class="border-b border-red-200 bg-red-50 px-4 py-3">
-      <h3 class="text-sm font-semibold text-red-800">{$_('projectSettings.overview.dangerZone')}</h3>
+      <h3 class="text-sm font-semibold text-red-800">
+        {$_('projectSettings.overview.dangerZone')}
+      </h3>
     </div>
 
     <div class="divide-y divide-slate-100">
@@ -458,24 +464,26 @@
         </button>
       </div>
 
-      <div class="flex items-center justify-between gap-4 px-4 py-4">
-        <div>
-          <p class="text-sm font-medium text-slate-900">
-            {$_('projectSettings.overview.deleteProject')}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {$_('projectSettings.overview.deleteDescription')}
-          </p>
+      {#if data.canDelete}
+        <div class="flex items-center justify-between gap-4 px-4 py-4">
+          <div>
+            <p class="text-sm font-medium text-slate-900">
+              {$_('projectSettings.overview.deleteProject')}
+            </p>
+            <p class="mt-1 text-xs text-slate-500">
+              {$_('projectSettings.overview.deleteDescription')}
+            </p>
+          </div>
+          <button
+            type="button"
+            on:click={openDeleteModal}
+            class="btn-danger inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+          >
+            <Trash2 class="h-3.5 w-3.5" />
+            {$_('common.delete')}
+          </button>
         </div>
-        <button
-          type="button"
-          on:click={openDeleteModal}
-          class="btn-danger inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-        >
-          <Trash2 class="h-3.5 w-3.5" />
-          {$_('common.delete')}
-        </button>
-      </div>
+      {/if}
     </div>
   </section>
 </div>
@@ -508,13 +516,15 @@
 
         <div class="px-4 py-4 text-sm text-slate-600">
           {#if isArchived}
-            {$_('projectSettings.overview.activateConfirmationStart')} <span
-              class="font-medium text-slate-900">{project.name}</span
-            >{$_('projectSettings.overview.activateConfirmationEnd')}
+            {$_('projectSettings.overview.activateConfirmationStart')}
+            <span class="font-medium text-slate-900">{project.name}</span>{$_(
+              'projectSettings.overview.activateConfirmationEnd',
+            )}
           {:else}
-            {$_('projectSettings.overview.archiveConfirmationStart')} <span
-              class="font-medium text-slate-900">{project.name}</span
-            >{$_('projectSettings.overview.archiveConfirmationEnd')}
+            {$_('projectSettings.overview.archiveConfirmationStart')}
+            <span class="font-medium text-slate-900">{project.name}</span>{$_(
+              'projectSettings.overview.archiveConfirmationEnd',
+            )}
           {/if}
         </div>
 
@@ -572,9 +582,10 @@
       <form method="POST" action="?/deleteProject" use:enhance={confirmDelete}>
         <input type="hidden" name="id" value={project.id} />
         <div class="px-4 py-4 text-sm text-slate-600">
-          {$_('projectSettings.overview.deleteConfirmationStart')} <span
-            class="font-medium text-slate-900">{project.name}</span
-          >{$_('projectSettings.overview.deleteConfirmationEnd')}
+          {$_('projectSettings.overview.deleteConfirmationStart')}
+          <span class="font-medium text-slate-900">{project.name}</span>{$_(
+            'projectSettings.overview.deleteConfirmationEnd',
+          )}
         </div>
 
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">

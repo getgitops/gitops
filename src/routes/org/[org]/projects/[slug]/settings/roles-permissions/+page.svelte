@@ -5,6 +5,7 @@
   export let data: {
     project: { slug: string; organization: { slug: string } | null };
     roles: any[];
+    canCreate: boolean;
   };
 
   $: baseHref = `/org/${data.project.organization?.slug ?? ''}/projects/${data.project.slug}/settings/roles-permissions`;
@@ -15,4 +16,5 @@
   title={$_('projectSettings.roles.title')}
   description={$_('projectSettings.roles.description')}
   {baseHref}
+  canCreate={data.canCreate}
 />

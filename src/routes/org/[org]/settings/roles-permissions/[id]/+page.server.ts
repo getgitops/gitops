@@ -27,10 +27,20 @@ export async function load({ parent, params, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const roles = await roleService.listRoles('organization', organization.id);
+  const [roles, canUpdate, canDelete] = await Promise.all([
+    roleService.listRoles('organization', organization.id),
+    cancanService.canSessionUser(locals.user, 'organization:roles:update', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'organization:roles:delete', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+  ]);
   const role = roles.find((row) => row.id === params.id);
   if (!role) throw error(404, 'Role not found');
-  return { organization, role };
+  return { organization, role, canUpdate, canDelete };
 }
 
 export const actions = {

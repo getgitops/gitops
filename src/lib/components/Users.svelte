@@ -46,6 +46,8 @@
   export let assignableUsers: AssignableUserRow[] = [];
   export let title = '';
   export let description = '';
+  export let canCreate = true;
+  export let canDelete = true;
 
   let users: AccessUserRow[] = initialUsers;
   let searchQuery = '';
@@ -122,7 +124,9 @@
     const result = deserialize(await response.text());
     if (result.type === 'failure' || result.type === 'error') {
       const data = result.type === 'failure' ? result.data : null;
-      throw new Error(typeof data?.error === 'string' ? data.error : $_('usersComponent.actionFailed'));
+      throw new Error(
+        typeof data?.error === 'string' ? data.error : $_('usersComponent.actionFailed'),
+      );
     }
     await invalidateAll();
   }
@@ -156,7 +160,9 @@
         userId: selectedUserId,
       });
       addModalOpen = false;
-      flashSuccess(scope === 'project' ? $_('usersComponent.userAssigned') : $_('usersComponent.userCreated'));
+      flashSuccess(
+        scope === 'project' ? $_('usersComponent.userAssigned') : $_('usersComponent.userCreated'),
+      );
     } catch (err: unknown) {
       addError = err instanceof Error ? err.message : $_('usersComponent.addFailed');
     } finally {
@@ -274,29 +280,35 @@
 <div class="flex min-h-[calc(100dvh-22rem)] flex-col gap-6">
   <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
-      <h3 class="text-xl font-semibold text-slate-900">{title || $_('usersComponent.defaultTitle')}</h3>
-      <p class="mt-2 text-sm text-slate-600">{description || $_('usersComponent.defaultDescription')}</p>
+      <h3 class="text-xl font-semibold text-slate-900">
+        {title || $_('usersComponent.defaultTitle')}
+      </h3>
+      <p class="mt-2 text-sm text-slate-600">
+        {description || $_('usersComponent.defaultDescription')}
+      </p>
     </div>
-    <div class="flex shrink-0 items-center gap-2">
-      {#if scope === 'organization'}
+    {#if canCreate}
+      <div class="flex shrink-0 items-center gap-2">
+        {#if scope === 'organization'}
+          <button
+            type="button"
+            on:click={openInviteModal}
+            class="btn-secondary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          >
+            <Mail class="h-4 w-4" />
+            {$_('usersComponent.inviteUser')}
+          </button>
+        {/if}
         <button
           type="button"
-          on:click={openInviteModal}
-          class="btn-secondary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+          on:click={openAddModal}
+          class="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
         >
-          <Mail class="h-4 w-4" />
-          {$_('usersComponent.inviteUser')}
+          <Plus class="h-4 w-4" />
+          {scope === 'project' ? $_('usersComponent.addUser') : $_('usersComponent.newUser')}
         </button>
-      {/if}
-      <button
-        type="button"
-        on:click={openAddModal}
-        class="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-      >
-        <Plus class="h-4 w-4" />
-        {scope === 'project' ? $_('usersComponent.addUser') : $_('usersComponent.newUser')}
-      </button>
-    </div>
+      </div>
+    {/if}
   </section>
 
   <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -393,7 +405,9 @@
                       disabled={savingAccessId === user.id || roles.length === 0}
                       class="btn-secondary inline-flex min-w-44 items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium"
                     >
-                      <span class="truncate">{user.role?.name ?? $_('usersComponent.selectRole')}</span>
+                      <span class="truncate"
+                        >{user.role?.name ?? $_('usersComponent.selectRole')}</span
+                      >
                       <ChevronDown class="h-4 w-4 shrink-0" />
                     </button>
                     {#if openRoleMenuId === user.id}
@@ -434,7 +448,7 @@
                 <td class="px-4 py-3 text-slate-600">{formatDate(user.createdAt)}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center justify-end gap-2">
-                    {#if user.status === 'invited'}
+                    {#if user.status === 'invited' && canCreate}
                       <button
                         type="button"
                         on:click={() => resendInvitation(user)}
@@ -442,18 +456,24 @@
                         class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                       >
                         <Send class="h-3.5 w-3.5" />
-                        {resendingAccessId === user.id ? $_('usersComponent.sending') : $_('usersComponent.resendInvitation')}
+                        {resendingAccessId === user.id
+                          ? $_('usersComponent.sending')
+                          : $_('usersComponent.resendInvitation')}
                       </button>
                     {/if}
-                    <button
-                      type="button"
-                      on:click={() => openRemoveModal(user)}
-                      disabled={removingAccessId === user.id}
-                      class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                    >
-                      <Trash2 class="h-3.5 w-3.5" />
-                      {removingAccessId === user.id ? $_('usersComponent.removing') : $_('usersComponent.removeAccess')}
-                    </button>
+                    {#if canDelete}
+                      <button
+                        type="button"
+                        on:click={() => openRemoveModal(user)}
+                        disabled={removingAccessId === user.id}
+                        class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />
+                        {removingAccessId === user.id
+                          ? $_('usersComponent.removing')
+                          : $_('usersComponent.removeAccess')}
+                      </button>
+                    {/if}
                   </div>
                 </td>
               </tr>
@@ -494,7 +514,9 @@
         {#if scope !== 'project'}
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
-              <label class="block text-sm font-medium text-slate-700" for="new-user-name">{$_('common.username')}</label>
+              <label class="block text-sm font-medium text-slate-700" for="new-user-name"
+                >{$_('common.username')}</label
+              >
               <input
                 id="new-user-name"
                 type="text"
@@ -503,7 +525,9 @@
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700" for="new-user-email">{$_('common.email')}</label>
+              <label class="block text-sm font-medium text-slate-700" for="new-user-email"
+                >{$_('common.email')}</label
+              >
               <input
                 id="new-user-email"
                 type="email"
@@ -513,7 +537,9 @@
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-user-password">{$_('common.password')}</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-user-password"
+              >{$_('common.password')}</label
+            >
             <input
               id="new-user-password"
               type="password"
@@ -523,7 +549,9 @@
           </div>
         {:else}
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="existing-user">{$_('usersComponent.user')}</label>
+            <label class="block text-sm font-medium text-slate-700" for="existing-user"
+              >{$_('usersComponent.user')}</label
+            >
             <select
               id="existing-user"
               bind:value={selectedUserId}
@@ -539,7 +567,9 @@
         {/if}
 
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="user-role">{$_('common.role')}</label>
+          <label class="block text-sm font-medium text-slate-700" for="user-role"
+            >{$_('common.role')}</label
+          >
           <select
             id="user-role"
             bind:value={selectedRoleId}
@@ -590,7 +620,9 @@
       aria-label={$_('usersComponent.inviteModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('usersComponent.inviteModalTitle')}</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {$_('usersComponent.inviteModalTitle')}
+        </h5>
       </div>
       <div class="space-y-4 px-4 py-4">
         {#if inviteError}
@@ -603,7 +635,9 @@
           {$_('usersComponent.inviteModalDescription')}
         </p>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="invite-user-email">{$_('common.email')}</label>
+          <label class="block text-sm font-medium text-slate-700" for="invite-user-email"
+            >{$_('common.email')}</label
+          >
           <input
             id="invite-user-email"
             type="email"
@@ -650,13 +684,16 @@
       aria-label={$_('usersComponent.removeModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('usersComponent.removeModalTitle')}</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {$_('usersComponent.removeModalTitle')}
+        </h5>
       </div>
       <div class="px-4 py-4">
         <p class="text-sm text-slate-700">
-          {$_('usersComponent.removeModalDescriptionStart')} <span class="font-semibold text-slate-900"
-            >{removeModalUser.username}</span
-          >{$_('usersComponent.removeModalDescriptionEnd')}
+          {$_('usersComponent.removeModalDescriptionStart')}
+          <span class="font-semibold text-slate-900">{removeModalUser.username}</span>{$_(
+            'usersComponent.removeModalDescriptionEnd',
+          )}
         </p>
       </div>
       <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
@@ -664,7 +701,8 @@
           type="button"
           on:click={() => (removeModalUser = null)}
           class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >{$_('common.cancel')}</button>
+          >{$_('common.cancel')}</button
+        >
         <button
           type="button"
           on:click={confirmRemoveAccess}
@@ -672,7 +710,9 @@
           class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
         >
           <Trash2 class="h-4 w-4" />
-          {removingAccessId === removeModalUser.id ? $_('usersComponent.removing') : $_('usersComponent.removeAccess')}
+          {removingAccessId === removeModalUser.id
+            ? $_('usersComponent.removing')
+            : $_('usersComponent.removeAccess')}
         </button>
       </div>
     </div>

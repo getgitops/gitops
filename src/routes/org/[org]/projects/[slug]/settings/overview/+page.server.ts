@@ -22,7 +22,13 @@ export async function load({ params, locals }) {
 
   if (!canRead) throw error(403, 'Forbidden');
 
-  return { project };
+  const canDelete = await cancanService.canSessionUser(locals.user, 'project:project:delete', {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+
+  return { project, canDelete };
 }
 
 export const actions = {

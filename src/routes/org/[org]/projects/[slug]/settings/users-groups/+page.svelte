@@ -7,6 +7,8 @@
     roles: any[];
     assignableUsers: any[];
     project: { name: string };
+    canCreate: boolean;
+    canDelete: boolean;
   };
 </script>
 
@@ -17,4 +19,6 @@
   assignableUsers={data.assignableUsers}
   title={$_('projectSettings.users.title')}
   description={`${$_('projectSettings.users.descriptionPrefix')} ${data.project.name}${$_('projectSettings.users.descriptionSuffix')}`}
+  canCreate={data.canCreate}
+  canDelete={data.canDelete}
 />

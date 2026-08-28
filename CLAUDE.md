@@ -73,19 +73,39 @@ if (!can(locals.user, 'stateiac:read')) {
 
 `locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or `can()`.
 
+**UI permission gating:** In route loaders, use `cancanService.canSessionUser()` to check specific
+action permissions and pass them to components as props (`canCreate`, `canUpdate`, `canDelete`) to conditionally
+render actions in the UI. This prevents users from seeing actions they cannot perform:
+
+```typescript
+const canCreate = await cancanService.canSessionUser(locals.user, 'project:roles:create', {
+  scope: 'project',
+  projectId: project.id,
+  organizationId: project.organization?.id,
+});
+return { roles, canCreate };
+```
+
 Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
 Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
 - **Cluster Admin** (`vault:all`, `openreport:all`, `stateiac:all`)
+- **Cluster User** (no inherent permissions; used as base role for cluster-level access)
 - **Organization Admin** (all org-level permissions: projects, users, roles, backups, audit)
 - **Organization Developer** (read/create/update projects only)
 - **Project Admin** (all project-level permissions across vault, codereport, stateiac)
 - **Project Developer** (read/create/update resources; no deletion/admin)
 - **Project Viewer** (read-only across all project modules)
 
-Organization-level permissions cascade into their projects: a user with `organization:projects:read` can satisfy
-a `project:project:read` check on any project in that organization. This allows coarse-grained org roles
-to delegate authority downward without creating a separate per-project role grant.
+Organization-level permissions cascade into their projects only when no explicit project-level assignment exists
+for that user. A user with `organization:projects:read` can satisfy a `project:project:read` check on any project
+in that organization—but if they have a project-specific role assignment, that assignment is authoritative and
+organization permissions do not apply (most-specific-wins rule). This allows coarse-grained org roles to delegate
+authority downward, while still permitting per-project restrictions.
+
+Two helpers distinguish organization visibility from management: `canManageOrganization()` gates the `/settings` area,
+while `canViewOrganization()` also includes users whose only access is to a project under that organization
+(they see the org overview, but cannot perform org-scope actions).
 
 When creating an organization (via bootstrap or cluster settings), `roleService.createDefaultOrganizationRoles()` is
 automatically invoked. When creating a project, `roleService.createDefaultProjectRoles()` is automatically invoked. Both

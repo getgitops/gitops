@@ -25,14 +25,24 @@ async function canUpdateProjectUsers(
   return { project, allowed };
 }
 
-export async function load({ parent }) {
+export async function load({ parent, locals }) {
   const { project } = await parent();
-  const [users, roles, assignableUsers] = await Promise.all([
+  const [users, roles, assignableUsers, canCreate, canDelete] = await Promise.all([
     userAccessService.listUsers('project', project.id),
     roleService.listRoles('project', project.id),
     userAccessService.listAssignableUsers(),
+    cancanService.canSessionUser(locals.user, 'project:users:create', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:users:delete', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
   ]);
-  return { project, users, roles, assignableUsers };
+  return { project, users, roles, assignableUsers, canCreate, canDelete };
 }
 
 export const actions = {
