@@ -22,13 +22,20 @@ export async function load({ params, locals }) {
 
   if (!canRead) throw error(403, 'Forbidden');
 
-  const canDelete = await cancanService.canSessionUser(locals.user, 'project:project:delete', {
-    scope: 'project',
-    projectId: project.id,
-    organizationId: project.organization?.id,
-  });
+  const [canUpdate, canDelete] = await Promise.all([
+    cancanService.canSessionUser(locals.user, 'project:project:update', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:project:delete', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+  ]);
 
-  return { project, canDelete };
+  return { project, canUpdate, canDelete };
 }
 
 export const actions = {

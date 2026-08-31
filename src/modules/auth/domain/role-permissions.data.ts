@@ -11,6 +11,7 @@ export const ORGANIZATION_ADMIN_PERMISSIONS = [
   'organization:projects:all',
   'organization:users:all',
   'organization:roles:all',
+  'organization:settings:all',
   'organization:backups:all',
   'organization:server-keys:all',
   'organization:audit:all',

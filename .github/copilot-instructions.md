@@ -53,17 +53,19 @@ Los permisos usan `section:action` con scope global, de organizacion o de proyec
 **Gating de permisos en UI:** En loaders de rutas, usar `cancanService.canSessionUser()` para verificar
 permisos específicos y pasarlos a componentes como props (`canCreate`, `canUpdate`, `canDelete`) para
 ocultar acciones que el usuario no puede realizar. El layout raíz (`+layout.server.ts`) calcula permisos
-de lectura granulares para cada sección de settings (proyectos, usuarios, roles, backups, servidor-keys,
-audit) y los filtra en AppSidebar según si el usuario tiene acceso a esa sección específica.
+granulares de lectura para settings de org (proyectos, usuarios, roles, configuración global, backups, servidor-keys, audit)
+y módulos de proyecto (vault, codereport, stateiac) combinándolos con lógica OR (`canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
+para obtener flags de lectura de alto nivel que se filtran en AppSidebar según acceso específico.
 
 Roles por defecto en `src/modules/auth/domain/role-permissions.data.ts`. Los permisos incluyen scope
 como prefijo (ej: `organization:projects:read`, `project:vault:secrets:all`) y se almacenan verbatim sin
-transformaciones:
+transformaciones. Recursos de módulos tienen sub-permisos granulares (ej: `project:vault:secrets:read`, `project:vault:environments:read`):
 - **Cluster Admin**: vault, openreport, stateiac (todos)
 - **Cluster User**: sin permisos propios; rol base para acceso a nivel cluster
-- **Organization Admin**: todos los permisos de org (proyectos, usuarios, roles, backups, audit)
+- **Organization Admin**: todos los permisos de org (proyectos, usuarios, roles, configuración global, backups, server-access-keys, audit)
 - **Organization Developer**: solo read/create/update de proyectos
-- **Project Admin/Developer/Viewer**: permisos granulares por modulo (vault, codereport, stateiac)
+- **Project Admin**: metadata/usuarios/roles/server-keys/audit plus todos los permisos de módulos (vault, codereport, stateiac)
+- **Project Developer/Viewer**: acceso granular a módulos con permisos diferenciados (solo lectura en Viewer)
 
 Los permisos de organización se propagan a sus proyectos solo cuando no hay un assignment explícito a nivel de
 proyecto. Un usuario con `organization:projects:read` puede satisfacer `project:project:read` en cualquier

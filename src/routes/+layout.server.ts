@@ -48,6 +48,7 @@ export async function load({ locals, url }) {
     canReadOrgProjects,
     canReadOrgUsers,
     canReadOrgRoles,
+    canReadOrgGlobal,
     canReadOrgBackups,
     canReadOrgServerKeys,
     canReadOrgAudit,
@@ -55,6 +56,7 @@ export async function load({ locals, url }) {
     orgSectionPermission('organization:projects:read'),
     orgSectionPermission('organization:users:read'),
     orgSectionPermission('organization:roles:read'),
+    orgSectionPermission('organization:settings:read'),
     orgSectionPermission('organization:backups:read'),
     orgSectionPermission('organization:server-keys:read'),
     orgSectionPermission('organization:audit:read'),
@@ -108,13 +110,37 @@ export async function load({ locals, url }) {
     canReadProjectRoles,
     canReadProjectServerKeys,
     canReadProjectAudit,
+    canReadProjectVaultSecrets,
+    canReadProjectVaultEnvironments,
+    canReadProjectCodeReportReports,
+    canReadProjectCodeReportDependencies,
+    canReadProjectCodeReportVulnerabilities,
+    canReadProjectStateIacStacks,
+    canReadProjectStateIacStates,
+    canReadProjectStateIacHistory,
   ] = await Promise.all([
     projectSectionPermission('project:project:read'),
     projectSectionPermission('project:users:read'),
     projectSectionPermission('project:roles:read'),
     projectSectionPermission('project:server-keys:read'),
     projectSectionPermission('project:audit:read'),
+    projectSectionPermission('project:vault:secrets:read'),
+    projectSectionPermission('project:vault:environments:read'),
+    projectSectionPermission('project:codereport:reports:read'),
+    projectSectionPermission('project:codereport:dependencies:read'),
+    projectSectionPermission('project:codereport:vulnerabilities:read'),
+    projectSectionPermission('project:stateiac:stacks:read'),
+    projectSectionPermission('project:stateiac:states:read'),
+    projectSectionPermission('project:stateiac:history:read'),
   ]);
+
+  const canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments;
+  const canReadProjectCodeReport =
+    canReadProjectCodeReportReports ||
+    canReadProjectCodeReportDependencies ||
+    canReadProjectCodeReportVulnerabilities;
+  const canReadProjectStateIac =
+    canReadProjectStateIacStacks || canReadProjectStateIacStates || canReadProjectStateIacHistory;
 
   return {
     // isConfigured: !!config && backends.length > 0,
@@ -130,6 +156,7 @@ export async function load({ locals, url }) {
     canReadOrgProjects,
     canReadOrgUsers,
     canReadOrgRoles,
+    canReadOrgGlobal,
     canReadOrgBackups,
     canReadOrgServerKeys,
     canReadOrgAudit,
@@ -138,6 +165,9 @@ export async function load({ locals, url }) {
     canReadProjectRoles,
     canReadProjectServerKeys,
     canReadProjectAudit,
+    canReadProjectVault,
+    canReadProjectCodeReport,
+    canReadProjectStateIac,
     currentProjectSlug,
   };
 }

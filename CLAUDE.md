@@ -97,8 +97,8 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
-- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`
+- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
@@ -107,11 +107,13 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
 - **Cluster Admin** (`vault:all`, `openreport:all`, `stateiac:all`)
 - **Cluster User** (no inherent permissions; used as base role for cluster-level access)
-- **Organization Admin** (all org-level permissions: projects, users, roles, backups, audit)
+- **Organization Admin** (all org-level permissions: projects, users, roles, settings, backups, server-keys, audit)
 - **Organization Developer** (read/create/update projects only)
-- **Project Admin** (all project-level permissions across vault, codereport, stateiac)
-- **Project Developer** (read/create/update resources; no deletion/admin)
-- **Project Viewer** (read-only across all project modules)
+- **Project Admin** (all project-level permissions: project metadata, users, roles, server-keys, audit; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history)
+- **Project Developer** (read/create/update project resources; no deletion or admin; granular module access)
+- **Project Viewer** (read-only: project metadata, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history)
+
+Module resources have granular sub-permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. These allow fine-grained access control within each module.
 
 Organization-level permissions cascade into their projects only when no explicit project-level assignment exists
 for that user. A user with `organization:projects:read` can satisfy a `project:project:read` check on any project

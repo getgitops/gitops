@@ -15,7 +15,13 @@
 
   type RoleRow = { id: string; name: string; slug: string };
 
-  export let data: { apiKeys: ApiKeyRow[]; roles: RoleRow[] };
+  export let data: {
+    apiKeys: ApiKeyRow[];
+    roles: RoleRow[];
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  };
   export let form: { success?: boolean; error?: string; createdKey?: string } | null;
 
   let createModalOpen = false;
@@ -82,14 +88,16 @@
           >.
         </p>
       </div>
-      <button
-        type="button"
-        on:click={openCreateModal}
-        class="inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-      >
-        <Plus class="h-4 w-4" />
-        {$_('projectSettings.serverAccessKeys.createKey')}
-      </button>
+      {#if data.canCreate}
+        <button
+          type="button"
+          on:click={openCreateModal}
+          class="inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          <Plus class="h-4 w-4" />
+          {$_('projectSettings.serverAccessKeys.createKey')}
+        </button>
+      {/if}
     </div>
   </section>
 
@@ -163,28 +171,32 @@
             </p>
           </div>
 
-          {#if !key.revokedAt}
+          {#if !key.revokedAt && (data.canUpdate || data.canDelete)}
             <div class="flex shrink-0 items-center gap-2">
-              <form method="POST" action="?/rotate">
-                <input type="hidden" name="keyId" value={key.id} />
-                <button
-                  type="submit"
-                  class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                >
-                  <RefreshCw class="h-4 w-4" />
-                  {$_('projectSettings.serverAccessKeys.rotate')}
-                </button>
-              </form>
-              <form method="POST" action="?/revoke">
-                <input type="hidden" name="keyId" value={key.id} />
-                <button
-                  type="submit"
-                  class="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 class="h-4 w-4" />
-                  {$_('projectSettings.serverAccessKeys.revoke')}
-                </button>
-              </form>
+              {#if data.canUpdate}
+                <form method="POST" action="?/rotate">
+                  <input type="hidden" name="keyId" value={key.id} />
+                  <button
+                    type="submit"
+                    class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    <RefreshCw class="h-4 w-4" />
+                    {$_('projectSettings.serverAccessKeys.rotate')}
+                  </button>
+                </form>
+              {/if}
+              {#if data.canDelete}
+                <form method="POST" action="?/revoke">
+                  <input type="hidden" name="keyId" value={key.id} />
+                  <button
+                    type="submit"
+                    class="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                    {$_('projectSettings.serverAccessKeys.revoke')}
+                  </button>
+                </form>
+              {/if}
             </div>
           {/if}
         </div>

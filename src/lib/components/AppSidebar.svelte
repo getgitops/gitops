@@ -41,6 +41,7 @@
   export let canReadOrgProjects = false;
   export let canReadOrgUsers = false;
   export let canReadOrgRoles = false;
+  export let canReadOrgGlobal = false;
   export let canReadOrgBackups = false;
   export let canReadOrgServerKeys = false;
   export let canReadOrgAudit = false;
@@ -49,6 +50,9 @@
   export let canReadProjectRoles = false;
   export let canReadProjectServerKeys = false;
   export let canReadProjectAudit = false;
+  export let canReadProjectVault = false;
+  export let canReadProjectCodeReport = false;
+  export let canReadProjectStateIac = false;
   export let currentProjectSlug: string | null = null;
   export let projects: {
     slug: string;
@@ -98,7 +102,7 @@
         },
       ],
     },
-    ...(currentProject?.modules?.vault
+    ...(currentProject?.modules?.vault && canReadProjectVault
       ? [
           {
             name: $_('sidebar.categories.seguridad'),
@@ -118,7 +122,7 @@
           },
         ]
       : []),
-    ...(currentProject?.modules?.codereport
+    ...(currentProject?.modules?.codereport && canReadProjectCodeReport
       ? [
           {
             name: $_('sidebar.categories.analisis'),
@@ -164,7 +168,7 @@
           },
         ]
       : []),
-    ...(currentProject?.modules?.stateiac
+    ...(currentProject?.modules?.stateiac && canReadProjectStateIac
       ? [
           {
             name: $_('sidebar.categories.gitops'),
@@ -254,7 +258,7 @@
                   label: $_('sidebar.items.global'),
                   href: `/org/${organizationSlug}/settings/global`,
                   icon: Shield,
-                  visible: true,
+                  visible: canReadOrgGlobal,
                 },
                 {
                   label: $_('sidebar.items.accessControl'),

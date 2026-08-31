@@ -43,6 +43,10 @@ const permissions = {
           resource: 'roles',
           permissions: grantsFor('organization', 'roles'),
         },
+        settings: {
+          resource: 'settings',
+          permissions: grantsFor('organization', 'settings'),
+        },
         backups: {
           resource: 'backups',
           permissions: grantsFor('organization', 'backups'),

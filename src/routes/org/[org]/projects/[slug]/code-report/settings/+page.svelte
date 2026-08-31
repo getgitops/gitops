@@ -7,6 +7,7 @@
 
   $: settings = data.settings;
   $: multipliers = settings.securityRiskMultipliers;
+  $: canUpdate = data.canUpdate;
 
   let loading = false;
 </script>
@@ -47,22 +48,22 @@
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label class="space-y-1.5">
           <span class="block text-xs font-medium text-red-700">{$_('codeReport.settings.critical')}</span>
-          <input type="number" id="critical" name="critical" min="1" value={multipliers.critical} class="field-input w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 outline-none transition" required />
+          <input type="number" id="critical" name="critical" min="1" value={multipliers.critical} disabled={!canUpdate} class="field-input w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 outline-none transition disabled:opacity-60" required />
         </label>
 
         <label class="space-y-1.5">
           <span class="block text-xs font-medium text-orange-700">{$_('codeReport.settings.high')}</span>
-          <input type="number" id="high" name="high" min="1" value={multipliers.high} class="field-input w-full rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 outline-none transition" required />
+          <input type="number" id="high" name="high" min="1" value={multipliers.high} disabled={!canUpdate} class="field-input w-full rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900 outline-none transition disabled:opacity-60" required />
         </label>
 
         <label class="space-y-1.5">
           <span class="block text-xs font-medium text-amber-700">{$_('codeReport.settings.medium')}</span>
-          <input type="number" id="medium" name="medium" min="1" value={multipliers.medium} class="field-input w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 outline-none transition" required />
+          <input type="number" id="medium" name="medium" min="1" value={multipliers.medium} disabled={!canUpdate} class="field-input w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 outline-none transition disabled:opacity-60" required />
         </label>
 
         <label class="space-y-1.5">
           <span class="block text-xs font-medium text-slate-700">{$_('codeReport.settings.low')}</span>
-          <input type="number" id="low" name="low" min="1" value={multipliers.low} class="field-input w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition" required />
+          <input type="number" id="low" name="low" min="1" value={multipliers.low} disabled={!canUpdate} class="field-input w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition disabled:opacity-60" required />
         </label>
       </div>
 
@@ -82,11 +83,13 @@
       <p class="mt-1 text-xs text-slate-500">{$_('codeReport.settings.moreSettingsDescription')}</p>
     </section>
 
-    <div class="flex items-center justify-end border-t border-slate-200 pt-4">
-      <button type="submit" disabled={loading} class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium">
-        <Save class="h-4 w-4" />
-        {loading ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
-      </button>
-    </div>
+    {#if canUpdate}
+      <div class="flex items-center justify-end border-t border-slate-200 pt-4">
+        <button type="submit" disabled={loading} class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium">
+          <Save class="h-4 w-4" />
+          {loading ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
+        </button>
+      </div>
+    {/if}
   </form>
 </div>

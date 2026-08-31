@@ -42,14 +42,32 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const [apiKeys, roles] = await Promise.all([
+  const [apiKeys, roles, canCreate, canUpdate, canDelete] = await Promise.all([
     apiKeysService.listActiveApiKeysByProject(project.id),
     roleService.listRoles('project', project.id),
+    cancanService.canSessionUser(locals.user, 'project:server-keys:create', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:server-keys:update', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:server-keys:delete', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
   ]);
 
   return {
     apiKeys,
     roles: roles.map((role) => ({ id: role.id, name: role.name, slug: role.slug })),
+    canCreate,
+    canUpdate,
+    canDelete,
   };
 }
 

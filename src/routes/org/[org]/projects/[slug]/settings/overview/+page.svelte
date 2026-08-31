@@ -36,9 +36,10 @@
     updatedAt: string;
   };
 
-  export let data: { project: ProjectRow; canDelete: boolean };
+  export let data: { project: ProjectRow; canUpdate: boolean; canDelete: boolean };
 
   $: project = data.project;
+  $: canUpdate = data.canUpdate;
   $: orgSlug = $page?.params?.org ?? '';
   $: isArchived = project.status === 'inactive';
 
@@ -262,26 +263,44 @@
           <label class="block text-sm font-medium text-slate-700" for="edit-project-name"
             >{$_('common.name')}</label
           >
-          <input
-            id="edit-project-name"
-            name="name"
-            type="text"
-            bind:value={editName}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
+          {#if canUpdate}
+            <input
+              id="edit-project-name"
+              name="name"
+              type="text"
+              bind:value={editName}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+            />
+          {:else}
+            <p
+              id="edit-project-name"
+              class="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+            >
+              {project.name}
+            </p>
+          {/if}
         </div>
 
         <div>
           <label class="block text-sm font-medium text-slate-700" for="edit-project-slug"
             >{$_('common.slug')}</label
           >
-          <input
-            id="edit-project-slug"
-            name="slug"
-            type="text"
-            bind:value={editSlug}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
+          {#if canUpdate}
+            <input
+              id="edit-project-slug"
+              name="slug"
+              type="text"
+              bind:value={editSlug}
+              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+            />
+          {:else}
+            <p
+              id="edit-project-slug"
+              class="mt-2 w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+            >
+              {project.slug}
+            </p>
+          {/if}
         </div>
       </div>
 
@@ -289,13 +308,22 @@
         <label class="block text-sm font-medium text-slate-700" for="edit-project-description">
           {$_('common.description')}
         </label>
-        <textarea
-          id="edit-project-description"
-          name="description"
-          bind:value={editDescription}
-          rows="4"
-          class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          placeholder={$_('projectSettings.overview.optionalDescription')}></textarea>
+        {#if canUpdate}
+          <textarea
+            id="edit-project-description"
+            name="description"
+            bind:value={editDescription}
+            rows="4"
+            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+            placeholder={$_('projectSettings.overview.optionalDescription')}></textarea>
+        {:else}
+          <p
+            id="edit-project-description"
+            class="mt-2 w-full whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+          >
+            {project.description || $_('projectSettings.overview.optionalDescription')}
+          </p>
+        {/if}
       </div>
     </div>
 
@@ -317,7 +345,8 @@
             <button
               type="button"
               on:click={() => toggleModule(option.key)}
-              class="flex items-center justify-between text-left"
+              disabled={!canUpdate}
+              class="flex items-center justify-between text-left disabled:cursor-default"
             >
               <span
                 class="flex items-center gap-2 text-sm font-medium {editModules[option.key]
@@ -360,16 +389,18 @@
       </div>
     </div>
 
-    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-      <button
-        type="submit"
-        disabled={saving}
-        class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-      >
-        <Save class="h-4 w-4" />
-        {saving ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
-      </button>
-    </div>
+    {#if canUpdate}
+      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+        <button
+          type="submit"
+          disabled={saving}
+          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+        >
+          <Save class="h-4 w-4" />
+          {saving ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
+        </button>
+      </div>
+    {/if}
   </form>
 
   <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -408,84 +439,88 @@
     </div>
   </section>
 
-  <section class="overflow-hidden rounded-md border border-red-200 bg-white">
-    <div class="border-b border-red-200 bg-red-50 px-4 py-3">
-      <h3 class="text-sm font-semibold text-red-800">
-        {$_('projectSettings.overview.dangerZone')}
-      </h3>
-    </div>
-
-    <div class="divide-y divide-slate-100">
-      <div class="flex items-center justify-between gap-4 px-4 py-4">
-        <div>
-          <p class="text-sm font-medium text-slate-900">
-            {$_('projectSettings.overview.transferToOrganization')}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {$_('projectSettings.overview.transferDescription')}
-          </p>
-        </div>
-        <button
-          type="button"
-          disabled
-          title={$_('projectSettings.overview.transferSoon')}
-          class="btn-secondary inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium opacity-50"
-        >
-          <Building2 class="h-3.5 w-3.5" />
-          {$_('projectSettings.overview.transfer')}
-        </button>
+  {#if canUpdate || data.canDelete}
+    <section class="overflow-hidden rounded-md border border-red-200 bg-white">
+      <div class="border-b border-red-200 bg-red-50 px-4 py-3">
+        <h3 class="text-sm font-semibold text-red-800">
+          {$_('projectSettings.overview.dangerZone')}
+        </h3>
       </div>
 
-      <div class="flex items-center justify-between gap-4 px-4 py-4">
-        <div>
-          <p class="text-sm font-medium text-slate-900">
-            {isArchived
-              ? $_('projectSettings.overview.activateProject')
-              : $_('projectSettings.overview.archiveProject')}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {isArchived
-              ? $_('projectSettings.overview.activateDescription')
-              : $_('projectSettings.overview.archiveDescription')}
-          </p>
-        </div>
-        <button
-          type="button"
-          on:click={openArchiveModal}
-          class="btn-secondary inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-        >
-          {#if isArchived}
-            <ArchiveRestore class="h-3.5 w-3.5" />
-            {$_('projectSettings.overview.activate')}
-          {:else}
-            <Archive class="h-3.5 w-3.5" />
-            {$_('projectSettings.overview.archive')}
-          {/if}
-        </button>
-      </div>
-
-      {#if data.canDelete}
-        <div class="flex items-center justify-between gap-4 px-4 py-4">
-          <div>
-            <p class="text-sm font-medium text-slate-900">
-              {$_('projectSettings.overview.deleteProject')}
-            </p>
-            <p class="mt-1 text-xs text-slate-500">
-              {$_('projectSettings.overview.deleteDescription')}
-            </p>
+      <div class="divide-y divide-slate-100">
+        {#if canUpdate}
+          <div class="flex items-center justify-between gap-4 px-4 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-900">
+                {$_('projectSettings.overview.transferToOrganization')}
+              </p>
+              <p class="mt-1 text-xs text-slate-500">
+                {$_('projectSettings.overview.transferDescription')}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled
+              title={$_('projectSettings.overview.transferSoon')}
+              class="btn-secondary inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium opacity-50"
+            >
+              <Building2 class="h-3.5 w-3.5" />
+              {$_('projectSettings.overview.transfer')}
+            </button>
           </div>
-          <button
-            type="button"
-            on:click={openDeleteModal}
-            class="btn-danger inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-          >
-            <Trash2 class="h-3.5 w-3.5" />
-            {$_('common.delete')}
-          </button>
-        </div>
-      {/if}
-    </div>
-  </section>
+
+          <div class="flex items-center justify-between gap-4 px-4 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-900">
+                {isArchived
+                  ? $_('projectSettings.overview.activateProject')
+                  : $_('projectSettings.overview.archiveProject')}
+              </p>
+              <p class="mt-1 text-xs text-slate-500">
+                {isArchived
+                  ? $_('projectSettings.overview.activateDescription')
+                  : $_('projectSettings.overview.archiveDescription')}
+              </p>
+            </div>
+            <button
+              type="button"
+              on:click={openArchiveModal}
+              class="btn-secondary inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+            >
+              {#if isArchived}
+                <ArchiveRestore class="h-3.5 w-3.5" />
+                {$_('projectSettings.overview.activate')}
+              {:else}
+                <Archive class="h-3.5 w-3.5" />
+                {$_('projectSettings.overview.archive')}
+              {/if}
+            </button>
+          </div>
+        {/if}
+
+        {#if data.canDelete}
+          <div class="flex items-center justify-between gap-4 px-4 py-4">
+            <div>
+              <p class="text-sm font-medium text-slate-900">
+                {$_('projectSettings.overview.deleteProject')}
+              </p>
+              <p class="mt-1 text-xs text-slate-500">
+                {$_('projectSettings.overview.deleteDescription')}
+              </p>
+            </div>
+            <button
+              type="button"
+              on:click={openDeleteModal}
+              class="btn-danger inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+            >
+              <Trash2 class="h-3.5 w-3.5" />
+              {$_('common.delete')}
+            </button>
+          </div>
+        {/if}
+      </div>
+    </section>
+  {/if}
 </div>
 
 {#if archiveModalOpen}

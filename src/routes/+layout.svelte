@@ -57,6 +57,7 @@
           canReadOrgProjects={data.canReadOrgProjects}
           canReadOrgUsers={data.canReadOrgUsers}
           canReadOrgRoles={data.canReadOrgRoles}
+          canReadOrgGlobal={data.canReadOrgGlobal}
           canReadOrgBackups={data.canReadOrgBackups}
           canReadOrgServerKeys={data.canReadOrgServerKeys}
           canReadOrgAudit={data.canReadOrgAudit}
@@ -65,6 +66,9 @@
           canReadProjectRoles={data.canReadProjectRoles}
           canReadProjectServerKeys={data.canReadProjectServerKeys}
           canReadProjectAudit={data.canReadProjectAudit}
+          canReadProjectVault={data.canReadProjectVault}
+          canReadProjectCodeReport={data.canReadProjectCodeReport}
+          canReadProjectStateIac={data.canReadProjectStateIac}
           currentProjectSlug={data.currentProjectSlug ?? null}
           bind:collapsed={sidebarCollapsed}
         />
