@@ -1,3 +1,5 @@
+import { error, fail } from '@sveltejs/kit';
+import { cancanService } from '$modules/auth';
 import { projectService } from '$modules/projects';
 
 const DEFAULT_CODE_REPORT_TOOLS = [
@@ -32,8 +34,32 @@ const DEFAULT_CODE_REPORT_TOOLS = [
   },
 ];
 
-export async function load({ params }) {
+export async function load({ params, locals }) {
   const project = await projectService.getProjectBySlug(params.slug);
+
+  const canRead = await cancanService.canSessionUser(
+    locals.user,
+    'project:codereport:reports:read',
+    {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    },
+  );
+
+  if (!canRead) {
+    throw error(403, 'Forbidden');
+  }
+
+  const canUpdate = await cancanService.canSessionUser(
+    locals.user,
+    'project:codereport:reports:update',
+    {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    },
+  );
 
   const codeReportSettings = project.settings?.['code-report'] || {};
   const persistedTools = Array.isArray(codeReportSettings.tools) ? codeReportSettings.tools : [];
@@ -53,15 +79,30 @@ export async function load({ params }) {
 
   return {
     tools,
+    canUpdate,
   };
 }
 
 export const actions = {
-  updateTools: async ({ request, params }) => {
+  updateTools: async ({ request, params, locals }) => {
+    const project = await projectService.getProjectBySlug(params.slug);
+
+    const canUpdate = await cancanService.canSessionUser(
+      locals.user,
+      'project:codereport:reports:update',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId: project.organization?.id,
+      },
+    );
+
+    if (!canUpdate) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
     const data = await request.formData();
     const enabledToolIds = data.getAll('tools');
-
-    const project = await projectService.getProjectBySlug(params.slug);
 
     const currentSettings = project.settings || {};
     const codeReportSettings = currentSettings['code-report'] || {};

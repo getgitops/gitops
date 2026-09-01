@@ -18,10 +18,14 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const [users, roles, canCreate, canDelete] = await Promise.all([
+  const [users, roles, canCreate, canUpdate, canDelete] = await Promise.all([
     userAccessService.listUsers('organization', organization.id),
     roleService.listRoles('organization', organization.id),
     cancanService.canSessionUser(locals.user, 'organization:users:create', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'organization:users:update', {
       scope: 'organization',
       organizationId: organization.id,
     }),
@@ -30,7 +34,7 @@ export async function load({ parent, locals }) {
       organizationId: organization.id,
     }),
   ]);
-  return { users, roles, canCreate, canDelete };
+  return { users, roles, canCreate, canUpdate, canDelete };
 }
 
 export const actions = {

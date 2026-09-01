@@ -11,4 +11,7 @@
   roles={data.roles}
   title={$_('clusterSettings.users.title')}
   description={$_('clusterSettings.users.description')}
+  canCreate={true}
+  canUpdate={true}
+  canDelete={true}
 />

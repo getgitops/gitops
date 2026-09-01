@@ -11,12 +11,15 @@
     "lint": "eslint . --ext .js,.ts,.svelte",
     "test": "svelte-kit sync && vitest run",
     "test:watch": "svelte-kit sync && vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@sveltejs/adapter-auto": "^7.0.1",
     "@sveltejs/adapter-node": "^5.2.11",
     "@sveltejs/kit": "^2.70.3",

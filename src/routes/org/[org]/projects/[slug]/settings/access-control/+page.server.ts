@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import type { AuthenticatedUser } from '$modules/auth/domain/entities';
 import { cancanService, roleService, userAccessService } from '$modules/auth';
 import { projectService } from '$modules/projects';
@@ -27,11 +27,27 @@ async function canUpdateProjectUsers(
 
 export async function load({ parent, locals }) {
   const { project } = await parent();
-  const [users, roles, assignableUsers, canCreate, canDelete] = await Promise.all([
+
+  const canRead = await cancanService.canSessionUser(locals.user, 'project:users:read', {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+
+  if (!canRead) {
+    throw error(403, 'Forbidden');
+  }
+
+  const [users, roles, assignableUsers, canCreate, canUpdate, canDelete] = await Promise.all([
     userAccessService.listUsers('project', project.id),
     roleService.listRoles('project', project.id),
     userAccessService.listAssignableUsers(),
     cancanService.canSessionUser(locals.user, 'project:users:create', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:users:update', {
       scope: 'project',
       projectId: project.id,
       organizationId: project.organization?.id,
@@ -42,7 +58,7 @@ export async function load({ parent, locals }) {
       organizationId: project.organization?.id,
     }),
   ]);
-  return { project, users, roles, assignableUsers, canCreate, canDelete };
+  return { project, users, roles, assignableUsers, canCreate, canUpdate, canDelete };
 }
 
 export const actions = {

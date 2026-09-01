@@ -15,6 +15,7 @@ Google SSO y SAML son configuracion, no estrategias de autenticacion implementad
 - Bun como package manager
 - GitDB como unica capa de persistencia
 - Vitest, ESLint y Prettier
+- Playwright para tests e2e de RBAC (`e2e/`)
 
 Comandos:
 
@@ -25,11 +26,24 @@ bun run build
 bun run check
 bun run lint
 bun run test
+bun run test:e2e
+bun run test:e2e:ui
 bun run format:check
 ```
 
 Los tests usan Vitest con `bun run test`. No usar `bun test`: el runner nativo de Bun no carga
 los aliases ni plugins de Vite/SvelteKit del proyecto.
+
+Aliases de importación (`tsconfig.json`): Usar `$modules` para módulos de lógica de negocio,
+`$lib` para componentes y utilidades compartidas, y rutas relativas para imports locales.
+Ej: `import { userService } from '$modules/auth'` (no `../../modules/auth`).
+
+`bun run test:e2e` ejecuta la suite RBAC de Playwright bajo `e2e/` (requiere
+`bunx playwright install --with-deps chromium` una sola vez). `e2e/global-setup.ts` crea su
+propio repositorio local GitDB descartable, siembra todas las personas de la matriz de permisos
+e inicia el servidor dev contra él—nunca toca el repositorio configurado en `.env`. Las cookies
+de sesión se emiten directamente (mismo esquema HMAC que `SessionService`), sin necesidad de
+automatizar el login excepto en `e2e/specs/login.spec.ts`.
 
 ## Arquitectura
 

@@ -20,6 +20,19 @@ export async function load({ parent, params, locals }) {
     throw error(403, 'Forbidden');
   }
 
+  const [canCreate, canDelete] = await Promise.all([
+    cancanService.canSessionUser(locals.user, 'project:codereport:reports:create', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:codereport:reports:delete', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+  ]);
+
   try {
     const service = await codeReportService.getByProjectIdAndSlug(project.id, params.serviceSlug);
     const analyses = await codeReportAnalysisService.listByService(service.id);
@@ -45,7 +58,15 @@ export async function load({ parent, params, locals }) {
 
     const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
 
-    return { service, latestAnalysis, latestByTool, analysisHistory, riskWeights };
+    return {
+      service,
+      latestAnalysis,
+      latestByTool,
+      analysisHistory,
+      riskWeights,
+      canCreate,
+      canDelete,
+    };
   } catch {
     throw error(404, 'Service not found');
   }

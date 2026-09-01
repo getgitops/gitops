@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { cancanService, roleService } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 
@@ -21,6 +21,11 @@ export async function load({ parent, locals }) {
     scope: 'organization',
     organizationId: organization.id,
   });
+
+  if (!canCreate) {
+    throw error(403, 'Forbidden');
+  }
+
   return { organization, canCreate };
 }
 

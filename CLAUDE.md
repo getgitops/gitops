@@ -19,6 +19,7 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - Bun package manager; do not use npm or yarn
 - GitDB (`@getgitops/gitdb`) as the only persistence layer
 - Vitest, ESLint, and Prettier
+- Playwright for RBAC end-to-end tests (`e2e/`)
 
 ```bash
 bun install
@@ -27,11 +28,25 @@ bun run build
 bun run check
 bun run lint
 bun run test
+bun run test:e2e
+bun run test:e2e:ui
 bun run format:check
 ```
 
 Tests use Vitest through `bun run test`. Do not use the native `bun test` runner: it does not load
 the Vite/SvelteKit aliases and plugins used by this project.
+
+Import aliases (`tsconfig.json`): Use `$modules` for business logic modules, `$lib` for shared
+components and utilities, and relative paths for route-local imports. Examples:
+`import { userService } from '$modules/auth'` (not `../../modules/auth`),
+`import Button from '$lib/components/Button.svelte'`.
+
+`bun run test:e2e` runs the Playwright RBAC suite under `e2e/` (requires
+`bunx playwright install --with-deps chromium` once). `e2e/global-setup.ts` creates its own
+throwaway local GitDB repository, seeds every persona the permission matrix needs, and starts the
+dev server against it — it never touches the repository configured in `.env`. Session cookies are
+minted directly (same HMAC scheme as `SessionService`), so specs don't need to drive the login
+form except in `e2e/specs/login.spec.ts`, which covers that mechanism itself.
 
 ## Architecture
 

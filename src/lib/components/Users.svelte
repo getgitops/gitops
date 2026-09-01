@@ -47,6 +47,7 @@
   export let title = '';
   export let description = '';
   export let canCreate = true;
+  export let canUpdate = false;
   export let canDelete = true;
 
   let users: AccessUserRow[] = initialUsers;
@@ -397,41 +398,45 @@
                   </td>
                 {/if}
                 <td class="px-4 py-3 text-slate-600">
-                  <div class="relative inline-block text-left">
-                    <button
-                      type="button"
-                      on:click={() =>
-                        (openRoleMenuId = openRoleMenuId === user.id ? null : user.id)}
-                      disabled={savingAccessId === user.id || roles.length === 0}
-                      class="btn-secondary inline-flex min-w-44 items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium"
-                    >
-                      <span class="truncate"
-                        >{user.role?.name ?? $_('usersComponent.selectRole')}</span
+                  {#if canUpdate}
+                    <div class="relative inline-block text-left">
+                      <button
+                        type="button"
+                        on:click={() =>
+                          (openRoleMenuId = openRoleMenuId === user.id ? null : user.id)}
+                        disabled={savingAccessId === user.id || roles.length === 0}
+                        class="btn-secondary inline-flex min-w-44 items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium"
                       >
-                      <ChevronDown class="h-4 w-4 shrink-0" />
-                    </button>
-                    {#if openRoleMenuId === user.id}
-                      <div
-                        class="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
-                      >
-                        {#each roles as role (role.id)}
-                          <button
-                            type="button"
-                            on:click={() => selectRole(user, role)}
-                            class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50 {user
-                              .role?.id === role.id
-                              ? 'font-medium text-slate-950'
-                              : 'text-slate-600'}"
-                          >
-                            <span class="truncate">{role.name}</span>
-                            {#if user.role?.id === role.id}
-                              <CheckCircle class="h-4 w-4 text-emerald-600" />
-                            {/if}
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
+                        <span class="truncate"
+                          >{user.role?.name ?? $_('usersComponent.selectRole')}</span
+                        >
+                        <ChevronDown class="h-4 w-4 shrink-0" />
+                      </button>
+                      {#if openRoleMenuId === user.id}
+                        <div
+                          class="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+                        >
+                          {#each roles as role (role.id)}
+                            <button
+                              type="button"
+                              on:click={() => selectRole(user, role)}
+                              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50 {user
+                                .role?.id === role.id
+                                ? 'font-medium text-slate-950'
+                                : 'text-slate-600'}"
+                            >
+                              <span class="truncate">{role.name}</span>
+                              {#if user.role?.id === role.id}
+                                <CheckCircle class="h-4 w-4 text-emerald-600" />
+                              {/if}
+                            </button>
+                          {/each}
+                        </div>
+                      {/if}
+                    </div>
+                  {:else}
+                    <span class="truncate">{user.role?.name ?? $_('usersComponent.selectRole')}</span>
+                  {/if}
                 </td>
                 <td class="px-4 py-3 text-slate-600">
                   <span

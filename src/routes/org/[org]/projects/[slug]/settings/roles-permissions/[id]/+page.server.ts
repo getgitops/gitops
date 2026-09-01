@@ -31,6 +31,17 @@ async function canManageProjectRole(
 
 export async function load({ parent, params, locals }) {
   const { project } = await parent();
+
+  const canRead = await cancanService.canSessionUser(locals.user, 'project:roles:read', {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+
+  if (!canRead) {
+    throw error(403, 'Forbidden');
+  }
+
   const [roles, canUpdate, canDelete] = await Promise.all([
     roleService.listRoles('project', project.id),
     cancanService.canSessionUser(locals.user, 'project:roles:update', {

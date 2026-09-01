@@ -12,6 +12,8 @@
     analysisHistory: any[];
     riskWeights: { critical: number; high: number; medium: number; low: number };
     project?: { slug?: string; organization?: { slug?: string | null } | null };
+    canCreate: boolean;
+    canDelete: boolean;
   };
   export let form: {
     error?: string;
@@ -45,16 +47,18 @@
       >
         <History class="h-4 w-4" />{$_('codeReport.serviceDetail.viewHistory')}
       </a>
-      <button
-        type="button"
-        on:click={() => {
-          deleteError = null;
-          deleteModalOpen = true;
-        }}
-        class="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600"
-      >
-        <Trash2 class="h-4 w-4" />{$_('codeReport.serviceDetail.deleteTitle')}
-      </button>
+      {#if data.canDelete}
+        <button
+          type="button"
+          on:click={() => {
+            deleteError = null;
+            deleteModalOpen = true;
+          }}
+          class="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600"
+        >
+          <Trash2 class="h-4 w-4" />{$_('codeReport.serviceDetail.deleteTitle')}
+        </button>
+      {/if}
     </div>
   </div>
 

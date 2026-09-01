@@ -8,6 +8,7 @@
     assignableUsers: any[];
     project: { name: string };
     canCreate: boolean;
+    canUpdate: boolean;
     canDelete: boolean;
   };
 </script>
@@ -20,5 +21,6 @@
   title={$_('projectSettings.users.title')}
   description={`${$_('projectSettings.users.descriptionPrefix')} ${data.project.name}${$_('projectSettings.users.descriptionSuffix')}`}
   canCreate={data.canCreate}
+  canUpdate={data.canUpdate}
   canDelete={data.canDelete}
 />

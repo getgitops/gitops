@@ -2,7 +2,13 @@
   import Users from '$lib/components/Users.svelte';
   import { _ } from 'svelte-i18n';
 
-  export let data: { users: any[]; roles: any[]; canCreate: boolean; canDelete: boolean };
+  export let data: {
+    users: any[];
+    roles: any[];
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  };
 </script>
 
 <Users
@@ -12,5 +18,6 @@
   title={$_('orgSettings.users.title')}
   description={$_('orgSettings.users.description')}
   canCreate={data.canCreate}
+  canUpdate={data.canUpdate}
   canDelete={data.canDelete}
 />
