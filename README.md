@@ -155,6 +155,19 @@ bun run test
 bun run format:check
 ```
 
+### End-to-end tests
+
+RBAC (roles/permissions across every catalog resource) is covered by a Playwright suite under
+`e2e/`. It's fully self-contained: `e2e/global-setup.ts` creates a throwaway local GitDB
+repository, seeds it directly with every persona the matrix needs, and starts the dev server
+against it — it never touches the repository configured in your own `.env`.
+
+```bash
+bunx playwright install --with-deps chromium   # once
+bun run test:e2e
+bun run test:e2e:ui                            # interactive UI mode
+```
+
 ## Contributing
 
 Forks and first-time contributors are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the

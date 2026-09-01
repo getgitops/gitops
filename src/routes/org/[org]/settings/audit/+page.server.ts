@@ -1,8 +1,20 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { auditService } from '$modules/audit';
+import { cancanService } from '$modules/auth';
+import { organizationService } from '$modules/organization';
 
-export async function load({ parent, url }) {
+export async function load({ parent, url, locals }) {
   const { organization } = await parent();
+
+  if (
+    !(await cancanService.canSessionUser(locals.user, 'organization:audit:read', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }))
+  ) {
+    throw error(403, 'Forbidden');
+  }
+
   const { events, page, perPage, total, totalPages } = await auditService.listEvents({
     organizationId: organization.id,
     search: url.searchParams.get('search') || undefined,
@@ -20,7 +32,17 @@ export async function load({ parent, url }) {
 }
 
 export const actions = {
-  async viewDiff({ request }) {
+  async viewDiff({ request, locals, params }) {
+    const organization = await organizationService.findBySlug(params.org);
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:audit:read', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
+      return fail(403, { error: 'Forbidden' });
+    }
+
     const form = await request.formData();
     const commit = String(form.get('commit') ?? '');
     const entity = String(form.get('entity') ?? '');

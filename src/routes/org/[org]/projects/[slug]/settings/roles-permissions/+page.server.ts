@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { cancanService, roleService } from '$modules/auth';
 import { projectService } from '$modules/projects';
 
@@ -27,10 +27,28 @@ async function canManageProjectRole(
   return { project, allowed };
 }
 
-export async function load({ parent }) {
+export async function load({ parent, locals }) {
   const { project } = await parent();
-  const roles = await roleService.listRoles('project', project.id);
-  return { roles };
+
+  const canRead = await cancanService.canSessionUser(locals.user, 'project:roles:read', {
+    scope: 'project',
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  });
+
+  if (!canRead) {
+    throw error(403, 'Forbidden');
+  }
+
+  const [roles, canCreate] = await Promise.all([
+    roleService.listRoles('project', project.id),
+    cancanService.canSessionUser(locals.user, 'project:roles:create', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+  ]);
+  return { roles, canCreate };
 }
 
 export const actions = {

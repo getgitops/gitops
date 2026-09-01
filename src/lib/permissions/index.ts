@@ -20,6 +20,16 @@ function collectPermissionGrants(section: PermissionConfigSection): string[] {
   ];
 }
 
+// historically stripped the leading scope segment for a shorter "canonical" stored form, but
+// CanCanService.hasPermission compares raw strings with no scope-aware reconstruction — the
+// catalog permission string (e.g. 'organization:projects:read') IS the stored/checked grant.
+export function toStoredPermissionGrant(
+  permission: string,
+  _scope: PermissionScope,
+): PermissionGrant {
+  return permission;
+}
+
 /**
  * Grants are always canonical: `<scope>:<resource path>:<action>`, exactly as declared in the
  * catalog (`project:vault:secrets:read`, `organization:projects:create`, `cluster:users:invite`).

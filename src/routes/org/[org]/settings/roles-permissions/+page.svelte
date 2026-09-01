@@ -2,7 +2,11 @@
   import RolePermissions from '$lib/components/RolePermissions.svelte';
   import { _ } from 'svelte-i18n';
 
-  export let data: { organization: { id: string; slug: string }; roles: any[] };
+  export let data: {
+    organization: { id: string; slug: string };
+    roles: any[];
+    canCreate: boolean;
+  };
 </script>
 
 <RolePermissions
@@ -10,4 +14,5 @@
   title={$_('orgSettings.roles.title')}
   description={$_('orgSettings.roles.description')}
   baseHref={`/org/${data.organization.slug}/settings/roles-permissions`}
+  canCreate={data.canCreate}
 />

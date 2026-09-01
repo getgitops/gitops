@@ -12,3 +12,7 @@ data/
 .claude/.claude-md-review-state
 code-report-analysis/
 .gitdb*/
+e2e/.tmp/
+test-results/
+playwright-report/
+blob-report/

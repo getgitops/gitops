@@ -38,6 +38,21 @@
   export let canAccessClusterSettings = false;
   export let canManageOrganization = false;
   export let canManageProject = false;
+  export let canReadOrgProjects = false;
+  export let canReadOrgUsers = false;
+  export let canReadOrgRoles = false;
+  export let canReadOrgGlobal = false;
+  export let canReadOrgBackups = false;
+  export let canReadOrgServerKeys = false;
+  export let canReadOrgAudit = false;
+  export let canReadProjectInfo = false;
+  export let canReadProjectUsers = false;
+  export let canReadProjectRoles = false;
+  export let canReadProjectServerKeys = false;
+  export let canReadProjectAudit = false;
+  export let canReadProjectVault = false;
+  export let canReadProjectCodeReport = false;
+  export let canReadProjectStateIac = false;
   export let currentProjectSlug: string | null = null;
   export let projects: {
     slug: string;
@@ -87,7 +102,7 @@
         },
       ],
     },
-    ...(currentProject?.modules?.vault
+    ...(currentProject?.modules?.vault && canReadProjectVault
       ? [
           {
             name: $_('sidebar.categories.seguridad'),
@@ -107,7 +122,7 @@
           },
         ]
       : []),
-    ...(currentProject?.modules?.codereport
+    ...(currentProject?.modules?.codereport && canReadProjectCodeReport
       ? [
           {
             name: $_('sidebar.categories.analisis'),
@@ -153,7 +168,7 @@
           },
         ]
       : []),
-    ...(currentProject?.modules?.stateiac
+    ...(currentProject?.modules?.stateiac && canReadProjectStateIac
       ? [
           {
             name: $_('sidebar.categories.gitops'),
@@ -174,94 +189,122 @@
         ]
       : []),
     ...(currentProjectSlug && canManageProject
-      ? [
-          {
-            name: $_('sidebar.categories.proyecto'),
-            modules: [
-              {
-                name: $_('sidebar.modules.projectSettings'),
-                icon: FolderKanban,
-                base: `${projectBase}/settings`,
-                items: [
-                  {
-                    label: $_('sidebar.items.information'),
-                    href: `${projectBase}/settings/overview`,
-                    icon: Info,
-                  },
-                  {
-                    label: $_('sidebar.items.accessControl'),
-                    href: `${projectBase}/settings/access-control`,
-                    icon: Users,
-                  },
-                  {
-                    label: $_('sidebar.items.rolesAndPermissions'),
-                    href: `${projectBase}/settings/roles-permissions`,
-                    icon: Shield,
-                  },
-                  {
-                    label: $_('sidebar.items.audit'),
-                    href: `${projectBase}/settings/audit`,
-                    icon: ScrollText,
-                  },
-                  {
-                    label: $_('sidebar.items.serverKeys'),
-                    href: `${projectBase}/settings/server-access-keys`,
-                    icon: Shield,
-                  },
-                ],
-              },
-            ],
-          },
-        ]
+      ? (() => {
+          const items = [
+            {
+              label: $_('sidebar.items.information'),
+              href: `${projectBase}/settings/overview`,
+              icon: Info,
+              visible: canReadProjectInfo,
+            },
+            {
+              label: $_('sidebar.items.accessControl'),
+              href: `${projectBase}/settings/access-control`,
+              icon: Users,
+              visible: canReadProjectUsers,
+            },
+            {
+              label: $_('sidebar.items.rolesAndPermissions'),
+              href: `${projectBase}/settings/roles-permissions`,
+              icon: Shield,
+              visible: canReadProjectRoles,
+            },
+            {
+              label: $_('sidebar.items.audit'),
+              href: `${projectBase}/settings/audit`,
+              icon: ScrollText,
+              visible: canReadProjectAudit,
+            },
+            {
+              label: $_('sidebar.items.serverKeys'),
+              href: `${projectBase}/settings/server-access-keys`,
+              icon: Shield,
+              visible: canReadProjectServerKeys,
+            },
+          ]
+            .filter((item) => item.visible)
+            .map(({ visible, ...item }) => item);
+
+          return items.length > 0
+            ? [
+                {
+                  name: $_('sidebar.categories.proyecto'),
+                  modules: [
+                    {
+                      name: $_('sidebar.modules.projectSettings'),
+                      icon: FolderKanban,
+                      base: `${projectBase}/settings`,
+                      items,
+                    },
+                  ],
+                },
+              ]
+            : [];
+        })()
       : []),
     {
       name: $_('sidebar.categories.sistema'),
       modules: [
         ...(organizationSlug && canManageOrganization
-          ? [
-              {
-                name: $_('sidebar.modules.organizationSettings'),
-                icon: Settings,
-                base: `/org/${organizationSlug}/settings`,
-                items: [
-                  {
-                    label: $_('sidebar.items.projects'),
-                    href: `/org/${organizationSlug}/settings/projects`,
-                    icon: FolderKanban,
-                  },
-                  {
-                    label: $_('sidebar.items.global'),
-                    href: `/org/${organizationSlug}/settings/global`,
-                    icon: Shield,
-                  },
-                  {
-                    label: $_('sidebar.items.accessControl'),
-                    href: `/org/${organizationSlug}/settings/access-control`,
-                    icon: Users,
-                  },
-                  {
-                    label: $_('sidebar.items.rolesAndPermissions'),
-                    href: `/org/${organizationSlug}/settings/roles-permissions`,
-                    icon: Users,
-                  },
-                  {
-                    label: $_('sidebar.items.systemAndBackup'),
-                    href: `/org/${organizationSlug}/settings/system-backup`,
-                    icon: Database,
-                  },
-                  {
-                    label: $_('sidebar.items.serverAccessKeys'),
-                    href: `/org/${organizationSlug}/settings/server-access-keys`,
-                    icon: KeyRound,
-                  },
-                  {
-                    label: $_('sidebar.items.audit'),
-                    href: `/org/${organizationSlug}/settings/audit`,
-                    icon: ScrollText,
-                  },
-                ],
-              },
-            ]
+          ? (() => {
+              const items = [
+                {
+                  label: $_('sidebar.items.projects'),
+                  href: `/org/${organizationSlug}/settings/projects`,
+                  icon: FolderKanban,
+                  visible: canReadOrgProjects,
+                },
+                {
+                  label: $_('sidebar.items.global'),
+                  href: `/org/${organizationSlug}/settings/global`,
+                  icon: Shield,
+                  visible: canReadOrgGlobal,
+                },
+                {
+                  label: $_('sidebar.items.accessControl'),
+                  href: `/org/${organizationSlug}/settings/access-control`,
+                  icon: Users,
+                  visible: canReadOrgUsers,
+                },
+                {
+                  label: $_('sidebar.items.rolesAndPermissions'),
+                  href: `/org/${organizationSlug}/settings/roles-permissions`,
+                  icon: Users,
+                  visible: canReadOrgRoles,
+                },
+                {
+                  label: $_('sidebar.items.systemAndBackup'),
+                  href: `/org/${organizationSlug}/settings/system-backup`,
+                  icon: Database,
+                  visible: canReadOrgBackups,
+                },
+                {
+                  label: $_('sidebar.items.serverAccessKeys'),
+                  href: `/org/${organizationSlug}/settings/server-access-keys`,
+                  icon: KeyRound,
+                  visible: canReadOrgServerKeys,
+                },
+                {
+                  label: $_('sidebar.items.audit'),
+                  href: `/org/${organizationSlug}/settings/audit`,
+                  icon: ScrollText,
+                  visible: canReadOrgAudit,
+                },
+              ]
+                .filter((item) => item.visible)
+                .map(({ visible, ...item }) => item);
+
+              return items.length > 0
+                ? [
+                    {
+                      name: $_('sidebar.modules.organizationSettings'),
+                      icon: Settings,
+                      base: `/org/${organizationSlug}/settings`,
+                      items,
+                    },
+                  ]
+                : [];
+            })()
           : []),
         ...(canAccessClusterSettings
           ? [

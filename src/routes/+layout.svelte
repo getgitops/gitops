@@ -54,6 +54,21 @@
           canAccessClusterSettings={data.canAccessClusterSettings}
           canManageOrganization={data.canManageOrganization}
           canManageProject={data.canManageProject}
+          canReadOrgProjects={data.canReadOrgProjects}
+          canReadOrgUsers={data.canReadOrgUsers}
+          canReadOrgRoles={data.canReadOrgRoles}
+          canReadOrgGlobal={data.canReadOrgGlobal}
+          canReadOrgBackups={data.canReadOrgBackups}
+          canReadOrgServerKeys={data.canReadOrgServerKeys}
+          canReadOrgAudit={data.canReadOrgAudit}
+          canReadProjectInfo={data.canReadProjectInfo}
+          canReadProjectUsers={data.canReadProjectUsers}
+          canReadProjectRoles={data.canReadProjectRoles}
+          canReadProjectServerKeys={data.canReadProjectServerKeys}
+          canReadProjectAudit={data.canReadProjectAudit}
+          canReadProjectVault={data.canReadProjectVault}
+          canReadProjectCodeReport={data.canReadProjectCodeReport}
+          canReadProjectStateIac={data.canReadProjectStateIac}
           currentProjectSlug={data.currentProjectSlug ?? null}
           bind:collapsed={sidebarCollapsed}
         />

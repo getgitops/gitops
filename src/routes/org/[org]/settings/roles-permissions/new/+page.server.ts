@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { cancanService, roleService } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 
@@ -15,15 +15,29 @@ function errorResponse(errorValue: unknown) {
   });
 }
 
-export async function load({ parent }) {
+export async function load({ parent, locals }) {
   const { organization } = await parent();
-  return { organization };
+  const canCreate = await cancanService.canSessionUser(locals.user, 'organization:roles:create', {
+    scope: 'organization',
+    organizationId: organization.id,
+  });
+
+  if (!canCreate) {
+    throw error(403, 'Forbidden');
+  }
+
+  return { organization, canCreate };
 }
 
 export const actions = {
   async createRole({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:roles:create', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 

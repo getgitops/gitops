@@ -15,6 +15,7 @@
   };
 
   $: tools = data.tools as AnalysisTool[];
+  $: canUpdate = data.canUpdate;
   let localTools: AnalysisTool[] = [];
 
   $: localTools = tools.map((tool: AnalysisTool) => ({ ...tool }));
@@ -50,7 +51,7 @@
       {#each localTools as tool}
         <div class="flex items-start gap-4 rounded-lg border border-slate-200 p-4 transition-colors hover:bg-slate-50">
           <div class="flex h-6 items-center">
-            <input type="checkbox" id={`tool-${tool.id}`} name="tools" value={tool.id} bind:checked={tool.enabled} disabled={tool.soon} class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
+            <input type="checkbox" id={`tool-${tool.id}`} name="tools" value={tool.id} bind:checked={tool.enabled} disabled={tool.soon || !canUpdate} class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" />
           </div>
           <div class="flex-1">
             <label for={`tool-${tool.id}`} class="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-900 {tool.soon ? 'opacity-70' : ''}">
@@ -75,10 +76,12 @@
       {/each}
     </div>
 
-    <div class="mt-6 flex justify-end border-t border-slate-100 pt-5">
-      <button type="submit" disabled={loading} class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50">
-        {loading ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
-      </button>
-    </div>
+    {#if canUpdate}
+      <div class="mt-6 flex justify-end border-t border-slate-100 pt-5">
+        <button type="submit" disabled={loading} class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:opacity-50">
+          {loading ? $_('common.saving') : $_('projectSettings.overview.saveChanges')}
+        </button>
+      </div>
+    {/if}
   </form>
 </div>

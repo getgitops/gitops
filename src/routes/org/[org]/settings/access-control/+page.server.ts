@@ -1,4 +1,4 @@
-import { fail } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { cancanService, roleService, userAccessService } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 
@@ -6,19 +6,46 @@ function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'User action failed.' });
 }
 
-export async function load({ parent }) {
+export async function load({ parent, locals }) {
   const { organization } = await parent();
-  const [users, roles] = await Promise.all([
+
+  if (
+    !(await cancanService.canSessionUser(locals.user, 'organization:users:read', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }))
+  ) {
+    throw error(403, 'Forbidden');
+  }
+
+  const [users, roles, canCreate, canUpdate, canDelete] = await Promise.all([
     userAccessService.listUsers('organization', organization.id),
     roleService.listRoles('organization', organization.id),
+    cancanService.canSessionUser(locals.user, 'organization:users:create', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'organization:users:update', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'organization:users:delete', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
   ]);
-  return { users, roles };
+  return { users, roles, canCreate, canUpdate, canDelete };
 }
 
 export const actions = {
   async addUser({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:users:create', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -39,7 +66,12 @@ export const actions = {
 
   async inviteUser({ request, locals, params, url }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:users:invite', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -60,7 +92,12 @@ export const actions = {
 
   async updateUserAccess({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:users:update', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -81,7 +118,12 @@ export const actions = {
 
   async removeUserAccess({ request, locals, params }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:users:delete', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 
@@ -100,7 +142,12 @@ export const actions = {
 
   async resendInvitation({ request, locals, params, url }) {
     const organization = await organizationService.findBySlug(params.org);
-    if (!(await cancanService.canManageOrganization(locals.user, organization.id))) {
+    if (
+      !(await cancanService.canSessionUser(locals.user, 'organization:users:invite', {
+        scope: 'organization',
+        organizationId: organization.id,
+      }))
+    ) {
       return fail(403, { error: 'Forbidden' });
     }
 

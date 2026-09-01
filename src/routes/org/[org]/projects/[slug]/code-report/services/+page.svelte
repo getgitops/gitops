@@ -32,6 +32,7 @@
   export let data: {
     services: ServiceRow[];
     project?: { slug?: string; organization?: { slug?: string | null } | null };
+    canCreate: boolean;
   };
   export let form: {
     success?: boolean;
@@ -113,14 +114,16 @@
         class="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
       />
     </div>
-    <button
-      type="button"
-      on:click={openModal}
-      class="inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-    >
-      <Plus class="h-4 w-4" />
-      {$_('codeReport.services.addService')}
-    </button>
+    {#if data.canCreate}
+      <button
+        type="button"
+        on:click={openModal}
+        class="inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+      >
+        <Plus class="h-4 w-4" />
+        {$_('codeReport.services.addService')}
+      </button>
+    {/if}
   </div>
 
   {#if filteredServices.length === 0}

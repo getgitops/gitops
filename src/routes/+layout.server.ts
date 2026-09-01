@@ -35,6 +35,33 @@ export async function load({ locals, url }) {
   const canManageOrganization = organization
     ? await cancanService.canManageOrganization(locals.user, organization.id)
     : false;
+
+  const orgSectionPermission = (permission: string) =>
+    organization
+      ? cancanService.canSessionUser(locals.user, permission, {
+          scope: 'organization',
+          organizationId: organization.id,
+        })
+      : Promise.resolve(false);
+
+  const [
+    canReadOrgProjects,
+    canReadOrgUsers,
+    canReadOrgRoles,
+    canReadOrgGlobal,
+    canReadOrgBackups,
+    canReadOrgServerKeys,
+    canReadOrgAudit,
+  ] = await Promise.all([
+    orgSectionPermission('organization:projects:read'),
+    orgSectionPermission('organization:users:read'),
+    orgSectionPermission('organization:roles:read'),
+    orgSectionPermission('organization:settings:read'),
+    orgSectionPermission('organization:backups:read'),
+    orgSectionPermission('organization:server-keys:read'),
+    orgSectionPermission('organization:audit:read'),
+  ]);
+
   const currentProjectSlug = url.pathname.match(/\/projects\/([^/]+)/)?.[1] ?? null;
 
   const projects = locals.user
@@ -44,11 +71,11 @@ export async function load({ locals, url }) {
             .filter((project) => project.status === 'active')
             .map(async (project) => ({
               project,
-              allowed: await cancanService.canSessionUser(locals.user, 'project:project:read', {
-                scope: 'project',
-                projectId: project.id,
-                organizationId: project.organization?.id,
-              }),
+              allowed: await cancanService.canManageProject(
+                locals.user,
+                project.id,
+                project.organization?.id,
+              ),
             })),
         )
       )
@@ -68,6 +95,53 @@ export async function load({ locals, url }) {
       )
     : false;
 
+  const projectSectionPermission = (permission: string) =>
+    currentProject
+      ? cancanService.canSessionUser(locals.user, permission, {
+          scope: 'project',
+          projectId: currentProject.id,
+          organizationId: currentProject.organization?.id,
+        })
+      : Promise.resolve(false);
+
+  const [
+    canReadProjectInfo,
+    canReadProjectUsers,
+    canReadProjectRoles,
+    canReadProjectServerKeys,
+    canReadProjectAudit,
+    canReadProjectVaultSecrets,
+    canReadProjectVaultEnvironments,
+    canReadProjectCodeReportReports,
+    canReadProjectCodeReportDependencies,
+    canReadProjectCodeReportVulnerabilities,
+    canReadProjectStateIacStacks,
+    canReadProjectStateIacStates,
+    canReadProjectStateIacHistory,
+  ] = await Promise.all([
+    projectSectionPermission('project:project:read'),
+    projectSectionPermission('project:users:read'),
+    projectSectionPermission('project:roles:read'),
+    projectSectionPermission('project:server-keys:read'),
+    projectSectionPermission('project:audit:read'),
+    projectSectionPermission('project:vault:secrets:read'),
+    projectSectionPermission('project:vault:environments:read'),
+    projectSectionPermission('project:codereport:reports:read'),
+    projectSectionPermission('project:codereport:dependencies:read'),
+    projectSectionPermission('project:codereport:vulnerabilities:read'),
+    projectSectionPermission('project:stateiac:stacks:read'),
+    projectSectionPermission('project:stateiac:states:read'),
+    projectSectionPermission('project:stateiac:history:read'),
+  ]);
+
+  const canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments;
+  const canReadProjectCodeReport =
+    canReadProjectCodeReportReports ||
+    canReadProjectCodeReportDependencies ||
+    canReadProjectCodeReportVulnerabilities;
+  const canReadProjectStateIac =
+    canReadProjectStateIacStacks || canReadProjectStateIacStates || canReadProjectStateIacHistory;
+
   return {
     // isConfigured: !!config && backends.length > 0,
     isConfigured: true,
@@ -79,6 +153,21 @@ export async function load({ locals, url }) {
     canAccessClusterSettings,
     canManageOrganization,
     canManageProject,
+    canReadOrgProjects,
+    canReadOrgUsers,
+    canReadOrgRoles,
+    canReadOrgGlobal,
+    canReadOrgBackups,
+    canReadOrgServerKeys,
+    canReadOrgAudit,
+    canReadProjectInfo,
+    canReadProjectUsers,
+    canReadProjectRoles,
+    canReadProjectServerKeys,
+    canReadProjectAudit,
+    canReadProjectVault,
+    canReadProjectCodeReport,
+    canReadProjectStateIac,
     currentProjectSlug,
   };
 }

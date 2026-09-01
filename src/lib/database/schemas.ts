@@ -27,8 +27,8 @@ export const RoleEntity = entity('roles', {
   slug: text().notNull(),
   name: text().notNull(),
   scope: text().notNull().default('cluster'),
-  organizationId: uuid(),
-  projectId: uuid(),
+  organizationId: uuid().$defaultFn(() => null),
+  projectId: uuid().$defaultFn(() => null),
   permissions: json()
     .notNull()
     .$defaultFn(() => []),
@@ -44,8 +44,8 @@ export const RoleEntity = entity('roles', {
 // `roleId` is only meaningful for project keys and points to a project-scoped role
 export const ApiKeyEntity = entity('api_keys', {
   id: uuid().primaryKey(),
-  userId: uuid(),
-  projectId: uuid(),
+  userId: uuid().notNull(),
+  projectId: uuid().$defaultFn(() => null),
   roleId: uuid(),
   createdByUserId: uuid(),
   name: text().notNull(),
@@ -64,8 +64,8 @@ export const UserAccessEntity = entity('user_access', {
   userId: uuid().notNull(),
   roleId: uuid().notNull(),
   scope: text().notNull(),
-  organizationId: uuid(),
-  projectId: uuid(),
+  organizationId: uuid().$defaultFn(() => null),
+  projectId: uuid().$defaultFn(() => null),
   status: text().notNull().default('active'),
   createdAt: timestamp()
     .notNull()

@@ -2,81 +2,15 @@ import crypto from 'crypto';
 import { isValidPermissionGrant, normalizePermissionGrants } from '$lib/permissions';
 import type { RoleRepository } from '../infrastructure/repositories/role.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
+import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
 import type { RoleScope } from '../domain/role.domain';
-
-const ORGANIZATION_ADMIN_PERMISSIONS = [
-  'organization:projects:all',
-  'organization:users:all',
-  'organization:roles:all',
-  'organization:backups:all',
-  'organization:server-keys:all',
-  'organization:audit:all',
-];
-
-const ORGANIZATION_DEVELOPER_PERMISSIONS = [
-  'organization:projects:read',
-  'organization:projects:create',
-  'organization:projects:update',
-];
-
-const PROJECT_ADMIN_PERMISSIONS = [
-  'project:project:all',
-  'project:users:all',
-  'project:roles:all',
-  'project:server-keys:all',
-  'project:audit:all',
-  'project:vault:secrets:all',
-  'project:vault:environments:all',
-  'project:codereport:reports:all',
-  'project:codereport:dependencies:all',
-  'project:codereport:vulnerabilities:all',
-  'project:stateiac:stacks:all',
-  'project:stateiac:states:all',
-  'project:stateiac:history:all',
-];
-
-const PROJECT_DEVELOPER_PERMISSIONS = [
-  'project:vault:secrets:read',
-  'project:vault:secrets:create',
-  'project:vault:secrets:update',
-  'project:vault:environments:read',
-  'project:vault:environments:create',
-  'project:vault:environments:update',
-  'project:codereport:reports:read',
-  'project:codereport:reports:create',
-  'project:codereport:reports:update',
-  'project:codereport:dependencies:read',
-  'project:codereport:dependencies:create',
-  'project:codereport:dependencies:update',
-  'project:codereport:vulnerabilities:read',
-  'project:codereport:vulnerabilities:create',
-  'project:codereport:vulnerabilities:update',
-  'project:stateiac:stacks:read',
-  'project:stateiac:stacks:create',
-  'project:stateiac:stacks:update',
-  'project:stateiac:states:read',
-  'project:stateiac:states:create',
-  'project:stateiac:states:update',
-  'project:stateiac:history:read',
-  'project:stateiac:history:create',
-  'project:stateiac:history:update',
-];
-
-const PROJECT_VIEWER_PERMISSIONS = [
-  'project:project:read',
-  'project:users:read',
-  'project:roles:read',
-  'project:server-keys:read',
-  'project:audit:read',
-  'project:vault:secrets:read',
-  'project:vault:environments:read',
-  'project:codereport:reports:read',
-  'project:codereport:dependencies:read',
-  'project:codereport:vulnerabilities:read',
-  'project:stateiac:stacks:read',
-  'project:stateiac:states:read',
-  'project:stateiac:history:read',
-];
+import {
+  ORGANIZATION_ADMIN_PERMISSIONS,
+  ORGANIZATION_DEVELOPER_PERMISSIONS,
+  PROJECT_ADMIN_PERMISSIONS,
+  PROJECT_DEVELOPER_PERMISSIONS,
+  PROJECT_VIEWER_PERMISSIONS,
+} from '../domain/role-permissions.data';
 
 export class RoleService {
   constructor(
@@ -85,6 +19,7 @@ export class RoleService {
       'findAll' | 'findById' | 'findBySlug' | 'create' | 'update' | 'deleteById'
     >,
     private readonly userRepository: Pick<UserRepository, 'countByRoleId'>,
+    private readonly userAccessRepository: Pick<UserAccessRepository, 'countByRoleId'>,
   ) {}
 
   async listRoles(scope: RoleScope = 'cluster', scopeId?: string): Promise<any[]> {
@@ -242,6 +177,11 @@ export class RoleService {
 
     const usersWithRole = await this.userRepository.countByRoleId(id);
     if (usersWithRole > 0) {
+      throw new Error('Cannot delete a role that is assigned to existing users.');
+    }
+
+    const accessWithRole = await this.userAccessRepository.countByRoleId(id);
+    if (accessWithRole > 0) {
       throw new Error('Cannot delete a role that is assigned to existing users.');
     }
 

@@ -5,12 +5,7 @@ import { cancanService } from '$modules/auth';
 export async function load({ locals, parent }) {
   const { organization } = await parent();
 
-  if (
-    !(await cancanService.canSessionUser(locals.user, 'organization:projects:read', {
-      scope: 'organization',
-      organizationId: organization.id,
-    }))
-  ) {
+  if (!(await cancanService.canViewOrganization(locals.user, organization.id))) {
     throw error(403, 'Forbidden');
   }
 

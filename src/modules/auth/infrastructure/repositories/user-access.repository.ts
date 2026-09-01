@@ -9,7 +9,7 @@ import { Repository } from './repository';
 export class UserAccessRepository extends Repository {
   async findAll(): Promise<UserAccessDomain[]> {
     const result = await this.db
-      .with({ user: true, role: true, organization: true, project: true })
+      .with({ user: true, role: true, organization: true, project: { organization: true } })
       .select()
       .from(UserAccessEntity)
       .orderBy('createdAt', 'asc');
@@ -18,7 +18,7 @@ export class UserAccessRepository extends Repository {
 
   async findByUserId(userId: string): Promise<UserAccessDomain[]> {
     const result = await this.db
-      .with({ user: true, role: true, organization: true, project: true })
+      .with({ user: true, role: true, organization: true, project: { organization: true } })
       .select()
       .from(UserAccessEntity)
       .where({ userId })
@@ -28,7 +28,7 @@ export class UserAccessRepository extends Repository {
 
   async findById(id: string): Promise<UserAccessDomain | null> {
     const result = await this.db
-      .with({ user: true, role: true, organization: true, project: true })
+      .with({ user: true, role: true, organization: true, project: { organization: true } })
       .select()
       .from(UserAccessEntity)
       .where({ id })
@@ -117,5 +117,10 @@ export class UserAccessRepository extends Repository {
 
   async deleteById(id: string): Promise<void> {
     await this.db.delete(UserAccessEntity).where({ id });
+  }
+
+  async countByRoleId(roleId: string): Promise<number> {
+    const result = await this.db.select().from(UserAccessEntity).where({ roleId });
+    return result.rows.length;
   }
 }

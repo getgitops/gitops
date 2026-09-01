@@ -21,6 +21,16 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
+  const canCreate = await cancanService.canSessionUser(
+    locals.user,
+    'project:codereport:reports:create',
+    {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    },
+  );
+
   const services = await codeReportService.listByProject(project.id);
 
   const servicesWithSeverity = await Promise.all(
@@ -38,7 +48,7 @@ export async function load({ parent, locals }) {
     }),
   );
 
-  return { services: servicesWithSeverity };
+  return { services: servicesWithSeverity, canCreate };
 }
 
 export const actions = {
@@ -70,7 +80,7 @@ export const actions = {
 
     try {
       await codeReportService.createService({
-        projectId: project.id,
+        project: params.slug,
         name,
         slug: slug || undefined,
         description: description || undefined,

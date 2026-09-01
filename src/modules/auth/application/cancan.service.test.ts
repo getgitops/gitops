@@ -166,6 +166,21 @@ describe('CanCanService', () => {
     ).toBe(false);
   });
 
+  it('matches an N-segment wildcard grant against a narrower same-resource check', () => {
+    expect(
+      CanCanService.hasPermission(['organization:projects:all'], 'organization:projects:read'),
+    ).toBe(true);
+    expect(
+      CanCanService.hasPermission(['project:vault:secrets:all'], 'project:vault:secrets:read'),
+    ).toBe(true);
+    expect(
+      CanCanService.hasPermission(['organization:projects:all'], 'organization:users:read'),
+    ).toBe(false);
+    expect(
+      CanCanService.hasPermission(['organization:projects:read'], 'organization:projects:all'),
+    ).toBe(false);
+  });
+
   it('allows a cluster admin without organization or project access rows', async () => {
     userRepository.rows.set(
       'jose',
@@ -276,6 +291,191 @@ describe('CanCanService', () => {
     await expect(service.can('jose', 'cluster:projects:read', { scope: 'cluster' })).resolves.toBe(
       true,
     );
+  });
+
+  describe('organization role authority cascades into its projects', () => {
+    it('lets organization:projects:<action> satisfy the matching project:* check', async () => {
+      userRepository.rows.set('jose', user({ id: 'jose', role: null }));
+      projectLookup.organizationsByProjectId.set('kettu', 'gitops');
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({
+            id: 'org-developer',
+            slug: 'org-developer',
+            scope: 'organization',
+            permissions: ['organization:projects:read', 'organization:projects:update'],
+          }),
+        }),
+      );
+
+      await expect(
+        service.can('jose', 'project:project:read', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(true);
+      await expect(
+        service.can('jose', 'project:vault:secrets:read', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(true);
+      await expect(
+        service.can('jose', 'project:project:update', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(true);
+      // org-developer has no organization:projects:delete grant, so nothing project-scoped
+      // that maps to "delete" should be authorized either
+      await expect(
+        service.can('jose', 'project:project:delete', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(false);
+    });
+
+    it('organization:projects:all satisfies every action inside the org projects', async () => {
+      userRepository.rows.set('jose', user({ id: 'jose', role: null }));
+      projectLookup.organizationsByProjectId.set('kettu', 'gitops');
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({
+            id: 'custom-org-role',
+            slug: 'custom-org-role',
+            scope: 'organization',
+            permissions: ['organization:projects:all'],
+          }),
+        }),
+      );
+
+      await expect(
+        service.can('jose', 'project:roles:delete', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(true);
+    });
+
+    it('does not let unrelated organization permissions leak into project checks', async () => {
+      userRepository.rows.set('jose', user({ id: 'jose', role: null }));
+      projectLookup.organizationsByProjectId.set('kettu', 'gitops');
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({
+            id: 'org-users-manager',
+            slug: 'org-users-manager',
+            scope: 'organization',
+            permissions: ['organization:users:all'],
+          }),
+        }),
+      );
+
+      await expect(
+        service.can('jose', 'project:project:read', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(false);
+    });
+
+    it('a project-specific assignment wins over broader organization access (most-specific-wins)', async () => {
+      userRepository.rows.set('jose', user({ id: 'jose', role: null }));
+      userAccessRepository.rows.push(
+        // full authority over the organization's projects...
+        access({
+          id: 'access-org',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({
+            id: 'org-full-access',
+            slug: 'org-full-access',
+            scope: 'organization',
+            permissions: ['organization:projects:all'],
+          }),
+        }),
+        // ...but explicitly only a viewer on this one project
+        access({
+          id: 'access-project',
+          userId: 'jose',
+          scope: 'project',
+          projectId: 'kettu',
+          project: { id: 'kettu', organizationId: 'gitops' },
+          role: role({
+            id: 'project-viewer',
+            slug: 'project-viewer',
+            scope: 'project',
+            permissions: ['project:project:read'],
+          }),
+        }),
+      );
+
+      // the explicit project-viewer assignment is authoritative: read passes...
+      await expect(
+        service.can('jose', 'project:project:read', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(true);
+      // ...but the organization's organization:projects:all must NOT leak through and grant
+      // write access the project-level role doesn't have.
+      await expect(
+        service.can('jose', 'project:project:update', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(false);
+      await expect(
+        service.can('jose', 'project:project:delete', { scope: 'project', projectId: 'kettu' }),
+      ).resolves.toBe(false);
+    });
+  });
+
+  describe('canManageOrganization / canViewOrganization', () => {
+    it('admits an organization-scope role, regardless of its permissions', async () => {
+      const jose = user({ id: 'jose', role: null });
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'organization',
+          organizationId: 'gitops',
+          role: role({ id: 'org-developer', slug: 'org-developer', scope: 'organization' }),
+        }),
+      );
+
+      await expect(service.canManageOrganization(jose, 'gitops')).resolves.toBe(true);
+      await expect(service.canViewOrganization(jose, 'gitops')).resolves.toBe(true);
+    });
+
+    it('does not let a project-only user manage the parent organization', async () => {
+      const jose = user({ id: 'jose', role: null });
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'project',
+          projectId: 'kettu',
+          project: { id: 'kettu', organizationId: 'gitops' },
+          role: role({ id: 'project-viewer', slug: 'project-viewer', scope: 'project' }),
+        }),
+      );
+
+      await expect(service.canManageOrganization(jose, 'gitops')).resolves.toBe(false);
+    });
+
+    it('lets a project-only user view (not manage) the parent organization', async () => {
+      const jose = user({ id: 'jose', role: null });
+      userAccessRepository.rows.push(
+        access({
+          id: 'access-1',
+          userId: 'jose',
+          scope: 'project',
+          projectId: 'kettu',
+          project: { id: 'kettu', organizationId: 'gitops' },
+          role: role({ id: 'project-viewer', slug: 'project-viewer', scope: 'project' }),
+        }),
+      );
+
+      await expect(service.canViewOrganization(jose, 'gitops')).resolves.toBe(true);
+      await expect(service.canViewOrganization(jose, 'other-org')).resolves.toBe(false);
+    });
+
+    it('denies a user with no access rows at all', async () => {
+      const jose = user({ id: 'jose', role: null });
+      await expect(service.canManageOrganization(jose, 'gitops')).resolves.toBe(false);
+      await expect(service.canViewOrganization(jose, 'gitops')).resolves.toBe(false);
+    });
   });
 
   describe('organizationIdsForUser', () => {

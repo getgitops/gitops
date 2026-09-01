@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
+import { cancanService, roleService } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 
 function errorResponse(error: unknown) {
@@ -24,6 +24,7 @@ export const actions = {
         slug: String(form.get('slug') ?? '') || undefined,
         description: String(form.get('description') ?? '') || undefined,
       });
+      await roleService.createDefaultOrganizationRoles(organization.id);
       return { success: true, organization };
     } catch (error: unknown) {
       return errorResponse(error);

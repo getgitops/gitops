@@ -3,14 +3,7 @@ import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
 import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { RoleRepository } from '../infrastructure/repositories/role.repository';
-
-const CLUSTER_ADMIN_PERMISSIONS = [
-  'cluster:organization:all',
-  'cluster:projects:all',
-  'cluster:users:all',
-  'cluster:settings:all',
-];
-const CLUSTER_USER_PERMISSIONS: string[] = [];
+import { CLUSTER_ADMIN_PERMISSIONS, CLUSTER_USER_PERMISSIONS } from '../domain/role-permissions.data';
 
 export class AuthService {
   constructor(

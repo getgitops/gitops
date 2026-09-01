@@ -47,6 +47,10 @@ Tests use Vitest through `bun run test`. The native `bun test` runner does not l
 
 Add or update focused tests for changed behavior. Authorization, persistence, API handlers, and security-sensitive changes should always include tests where practical.
 
+RBAC changes should also be covered in the Playwright suite under `e2e/` (`bun run test:e2e`,
+`bunx playwright install --with-deps chromium` once beforehand). It runs against a throwaway,
+self-seeded GitDB instance — see the "End-to-end tests" section in README.md.
+
 ## Pull requests
 
 - Explain the problem and the approach.

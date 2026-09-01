@@ -1,26 +1,13 @@
 import crypto from 'crypto';
 import { CodeReportServiceRepository } from '../infrastructure/repositories/code-report-service.repository';
 import { ProjectService } from '../../projects/application/project.service';
-
-export type RiskWeights = {
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
-};
+import { DEFAULT_RISK_WEIGHTS, type RiskWeights } from '../domain/risk-weights.data';
 
 export type VulnerabilityTotals = {
   critical: number;
   high: number;
   medium: number;
   low: number;
-};
-
-export const DEFAULT_RISK_WEIGHTS: RiskWeights = {
-  critical: 10,
-  high: 6,
-  medium: 3,
-  low: 1,
 };
 
 type AnalysisCleanup = {

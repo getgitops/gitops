@@ -4,7 +4,8 @@ import type { CodeReportAnalysisDomain } from '../domain/code-report-analysis.do
 import type { CodeReportGitInfo } from '../domain/code-report-analysis.domain';
 import { extractSecrets, extractVulnerabilities } from '$lib/code-report/analysis-summary';
 import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
-import type { SecurityPolicy, SecurityPolicyType } from '$lib/code-report/security-policy';
+import type { SecurityPolicy } from '$lib/code-report/security-policy';
+import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
 
 type ServiceLookup = {
   findById(id: string): Promise<{ id: string; projectId?: string; tags?: string[] } | null>;
@@ -13,19 +14,6 @@ type ServiceLookup = {
 type PolicyLookup = {
   listByProject(projectId: string): Promise<SecurityPolicy[]>;
 };
-
-// each tool only produces evidence for some policy types
-const TOOL_POLICY_TYPES: Record<string, SecurityPolicyType[]> = {
-  trivy: ['vulnerabilities', 'license'],
-  grype: ['vulnerabilities'],
-  sbom: ['license'],
-  syft: ['license'],
-  gitleaks: ['secrets'],
-  trufflehog: ['secrets'],
-  coverage: ['code_coverage'],
-  'code-coverage': ['code_coverage'],
-};
-const DEFAULT_POLICY_TYPES: SecurityPolicyType[] = ['vulnerabilities', 'license'];
 
 export class CodeReportAnalysisService {
   constructor(

@@ -6,11 +6,7 @@ export async function load({ params, locals }) {
   try {
     const project = await projectService.getProjectBySlug(params.slug);
     const organizationId = project.organization?.id;
-    const canRead = await cancanService.canSessionUser(locals.user, 'project:project:read', {
-      scope: 'project',
-      projectId: project.id,
-      organizationId,
-    });
+    const canRead = await cancanService.canManageProject(locals.user, project.id, organizationId);
 
     if (!canRead) {
       throw error(403, 'Forbidden');

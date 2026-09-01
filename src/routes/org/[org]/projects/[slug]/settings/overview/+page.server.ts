@@ -14,15 +14,28 @@ export async function load({ params, locals }) {
     throw error(404, 'Project not found');
   }
 
-  const canRead = await cancanService.canSessionUser(locals.user, 'project:project:read', {
-    scope: 'project',
-    projectId: project.id,
-    organizationId: project.organization?.id,
-  });
+  const canRead = await cancanService.canManageProject(
+    locals.user,
+    project.id,
+    project.organization?.id,
+  );
 
   if (!canRead) throw error(403, 'Forbidden');
 
-  return { project };
+  const [canUpdate, canDelete] = await Promise.all([
+    cancanService.canSessionUser(locals.user, 'project:project:update', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'project:project:delete', {
+      scope: 'project',
+      projectId: project.id,
+      organizationId: project.organization?.id,
+    }),
+  ]);
+
+  return { project, canUpdate, canDelete };
 }
 
 export const actions = {
