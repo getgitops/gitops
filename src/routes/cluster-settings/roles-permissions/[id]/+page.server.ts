@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '$modules/auth';
+import { cancanService, roleService, userAccessService } from '$modules/auth';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -15,10 +15,13 @@ function errorResponse(errorValue: unknown) {
 }
 
 export async function load({ params }) {
-  const roles = await roleService.listRoles('cluster');
+  const [roles, users] = await Promise.all([
+    roleService.listRoles('cluster'),
+    userAccessService.listUsers('cluster'),
+  ]);
   const role = roles.find((row) => row.id === params.id);
   if (!role) throw error(404, 'Role not found');
-  return { role };
+  return { role: { ...role, userCount: users.filter((user) => user.role?.id === role.id).length } };
 }
 
 export const actions = {

@@ -5,9 +5,9 @@ export interface ProjectModules {
 }
 
 export const DEFAULT_PROJECT_MODULES: ProjectModules = {
-  vault: true,
+  vault: false,
   codereport: true,
-  stateiac: true,
+  stateiac: false,
 };
 
 export interface ProjectSettings {

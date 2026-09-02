@@ -15,8 +15,6 @@
     RotateCcw,
     Copy,
     Check,
-    Moon,
-    Sun,
   } from '@lucide/svelte';
   import { _ } from 'svelte-i18n';
   import { setLocale, SUPPORTED_LOCALES, locale, type SupportedLocale } from '$lib/i18n';
@@ -24,18 +22,16 @@
   export let data: any;
   export let form: any;
 
+  const showApiKeys = false;
+
   let email = data.user.email || '';
   let createApiKeyModalOpen = false;
   let apiKeyName = '';
   let apiKeyExpiresInDays = '';
   let copiedCreatedKey = false;
-  let darkMode = false;
-  let themeReady = false;
   let currentLocale: SupportedLocale = 'es';
 
   onMount(() => {
-    darkMode = document.documentElement.classList.contains('dark');
-    themeReady = true;
     currentLocale = (localStorage.getItem('gitops-locale') as SupportedLocale) ?? 'es';
   });
 
@@ -84,12 +80,6 @@
     setTimeout(() => (copiedCreatedKey = false), 2000);
   }
 
-  function toggleDarkMode() {
-    darkMode = !darkMode;
-    document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('gitops-theme', darkMode ? 'dark' : 'light');
-  }
-
   function handleLocaleChange(event: Event) {
     const select = event.target as HTMLSelectElement;
     const lang = select.value as SupportedLocale;
@@ -118,22 +108,6 @@
           </p>
         </div>
 
-        <button
-          type="button"
-          on:click={toggleDarkMode}
-          class="inline-flex shrink-0 items-center gap-2 rounded-md border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/15"
-          aria-pressed={themeReady ? darkMode : undefined}
-          aria-label={darkMode ? $_('profile.disableDarkMode') : $_('profile.enableDarkMode')}
-          title={darkMode ? $_('profile.disableDarkMode') : $_('profile.enableDarkMode')}
-        >
-          {#if darkMode}
-            <Sun class="h-4 w-4" />
-            {$_('profile.lightMode')}
-          {:else}
-            <Moon class="h-4 w-4" />
-            {$_('profile.darkMode')}
-          {/if}
-        </button>
       </div>
     </div>
 
@@ -300,6 +274,7 @@
     </div>
   </section>
 
+  {#if showApiKeys}
   <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-3">
@@ -418,9 +393,10 @@
       {/if}
     </div>
   </section>
+  {/if}
 </div>
 
-{#if createApiKeyModalOpen}
+{#if showApiKeys && createApiKeyModalOpen}
   <button
     type="button"
     class="fixed inset-0 z-40 bg-slate-900/50"

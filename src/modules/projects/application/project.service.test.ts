@@ -156,9 +156,9 @@ describe('ProjectService', () => {
       expect(project.status).toBe('inactive');
     });
 
-    it('defaults all modules to enabled when none are provided', async () => {
+    it('defaults only available modules to enabled when none are provided', async () => {
       const project = await createProject({ name: 'Project C' });
-      expect(project.modules).toEqual({ vault: true, codereport: true, stateiac: true });
+      expect(project.modules).toEqual({ vault: false, codereport: true, stateiac: false });
     });
 
     it('persists default code report risk multipliers', async () => {
@@ -171,12 +171,12 @@ describe('ProjectService', () => {
       });
     });
 
-    it('accepts a partial modules override, defaulting the rest to enabled', async () => {
+    it('keeps soon modules disabled while accepting available module overrides', async () => {
       const project = await createProject({
         name: 'Project D',
-        modules: { vault: false },
+        modules: { vault: true, codereport: false, stateiac: true },
       });
-      expect(project.modules).toEqual({ vault: false, codereport: true, stateiac: true });
+      expect(project.modules).toEqual({ vault: false, codereport: false, stateiac: false });
     });
   });
 
@@ -224,13 +224,15 @@ describe('ProjectService', () => {
     it('merges partial module updates with the existing modules', async () => {
       const created = await createProject({ name: 'Project A' });
 
-      const updated = await service.updateProject(created.id, { modules: { vault: false } });
-      expect(updated.modules).toEqual({ vault: false, codereport: true, stateiac: true });
+      const updated = await service.updateProject(created.id, {
+        modules: { vault: true, stateiac: true },
+      });
+      expect(updated.modules).toEqual({ vault: false, codereport: true, stateiac: false });
 
       const updatedAgain = await service.updateProject(created.id, {
         modules: { codereport: false },
       });
-      expect(updatedAgain.modules).toEqual({ vault: false, codereport: false, stateiac: true });
+      expect(updatedAgain.modules).toEqual({ vault: false, codereport: false, stateiac: false });
     });
 
     it('updates the status', async () => {

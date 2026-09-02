@@ -1,7 +1,16 @@
 <script lang="ts">
   import { deserialize } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
-  import { CheckCircle, ChevronDown, ChevronRight, Pencil, Save, Trash2, X } from '@lucide/svelte';
+  import {
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    Pencil,
+    Save,
+    Trash2,
+    Users,
+    X,
+  } from '@lucide/svelte';
   import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
   import { normalizePermissionGrant, toStoredPermissionGrant } from '$lib/permissions';
   import { _ } from 'svelte-i18n';
@@ -19,6 +28,7 @@
     name: string;
     slug: string;
     permissions: string[];
+    userCount?: number;
     createdAt?: string;
     updatedAt?: string;
   };
@@ -46,8 +56,19 @@
   type AccessLevel = 'none' | 'read' | 'full' | 'custom';
 
   const visibleActions = defaultActions.filter((action) => action !== 'all');
+  const systemRoleSlugs = new Set([
+    'admin',
+    'cluster-admin',
+    'cluster-user',
+    'org-admin',
+    'org-developer',
+    'project-admin',
+    'project-developer',
+    'project-viewer',
+  ]);
   const isCreate = !role;
   $: canSave = isCreate ? canCreate : canUpdate;
+  $: roleIsSystem = Boolean(role?.slug && systemRoleSlugs.has(role.slug));
   let roleName = role?.name ?? '';
   let roleSlug = role?.slug ?? '';
   let selectedPermissions = toUiPermissions(role?.permissions ?? []);
@@ -481,6 +502,16 @@
               : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
           </div>
         </div>
+
+        {#if !isCreate}
+          <div>
+            <div class="font-semibold text-slate-400">{$_('usersComponent.defaultTitle')}</div>
+            <div class="mt-2 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-300">
+              <Users class="h-4 w-4 text-slate-400" />
+              <span class="font-semibold text-slate-100">{role?.userCount ?? 0}</span>
+            </div>
+          </div>
+        {/if}
       </div>
     </aside>
 
@@ -492,7 +523,8 @@
             <button
               type="button"
               on:click={deleteRole}
-              disabled={deleting}
+              disabled={deleting || roleIsSystem}
+              title={roleIsSystem ? $_('roleDetail.systemRoleDeleteDisabled') : undefined}
               class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
             >
               <Trash2 class="h-4 w-4" />

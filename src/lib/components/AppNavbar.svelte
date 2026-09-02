@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
   import { _ } from 'svelte-i18n';
 
@@ -15,20 +14,6 @@
 
   let userMenuRef: HTMLDivElement | undefined;
   let projectMenuRef: HTMLDivElement | undefined;
-  let isDarkMode = false;
-
-  onMount(() => {
-    const updateLogoTheme = () => {
-      isDarkMode = document.documentElement.classList.contains('dark');
-    };
-
-    updateLogoTheme();
-
-    const observer = new MutationObserver(updateLogoTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-
-    return () => observer.disconnect();
-  });
 
   function toggleUserDropdown() {
     showUserDropdown = !showUserDropdown;
@@ -61,17 +46,15 @@
   }
 
   $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
-  $: logoSrc = isDarkMode ? '/gitops_logo_white.png' : '/gitops_logo.png';
-  $: logoClass = isDarkMode ? 'h-8 w-auto' : 'h-14 w-auto sm:h-16';
   $: roleName = typeof user?.role === 'string' ? user.role : user?.role?.name;
 </script>
 
 <svelte:window on:click={handleWindowClick} />
 
-<header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-  <div class="mx-auto flex h-16 w-full items-center gap-4 px-4 sm:px-6">
+<header class="sticky top-0 z-30 border-b border-[#142236] bg-[#020813]/95 backdrop-blur-xl">
+  <div class="mx-auto flex h-[84px] w-full items-center gap-6 px-6 sm:px-8">
     <a href="/" class="flex items-center">
-      <img src={logoSrc} alt="GitOps" class={logoClass} />
+      <img src="/gitops_logo_white.png" alt="GitOps" class="h-8 w-auto" />
     </a>
 
     {#if user}
@@ -79,35 +62,35 @@
         <button
           type="button"
           on:click={toggleProjectDropdown}
-          class="btn-secondary flex max-w-55 items-center gap-2 rounded-2xl px-3 py-1.5 text-sm font-medium text-slate-700"
+          class="btn-secondary flex max-w-56 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-100"
         >
-          <FolderKanban class="h-4 w-4 shrink-0 text-slate-500" />
+          <FolderKanban class="h-4 w-4 shrink-0 text-slate-400" />
           <span class="truncate">{currentProject ? currentProject.name : $_('nav.selectProject')}</span>
-          <ChevronDown class="h-3.5 w-3.5 shrink-0 text-slate-500" />
+          <ChevronDown class="h-3.5 w-3.5 shrink-0 text-slate-400" />
         </button>
 
         {#if showProjectDropdown}
           <div
-            class="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+            class="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-[#1b2b42] bg-[#081526] shadow-2xl shadow-black/30"
           >
             {#if !organizationSlug}
-              <p class="px-4 py-3 text-sm text-slate-500">
+              <p class="px-4 py-3 text-sm text-slate-400">
                 {$_('nav.noOrganizationSelected')} <a href="/cluster-settings/orgs" class="underline"
                   >{$_('nav.chooseOne')}</a
                 >.
               </p>
             {:else if projects.length === 0}
-              <p class="px-4 py-3 text-sm text-slate-500">{$_('nav.noActiveProjects')}</p>
+              <p class="px-4 py-3 text-sm text-slate-400">{$_('nav.noActiveProjects')}</p>
             {:else}
               <div class="max-h-72 overflow-y-auto py-1">
                 {#each projects as project (project.id)}
                   <a
                     href={`/org/${organizationSlug}/projects/${project.slug}/overview`}
                     on:click={closeProjectDropdown}
-                    class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 {currentProject?.id ===
+                    class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#102139] {currentProject?.id ===
                     project.id
-                      ? 'text-slate-900'
-                      : 'text-slate-600'}"
+                      ? 'text-white'
+                      : 'text-slate-300'}"
                   >
                     <FolderKanban class="h-3.5 w-3.5 shrink-0" />
                     <span class="truncate">{project.name}</span>
@@ -120,7 +103,7 @@
               <a
                 href={`/org/${organizationSlug}/overview`}
                 on:click={closeProjectDropdown}
-                class="block border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                class="block border-t border-[#142236] bg-[#071323] px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-[#102139]"
               >
                 {$_('nav.viewAllProjects')}
               </a>
@@ -132,8 +115,10 @@
 
     <div class="ml-auto flex items-center gap-3 sm:gap-4">
       <a
-        href="/how-to"
-        class="hidden rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 md:inline-flex"
+        href="https://getgitops.com/docs"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="hidden rounded-lg border border-[#1b2b42] bg-[#071323]/70 px-3.5 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-[#294467] hover:text-white md:inline-flex"
       >
         {$_('nav.howTo')}
       </a>
@@ -142,28 +127,28 @@
         <div class="relative ml-1" bind:this={userMenuRef}>
           <button
             on:click={toggleUserDropdown}
-            class="btn-secondary flex items-center gap-2 rounded-2xl px-2 py-1.5 text-left"
+            class="btn-secondary flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-left"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 text-xs font-bold uppercase text-white"
+              class="flex h-9 w-9 items-center justify-center rounded-full bg-[#202945] text-xs font-bold uppercase text-white ring-1 ring-white/10"
             >
               {user.username.slice(0, 2)}
             </div>
-            <ChevronDown class="h-3.5 w-3.5 text-slate-500" />
+            <ChevronDown class="h-3.5 w-3.5 text-slate-400" />
           </button>
 
           {#if showUserDropdown}
             <div
-              class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+              class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#1b2b42] bg-[#081526] shadow-2xl shadow-black/30"
             >
-              <div class="border-b border-slate-100 bg-slate-50 px-4 py-3">
-                <p class="truncate text-sm font-semibold text-slate-900">{user.username}</p>
-                <p class="truncate text-xs text-slate-500 capitalize">{roleName} {$_('nav.account')}</p>
+              <div class="border-b border-[#142236] bg-[#071323] px-4 py-3">
+                <p class="truncate text-sm font-semibold text-white">{user.username}</p>
+                <p class="truncate text-xs text-slate-400 capitalize">{roleName} {$_('nav.account')}</p>
               </div>
               <a
                 href="/profile"
                 on:click={closeUserDropdown}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-[#102139]"
               >
                 <UserRound class="h-4 w-4" />
                 {$_('nav.profile')}
@@ -171,7 +156,7 @@
               <a
                 href="/org"
                 on:click={closeUserDropdown}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-[#102139]"
               >
                 <Building2 class="h-4 w-4" />
                 {$_('nav.changeOrganization')}
@@ -179,7 +164,7 @@
               <a
                 href="/auth/logout"
                 on:click={closeUserDropdown}
-                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10"
               >
                 <LogOut class="h-4 w-4" />
                 {$_('nav.signOut')}

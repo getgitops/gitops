@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '$modules/auth';
+import { cancanService, roleService, userAccessService } from '$modules/auth';
 import { projectService } from '$modules/projects';
 
 function parsePermissions(value: unknown): string[] {
@@ -42,8 +42,9 @@ export async function load({ parent, params, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const [roles, canUpdate, canDelete] = await Promise.all([
+  const [roles, users, canUpdate, canDelete] = await Promise.all([
     roleService.listRoles('project', project.id),
+    userAccessService.listUsers('project', project.id),
     cancanService.canSessionUser(locals.user, 'project:roles:update', {
       scope: 'project',
       projectId: project.id,
@@ -57,7 +58,12 @@ export async function load({ parent, params, locals }) {
   ]);
   const role = roles.find((row) => row.id === params.id);
   if (!role) throw error(404, 'Role not found');
-  return { project, role, canUpdate, canDelete };
+  return {
+    project,
+    role: { ...role, userCount: users.filter((user) => user.role?.id === role.id).length },
+    canUpdate,
+    canDelete,
+  };
 }
 
 export const actions = {
