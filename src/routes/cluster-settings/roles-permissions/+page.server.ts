@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService, roleService, userService } from '$modules/auth';
+import { cancanService, roleService, userAccessService } from '$modules/auth';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -13,8 +13,10 @@ function errorResponse(error: unknown) {
 }
 
 export async function load() {
-  const roles = await roleService.listRoles('cluster');
-  const users = await userService.listUsers();
+  const [roles, users] = await Promise.all([
+    roleService.listRoles('cluster'),
+    userAccessService.listUsers('cluster'),
+  ]);
   const roleUserCounts = users.reduce((counts: Record<string, number>, user: any) => {
     const roleId = user.role?.id;
     if (roleId) counts[roleId] = (counts[roleId] ?? 0) + 1;

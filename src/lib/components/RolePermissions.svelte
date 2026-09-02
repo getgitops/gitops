@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MoreHorizontal, Pencil, Plus, Shield, Users } from '@lucide/svelte';
+  import { Pencil, Plus, Shield, Users } from '@lucide/svelte';
   import { _ } from 'svelte-i18n';
 
   export let initialRoles: RoleRow[] = [];
@@ -23,6 +23,17 @@
   $: resolvedTitle = title || $_('rolePermissions.defaultTitle');
   $: resolvedDescription = description || $_('rolePermissions.defaultDescription');
 
+  const systemRoleSlugs = new Set([
+    'admin',
+    'cluster-admin',
+    'cluster-user',
+    'org-admin',
+    'org-developer',
+    'project-admin',
+    'project-developer',
+    'project-viewer',
+  ]);
+
   function roleHref(role: RoleRow): string {
     return `${baseHref}/${role.id}`;
   }
@@ -38,6 +49,10 @@
     return index % 2 === 0
       ? 'border-violet-500/25 bg-violet-500/10 text-violet-300 shadow-[0_0_22px_rgba(124,58,237,0.16)]'
       : 'border-teal-500/25 bg-teal-500/10 text-teal-300 shadow-[0_0_22px_rgba(20,184,166,0.16)]';
+  }
+
+  function isSystemRole(role: RoleRow): boolean {
+    return systemRoleSlugs.has(role.slug);
   }
 </script>
 
@@ -95,7 +110,9 @@
                   </span>
                   <span class="inline-flex items-center gap-3">
                     {role.name}
-                    <span class="rounded-md bg-[#082057] px-2 py-1 text-xs font-medium text-[#8ea8ff]">Sistema</span>
+                    {#if isSystemRole(role)}
+                      <span class="rounded-md bg-[#082057] px-2 py-1 text-xs font-medium text-[#8ea8ff]">Sistema</span>
+                    {/if}
                   </span>
                 </a>
               </td>
@@ -117,13 +134,6 @@
                     aria-label={`Editar ${role.name}`}
                   >
                     <Pencil class="h-5 w-5" />
-                  </a>
-                  <a
-                    href={roleHref(role)}
-                    class="btn-secondary inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-200"
-                    aria-label={`Ver acciones de ${role.name}`}
-                  >
-                    <MoreHorizontal class="h-5 w-5" />
                   </a>
                 </div>
               </td>

@@ -829,6 +829,7 @@
     "saved": "Rol guardado.",
     "saveFailed": "No se pudo guardar el rol.",
     "deleteFailed": "No se pudo eliminar el rol.",
+    "systemRoleDeleteDisabled": "Los roles de sistema no se pueden borrar.",
     "orgRoleDetails": "Detalle del rol de organización",
     "projectRoleDetails": "Detalle del rol de proyecto",
     "clusterRoleDetails": "Detalle del rol de clúster",

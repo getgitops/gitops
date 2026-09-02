@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '$modules/auth';
+import { cancanService, roleService, userAccessService } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 
 function parsePermissions(value: unknown): string[] {
@@ -25,14 +25,24 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const [roles, canCreate] = await Promise.all([
+  const [roles, users, canCreate] = await Promise.all([
     roleService.listRoles('organization', organization.id),
+    userAccessService.listUsers('organization', organization.id),
     cancanService.canSessionUser(locals.user, 'organization:roles:create', {
       scope: 'organization',
       organizationId: organization.id,
     }),
   ]);
-  return { roles, canCreate };
+  const roleUserCounts = users.reduce((counts: Record<string, number>, user: any) => {
+    const roleId = user.role?.id;
+    if (roleId) counts[roleId] = (counts[roleId] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  return {
+    roles: roles.map((role: any) => ({ ...role, userCount: roleUserCounts[role.id] ?? 0 })),
+    canCreate,
+  };
 }
 
 export const actions = {

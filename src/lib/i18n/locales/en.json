@@ -829,6 +829,7 @@
     "saved": "Role saved.",
     "saveFailed": "Failed to save role.",
     "deleteFailed": "Failed to delete role.",
+    "systemRoleDeleteDisabled": "System roles cannot be deleted.",
     "orgRoleDetails": "Organization Role Details",
     "projectRoleDetails": "Project Role Details",
     "clusterRoleDetails": "Cluster Role Details",
