@@ -53,31 +53,36 @@
   let editDescription = data.project.description ?? '';
   let editModules: ProjectModules = { ...data.project.modules };
 
-  const moduleOptions: {
+  type ModuleOption = {
     key: keyof ProjectModules;
     label: string;
     icon: typeof Shield;
     href: string;
-  }[] = [
+    soon?: boolean;
+  };
+
+  $: moduleOptions = [
     {
       key: 'vault',
       label: 'Vault',
       icon: Shield,
-      href: `/org/${orgSlug}/projects/${data.project.slug}/vault`,
+      href: `/org/${orgSlug}/projects/${project.slug}/vault`,
+      soon: true,
     },
     {
       key: 'codereport',
       label: 'Code Report',
       icon: BarChart3,
-      href: `/org/${orgSlug}/projects/${data.project.slug}/code-report`,
+      href: `/org/${orgSlug}/projects/${project.slug}/code-report`,
     },
     {
       key: 'stateiac',
       label: 'State IaC',
       icon: GitBranch,
-      href: `/org/${orgSlug}/projects/${data.project.slug}/state-iac`,
+      href: `/org/${orgSlug}/projects/${project.slug}/state-iac`,
+      soon: true,
     },
-  ];
+  ] satisfies ModuleOption[];
 
   $: integrationCards = [
     {
@@ -85,6 +90,7 @@
       description: $_('projectSettings.overview.gitopsCliDescription', {
         values: { slug: data.project.slug },
       }),
+      href: 'https://getgitops.com/docs/cli',
       icon: Terminal,
     },
     {
@@ -107,7 +113,13 @@
   }
 
   function toggleModule(key: keyof ProjectModules) {
+    if (moduleOptions.some((option) => option.key === key && option.soon)) return;
     editModules = { ...editModules, [key]: !editModules[key] };
+  }
+
+  function moduleValueForSubmit(key: keyof ProjectModules) {
+    const option = moduleOptions.find((moduleOption) => moduleOption.key === key);
+    return editModules[key] && !option?.soon ? 'on' : '';
   }
 
   async function copySlug() {
@@ -232,9 +244,9 @@
     class="overflow-hidden rounded-md border border-slate-200 bg-white"
   >
     <input type="hidden" name="id" value={project.id} />
-    <input type="hidden" name="moduleVault" value={editModules.vault ? 'on' : ''} />
-    <input type="hidden" name="moduleCodeReport" value={editModules.codereport ? 'on' : ''} />
-    <input type="hidden" name="moduleStateIac" value={editModules.stateiac ? 'on' : ''} />
+    <input type="hidden" name="moduleVault" value={moduleValueForSubmit('vault')} />
+    <input type="hidden" name="moduleCodeReport" value={moduleValueForSubmit('codereport')} />
+    <input type="hidden" name="moduleStateIac" value={moduleValueForSubmit('stateiac')} />
     <div class="flex items-center justify-end gap-3 border-b border-slate-200 px-4 py-4">
       {#if isArchived}
         <span
@@ -335,46 +347,57 @@
 
       <div class="mt-3 grid gap-3 sm:grid-cols-3">
         {#each moduleOptions as option (option.key)}
-          <div
-            class="flex flex-col gap-3 rounded-md border px-4 py-3 text-left transition-colors {editModules[
-              option.key
-            ]
-              ? 'border-slate-200 bg-white'
-              : 'border-slate-200 bg-slate-100 text-slate-400'}"
+          {@const moduleEnabled = editModules[option.key] && !option.soon}
+          <label
+            class="group flex cursor-pointer flex-col gap-3 rounded-md border px-4 py-3 text-left transition-colors {moduleEnabled
+              ? 'border-[#2457ff]/55 bg-[#082057]/70 shadow-[0_0_24px_rgba(36,87,255,0.14)]'
+              : 'border-slate-200 bg-slate-100 text-slate-400'} {canUpdate && !option.soon ? 'hover:border-[#2457ff]/70' : 'cursor-default opacity-75'}"
           >
-            <button
-              type="button"
-              on:click={() => toggleModule(option.key)}
-              disabled={!canUpdate}
-              class="flex items-center justify-between text-left disabled:cursor-default"
-            >
+            <span class="flex items-start justify-between gap-3">
               <span
-                class="flex items-center gap-2 text-sm font-medium {editModules[option.key]
+                class="flex items-center gap-2 text-sm font-medium {moduleEnabled
                   ? 'text-slate-900'
                   : 'text-slate-500'}"
               >
                 <svelte:component
                   this={option.icon}
-                  class="h-4 w-4 {editModules[option.key] ? 'text-slate-500' : 'text-slate-400'}"
+                  class="h-4 w-4 {moduleEnabled ? 'text-[#4b83ff]' : 'text-slate-400'}"
                 />
                 {option.label}
               </span>
-            </button>
+
+              <span class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors {moduleEnabled ? 'border-[#2457ff] bg-[#2457ff]' : 'border-slate-300 bg-slate-200'}">
+                <span class="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform {moduleEnabled ? 'translate-x-5' : 'translate-x-1'}"></span>
+              </span>
+            </span>
+
+            <input
+              type="checkbox"
+              class="sr-only"
+              checked={moduleEnabled}
+              disabled={!canUpdate || option.soon}
+              aria-label={`${option.label}: ${moduleEnabled ? $_('projectSettings.overview.moduleActive') : option.soon ? $_('common.comingSoon') : $_('projectSettings.overview.moduleDisabled')}`}
+              on:change={() => toggleModule(option.key)}
+            />
 
             <div class="flex items-center justify-between gap-2">
               <span
-                class="inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium {editModules[
-                  option.key
-                ]
+                class="inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium {moduleEnabled
                   ? 'bg-emerald-50 text-emerald-700'
-                  : 'bg-slate-200 text-slate-500'}"
+                  : option.soon
+                    ? 'bg-amber-50 text-amber-800'
+                    : 'bg-slate-200 text-slate-500'}"
               >
-                {editModules[option.key]
-                  ? $_('projectSettings.overview.moduleActive')
-                  : $_('projectSettings.overview.moduleDisabled')}
+                {#if option.soon}
+                  {$_('common.comingSoon')}
+                {:else if moduleEnabled}
+                  {$_('projectSettings.overview.moduleActive')}
+                {:else}
+                  {$_('projectSettings.overview.moduleDisabled')}
+                {/if}
               </span>
 
-              {#if editModules[option.key]}
+              {#if moduleEnabled}
                 <a
                   href={option.href}
                   class="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
@@ -384,7 +407,7 @@
                 </a>
               {/if}
             </div>
-          </div>
+          </label>
         {/each}
       </div>
     </div>
@@ -415,26 +438,39 @@
 
     <div class="grid gap-4 p-4 sm:grid-cols-2">
       {#each integrationCards as card (card.label)}
-        <div
-          class="flex items-start gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 opacity-75"
+        <svelte:element
+          this={card.href ? 'a' : 'div'}
+          href={card.href}
+          target={card.href ? '_blank' : undefined}
+          rel={card.href ? 'noopener noreferrer' : undefined}
+          class="group flex items-start gap-3 rounded-md border p-4 {card.href
+            ? 'border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300 hover:shadow-md'
+            : 'border-dashed border-slate-300 bg-slate-50 opacity-75'}"
         >
           <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-600"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700"
           >
             <svelte:component this={card.icon} class="h-4 w-4" />
           </div>
-          <div class="min-w-0">
+          <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <p class="text-sm font-semibold text-slate-900">{card.label}</p>
-              <span
-                class="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
-              >
-                {$_('projectSettings.overview.comingSoon')}
-              </span>
+              {#if !card.href}
+                <span
+                  class="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
+                >
+                  {$_('projectSettings.overview.comingSoon')}
+                </span>
+              {/if}
             </div>
             <p class="mt-1 text-xs leading-5 text-slate-600">{card.description}</p>
           </div>
-        </div>
+          {#if card.href}
+            <ExternalLink
+              class="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-slate-900"
+            />
+          {/if}
+        </svelte:element>
       {/each}
     </div>
   </section>

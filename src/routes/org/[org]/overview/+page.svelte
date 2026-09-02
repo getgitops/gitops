@@ -33,19 +33,19 @@
     {
       label: $_('org.overview.vaultGuide'),
       description: $_('org.overview.vaultGuideDescription'),
-      href: '/vault',
+      href: 'https://getgitops.com/docs/vault',
       icon: Shield,
     },
     {
       label: $_('org.overview.openReportGuide'),
       description: $_('org.overview.openReportGuideDescription'),
-      href: '/open-report',
+      href: 'https://getgitops.com/docs/code-report',
       icon: BarChart3,
     },
     {
       label: $_('org.overview.stateIacGuide'),
       description: $_('org.overview.stateIacGuideDescription'),
-      href: '/how-to',
+      href: 'https://getgitops.com/docs/state-iac',
       icon: GitBranch,
     },
     {
@@ -57,7 +57,7 @@
     {
       label: 'GitOps Report CLI',
       description: $_('org.overview.gitopsReportCliDescription'),
-      href: null,
+      href: 'https://getgitops.com/docs/cli',
       icon: FileSearch,
     },
     {
@@ -95,6 +95,8 @@
       <svelte:element
         this={guide.href ? 'a' : 'div'}
         href={guide.href}
+        target={guide.href?.startsWith('https://') ? '_blank' : undefined}
+        rel={guide.href?.startsWith('https://') ? 'noopener noreferrer' : undefined}
         class="group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors {guide.href
           ? 'hover:border-slate-300 hover:shadow-md'
           : 'opacity-75'}"

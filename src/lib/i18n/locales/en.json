@@ -23,7 +23,7 @@
       "analisis": "Analysis",
       "gitops": "GitOps",
       "proyecto": "Project",
-      "sistema": "System"
+      "organization": "Organization"
     },
     "modules": {
       "overview": "Overview",
@@ -322,7 +322,7 @@
       "comingSoon": "Coming soon",
       "vaultGuide": "Vault Guide",
       "vaultGuideDescription": "Centralize secrets, credentials and access controls.",
-      "openReportGuide": "Open Report Guide",
+      "openReportGuide": "Code Report Guide",
       "openReportGuideDescription": "Review vulnerability and dependency reports.",
       "stateIacGuide": "State IaC Guide",
       "stateIacGuideDescription": "Configure backends and inspect Pulumi state.",
@@ -448,7 +448,7 @@
     "overview": {
       "codeReport": "Code Report",
       "stateIac": "State IaC",
-      "gitopsCliDescription": "Connect this project with gitops project use {slug}.",
+      "gitopsCliDescription": "Configure the CLI to work with this project from your terminal.",
       "gitopsBotDescription": "Automate analyses and PRs for this project.",
       "copyFailed": "Failed to copy slug.",
       "nameRequired": "Project name is required.",
@@ -462,7 +462,7 @@
       "copySlug": "Copy project slug",
       "slugCopied": "Slug copied",
       "modules": "Modules",
-      "modulesDescription": "Click a card to enable or disable the module.",
+      "modulesDescription": "Check the modules you want to enable for this project.",
       "moduleActive": "Active",
       "moduleDisabled": "Disabled",
       "open": "Open",

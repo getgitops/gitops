@@ -28,8 +28,8 @@
 </script>
 
 <div
-  class="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col"
-  style={`--sidebar-width:${sidebarCollapsed ? '96px' : '340px'}`}
+  class="min-h-screen bg-[#020813] text-slate-100 font-sans flex flex-col"
+  style={`--sidebar-width:${sidebarCollapsed ? '84px' : '292px'}`}
 >
   {#if !isBareLayout}
     <AppNavbar
@@ -40,11 +40,9 @@
     />
 
     <div
-      class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 lg:block lg:px-0"
+      class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 md:block md:px-0"
     >
-      <aside
-        class="app-shell-sidebar w-full lg:fixed lg:left-0 lg:top-16 lg:z-20 lg:h-[calc(100vh-4rem)] lg:overflow-y-auto lg:border-r lg:border-slate-200 lg:bg-slate-50 lg:px-4 lg:py-6"
-      >
+      <aside class="app-shell-sidebar w-full md:fixed md:left-0 md:top-[84px] md:z-20 md:h-[calc(100vh-84px)] md:overflow-y-auto md:border-r md:border-[#142236] md:bg-[#020813] md:px-6 md:py-7">
         <AppSidebar
           pathname={$page?.url?.pathname}
           isConfigured={data.isConfigured}
@@ -74,7 +72,7 @@
         />
       </aside>
 
-      <main class="app-shell-main min-w-0 flex-1 lg:pr-6">
+      <main class="app-shell-main min-w-0 flex-1 md:pr-6">
         <slot />
       </main>
     </div>
@@ -83,6 +81,9 @@
   {/if}
 
   {#if !isBareLayout}
-    <Footer />
+    <Footer
+      showSyncStatus={data.canViewGitDbStatus}
+      syncStatusHref={data.canAccessClusterSettings ? '/cluster-settings/database' : null}
+    />
   {/if}
 </div>

@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '$modules/auth';
+import { cancanService, roleService, userService } from '$modules/auth';
 
 function parsePermissions(value: unknown): string[] {
   if (typeof value !== 'string') return [];
@@ -14,7 +14,19 @@ function errorResponse(error: unknown) {
 
 export async function load() {
   const roles = await roleService.listRoles('cluster');
-  return { roles };
+  const users = await userService.listUsers();
+  const roleUserCounts = users.reduce((counts: Record<string, number>, user: any) => {
+    const roleId = user.role?.id;
+    if (roleId) counts[roleId] = (counts[roleId] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  return {
+    roles: roles.map((role: any) => ({
+      ...role,
+      userCount: roleUserCounts[role.id] ?? 0,
+    })),
+  };
 }
 
 export const actions = {

@@ -23,7 +23,7 @@
       "analisis": "Análisis",
       "gitops": "GitOps",
       "proyecto": "Proyecto",
-      "sistema": "Sistema"
+      "organization": "Organización"
     },
     "modules": {
       "overview": "Vista general",
@@ -31,7 +31,7 @@
       "codeReport": "Code Report",
       "stateIac": "State IaC",
       "projectSettings": "Ajustes de proyecto",
-      "organizationSettings": "Ajustes de organización",
+      "organizationSettings": "Configuración",
       "clusterSettings": "Ajustes del clúster"
     },
     "items": {
@@ -322,7 +322,7 @@
       "comingSoon": "Próximamente",
       "vaultGuide": "Guía de Vault",
       "vaultGuideDescription": "Centraliza secretos, credenciales y controles de acceso.",
-      "openReportGuide": "Guía de Open Report",
+      "openReportGuide": "Guía de Code Report",
       "openReportGuideDescription": "Consulta reportes de vulnerabilidades y dependencias.",
       "stateIacGuide": "Guía de State IaC",
       "stateIacGuideDescription": "Configura backends e inspecciona el estado de Pulumi.",
@@ -448,7 +448,7 @@
     "overview": {
       "codeReport": "Code Report",
       "stateIac": "State IaC",
-      "gitopsCliDescription": "Conecta este proyecto con gitops project use {slug}.",
+      "gitopsCliDescription": "Configura la CLI para trabajar con este proyecto desde tu terminal.",
       "gitopsBotDescription": "Automatiza análisis y PRs para este proyecto.",
       "copyFailed": "No se pudo copiar el slug.",
       "nameRequired": "El nombre del proyecto es obligatorio.",
@@ -462,7 +462,7 @@
       "copySlug": "Copiar slug del proyecto",
       "slugCopied": "Slug copiado",
       "modules": "Módulos",
-      "modulesDescription": "Pulsa en una card para activar o desactivar el módulo.",
+      "modulesDescription": "Marca los módulos que quieres activar en este proyecto.",
       "moduleActive": "Activo",
       "moduleDisabled": "Desactivado",
       "open": "Abrir",

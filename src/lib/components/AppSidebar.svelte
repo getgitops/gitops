@@ -243,7 +243,7 @@
         })()
       : []),
     {
-      name: $_('sidebar.categories.sistema'),
+      name: $_('sidebar.categories.organization'),
       modules: [
         ...(organizationSlug && canManageOrganization
           ? (() => {
@@ -379,21 +379,21 @@
   }
 </script>
 
-<aside class="flex h-full flex-col gap-4">
-  <div class="border-b border-slate-200 px-1 pb-4">
+<aside class="flex h-full flex-col gap-5">
+  <div class="border-b border-[#101e31] px-1 pb-5">
     <div class="flex items-center justify-between gap-3">
       {#if !collapsed && organizationName}
         <div class="min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#647189]">
             {$_('sidebar.organization')}
           </p>
-          <h2 class="mt-1 truncate text-sm font-semibold text-slate-900">{organizationName}</h2>
+          <h2 class="mt-2 truncate text-base font-semibold text-white">{organizationName}</h2>
         </div>
       {/if}
 
       <button
         type="button"
-        class="btn-secondary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600"
+        class="btn-secondary inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-300"
         on:click={toggleCollapsed}
         aria-label={collapsed ? $_('sidebar.expandSidebar') : $_('sidebar.collapseSidebar')}
         title={collapsed ? $_('sidebar.expandSidebar') : $_('sidebar.collapseSidebar')}
@@ -429,16 +429,16 @@
     </a>
   {/if}
 
-  <div class="space-y-4">
+  <div class="space-y-5">
     {#each categories as category, categoryIndex (category.name)}
       <section
         class:border-t={categoryIndex === categories.length - 1}
         class:pt-4={categoryIndex === categories.length - 1}
-        class="border-slate-200"
+        class="border-[#101e31]"
       >
         {#if !collapsed}
           <div class="mb-2 px-1">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#647189]">
               {category.name}
             </p>
           </div>
@@ -451,20 +451,20 @@
               <a
                 href={item.href}
                 aria-current={isItemActive(item.href) ? 'page' : undefined}
-                class="group flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors {collapsed
+                class="group flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors {collapsed
                   ? 'justify-center'
                   : 'items-center'} {isItemActive(item.href)
-                  ? 'btn-primary font-semibold text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                  ? 'border-[#14305c] bg-[#0e1c31] font-semibold text-white shadow-[inset_0_0_24px_rgba(36,87,255,0.12)]'
+                  : 'border-[#142236] bg-[#071323]/65 text-slate-200 hover:border-[#263b58] hover:bg-[#0e1c31]'}"
                 title={navModule.name}
                 data-sveltekit-preload-data
               >
                 <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isItemActive(
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {isItemActive(
                     item.href,
                   )
-                    ? 'bg-white/10 text-white'
-                    : 'bg-slate-100 text-slate-600'}"
+                    ? 'bg-[#082862] text-[#1875ff]'
+                    : 'bg-transparent text-slate-300'}"
                 >
                   <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
                 </div>
@@ -477,19 +477,19 @@
               <a
                 href={navModule.items[0].href}
                 data-sveltekit-preload-data
-                class="group flex items-center justify-center rounded-md border px-3 py-2.5 transition-colors {isModuleActive(
+                class="group flex items-center justify-center rounded-lg border px-3 py-2.5 transition-colors {isModuleActive(
                   navModule,
                 )
-                  ? 'btn-primary text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'}"
+                  ? 'border-[#14305c] bg-[#0e1c31] text-white'
+                  : 'border-[#142236] bg-[#071323]/65 text-slate-200 hover:border-[#263b58] hover:bg-[#0e1c31]'}"
                 title={navModule.name}
               >
                 <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isModuleActive(
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {isModuleActive(
                     navModule,
                   )
-                    ? 'bg-white/10 text-white'
-                    : 'bg-slate-100 text-slate-600'}"
+                    ? 'bg-[#082862] text-[#1875ff]'
+                    : 'bg-transparent text-slate-300'}"
                 >
                   <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
                 </div>
@@ -498,20 +498,20 @@
               <div class="space-y-2">
                 <button
                   type="button"
-                  class="group flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors {isModuleActive(
+                  class="group flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors {isModuleActive(
                     navModule,
                   )
-                    ? 'btn-primary text-white'
-                    : 'btn-secondary text-slate-700'}"
+                    ? 'border-[#14305c] bg-[#0e1c31] text-white shadow-[inset_0_0_24px_rgba(36,87,255,0.12)]'
+                    : 'border-[#142236] bg-[#071323]/65 text-slate-200 hover:border-[#263b58] hover:bg-[#0e1c31]'}"
                   on:click={() => toggleModule(navModule)}
                   aria-expanded={moduleOpenState[navModule.name]}
                 >
                   <div
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md {isModuleActive(
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {isModuleActive(
                       navModule,
                     )
-                      ? 'bg-white/10 text-white'
-                      : 'bg-slate-100 text-slate-600'}"
+                      ? 'bg-transparent text-slate-300'
+                      : 'bg-transparent text-slate-300'}"
                   >
                     <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
                   </div>
@@ -524,17 +524,17 @@
                 </button>
 
                 {#if moduleOpenState[navModule.name]}
-                  <div class="ml-4 border-l border-slate-200 pl-3">
+                  <div class="ml-5 border-l border-[#142236] pl-3">
                     <div class="space-y-1">
                       {#each navModule.items as item (item.href)}
                         <a
                           href={item.href}
                           aria-current={isItemActive(item.href) ? 'page' : undefined}
-                          class="group relative flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors {isItemActive(
+                          class="group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors {isItemActive(
                             item.href,
                           )
-                            ? 'bg-slate-100 font-semibold text-slate-900 before:absolute before:-left-[13px] before:top-1 before:bottom-1 before:w-0.5 before:rounded-full before:bg-[color:var(--primary)]'
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+                            ? 'bg-[#062059] font-semibold text-[#0d7dff] before:absolute before:-right-1 before:top-1/2 before:h-1 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-[#0d7dff]'
+                            : 'text-slate-300 hover:bg-[#0e1c31] hover:text-white'}"
                         >
                           <svelte:component
                             this={item.icon}

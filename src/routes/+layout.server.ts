@@ -35,6 +35,12 @@ export async function load({ locals, url }) {
   const canManageOrganization = organization
     ? await cancanService.canManageOrganization(locals.user, organization.id)
     : false;
+  const canAdministerOrganization = organization
+    ? await cancanService.canSessionUser(locals.user, 'organization:settings:all', {
+        scope: 'organization',
+        organizationId: organization.id,
+      })
+    : false;
 
   const orgSectionPermission = (permission: string) =>
     organization
@@ -151,6 +157,7 @@ export async function load({ locals, url }) {
     organization,
     projects,
     canAccessClusterSettings,
+    canViewGitDbStatus: canAccessClusterSettings || canAdministerOrganization,
     canManageOrganization,
     canManageProject,
     canReadOrgProjects,
