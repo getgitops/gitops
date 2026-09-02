@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { FileText } from '@lucide/svelte';
+  import { BookOpen, Heart, MessageCircle } from '@lucide/svelte';
   import GitDbStatusBadge from './GitDbStatusBadge.svelte';
   import { _ } from 'svelte-i18n';
 
@@ -34,23 +34,13 @@
 <footer class="app-shell-footer mt-auto border-t border-[#142236] bg-[#05101d]/82 backdrop-blur">
   <div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-6 py-6 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
     <div class="flex items-center gap-3 text-sm text-slate-400">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#1b2b42] bg-[#071323] text-slate-300">
-        <FileText class="h-4 w-4" />
+      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#1b2b42] bg-[#071323] text-[#0d7dff]">
+        <Heart class="h-4 w-4" />
       </span>
-      <p>
-        {$_('footer.releasedUnder')}
-        <a
-          href="https://getgitops.com/license"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="font-medium text-slate-300 transition-colors hover:text-white"
-        >
-          {$_('footer.license')}
-        </a>
-      </p>
+      <p>{$_('footer.developedWithLove')} <span class="font-semibold text-slate-200">{$_('footer.community')}</span></p>
     </div>
 
-    <div class="flex items-center gap-5">
+    <div class="flex flex-wrap items-center gap-3 sm:gap-4">
       {#if showSyncStatus}
         {#if syncStatusHref}
           <a
@@ -71,12 +61,23 @@
       {/if}
 
       <a
-        href="https://getgitops.com"
+        href="https://getgitops.com/docs"
         target="_blank"
         rel="noopener noreferrer"
-        class="text-sm text-slate-400 transition-colors hover:text-white"
+        class="inline-flex items-center gap-2 rounded-lg border border-[#1b2b42] bg-[#071323] px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-[#294467] hover:bg-[#102139] hover:text-white"
       >
-        {$_('footer.developedBy')} <span class="font-semibold text-[#0d7dff]">GetGitOps.com</span>
+        <BookOpen class="h-4 w-4" />
+        {$_('footer.docs')}
+      </a>
+
+      <a
+        href="https://getgitops.com/community"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 rounded-lg border border-[#1b2b42] bg-[#071323] px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-[#294467] hover:bg-[#102139] hover:text-white"
+      >
+        <MessageCircle class="h-4 w-4" />
+        {$_('footer.slack')}
       </a>
 
       <a

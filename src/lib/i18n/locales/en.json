@@ -58,9 +58,10 @@
     }
   },
   "footer": {
-    "releasedUnder": "Released under the",
-    "license": "Elastic License 2.0",
-    "developedBy": "Developed by",
+    "developedWithLove": "Developed with love by the",
+    "community": "community",
+    "docs": "Docs",
+    "slack": "Slack",
     "gitdbSyncStatus": "GitDB sync status"
   },
   "profile": {
