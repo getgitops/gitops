@@ -46,7 +46,9 @@ async function boot(): Promise<void> {
     syncPollSeconds: config.syncPollSeconds,
   });
 
-  instance = createClient(config.authorName, config.authorEmail);
+  const client = createClient(config.authorName, config.authorEmail);
+  await client.ready();
+  instance = client;
 
   // await gitDbSyncService.syncNow();
 
@@ -65,8 +67,7 @@ function createClient(authorName: string, authorEmail: string): GitDB {
 
 export function getGitDb(): GitDB {
   if (!instance) {
-    const config = requireRepositoryConfig();
-    instance = createClient(config.authorName, config.authorEmail);
+    throw new Error('GitDB is not started. Call startGitDb() and await it before accessing data.');
   }
 
   const actor = getCurrentActor();
