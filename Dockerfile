@@ -21,12 +21,14 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+RUN apk add --no-cache ca-certificates git openssh-client
+
 # SvelteKit adapter-node output lives in build/
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-# Persistent data directory (SQLite DB + gitdb clone)
+# Persistent data directory  to gitdb
 VOLUME ["/app/data"]
 
 EXPOSE 3000

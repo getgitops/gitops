@@ -25,7 +25,11 @@ export const MAX_SYNC_POLL_SECONDS = 86_400;
 export const DEFAULT_SYNC_POLL_SECONDS = 60;
 
 function value(name: string): string | null {
-  return env[name]?.trim() || null;
+  const raw = env[name]?.trim();
+  if (!raw) return null;
+  // some env sources (e.g. docker-compose env files) don't strip surrounding quotes
+  const unquoted = /^(['"])(.*)\1$/.exec(raw)?.[2] ?? raw;
+  return unquoted || null;
 }
 
 function resolveSyncPollSeconds(): number {
