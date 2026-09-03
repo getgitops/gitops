@@ -1,4 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vitest/config';
 
 // Vite only transforms hooks.server.ts lazily on the first request; warm it up eagerly in dev.
@@ -17,7 +18,7 @@ function warmupHooksPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [sveltekit(), warmupHooksPlugin()],
+  plugins: [tailwindcss(), sveltekit(), warmupHooksPlugin()],
   test: {
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
