@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import Dropdown from '$lib/components/Dropdown.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let label = '';
   export let options: Array<{ id: string; name: string }> = [];

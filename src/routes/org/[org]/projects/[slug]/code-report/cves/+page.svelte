@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import CveListView from '$lib/components/code-report/CveListView.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type CveRow = {
     id: string;

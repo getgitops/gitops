@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { enhance } from '$app/forms';
   import { Boxes, Plus, Search, X } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type SeverityCounts = {
     critical: number;

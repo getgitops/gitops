@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type NavbarUser = { username: string; role: { name: string } | string | null };
 

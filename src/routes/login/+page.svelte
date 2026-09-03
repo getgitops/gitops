@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   import type { ActionData } from './$types';
   import { ShieldCheck } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let form: ActionData;
 

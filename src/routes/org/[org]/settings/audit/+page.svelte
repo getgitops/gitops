@@ -1,7 +1,7 @@
 <script lang="ts">
   import AuditLog from '$lib/components/AuditLog.svelte';
   import type { AuditEvent } from '$modules/audit';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type Pagination = { page: number; perPage: number; total: number; totalPages: number };
 

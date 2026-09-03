@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { CheckCircle, Copy, Save, Trash2 } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type OrganizationRow = {
     id: string;

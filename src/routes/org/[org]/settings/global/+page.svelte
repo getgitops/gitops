@@ -7,7 +7,7 @@
     RefreshCw,
     Shield,
   } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   let googleSsoEnabled = false;
   let googleClientId = '';

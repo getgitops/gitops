@@ -1,6 +1,6 @@
 <script lang="ts">
   import CveListView from '$lib/components/code-report/CveListView.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: {
     orgSlug: string;

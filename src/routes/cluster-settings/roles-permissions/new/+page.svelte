@@ -1,6 +1,6 @@
 <script lang="ts">
   import RoleDetail from '$lib/components/RoleDetail.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 </script>
 
 <RoleDetail

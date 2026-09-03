@@ -5,7 +5,7 @@
   import type { SubmitFunction } from '@sveltejs/kit';
   import { diffListItems, summarizeChange, type EntityRowChange } from './audit-summary';
   import AuditFieldValue from './AuditFieldValue.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type AuditAction = 'insert' | 'update' | 'delete' | 'other';
 

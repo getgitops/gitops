@@ -83,7 +83,7 @@ export default async function globalSetup() {
   // `bun run build` currently fails in this repo independent of e2e/RBAC work (a Tailwind/
   // postcss resolution error under Vite 8 — pre-existing, out of scope here), so `vite preview`
   // isn't usable; run the dev server instead. Dev-mode SSR has a separate, pre-existing
-  // svelte-i18n race on a truly cold server (locale loader hasn't resolved before the first
+  // Paraglide initialization race on a truly cold server (runtime hasn't initialized before the first
   // synchronous SSR render) — worked around below with a couple of throwaway warm-up requests
   // before tests start, rather than touching app code for an unrelated bug.
   const server: ChildProcess = spawn(
@@ -106,7 +106,7 @@ export default async function globalSetup() {
     throw new Error('Dev server exited before becoming ready');
   }
 
-  // absorb the cold-start svelte-i18n race (see comment above) so real test navigations don't
+  // absorb the cold-start Paraglide race (see comment above) so real test navigations don't
   // hit it: a couple of real page loads, spaced out, until one actually returns 200.
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const response = await fetch(`${E2E_BASE_URL}/auth/login`);

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Pencil, Plus, Shield, Users } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let initialRoles: RoleRow[] = [];
   export let title = '';

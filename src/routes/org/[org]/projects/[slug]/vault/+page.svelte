@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Shield, KeyRound, Lock, Sparkles } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 </script>
 
 <svelte:head>

@@ -15,7 +15,7 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 
 - SvelteKit 2, Svelte 5, Vite 8, TypeScript 6 strict mode
 - Tailwind CSS 4 and `@lucide/svelte`
-- Internationalization via `svelte-i18n` (Spanish and English)
+- Internationalization via Paraglide JS (Spanish and English)
 - Bun package manager; do not use npm or yarn
 - GitDB (`@getgitops/gitdb`) as the only persistence layer
 - Vitest, ESLint, and Prettier

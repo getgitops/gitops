@@ -9,7 +9,7 @@
     UserPlus,
   } from '@lucide/svelte';
   import { page } from '$app/stores';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type ProjectModules = {
     vault: boolean;

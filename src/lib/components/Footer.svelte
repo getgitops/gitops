@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { BookOpen, Heart, MessageCircle } from '@lucide/svelte';
   import GitDbStatusBadge from './GitDbStatusBadge.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   const POLL_MS = 15_000;
 
