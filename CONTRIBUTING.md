@@ -12,7 +12,7 @@ Thanks for helping improve GitOps. Contributions of code, tests, documentation, 
 
 ```bash
 git clone https://github.com/getgitops/gitops.git
-cd gitops-platform
+cd gitops
 bun install
 cp .env.example .env
 bun run dev

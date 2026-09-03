@@ -1,0 +1,13 @@
+services:
+  gitops:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      GITDB_DATA_PATH: /app/data/gitdb
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
