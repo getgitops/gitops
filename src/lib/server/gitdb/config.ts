@@ -25,7 +25,13 @@ export const MAX_SYNC_POLL_SECONDS = 86_400;
 export const DEFAULT_SYNC_POLL_SECONDS = 60;
 
 function value(name: string): string | null {
-  return env[name]?.trim() || null;
+  const raw = env[name]?.trim();
+  if (!raw) return null;
+
+  const quote = raw[0];
+  return (quote === '"' || quote === "'") && raw.endsWith(quote)
+    ? raw.slice(1, -1).trim() || null
+    : raw;
 }
 
 function resolveSyncPollSeconds(): number {
