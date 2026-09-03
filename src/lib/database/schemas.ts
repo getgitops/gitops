@@ -9,6 +9,8 @@ export const UserEntity = entity('users', {
   status: text().notNull().default('active'),
   invitationTokenHash: text(),
   invitationExpiresAt: timestamp(),
+  passwordResetTokenHash: text(),
+  passwordResetExpiresAt: timestamp(),
   authProviders: json()
     .notNull()
     .$defaultFn(() => []),
@@ -67,6 +69,18 @@ export const UserAccessEntity = entity('user_access', {
   organizationId: uuid().$defaultFn(() => null),
   projectId: uuid().$defaultFn(() => null),
   status: text().notNull().default('active'),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+// singleton row (fixed id), holds cluster-wide feature toggles such as self-service registration
+export const ClusterSettingsEntity = entity('cluster_settings', {
+  id: uuid().primaryKey(),
+  registrationEnabled: bool().notNull().default(false),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

@@ -5,7 +5,8 @@ export const CLUSTER_ADMIN_PERMISSIONS = [
   'cluster:settings:all',
 ];
 
-export const CLUSTER_USER_PERMISSIONS: string[] = [];
+// base role for self-registered users: no admin rights, only enough to start an organization
+export const CLUSTER_USER_PERMISSIONS: string[] = ['cluster:organization:create'];
 
 export const ORGANIZATION_ADMIN_PERMISSIONS = [
   'organization:projects:all',

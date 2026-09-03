@@ -6,6 +6,7 @@ import { SessionService } from './application/session.service';
 import { UserService } from './application/user.service';
 import { UserAccessService } from './application/user-access.service';
 import { InvitationService } from './application/invitation.service';
+import { PasswordResetService } from './application/password-reset.service';
 import { CanCanService } from './application/cancan.service';
 import { RoleService } from './application/role.service';
 import { UserRepository } from './infrastructure/repositories/user.repository';
@@ -13,6 +14,7 @@ import { RoleRepository } from './infrastructure/repositories/role.repository';
 import { ApiKeyRepository } from './infrastructure/repositories/apikey.repository';
 import { UserAccessRepository } from './infrastructure/repositories/user-access.repository';
 import { InvitationNotifier } from './infrastructure/notifications/invitation.notifier';
+import { PasswordResetNotifier } from './infrastructure/notifications/password-reset.notifier';
 import { projectService } from '../projects';
 
 const userRepository = new UserRepository();
@@ -20,6 +22,7 @@ const roleRepository = new RoleRepository();
 const apiKeyRepository = new ApiKeyRepository();
 const userAccessRepository = new UserAccessRepository();
 const invitationNotifier = new InvitationNotifier();
+const passwordResetNotifier = new PasswordResetNotifier();
 
 export const passwordService = new PasswordService();
 const sessionService = new SessionService(passwordService);
@@ -38,6 +41,11 @@ export const invitationService = new InvitationService(
   userRepository,
   userAccessRepository,
   passwordService,
+);
+export const passwordResetService = new PasswordResetService(
+  userRepository,
+  passwordService,
+  passwordResetNotifier,
 );
 export const userAccessService = new UserAccessService(
   userRepository,

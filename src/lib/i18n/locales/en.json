@@ -54,7 +54,8 @@
       "serverAccessKeys": "Server Access Keys",
       "organizations": "Organizations",
       "database": "Database",
-      "auditLog": "Audit Log"
+      "auditLog": "Audit Log",
+      "registration": "Registration"
     }
   },
   "footer": {
@@ -159,7 +160,8 @@
     "inactive": "Inactive",
     "comingSoon": "Coming soon",
     "optionalDescription": "Optional description",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "creating": "Creating..."
   },
   "error": {
     "notFoundTitle": "Page not found",
@@ -188,7 +190,28 @@
     "setPasswordSuffix": "to activate your account.",
     "goToSignIn": "Go to sign in",
     "activateAccount": "Activate account",
-    "activating": "Activating..."
+    "activating": "Activating...",
+    "registrationTitle": "Create your account",
+    "registrationSubtitle": "Sign up to start using GitOps.",
+    "registrationDisabled": "Self-service registration is currently disabled. Ask a cluster administrator for an invitation.",
+    "register": "Create account",
+    "registering": "Creating account...",
+    "alreadyHaveAccount": "Already have an account?",
+    "needAccount": "Need an account?",
+    "backToWebsite": "Go to getgitops.com",
+    "forgotPassword": "Forgot password?",
+    "recoverPasswordTitle": "Recover your password",
+    "recoverPasswordSubtitle": "Enter your email and we'll send you a link to reset your password.",
+    "recoverPasswordSuccess": "If an account exists for that email, a password reset link is on its way.",
+    "sendResetLink": "Send reset link",
+    "sendingResetLink": "Sending...",
+    "resetPasswordTitle": "Reset your password",
+    "resetPasswordSubtitle": "Choose a new password for your account.",
+    "invalidResetLink": "This password reset link is invalid or has expired.",
+    "newPassword": "New password",
+    "resetPassword": "Reset password",
+    "resetting": "Resetting...",
+    "passwordResetSuccess": "Your password has been reset. Sign in with your new password."
   },
   "bootstrap": {
     "title": "Cluster setup",
@@ -309,6 +332,14 @@
       "deleteConfirmTitle": "Delete organization",
       "deleteConfirmStart": "Are you sure you want to delete ",
       "deleteConfirmEnd": "? This action cannot be undone."
+    },
+    "registration": {
+      "title": "Registration",
+      "description": "Control whether new users can create their own account from the sign-in page.",
+      "enableLabel": "Allow self-service registration",
+      "enableDescription": "When enabled, anyone can create a cluster-user account at /auth/registration without an invitation. They start without an organization and can create their own.",
+      "updated": "Registration settings updated.",
+      "updateFailed": "Failed to update registration settings."
     }
   },
   "org": {

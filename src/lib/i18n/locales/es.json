@@ -54,7 +54,8 @@
       "serverAccessKeys": "Claves de acceso del servidor",
       "organizations": "Organizaciones",
       "database": "Base de datos",
-      "auditLog": "Registro de auditoría"
+      "auditLog": "Registro de auditoría",
+      "registration": "Registro"
     }
   },
   "footer": {
@@ -159,7 +160,8 @@
     "inactive": "Inactivo",
     "comingSoon": "Próximamente",
     "optionalDescription": "Descripción opcional",
-    "saving": "Guardando..."
+    "saving": "Guardando...",
+    "creating": "Creando..."
   },
   "error": {
     "notFoundTitle": "Página no encontrada",
@@ -188,7 +190,28 @@
     "setPasswordSuffix": "para activar tu cuenta.",
     "goToSignIn": "Ir al inicio de sesión",
     "activateAccount": "Activar cuenta",
-    "activating": "Activando..."
+    "activating": "Activando...",
+    "registrationTitle": "Crea tu cuenta",
+    "registrationSubtitle": "Regístrate para empezar a usar GitOps.",
+    "registrationDisabled": "El registro por autoservicio está deshabilitado actualmente. Pide una invitación a un administrador del clúster.",
+    "register": "Crear cuenta",
+    "registering": "Creando cuenta...",
+    "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+    "needAccount": "¿Necesitas una cuenta?",
+    "backToWebsite": "Ir a getgitops.com",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "recoverPasswordTitle": "Recupera tu contraseña",
+    "recoverPasswordSubtitle": "Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    "recoverPasswordSuccess": "Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.",
+    "sendResetLink": "Enviar enlace",
+    "sendingResetLink": "Enviando...",
+    "resetPasswordTitle": "Restablece tu contraseña",
+    "resetPasswordSubtitle": "Elige una nueva contraseña para tu cuenta.",
+    "invalidResetLink": "Este enlace para restablecer la contraseña no es válido o ha caducado.",
+    "newPassword": "Nueva contraseña",
+    "resetPassword": "Restablecer contraseña",
+    "resetting": "Restableciendo...",
+    "passwordResetSuccess": "Tu contraseña se ha restablecido. Inicia sesión con tu nueva contraseña."
   },
   "bootstrap": {
     "title": "Configuración del clúster",
@@ -309,6 +332,14 @@
       "deleteConfirmTitle": "Eliminar organización",
       "deleteConfirmStart": "¿Seguro que quieres eliminar ",
       "deleteConfirmEnd": "? Esta acción no se puede deshacer."
+    },
+    "registration": {
+      "title": "Registro",
+      "description": "Controla si los nuevos usuarios pueden crear su propia cuenta desde la página de inicio de sesión.",
+      "enableLabel": "Permitir registro por autoservicio",
+      "enableDescription": "Al habilitarlo, cualquiera puede crear una cuenta de usuario del clúster en /auth/registration sin invitación. Empiezan sin organización y pueden crear la suya propia.",
+      "updated": "Configuración de registro actualizada.",
+      "updateFailed": "No se pudo actualizar la configuración de registro."
     }
   },
   "org": {

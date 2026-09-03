@@ -8,6 +8,7 @@ export class UserDomain extends Domain {
   public role: RoleDomain | null = null;
   public status: 'active' | 'invited' = 'active';
   public invitationExpiresAt: Date | null = null;
+  public passwordResetExpiresAt: Date | null = null;
   constructor(data: any) {
     super(data);
     this.username = data.username;
@@ -15,6 +16,9 @@ export class UserDomain extends Domain {
     this.password = data.password;
     this.status = data.status === 'invited' ? 'invited' : 'active';
     this.invitationExpiresAt = data.invitationExpiresAt ? new Date(data.invitationExpiresAt) : null;
+    this.passwordResetExpiresAt = data.passwordResetExpiresAt
+      ? new Date(data.passwordResetExpiresAt)
+      : null;
     this.role = data.role ? new RoleDomain(data.role) : null;
   }
 

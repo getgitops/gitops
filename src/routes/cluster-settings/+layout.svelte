@@ -1,17 +1,6 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import { Code2, Database, Grid2X2, Settings, Shield, Users } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
-
-  const tabs = [
-    { label: 'Organizaciones', href: '/cluster-settings/orgs' },
-    { label: 'Roles y permisos', href: '/cluster-settings/roles-permissions' },
-    { label: 'Control de acceso', href: '/cluster-settings/access-control' },
-    { label: 'Base de datos', href: '/cluster-settings/database' },
-    { label: 'Registro de auditoría', href: '/cluster-settings/audit' },
-  ];
-
-  $: currentPath = $page.url.pathname;
 </script>
 
 <svelte:head>
@@ -49,19 +38,6 @@
         </div>
       </div>
     </div>
-
-    <nav class="flex gap-8 overflow-x-auto border-b border-[#142236] px-8 text-sm text-slate-400 sm:px-9" aria-label="Cluster settings">
-      {#each tabs as tab (tab.href)}
-        <a
-          href={tab.href}
-          class="shrink-0 border-b-2 px-4 pb-5 transition-colors {currentPath.startsWith(tab.href)
-            ? 'border-[#0d7dff] text-[#0d7dff]'
-            : 'border-transparent hover:text-slate-200'}"
-        >
-          {tab.label}
-        </a>
-      {/each}
-    </nav>
 
     <div class="min-w-0 px-8 py-9 sm:px-9">
       <slot />

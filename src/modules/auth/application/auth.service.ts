@@ -113,6 +113,47 @@ export class AuthService {
     return this.sessionService.createToken(userId);
   }
 
+  // self-service signup: always creates a plain cluster-user, no organization membership yet
+  async register(input: { username: string; email: string; password: string }): Promise<{
+    id: string;
+    username: string;
+    email: string | null;
+  }> {
+    const username = input.username.trim();
+    const email = input.email.trim().toLowerCase();
+    const password = input.password;
+
+    if (!username) throw new Error('Username is required');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('A valid email is required');
+    }
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters long');
+    }
+
+    if (await this.userRepository.findByUsername(username)) {
+      throw new Error('Username is already taken');
+    }
+    if (await this.userRepository.findByEmail(email)) {
+      throw new Error('Email is already registered');
+    }
+
+    const clusterUserRole = await this.ensureClusterUserRole();
+
+    await this.userRepository.createUser({
+      id: crypto.randomUUID(),
+      username,
+      email,
+      passwordHash: this.passwordService.hashPassword(password),
+      role: clusterUserRole.toJson(),
+    });
+
+    const user = await this.userRepository.findByUsername(username);
+    if (!user) throw new Error('Failed to register user');
+
+    return { id: user.id, username: user.username, email: user.email };
+  }
+
   async resolveAuthenticatedUser(sessionToken: string | undefined): Promise<any> {
     const userId = this.sessionService.parseAndVerifyToken(sessionToken);
     if (!userId) {
