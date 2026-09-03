@@ -1,0 +1,32 @@
+name: Code Report
+
+on:
+  push:
+    branches: [development]
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install GitOps CLI
+        run: npm install --global @getgitops/cli
+
+      - name: Run Code Report scan
+        env:
+          API_URL: https://cloud.getgitops.com/api
+          API_KEY: ${{ secrets.GITOPS_API_KEY }}
+        run: >-
+          gops creport scan
+          --api-url "$API_URL"
+          --api-key "$API_KEY"
+          --service gitops
+          --project gitops
+          --git-branch "${GITHUB_REF_NAME}"
+          --git-repo-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          --git-author "${GITHUB_ACTOR}"
+          --git-commit "${GITHUB_SHA}"
+          --tags github-actions ci
