@@ -65,7 +65,8 @@ function createClient(authorName: string, authorEmail: string): GitDB {
 
 export function getGitDb(): GitDB {
   if (!instance) {
-    throw new Error('GitDB is not started. Call startGitDb() and await it before accessing data.');
+    const config = requireRepositoryConfig();
+    instance = createClient(config.authorName, config.authorEmail);
   }
 
   const actor = getCurrentActor();

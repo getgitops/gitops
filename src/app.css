@@ -1,10 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
 body {
-  background-color: #020813;
-  color: #f1f5f9;
+  @apply bg-[#020813] text-slate-100;
 }
 
 * {
@@ -388,8 +385,7 @@ html.dark {
 }
 
 html.dark body {
-  background-color: #0e0f14;
-  color: #f1f5f9;
+  @apply bg-[#0E0F14] text-slate-100;
 }
 
 html.dark .bg-slate-50,
