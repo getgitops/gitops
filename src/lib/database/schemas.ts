@@ -75,6 +75,18 @@ export const UserAccessEntity = entity('user_access', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+// singleton row (fixed id), holds cluster-wide feature toggles such as self-service registration
+export const ClusterSettingsEntity = entity('cluster_settings', {
+  id: uuid().primaryKey(),
+  registrationEnabled: bool().notNull().default(false),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const relations = defineRelations();
 
 relations.for(UserEntity, ({ one, many }) => ({

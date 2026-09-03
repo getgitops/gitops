@@ -9,6 +9,15 @@ analysis, and Pulumi State visibility. The Vault route is currently a UI foundat
 yet provide a complete secrets backend. Google SSO and SAML settings are configuration only; no
 external authentication strategy is implemented.
 
+Self-service registration (`/auth/registration`) lets a visitor create a plain `cluster-user`
+account with no organization membership. It is gated by a cluster-wide toggle managed at
+`/cluster-settings/registration` (persisted via `clusterSettingsService` in `$modules/config`,
+off by default) and re-checked server-side on submit so it can't be bypassed while disabled. Once
+registered and signed in, the user lands on `/org`, where the `cluster:organization:create`
+permission (granted to `cluster-user` by default) surfaces a "New Organization" action that
+creates the organization, provisions its default roles, and grants the creator the `org-admin`
+role so they can manage what they just created.
+
 The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented features.
 
 ## Stack and commands

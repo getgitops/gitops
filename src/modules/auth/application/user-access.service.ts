@@ -204,6 +204,29 @@ export class UserAccessService {
     return this.toClusterRow(user);
   }
 
+  async assignOrganizationUser(input: {
+    organizationId: string;
+    userId: string;
+    roleId: string;
+  }): Promise<UserAccessRow> {
+    const organizationId = input.organizationId.trim();
+    const userId = input.userId.trim();
+    if (!organizationId) throw new Error('Organization is required');
+    if (!userId) throw new Error('User is required');
+
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new Error('User not found');
+    const role = await this.findRoleForScope(input.roleId, 'organization', organizationId);
+
+    const access = await this.createAccess({
+      userId,
+      roleId: role.id,
+      scope: 'organization',
+      organizationId,
+    });
+    return this.toRow(access);
+  }
+
   async assignProjectUser(input: {
     projectId: string;
     userId: string;

@@ -54,7 +54,8 @@
       "serverAccessKeys": "Server Access Keys",
       "organizations": "Organizations",
       "database": "Database",
-      "auditLog": "Audit Log"
+      "auditLog": "Audit Log",
+      "registration": "Registration"
     }
   },
   "footer": {
@@ -159,7 +160,8 @@
     "inactive": "Inactive",
     "comingSoon": "Coming soon",
     "optionalDescription": "Optional description",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "creating": "Creating..."
   },
   "error": {
     "notFoundTitle": "Page not found",
@@ -188,7 +190,15 @@
     "setPasswordSuffix": "to activate your account.",
     "goToSignIn": "Go to sign in",
     "activateAccount": "Activate account",
-    "activating": "Activating..."
+    "activating": "Activating...",
+    "registrationTitle": "Create your account",
+    "registrationSubtitle": "Sign up to start using GitOps.",
+    "registrationDisabled": "Self-service registration is currently disabled. Ask a cluster administrator for an invitation.",
+    "register": "Create account",
+    "registering": "Creating account...",
+    "alreadyHaveAccount": "Already have an account?",
+    "needAccount": "Need an account?",
+    "backToWebsite": "Go to getgitops.com"
   },
   "bootstrap": {
     "title": "Cluster setup",
@@ -309,6 +319,14 @@
       "deleteConfirmTitle": "Delete organization",
       "deleteConfirmStart": "Are you sure you want to delete ",
       "deleteConfirmEnd": "? This action cannot be undone."
+    },
+    "registration": {
+      "title": "Registration",
+      "description": "Control whether new users can create their own account from the sign-in page.",
+      "enableLabel": "Allow self-service registration",
+      "enableDescription": "When enabled, anyone can create a cluster-user account at /auth/registration without an invitation. They start without an organization and can create their own.",
+      "updated": "Registration settings updated.",
+      "updateFailed": "Failed to update registration settings."
     }
   },
   "org": {

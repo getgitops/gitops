@@ -329,6 +329,11 @@
                     icon: Users,
                   },
                   {
+                    label: $_('sidebar.items.registration'),
+                    href: '/cluster-settings/registration',
+                    icon: KeyRound,
+                  },
+                  {
                     label: $_('sidebar.items.database'),
                     href: '/cluster-settings/database',
                     icon: Database,

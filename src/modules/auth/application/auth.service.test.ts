@@ -126,7 +126,7 @@ describe('AuthService bootstrapDefaults', () => {
       'cluster:users:all',
       'cluster:settings:all',
     ]);
-    expect(clusterUser?.permissions).toEqual([]);
+    expect(clusterUser?.permissions).toEqual(['cluster:organization:create']);
     expect(userRepository.updatedRoleIds).toEqual([
       { userId: 'admin-user', roleId: clusterAdmin?.id },
     ]);

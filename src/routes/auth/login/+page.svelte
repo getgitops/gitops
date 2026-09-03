@@ -5,6 +5,7 @@
   import { ShieldCheck } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
 
+  export let data: { registrationEnabled: boolean };
   export let form: ActionData;
 
   let isSubmitting = false;
@@ -28,7 +29,7 @@
     class="w-full max-w-md border border-slate-200 bg-white/90 p-8 shadow-xl backdrop-blur sm:rounded-2xl"
   >
     <div class="mb-8 flex flex-col items-center gap-4 text-center">
-      <img src="/gitops_logo.png" alt="GitOps" class="h-24 w-auto shrink-0 sm:h-32" />
+      <img src="/gitops_logo_white.png" alt="GitOps" class="h-14 w-auto shrink-0 sm:h-16" />
 
       <div>
         <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -101,5 +102,19 @@
         {isSubmitting ? $_('auth.signingIn') : $_('auth.signIn')}
       </button>
     </form>
+
+    {#if data.registrationEnabled}
+      <p class="mt-6 text-center text-sm text-slate-600">
+        {$_('auth.needAccount')}
+        <a href="/auth/registration" class="font-medium text-slate-900 underline">{$_('auth.register')}</a>
+      </p>
+    {/if}
   </div>
+
+  <a
+    href="https://getgitops.com"
+    class="mt-6 rounded-full border border-slate-300 bg-white/70 px-4 py-1.5 text-sm font-medium text-slate-600 backdrop-blur transition hover:border-slate-400 hover:text-slate-900"
+  >
+    {$_('auth.backToWebsite')}
+  </a>
 </div>
