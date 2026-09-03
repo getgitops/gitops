@@ -17,3 +17,5 @@ e2e/.tmp/
 test-results/
 playwright-report/
 blob-report/
+creport-cloud.sh
+creport-local.sh

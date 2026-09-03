@@ -12,8 +12,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
       - name: Install GitOps CLI
-        run: npm install --global @getgitops/cli
+        run: bun install --global @getgitops/cli
 
       - name: Run Code Report scan
         env:
@@ -28,5 +36,6 @@ jobs:
           --git-branch "${GITHUB_REF_NAME}"
           --git-repo-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           --git-author "${GITHUB_ACTOR}"
+          --git-version "${GITHUB_REF}"
           --git-commit "${GITHUB_SHA}"
           --tags github-actions ci

@@ -69,11 +69,11 @@
   const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
   const severityKeys = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
   const fileSeverityOrder = ['critical', 'high', 'medium', 'low'] as const;
-  const knownTools = ['trivy', 'sbom', 'gitleaks'];
+  const knownTools = ['trivy', 'syft', 'sbom', 'gitleaks'];
   // manual uploads are stored under other tool names, so fall back to the latest analysis
   $: trivyAnalysis = latestByTool.trivy ?? analysis;
   $: gitleaksAnalysis = latestByTool.gitleaks ?? null;
-  $: sbomAnalysis = latestByTool.sbom ?? null;
+  $: sbomAnalysis = latestByTool.syft ?? latestByTool.sbom ?? null;
   $: summary = trivyAnalysis ? summarizeAnalysisResult(trivyAnalysis.result) : null;
   $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
   $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
@@ -87,7 +87,13 @@
   $: fileGroups = groupByFile(vulnerabilities);
   $: selectedFile = fileGroups.find((file) => file.path === selectedFilePath) ?? null;
   $: historyPoints = analysisHistory
-    .filter((item) => item.status === 'completed' && item.tool !== 'gitleaks' && item.tool !== 'sbom')
+    .filter(
+      (item) =>
+        item.status === 'completed' &&
+        item.tool !== 'gitleaks' &&
+        item.tool !== 'syft' &&
+        item.tool !== 'sbom',
+    )
     .slice()
     .reverse()
     .map((item) => ({
