@@ -5,6 +5,7 @@ WORKDIR /app
 
 # Install dependencies (leverage layer cache)
 COPY package.json bun.lock ./
+COPY project.inlang ./project.inlang
 RUN bun install --frozen-lockfile
 
 # Copy the rest of the source and build
@@ -12,7 +13,7 @@ COPY . .
 RUN bun run build
 
 # Prune dev dependencies so only production deps are kept
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # ─── Stage 2: production image ───────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -20,6 +21,9 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# GitDB clones and syncs its backing repository at runtime.
+RUN apk add --no-cache git
 
 # SvelteKit adapter-node output lives in build/
 COPY --from=builder /app/build ./build
