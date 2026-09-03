@@ -50,8 +50,6 @@ async function boot(): Promise<void> {
   await client.ready();
   instance = client;
 
-  // await gitDbSyncService.syncNow();
-
   console.info('[gitdb] ready');
 }
 

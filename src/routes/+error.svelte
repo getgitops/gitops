@@ -2,7 +2,7 @@
   import '../app.css';
   import { page } from '$app/stores';
   import { ShieldAlert, FileQuestion, ServerCrash, ArrowLeft, Home } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   $: status = $page.status;
   $: message = $page.error?.message;

@@ -308,7 +308,7 @@
     role="presentation"
     on:click={(event) => event.currentTarget === event.target && (riskInfoModalOpen = false)}
   >
-    <section
+    <div
       class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
       role="dialog"
       aria-modal="true"
@@ -351,5 +351,5 @@
           Riesgo bajo: 1-7 · medio: 8-19 · alto: 20-39 · crítico: 40+ o cualquier Critical.
         </p>
       </div>
-    </section>
+    </div>
   </div>{/if}

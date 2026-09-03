@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '@sveltejs/kit';
   import { CheckCircle, Eye, FolderKanban, Plus, Search, Trash2 } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: {
     organization: { id: string; slug: string } | null;

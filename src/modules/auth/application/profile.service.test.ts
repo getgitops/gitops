@@ -17,7 +17,9 @@ function createUserRepositoryMock() {
     listActiveApiKeys: vi.fn(),
     createApiKey: vi.fn(),
     revokeApiKey: vi.fn(),
-  } as unknown as UserRepository;
+  } as unknown as UserRepository & {
+    findById: ReturnType<typeof vi.fn>;
+  };
 }
 
 function createPasswordServiceMock() {
@@ -25,7 +27,10 @@ function createPasswordServiceMock() {
     ensureEncryptionKey: vi.fn(),
     hashPassword: vi.fn(),
     verifyPassword: vi.fn(),
-  } as unknown as PasswordService;
+  } as unknown as PasswordService & {
+    hashPassword: ReturnType<typeof vi.fn>;
+    verifyPassword: ReturnType<typeof vi.fn>;
+  };
 }
 
 describe('ProfileService', () => {

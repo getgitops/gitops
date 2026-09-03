@@ -23,7 +23,7 @@ export async function load({ parent, locals, url }) {
   const occurrencesByCve = await codeReportCveService.getOrganizationCveOccurrences(
     projects.map((project) => ({
       id: project.id,
-      slug: project.slug,
+      slug: project.slug ?? '',
       name: project.name,
     })),
   );

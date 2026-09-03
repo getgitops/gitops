@@ -3,7 +3,7 @@
   import { ArrowLeft } from '@lucide/svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: {
     service: { id: string; name: string; slug: string; tags?: string[] };

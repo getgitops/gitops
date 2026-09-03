@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from '@lucide/svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
   import {
     describeScope,
     SECURITY_POLICY_ENFORCEMENT_META,

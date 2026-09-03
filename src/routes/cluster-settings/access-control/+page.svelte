@@ -1,6 +1,6 @@
 <script lang="ts">
   import Users from '$lib/components/Users.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: { users: any[]; roles: any[] };
 </script>

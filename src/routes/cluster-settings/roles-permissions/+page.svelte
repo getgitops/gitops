@@ -1,6 +1,6 @@
 <script lang="ts">
   import RolePermissions from '$lib/components/RolePermissions.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: { roles: any[] };
 </script>

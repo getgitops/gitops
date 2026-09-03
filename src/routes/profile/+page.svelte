@@ -16,7 +16,7 @@
     Copy,
     Check,
   } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
   import { setLocale, SUPPORTED_LOCALES, locale, type SupportedLocale } from '$lib/i18n';
 
   export let data: any;

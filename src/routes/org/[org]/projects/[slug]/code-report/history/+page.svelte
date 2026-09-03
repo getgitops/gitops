@@ -3,7 +3,7 @@
   import { ArrowLeft, Check, ChevronDown, Clock, Search } from '@lucide/svelte';
   import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
   import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
   export let data: {
     services: { id: string; slug: string; name: string }[];
     analyses: any[];

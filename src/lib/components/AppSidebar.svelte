@@ -21,7 +21,7 @@
     Layers,
     ShieldAlert,
   } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type NavIcon = typeof Building2;
   type NavItem = { label: string; href: string; icon: NavIcon };

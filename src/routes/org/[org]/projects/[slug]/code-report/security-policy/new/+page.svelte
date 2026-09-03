@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { ArrowLeft } from '@lucide/svelte';
   import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: {
     services: { id: string; slug: string; name: string; tags: string[] }[];

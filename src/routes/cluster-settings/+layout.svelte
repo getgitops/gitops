@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import { Code2, Database, Grid2X2, Settings, Shield, Users } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   const tabs = [
     { label: 'Organizaciones', href: '/cluster-settings/orgs' },

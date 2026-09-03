@@ -11,7 +11,7 @@ Google SSO y SAML son configuracion, no estrategias de autenticacion implementad
 
 - SvelteKit 2, Svelte 5, Vite 8 y TypeScript 6 strict
 - Tailwind CSS 4 y `@lucide/svelte`
-- Internacionalizacion con `svelte-i18n` (español e ingles)
+- Internacionalizacion con Paraglide JS (español e ingles)
 - Bun como package manager
 - GitDB como unica capa de persistencia
 - Vitest, ESLint y Prettier

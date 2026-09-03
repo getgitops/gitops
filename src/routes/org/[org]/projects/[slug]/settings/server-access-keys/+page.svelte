@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Check, Copy, KeyRound, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
-  import { _, locale } from 'svelte-i18n';
+  import { _, locale } from '$lib/i18n';
 
   type ApiKeyRow = {
     id: string;

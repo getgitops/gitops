@@ -3,7 +3,7 @@
   import { enhance } from '$app/forms';
   import { ArrowLeft, History, Trash2, X } from '@lucide/svelte';
   import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let data: {
     service: { id: string; name: string; slug: string; tags?: string[] };

@@ -12,7 +12,7 @@
     UserPlus,
     Users as UsersIcon,
   } from '@lucide/svelte';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   type UserScope = 'cluster' | 'organization' | 'project';
 

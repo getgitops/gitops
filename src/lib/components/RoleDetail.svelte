@@ -13,7 +13,7 @@
   } from '@lucide/svelte';
   import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
   import { normalizePermissionGrant, toStoredPermissionGrant } from '$lib/permissions';
-  import { _ } from 'svelte-i18n';
+  import { _ } from '$lib/i18n';
 
   export let scope: 'cluster' | 'organization' | 'project';
   export let role: RoleRow | null = null;
@@ -380,7 +380,7 @@
       throw new Error(typeof data?.error === 'string' ? data.error : $_('roleDetail.actionFailed'));
     }
 
-    return result.data as { role?: RoleRow } | null;
+    return result.type === 'success' ? (result.data as { role?: RoleRow } | undefined) : null;
   }
 
   async function saveRole() {
