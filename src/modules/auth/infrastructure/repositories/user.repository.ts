@@ -49,6 +49,17 @@ export class UserRepository extends Repository {
     return row ? this.toDomain(row) : null;
   }
 
+  async findByPasswordResetTokenHash(passwordResetTokenHash: string): Promise<UserDomain | null> {
+    const result = await this.db
+      .with({ role: true })
+      .select()
+      .from(UserEntity)
+      .where({ passwordResetTokenHash })
+      .limit(1);
+    const row = result.rows[0];
+    return row ? this.toDomain(row) : null;
+  }
+
   async listUsers(): Promise<UserDomain[]> {
     const result = await this.db
       .with({ role: true })
@@ -131,6 +142,29 @@ export class UserRepository extends Repository {
       .where({ id: userId });
   }
 
+  async setPasswordResetToken(
+    userId: string,
+    passwordResetTokenHash: string,
+    passwordResetExpiresAt: string,
+  ): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({ passwordResetTokenHash, passwordResetExpiresAt, updatedAt: new Date().toISOString() })
+      .where({ id: userId });
+  }
+
+  async resetPassword(userId: string, passwordHash: string): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({
+        passwordHash,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where({ id: userId });
+  }
+
   async deleteById(userId: string): Promise<void> {
     await this.db.delete(ApiKeyEntity).where({ userId });
     await this.db.delete(UserEntity).where({ id: userId });
@@ -154,6 +188,7 @@ export class UserRepository extends Repository {
       password: user.passwordHash,
       status: user.status,
       invitationExpiresAt: user.invitationExpiresAt ?? null,
+      passwordResetExpiresAt: user.passwordResetExpiresAt ?? null,
       role: user.role,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

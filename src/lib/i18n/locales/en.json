@@ -198,7 +198,20 @@
     "registering": "Creating account...",
     "alreadyHaveAccount": "Already have an account?",
     "needAccount": "Need an account?",
-    "backToWebsite": "Go to getgitops.com"
+    "backToWebsite": "Go to getgitops.com",
+    "forgotPassword": "Forgot password?",
+    "recoverPasswordTitle": "Recover your password",
+    "recoverPasswordSubtitle": "Enter your email and we'll send you a link to reset your password.",
+    "recoverPasswordSuccess": "If an account exists for that email, a password reset link is on its way.",
+    "sendResetLink": "Send reset link",
+    "sendingResetLink": "Sending...",
+    "resetPasswordTitle": "Reset your password",
+    "resetPasswordSubtitle": "Choose a new password for your account.",
+    "invalidResetLink": "This password reset link is invalid or has expired.",
+    "newPassword": "New password",
+    "resetPassword": "Reset password",
+    "resetting": "Resetting...",
+    "passwordResetSuccess": "Your password has been reset. Sign in with your new password."
   },
   "bootstrap": {
     "title": "Cluster setup",

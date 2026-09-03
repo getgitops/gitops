@@ -198,7 +198,20 @@
     "registering": "Creando cuenta...",
     "alreadyHaveAccount": "¿Ya tienes una cuenta?",
     "needAccount": "¿Necesitas una cuenta?",
-    "backToWebsite": "Ir a getgitops.com"
+    "backToWebsite": "Ir a getgitops.com",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "recoverPasswordTitle": "Recupera tu contraseña",
+    "recoverPasswordSubtitle": "Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    "recoverPasswordSuccess": "Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.",
+    "sendResetLink": "Enviar enlace",
+    "sendingResetLink": "Enviando...",
+    "resetPasswordTitle": "Restablece tu contraseña",
+    "resetPasswordSubtitle": "Elige una nueva contraseña para tu cuenta.",
+    "invalidResetLink": "Este enlace para restablecer la contraseña no es válido o ha caducado.",
+    "newPassword": "Nueva contraseña",
+    "resetPassword": "Restablecer contraseña",
+    "resetting": "Restableciendo...",
+    "passwordResetSuccess": "Tu contraseña se ha restablecido. Inicia sesión con tu nueva contraseña."
   },
   "bootstrap": {
     "title": "Configuración del clúster",

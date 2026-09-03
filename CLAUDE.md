@@ -18,6 +18,12 @@ permission (granted to `cluster-user` by default) surfaces a "New Organization" 
 creates the organization, provisions its default roles, and grants the creator the `org-admin`
 role so they can manage what they just created.
 
+Password recovery: `/auth/recover-password` accepts an email and, via `passwordResetService` in
+`$modules/auth`, emails a time-limited reset link (`password-reset` template, 1 hour TTL, hashed
+token stored on the user) without revealing whether the address is registered. The link lands on
+`/auth/reset-password?token=...`, which sets a new password and redirects back to `/auth/login`.
+
+
 The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented features.
 
 ## Stack and commands

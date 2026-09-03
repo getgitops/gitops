@@ -12,6 +12,7 @@
 
   $: email = form?.email ?? '';
   $: loggedOut = $page.url.searchParams.has('loggedOut');
+  $: passwordReset = $page.url.searchParams.has('passwordReset');
 </script>
 
 <svelte:head>
@@ -48,6 +49,14 @@
       </div>
     {/if}
 
+    {#if passwordReset}
+      <div
+        class="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+      >
+        {$_('auth.passwordResetSuccess')}
+      </div>
+    {/if}
+
     {#if form?.error}
       <div class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         {form.error}
@@ -81,9 +90,14 @@
       </div>
 
       <div>
-        <label class="mb-1.5 block text-sm font-medium text-slate-700" for="password"
-          >{$_('common.password')}</label
-        >
+        <div class="mb-1.5 flex items-center justify-between">
+          <label class="block text-sm font-medium text-slate-700" for="password"
+            >{$_('common.password')}</label
+          >
+          <a href="/auth/recover-password" class="text-xs font-medium text-slate-500 underline hover:text-slate-700">
+            {$_('auth.forgotPassword')}
+          </a>
+        </div>
         <input
           id="password"
           name="password"
