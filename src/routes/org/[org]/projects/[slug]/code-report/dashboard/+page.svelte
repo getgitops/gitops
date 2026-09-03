@@ -101,7 +101,9 @@
           labels: Object.keys(severityColors),
           datasets: [
             {
-              data: Object.keys(severityColors).map((key) => data.severityBreakdown[key]),
+              data: (Object.keys(severityColors) as (keyof SeverityCounts)[]).map(
+                (key) => data.severityBreakdown[key],
+              ),
               backgroundColor: Object.values(severityColors),
               borderWidth: 0,
             },
@@ -225,7 +227,7 @@
                     <span class="h-2.5 w-2.5 rounded-full" style={`background:${color}`}></span>
                     {key}
                   </span>
-                  <span class="font-semibold text-slate-800">{data.severityBreakdown[key]}</span>
+                  <span class="font-semibold text-slate-800">{data.severityBreakdown[key as keyof SeverityCounts]}</span>
                 </li>
               {/each}
             </ul>

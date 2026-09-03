@@ -78,7 +78,7 @@ export class UserService {
     const targetUser = await this.userRepository.findById(targetUserId);
     const adminCount = await this.userRepository.countAdmins();
 
-    if (targetUser?.role === 'admin' && adminCount <= 1) {
+    if (targetUser?.role?.slug === 'admin' && adminCount <= 1) {
       throw new Error('At least one admin user is required.');
     }
   }

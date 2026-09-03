@@ -380,7 +380,7 @@
       throw new Error(typeof data?.error === 'string' ? data.error : $_('roleDetail.actionFailed'));
     }
 
-    return result.data as { role?: RoleRow } | null;
+    return result.type === 'success' ? (result.data as { role?: RoleRow } | undefined) : null;
   }
 
   async function saveRole() {

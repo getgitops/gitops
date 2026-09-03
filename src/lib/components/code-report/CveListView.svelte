@@ -2,7 +2,7 @@
   import { AlertTriangle, ChevronLeft, ChevronRight, Info, Search, ShieldAlert } from '@lucide/svelte';
   import Dropdown from '$lib/components/Dropdown.svelte';
 
-  export type CveListRow = {
+  type CveListRow = {
     id: string;
     title: string;
     severity: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
@@ -12,7 +12,7 @@
     projectSlugs?: string[];
   };
 
-  export type ProjectFilterOption = {
+  type ProjectFilterOption = {
     slug: string;
     name: string;
   };

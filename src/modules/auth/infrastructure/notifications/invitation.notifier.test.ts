@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerTransport, resetTransports } from '$lib/server/infra/notifications';
 import { InvitationNotifier } from './invitation.notifier';
 
-const send = vi.fn(async () => {});
+const send = vi.fn(async (notification: { to: string[]; subject: string; content: string }) => {
+  return notification;
+});
 
 describe('InvitationNotifier', () => {
   beforeEach(() => {
@@ -22,15 +24,13 @@ describe('InvitationNotifier', () => {
       organizationName: 'GitOps',
       roleName: 'Developer',
       inviteUrl: 'https://app.local/auth/login',
+      expiresAt: '2024-01-08T00:00:00.000Z',
       invitedBy: 'admin',
     });
 
     expect(send).toHaveBeenCalledTimes(1);
-    const notification = send.mock.calls[0][0] as {
-      to: string[];
-      subject: string;
-      content: string;
-    };
+    const notification = send.mock.calls[0]?.[0];
+    expect(notification).toBeDefined();
 
     expect(notification.to).toEqual(['jose@example.com']);
     expect(notification.subject).toBe('You have been invited to GitOps');
@@ -47,10 +47,12 @@ describe('InvitationNotifier', () => {
       organizationName: 'GitOps',
       roleName: 'Developer',
       inviteUrl: 'https://app.local/auth/login',
+      expiresAt: '2024-01-08T00:00:00.000Z',
       invitedBy: null,
     });
 
-    const notification = send.mock.calls[0][0] as { content: string };
+    const notification = send.mock.calls[0]?.[0];
+    expect(notification).toBeDefined();
     expect(notification.content).toContain('GitOps has invited you to join GitOps');
   });
 });

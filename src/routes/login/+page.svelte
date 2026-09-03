@@ -1,11 +1,10 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { page } from '$app/stores';
-  import type { ActionData } from './$types';
   import { ShieldCheck } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
 
-  export let form: ActionData;
+  export let form: { email?: string; error?: string } | null = null;
 
   let isSubmitting = false;
 

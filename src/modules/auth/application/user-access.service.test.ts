@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { UserAccessService } from './user-access.service';
+import {
+  UserAccessService,
+  type InvitationNotifierPort,
+  type InvitationTokenIssuerPort,
+} from './user-access.service';
 import { RoleDomain } from '../domain/role.domain';
 import { UserAccessDomain } from '../domain/user-access.domain';
 import { UserDomain } from '../domain/user.domain';
@@ -196,8 +200,8 @@ describe('UserAccessService', () => {
   let userRepository: FakeUserRepository;
   let roleRepository: FakeRoleRepository;
   let userAccessRepository: FakeUserAccessRepository;
-  let invitationNotifier: { sendInvitation: ReturnType<typeof vi.fn> };
-  let invitationTokens: { issueToken: ReturnType<typeof vi.fn> };
+  let invitationNotifier: InvitationNotifierPort;
+  let invitationTokens: InvitationTokenIssuerPort;
   let service: UserAccessService;
 
   beforeEach(() => {
