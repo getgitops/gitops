@@ -59,6 +59,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
   const isApiRequest = pathname.startsWith('/api/');
 
+  if (pathname === '/health') {
+    return resolve(event);
+  }
+
   // while starting up (or if startup failed), skip all validation and show maintenance page
   if (!isServerReady()) {
     if (pathname === '/maintenance') {
