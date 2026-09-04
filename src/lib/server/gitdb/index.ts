@@ -7,9 +7,11 @@ import {
   resolveRepositoryWebUrl,
 } from './config';
 import { getCurrentActor } from '../request-context';
-import { createLogger } from '../logger';
+import { createGitDbLogger, createLogger } from '../logger';
 
 const log = createLogger('gitdb');
+// bridges gitdb's message-first logger contract into the structured pino logger
+const gitDbLogger = createGitDbLogger('gitdb');
 
 let instance: GitDB | null = null;
 let startup: Promise<void> | null = null;
@@ -71,6 +73,7 @@ function createClient(authorName: string, authorEmail: string): GitDB {
     dataPath: config.dataPath,
     authUsername,
     authToken,
+    logger: gitDbLogger,
   });
 }
 

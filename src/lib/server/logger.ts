@@ -191,3 +191,41 @@ export function logHttpRequest(
   else if (response.status >= 400) log.warn(entry, message);
   else log.info(entry, message);
 }
+
+/**
+ * Adapter for @getgitops/gitdb's `GitDbLoggerLike` contract (message first, trailing meta args),
+ * bridging it into the structured pino logger so gitdb output lands in Cloud Logging like the rest.
+ */
+export function createGitDbLogger(module = 'gitdb') {
+  const log = createLogger(module);
+  const write =
+    (level: 'debug' | 'info' | 'warn' | 'error') =>
+    (message: string, ...meta: unknown[]): void => {
+      const data = mergeMeta(meta);
+      if (data) log[level](data, message);
+      else log[level](message);
+    };
+  return {
+    debug: write('debug'),
+    info: write('info'),
+    warn: write('warn'),
+    error: write('error'),
+  };
+}
+
+function mergeMeta(meta: unknown[]): Record<string, unknown> | undefined {
+  if (meta.length === 0) return undefined;
+
+  const merged: Record<string, unknown> = {};
+  const rest: unknown[] = [];
+  for (const item of meta) {
+    if (item && typeof item === 'object' && !Array.isArray(item) && !(item instanceof Error)) {
+      Object.assign(merged, item);
+    } else {
+      rest.push(item);
+    }
+  }
+  if (rest.length > 0) merged.meta = rest.length === 1 ? rest[0] : rest;
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
