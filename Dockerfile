@@ -22,8 +22,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# GitDB clones and syncs its backing repository at runtime.
-RUN apk add --no-cache git
+# GitDB clones and syncs its backing repository at runtime; openssh-client
+# provides the ssh binary git needs for git@ remotes.
+RUN apk add --no-cache git openssh-client && \
+    mkdir -p /root/.ssh && \
+    ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> /root/.ssh/known_hosts
 
 # SvelteKit adapter-node output lives in build/
 COPY --from=builder /app/build ./build
