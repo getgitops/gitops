@@ -1,12 +1,15 @@
 import { gitDb, type GitDB } from '@getgitops/gitdb';
 import {
-  buildAuthenticatedUrl,
   isRepositoryConfigured,
   redactUrl,
   requireRepositoryConfig,
+  resolveAuthCredentials,
   resolveRepositoryWebUrl,
 } from './config';
 import { getCurrentActor } from '../request-context';
+import { createLogger } from '../logger';
+
+const log = createLogger('gitdb');
 
 let instance: GitDB | null = null;
 let startup: Promise<void> | null = null;
@@ -39,27 +42,35 @@ export function startGitDb(): Promise<void> {
 
 async function boot(): Promise<void> {
   const config = requireRepositoryConfig();
-  console.info('[gitdb] starting', {
-    repository: redactUrl(config.repositoryUrl),
-    branch: config.branch,
-    authMode: config.authMode,
-    syncPollSeconds: config.syncPollSeconds,
-  });
+  log.info(
+    {
+      repository: redactUrl(config.repositoryUrl),
+      branch: config.branch,
+      authMode: config.authMode,
+      syncPollSeconds: config.syncPollSeconds,
+      syncMode: config.syncMode,
+    },
+    'gitdb starting',
+  );
 
   const client = createClient(config.authorName, config.authorEmail);
   await client.ready();
   instance = client;
 
-  console.info('[gitdb] ready');
+  log.info('gitdb ready');
 }
 
 function createClient(authorName: string, authorEmail: string): GitDB {
   const config = requireRepositoryConfig();
-  return gitDb(buildAuthenticatedUrl(config), {
+  const { authUsername, authToken } = resolveAuthCredentials(config);
+  return gitDb(config.repositoryUrl, {
     gitUserName: authorName,
     gitUserEmail: authorEmail,
     syncPollSeconds: config.syncPollSeconds,
+    syncMode: config.syncMode,
     dataPath: config.dataPath,
+    authUsername,
+    authToken,
   });
 }
 

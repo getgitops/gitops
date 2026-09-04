@@ -6,6 +6,9 @@ import { extractSecrets, extractVulnerabilities } from '$lib/code-report/analysi
 import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
 import type { SecurityPolicy } from '$lib/code-report/security-policy';
 import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
+import { createLogger } from '$lib/server/logger';
+
+const log = createLogger('code-report-analysis');
 
 type ServiceLookup = {
   findById(id: string): Promise<{ id: string; projectId?: string; tags?: string[] } | null>;
@@ -54,7 +57,7 @@ export class CodeReportAnalysisService {
   }
 
   async getById(id: string) {
-    console.log('🔍 Fetching analysis by ID:', id);
+    log.debug({ analysisId: id }, 'fetching analysis by id');
     const analysis = await this.repository.findById(id);
     if (!analysis) {
       throw new Error('Analysis not found');

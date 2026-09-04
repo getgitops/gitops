@@ -1,5 +1,9 @@
 import { readRepositoryConfig, redactUrl } from './config';
+import type { GitDbSyncMode } from './config';
 import { getGitDb } from './index';
+import { createLogger } from '../logger';
+
+const log = createLogger('gitdb-sync');
 
 export type SyncState = 'synced' | 'syncing' | 'error' | 'unconfigured';
 
@@ -9,6 +13,7 @@ export type SyncStatus = {
   repositoryUrl: string | null;
   branch: string | null;
   syncPollSeconds: number | null;
+  syncMode: GitDbSyncMode | null;
   lastSyncAt: string | null;
   lastAttemptAt: string | null;
   lastError: string | null;
@@ -41,6 +46,7 @@ class GitDbSyncService {
         repositoryUrl: null,
         branch: null,
         syncPollSeconds: null,
+        syncMode: null,
         lastSyncAt: this.lastSyncAt,
         lastAttemptAt: this.lastAttemptAt,
         lastError: this.lastError,
@@ -71,6 +77,7 @@ class GitDbSyncService {
       repositoryUrl: redactUrl(config.repositoryUrl),
       branch: config.branch,
       syncPollSeconds: config.syncPollSeconds,
+      syncMode: config.syncMode,
       lastSyncAt: this.lastSyncAt,
       lastAttemptAt: this.lastAttemptAt,
       lastError: this.lastError,
@@ -112,7 +119,7 @@ class GitDbSyncService {
     } catch (error: unknown) {
       this.state = 'error';
       this.lastError = redactUrl(error instanceof Error ? error.message : 'Unknown sync error');
-      console.error(`[gitdb-sync] sync failed: ${this.lastError}`);
+      log.error({ err: error, lastError: this.lastError }, 'sync failed');
     }
 
     return this.getStatus();

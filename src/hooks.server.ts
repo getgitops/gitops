@@ -1,4 +1,5 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 import { projectService } from '$modules/projects';
@@ -6,6 +7,14 @@ import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstr
 import { startGitDb } from '$lib/server/gitdb';
 import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';
 import { runWithActor } from '$lib/server/request-context';
+import {
+  createLogger,
+  createRequestLogger,
+  logHttpRequest,
+  logger,
+} from '$lib/server/logger';
+
+const startupLog = createLogger('startup');
 
 // clone, manifest, sync poll and bootstrap detection run once per process
 const serverReady = (async () => {
@@ -16,7 +25,7 @@ const serverReady = (async () => {
 })();
 
 serverReady.catch((error) => {
-  console.error('[startup] failed', error);
+  startupLog.error(error, '[startup] failed');
   markServerFailed(error);
 });
 
@@ -33,7 +42,20 @@ function unauthorized(message: string) {
   });
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+// outermost hook: binds a trace-aware logger to the request and emits the httpRequest
+// entry Cloud Logging groups everything under, whatever the inner hook ends up returning
+const requestLogger: Handle = async ({ event, resolve }) => {
+  const log = createRequestLogger(event);
+  event.locals.logger = log;
+
+  const startMs = performance.now();
+  const response = await resolve(event);
+  logHttpRequest(log, event, response, startMs);
+
+  return response;
+};
+
+const authGuard: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
   const isApiRequest = pathname.startsWith('/api/');
 
@@ -151,4 +173,14 @@ export const handle: Handle = async ({ event, resolve }) => {
     email: currentUser.email || `${currentUser.username}@gitops.local`,
   };
   return runWithActor(actor, () => resolve(event));
+};
+
+export const handle = sequence(requestLogger, authGuard);
+
+// unexpected errors from load/actions/endpoints land here: log with the request's
+// trace-aware logger so the entry is correlated with the failed httpRequest
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+  const log = event.locals.logger ?? logger;
+  const err = error instanceof Error ? error : new Error(String(error));
+  log.error(err, `[${status}] ${message}`);
 };

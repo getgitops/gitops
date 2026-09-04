@@ -2,6 +2,12 @@ import { env } from '$env/dynamic/private';
 
 export type GitDbAuthMode = 'none' | 'basic' | 'token';
 
+/**
+ * - `'poll'` (default): commits accumulate locally and are pushed periodically based on `syncPollSeconds`.
+ * - `'immediate'`: every commit is pushed right away.
+ */
+export type GitDbSyncMode = 'poll' | 'immediate';
+
 export type GitDbRepositoryConfig = {
   repositoryUrl: string;
   branch: string;
@@ -12,6 +18,7 @@ export type GitDbRepositoryConfig = {
   authorName: string;
   authorEmail: string;
   syncPollSeconds: number;
+  syncMode: GitDbSyncMode;
   dataPath: string;
 };
 
@@ -48,6 +55,13 @@ function resolveSyncPollSeconds(): number {
     );
   }
   return Math.round(seconds);
+}
+
+function resolveSyncMode(): GitDbSyncMode {
+  const raw = value('GITDB_SYNC_MODE')?.toLowerCase();
+  if (!raw || raw === 'poll') return 'poll';
+  if (raw === 'immediate') return 'immediate';
+  throw new Error("GITDB_SYNC_MODE must be 'poll' or 'immediate'");
 }
 
 let cached: GitDbRepositoryConfig | null | undefined;
@@ -89,6 +103,7 @@ export function readRepositoryConfig(): GitDbRepositoryConfig | null {
     authorName: value('GITDB_AUTHOR_NAME') ?? 'gitops',
     authorEmail: value('GITDB_AUTHOR_EMAIL') ?? 'gitops@getgitops.local',
     syncPollSeconds: resolveSyncPollSeconds(),
+    syncMode: resolveSyncMode(),
     dataPath: value('GITDB_DATA_PATH') ?? '/data/gitdb',
   };
 
@@ -118,30 +133,26 @@ export function readRepositoryConfigView(): GitDbRepositoryConfigView | null {
 }
 
 /**
- * Remote URL with credentials injected. Only ever passed to git as an argv value,
- * never written to .git/config and never returned to the client.
+ * Username/token pair for HTTPS auth, resolved transiently for each git operation.
+ * Never embedded into `repositoryUrl`, never persisted, never logged.
  */
-export function buildAuthenticatedUrl(config: GitDbRepositoryConfig): string {
+export function resolveAuthCredentials(config: GitDbRepositoryConfig): { authUsername: string; authToken: string } {
   if (config.authMode === 'none' || !config.secret) {
-    return config.repositoryUrl;
+    return { authUsername: '', authToken: '' };
   }
 
-  let url: URL;
   try {
-    url = new URL(config.repositoryUrl);
+    const url = new URL(config.repositoryUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      // ssh/scp remotes rely on the agent or deploy keys, nothing to inject
+      return { authUsername: '', authToken: '' };
+    }
   } catch {
-    // ssh/scp remotes rely on the agent or deploy keys, nothing to inject
-    return config.repositoryUrl;
+    return { authUsername: '', authToken: '' };
   }
 
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    return config.repositoryUrl;
-  }
-
-  // the URL setter percent-encodes the userinfo component on assignment
-  url.username = config.authMode === 'token' ? config.username || 'git' : (config.username ?? '');
-  url.password = config.secret;
-  return url.toString();
+  const authUsername = config.authMode === 'token' ? config.username || 'git' : (config.username ?? '');
+  return { authUsername, authToken: config.secret };
 }
 
 /** Strips any embedded credentials so URLs are safe to log or display. */

@@ -1,5 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getBootstrapState, nextBootstrapStep, refreshBootstrapState } from '$lib/server/bootstrap';
+import { createLogger } from '$lib/server/logger';
+
+const log = createLogger('bootstrap');
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'Setup step failed.' });
@@ -43,7 +46,7 @@ export const actions = {
       await refreshBootstrapState();
       return { success: true };
     } catch (error: unknown) {
-      console.error('[bootstrap] failed to create the cluster administrator', error);
+      log.error(error, 'failed to create the cluster administrator');
       return errorResponse(error);
     }
   },
@@ -67,7 +70,7 @@ export const actions = {
 
       await refreshBootstrapState();
     } catch (error: unknown) {
-      console.error('[bootstrap] failed to create the organization', error);
+      log.error(error, 'failed to create the organization');
       return errorResponse(error);
     }
 

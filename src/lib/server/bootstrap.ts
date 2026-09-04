@@ -1,4 +1,7 @@
 import { isRepositoryConfigured } from '$lib/server/gitdb';
+import { createLogger } from '$lib/server/logger';
+
+const log = createLogger('bootstrap');
 
 export type BootstrapState = {
   administrator: boolean;
@@ -50,7 +53,7 @@ export async function refreshBootstrapState(): Promise<BootstrapState> {
   const organization = organizations.length > 0;
 
   state = { administrator, organization, completed: administrator && organization };
-  console.info('[bootstrap] state', state);
+  log.info({ state }, 'bootstrap state');
   return state;
 }
 

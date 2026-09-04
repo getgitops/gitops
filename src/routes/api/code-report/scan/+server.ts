@@ -83,6 +83,7 @@ function normalizeGitInfo(gitInfo: AnalyseResultBody['gitInfo']) {
 // server access key (Authorization: Bearer gvs_...), not a browser session
 export async function POST({ request, locals }) {
   const apiKey = locals.apiKey;
+  const log = locals.logger;
 
   if (!apiKey?.projectId) {
     return json({ error: 'A project-scoped API key is required' }, { status: 401 });
@@ -164,7 +165,7 @@ export async function POST({ request, locals }) {
     let serviceCodeReport = await codeReportService
       .getByProjectAndSlug(body.project, body.service)
       .catch(async (err) => {
-        console.log('err', err);
+        log.warn({ err }, 'service lookup failed, creating service');
         return await codeReportService.createService({
           project: body.project,
           name: body.service,
@@ -173,17 +174,20 @@ export async function POST({ request, locals }) {
     if (tools.length === 0) {
       tools = serviceCodeReport?.tools || [];
     }
-    console.log('✅ Service found or created:', serviceCodeReport);
+    log.info({ serviceId: serviceCodeReport?.id }, 'service found or created');
     if (status === 'start') {
       message = 'Scan started';
     } else if (status === 'in_progress') {
-      console.log('Starting analysis for service:', serviceCodeReport?.id, 'with tool:', body.tool);
+      log.info(
+        { serviceId: serviceCodeReport?.id, tool: body.tool },
+        'starting analysis for service',
+      );
       analysis = await codeReportAnalysisService.startAnalysis({
         serviceId: serviceCodeReport?.id || '',
         tool: body.tool,
         gitInfo: normalizeGitInfo(body.gitInfo),
       });
-      console.log('ANALYSIS', analysis);
+      log.debug({ analysisId: analysis?.id }, 'analysis started');
       message = `Scan in progress with tool ${body.tool}.`;
     }
   } else {
@@ -206,7 +210,7 @@ export async function POST({ request, locals }) {
     }
   }
 
-  console.log('[POST] /api/code-report/scan completed with status:', status);
+  log.info({ status, tools }, 'scan status processed');
   return json({
     success: true,
     message: message,
