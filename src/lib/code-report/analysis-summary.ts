@@ -306,12 +306,23 @@ export function extractSbomComponents(result: unknown): SbomComponent[] {
           return path ? [String(path)] : [];
         })
       : [];
+    const properties = Array.isArray(row.properties) ? row.properties : [];
+    const propertyValue = (name: string) => {
+      const property = properties.find(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          (item as Record<string, unknown>).name === name,
+      ) as Record<string, unknown> | undefined;
+      return property?.value ? String(property.value) : '';
+    };
+    const type = propertyValue('syft:package:type') || propertyValue('syft:package:language') || row.type;
 
     return [
       {
         name: String(row.name || 'Componente sin nombre'),
         version: String(row.version || 'desconocida'),
-        type: String(row.type || 'unknown'),
+        type: String(type || 'unknown'),
         purl: String(row.purl || ''),
         licenses: [...new Set(licenses)],
         locations,

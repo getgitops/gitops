@@ -29,6 +29,12 @@
       repositoryUrl?: string | null;
       branch?: string | null;
       commit?: string | null;
+      commitMessage?: string | null;
+      author?: string | null;
+      committer?: string | null;
+      scannedAt?: string | null;
+      artifactName?: string | null;
+      artifactType?: string | null;
     } | null;
     createdAt: string;
     updatedAt: string;
@@ -43,7 +49,7 @@
   } | null;
   export let analysis: Analysis;
   export let analysisHistory: AnalysisData[] = [];
-  export let latestByTool: Record<string, AnalysisData> = {};
+  export let latestByTool: Record<string, AnalysisData | null | undefined> = {};
   export let service: ServiceData = null;
   export let securityPoliciesHref: string | null = null;
   let activeTab = 'summary';
@@ -69,12 +75,14 @@
   const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
   const severityKeys = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
   const fileSeverityOrder = ['critical', 'high', 'medium', 'low'] as const;
-  const knownTools = ['trivy', 'syft', 'sbom', 'gitleaks'];
+  const knownTools = ['trivy', 'sbom', 'gitleaks'];
+  $: resolvedLatestByTool = resolveLatestByTool(latestByTool, analysisHistory, analysis);
   // manual uploads are stored under other tool names, so fall back to the latest analysis
-  $: trivyAnalysis = latestByTool.trivy ?? analysis;
-  $: gitleaksAnalysis = latestByTool.gitleaks ?? null;
-  $: sbomAnalysis = latestByTool.syft ?? latestByTool.sbom ?? null;
+  $: trivyAnalysis = resolvedLatestByTool.trivy ?? analysis;
+  $: gitleaksAnalysis = resolvedLatestByTool.gitleaks ?? null;
+  $: sbomAnalysis = resolvedLatestByTool.syft ?? resolvedLatestByTool.sbom ?? null;
   $: summary = trivyAnalysis ? summarizeAnalysisResult(trivyAnalysis.result) : null;
+  $: summaryAnalysis = trivyAnalysis ? withDerivedGitInfo(trivyAnalysis) : null;
   $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
   $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
   $: sbomComponents = sbomAnalysis ? extractSbomComponents(sbomAnalysis.result) : [];
@@ -138,11 +146,69 @@
     { id: 'cve', label: 'CVE', count: vulnerabilities.length },
     { id: 'files', label: 'Archivos', count: fileGroups.length },
   ];
-  $: toolRuns = knownTools.map((tool) => ({
-    tool,
-    status: latestByTool[tool]?.status ?? null,
-    createdAt: latestByTool[tool]?.createdAt ?? null,
-  }));
+  $: toolRuns = knownTools.map((tool) => {
+    const run = tool === 'sbom'
+      ? (resolvedLatestByTool.syft ?? resolvedLatestByTool.sbom)
+      : resolvedLatestByTool[tool];
+    return {
+      tool,
+      status: run?.status ?? null,
+      createdAt: run?.createdAt ?? null,
+    };
+  });
+  function resolveLatestByTool(
+    explicitLatest: Record<string, AnalysisData | null | undefined>,
+    history: AnalysisData[],
+    fallback: Analysis,
+  ) {
+    const resolved: Record<string, AnalysisData> = {};
+    const addAnalysis = (item: AnalysisData | null | undefined) => {
+      if (!item?.tool) return;
+      const tool = item.tool.toLowerCase();
+      const current = resolved[tool];
+      if (!current || new Date(item.createdAt).getTime() > new Date(current.createdAt).getTime()) {
+        resolved[tool] = item;
+      }
+    };
+
+    Object.values(explicitLatest).forEach(addAnalysis);
+    history.forEach(addAnalysis);
+    addAnalysis(fallback);
+
+    return resolved;
+  }
+  function withDerivedGitInfo(item: AnalysisData): AnalysisData {
+    if (item.gitInfo?.repositoryUrl) return item;
+    if (!item.result || typeof item.result !== 'object' || Array.isArray(item.result)) return item;
+
+    const metadata = (item.result as Record<string, unknown>).Metadata;
+    if (!metadata || typeof metadata !== 'object') return item;
+
+    const row = metadata as Record<string, unknown>;
+    const repositoryUrl = row.RepoURL ? String(row.RepoURL) : null;
+    if (!repositoryUrl) return item;
+
+    return {
+      ...item,
+      gitInfo: {
+        ...item.gitInfo,
+        repositoryUrl,
+        commit: row.Commit ? String(row.Commit) : (item.gitInfo?.commit ?? null),
+        commitMessage: row.CommitMsg ? String(row.CommitMsg) : (item.gitInfo?.commitMessage ?? null),
+        author: row.Author ? String(row.Author) : (item.gitInfo?.author ?? null),
+        committer: row.Committer ? String(row.Committer) : (item.gitInfo?.committer ?? null),
+        scannedAt: (item.result as Record<string, unknown>).CreatedAt
+          ? String((item.result as Record<string, unknown>).CreatedAt)
+          : (item.gitInfo?.scannedAt ?? null),
+        artifactName: (item.result as Record<string, unknown>).ArtifactName
+          ? String((item.result as Record<string, unknown>).ArtifactName)
+          : (item.gitInfo?.artifactName ?? null),
+        artifactType: (item.result as Record<string, unknown>).ArtifactType
+          ? String((item.result as Record<string, unknown>).ArtifactType)
+          : (item.gitInfo?.artifactType ?? null),
+      },
+    };
+  }
   function calculateRiskScore(value: ReturnType<typeof summarizeAnalysisResult>) {
     return (
       value.vulnerabilities.critical * riskWeights.critical +
@@ -248,7 +314,7 @@
     >
       Todavía no se ha ejecutado ningún análisis.
     </div>{:else if activeTab === 'summary'}<CodeReportSummary
-      analysis={trivyAnalysis}
+      analysis={summaryAnalysis}
       analysisHistoryLength={analysisHistory.length}
       {toolRuns}
       {service}

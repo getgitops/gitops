@@ -5,7 +5,17 @@
   type Analysis = {
     tool: string;
     createdAt: string;
-    gitInfo?: { repositoryUrl?: string | null; branch?: string | null } | null;
+    gitInfo?: {
+      repositoryUrl?: string | null;
+      branch?: string | null;
+      commit?: string | null;
+      commitMessage?: string | null;
+      author?: string | null;
+      committer?: string | null;
+      scannedAt?: string | null;
+      artifactName?: string | null;
+      artifactType?: string | null;
+    } | null;
   } | null;
   type ServiceData = {
     name: string;
@@ -43,6 +53,12 @@
     in_progress: 'En curso',
     failed: 'Fallido',
   };
+  $: gitInfo = analysis?.gitInfo ?? null;
+  $: shortCommit = gitInfo?.commit ? gitInfo.commit.slice(0, 12) : null;
+  $: authorName = gitInfo?.author ? gitInfo.author.replace(/\s*<[^>]+>\s*$/, '').trim() : null;
+  $: commitHref = gitInfo?.repositoryUrl && gitInfo?.commit
+    ? `${gitInfo.repositoryUrl.replace(/\.git$/, '').replace(/\/$/, '')}/commit/${gitInfo.commit}`
+    : null;
 </script>
 
 <section
@@ -94,24 +110,41 @@
           Información del repositorio
         </p>
         <h3 class="mt-2 text-base font-semibold text-slate-900">
-          {analysis?.gitInfo?.repositoryUrl ? 'Repositorio conectado' : 'Sin repositorio conectado'}
+          {gitInfo?.repositoryUrl ? 'Repositorio conectado' : 'Sin repositorio conectado'}
         </h3>
       </div>
-      {#if analysis?.gitInfo?.repositoryUrl}{@const ProviderIcon = providerIcon()}<svelte:component
+      {#if gitInfo?.repositoryUrl}{@const ProviderIcon = providerIcon()}<svelte:component
           this={ProviderIcon} class="h-5 w-5 text-slate-500"
         />{/if}
     </div>
-    {#if analysis?.gitInfo?.repositoryUrl}<a
-        href={analysis.gitInfo.repositoryUrl}
+    {#if gitInfo?.repositoryUrl}<a
+        href={gitInfo.repositoryUrl}
         target="_blank"
         rel="noreferrer noopener"
         class="mt-3 block break-all text-sm font-medium text-blue-700 hover:text-blue-900"
-        >{analysis.gitInfo.repositoryUrl}</a
+        >{gitInfo.repositoryUrl}</a
       >{:else}<p class="mt-3 text-sm text-slate-500">
         Este análisis no incluye un repositorio configurado.
-      </p>{/if}{#if analysis?.gitInfo?.branch}<p class="mt-3 text-xs text-slate-500">
-        Rama <span class="font-mono font-semibold text-slate-700">{analysis.gitInfo.branch}</span>
       </p>{/if}
+    {#if gitInfo}
+      <dl class="mt-4 space-y-2 text-xs">
+        {#if shortCommit}<div class="flex gap-2">
+            <dt class="w-20 shrink-0 text-slate-500">Commit</dt>
+            <dd class="min-w-0 break-all font-mono font-semibold text-slate-700" title={gitInfo.commit ?? ''}>
+              {#if commitHref}<a
+                  href={commitHref}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  class="text-blue-700 hover:text-blue-900"
+                >{shortCommit}</a>{:else}{shortCommit}{/if}
+            </dd>
+          </div>{/if}
+        {#if authorName}<div class="flex gap-2">
+            <dt class="w-20 shrink-0 text-slate-500">Autor</dt>
+            <dd class="min-w-0 break-all text-slate-700">{authorName}</dd>
+          </div>{/if}
+      </dl>
+    {/if}
   </section>
   <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
