@@ -59,7 +59,7 @@ async function waitForServer(url: string, timeoutMs: number) {
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, { redirect: 'manual' });
-      // any HTTP response (even a redirect to /bootstrap or /maintenance) means the process
+      // any HTTP response (even a redirect to /bootstrap) means the process
       // is up; we only need "port is listening and hooks.server.ts responded".
       if (response.status > 0) return;
     } catch (error) {
