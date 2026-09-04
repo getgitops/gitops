@@ -89,9 +89,9 @@ metadata, and code reports are GitDB entities in the repository configured by
 architecture discussion and migration plan.
 
 `GITDB_REPOSITORY_URL` supports both HTTPS and SSH URLs (e.g., `git@github.com:user/repo.git`).
-The Docker image includes `openssh-client` and pre-configures GitHub's SSH key fingerprints; in
-production, ensure SSH authentication credentials are available via `SSH_AUTH_SOCK` or a mounted
-SSH directory.
+The Docker image includes `openssh-client` and pre-configures the SSH key fingerprints for GitHub,
+Bitbucket, and GitLab; in production, ensure SSH authentication credentials are available via
+`SSH_AUTH_SOCK` or a mounted SSH directory.
 
 `ORIGIN` environment variable pins the application's public origin (e.g., `http://localhost:3000`).
 SvelteKit's CSRF Origin check depends on this value instead of deriving it from the incoming Host

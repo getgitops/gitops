@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 # provides the ssh binary git needs for git@ remotes.
 RUN apk add --no-cache git openssh-client && \
     mkdir -p /root/.ssh && \
-    ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> /root/.ssh/known_hosts
+    ssh-keyscan -t rsa,ecdsa,ed25519 github.com bitbucket.org gitlab.com >> /root/.ssh/known_hosts
 
 # SvelteKit adapter-node output lives in build/
 COPY --from=builder /app/build ./build

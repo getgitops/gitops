@@ -55,10 +55,11 @@ riesgo y mapeos de herramientas. Los modulos actuales son `auth`, `config`, `org
 
 GitDB es la unica fuente de verdad para usuarios, roles, API keys, organizaciones, proyectos,
 metadata de storage y code reports. Se configura con `GITDB_REPOSITORY_URL` (URLs HTTPS o SSH
-como `git@github.com:user/repo.git`) y cada escritura es un commit auditable. Usar `getGitDb()` y
-`src/lib/database/schemas.ts`; no añadir otra base de datos sin discutir la arquitectura y
-planificar la migracion. La imagen Docker incluye `openssh-client` y configura SSH_AUTH_SOCK en
-produccion para soportar autenticacion SSH.
+como `git@github.com:user/repo.git`, `git@bitbucket.org:team/repo.git`, o `git@gitlab.com:group/repo.git`)
+y cada escritura es un commit auditable. Usar `getGitDb()` y `src/lib/database/schemas.ts`;
+no añadir otra base de datos sin discutir la arquitectura y planificar la migracion. La imagen Docker
+incluye `openssh-client` con fingerprints SSH preconfigurados para GitHub, Bitbucket y GitLab;
+en produccion, asegurar que las credenciales SSH esten disponibles via `SSH_AUTH_SOCK` o directorio montado.
 
 La variable `ORIGIN` fija el origen de la aplicacion (ej: `http://localhost:3000`) para que el
 CSRF Origin check de SvelteKit no dependa del header Host, previniendo bypass en proxys.
