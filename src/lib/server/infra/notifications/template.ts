@@ -1,10 +1,13 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-
 export type TemplateVariables = Record<string, string | number | boolean | null | undefined>;
 
-const TEMPLATES_ROOT = path.resolve(process.cwd(), 'src/notifications/email');
 const TEMPLATE_NAME = /^[a-zA-Z0-9_-]+$/;
+
+// Inlined at build time so templates ship with the server bundle instead of being read from disk.
+const templates = import.meta.glob('/src/notifications/email/*.html', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 const cache = new Map<string, string>();
 
@@ -43,7 +46,10 @@ export async function renderTemplate(
 
   let template = cache.get(name);
   if (template === undefined) {
-    template = await readFile(path.join(TEMPLATES_ROOT, `${name}.html`), 'utf8');
+    template = templates[`/src/notifications/email/${name}.html`];
+    if (template === undefined) {
+      throw new Error(`Email template not found: ${name}`);
+    }
     cache.set(name, template);
   }
 
