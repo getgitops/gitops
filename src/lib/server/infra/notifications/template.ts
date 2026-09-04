@@ -1,13 +1,20 @@
 export type TemplateVariables = Record<string, string | number | boolean | null | undefined>;
 
 const TEMPLATE_NAME = /^[a-zA-Z0-9_-]+$/;
+const TEMPLATES_DIR = 'src/notifications/email';
 
-// Inlined at build time so templates ship with the server bundle instead of being read from disk.
-const templates = import.meta.glob('/src/notifications/email/*.html', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
+// Vite inlines this at build time so templates ship with the server bundle; outside Vite
+// (plain Node runners such as Playwright's global setup) it throws and we read from disk.
+let bundledTemplates: Record<string, string> = {};
+try {
+  bundledTemplates = import.meta.glob(`/src/notifications/email/*.html`, {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }) as Record<string, string>;
+} catch {
+  bundledTemplates = {};
+}
 
 const cache = new Map<string, string>();
 
@@ -46,14 +53,17 @@ export async function renderTemplate(
 
   let template = cache.get(name);
   if (template === undefined) {
-    template = templates[`/src/notifications/email/${name}.html`];
-    if (template === undefined) {
-      throw new Error(`Email template not found: ${name}`);
-    }
+    template = bundledTemplates[`/${TEMPLATES_DIR}/${name}.html`] ?? (await readFromDisk(name));
     cache.set(name, template);
   }
 
   return renderTemplateString(template, variables);
+}
+
+async function readFromDisk(name: string): Promise<string> {
+  const { readFile } = await import('node:fs/promises');
+  const path = await import('node:path');
+  return readFile(path.join(process.cwd(), TEMPLATES_DIR, `${name}.html`), 'utf8');
 }
 
 export function clearTemplateCache(): void {

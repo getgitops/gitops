@@ -76,6 +76,11 @@ export default async function globalSetup() {
   const env = buildEnv();
   Object.assign(process.env, env);
 
+  // clone the throwaway remote here: without it the seed writes JSON into a directory that has
+  // no `.git`, and the dev server later fails to clone into that non-empty path
+  const { startGitDb } = await import('../src/lib/server/gitdb');
+  await startGitDb();
+
   const { seedAll } = await import('./fixtures/seed');
   const seedOutput = await seedAll();
   writeFileSync(SEED_OUTPUT_PATH, JSON.stringify(seedOutput, null, 2));
