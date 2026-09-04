@@ -51,17 +51,16 @@ test('a read-only project role has no sidebar link into Vault, Code Report or St
   await expect(sidebar.locator(`a[href^="${base}/state-iac"]`)).toHaveCount(0);
 });
 
-test('project admin has sidebar links into Vault, Code Report and State IaC', async ({
-  page,
-  loginAs,
-}) => {
+test('project admin has a sidebar link into Code Report', async ({ page, loginAs }) => {
   await loginAs('projectAdmin');
   await page.goto(`/org/${org}/projects/${project}/settings/overview`);
   const sidebar = page.locator('aside').first();
   const base = `/org/${org}/projects/${project}`;
-  await expect(sidebar.locator(`a[href="${base}/vault"]`)).toBeVisible();
   // Code Report has multiple sub-items, so it renders as a collapsible group (button, not a
   // direct link) — its label being present is enough to prove the module itself is visible.
   await expect(sidebar.getByText('Code Report', { exact: true })).toBeVisible();
-  await expect(sidebar.locator(`a[href^="${base}/state-iac"]`).first()).toBeVisible();
+  // Vault and State IaC are "coming soon": the service forces both modules off, so they never
+  // reach the sidebar regardless of permissions.
+  await expect(sidebar.locator(`a[href="${base}/vault"]`)).toHaveCount(0);
+  await expect(sidebar.locator(`a[href^="${base}/state-iac"]`)).toHaveCount(0);
 });

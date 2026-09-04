@@ -10,13 +10,7 @@
   import { _ } from '$lib/i18n';
 
   let googleSsoEnabled = false;
-  let googleClientId = '';
-  let googleClientSecret = '';
-
   let samlEnabled = false;
-  let samlEntryPoint = '';
-  let samlIssuer = '';
-  let samlCert = '';
 
   let configError = '';
   let isSaving = false;
@@ -60,109 +54,58 @@
       </div>
     </div>
 
-    <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
-      <div class="flex items-start gap-3 border-b border-slate-200 px-4 py-4">
+    <section class="overflow-hidden rounded-md border border-slate-200 bg-white opacity-75">
+      <div class="flex items-start gap-3 px-4 py-4">
         <input
           id="google-sso"
           type="checkbox"
+          disabled
           bind:checked={googleSsoEnabled}
-          class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+          class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed"
         />
         <div class="flex-1">
           <label
             for="google-sso"
-            class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-900"
+            class="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
             <Building2 class="h-4 w-4" />
             GCP Workspace (Google SSO)
+            <span
+              class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+            >
+              {$_('common.comingSoon')}
+            </span>
           </label>
           <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.googleDescription')}</p>
         </div>
       </div>
-
-      {#if googleSsoEnabled}
-        <div class="space-y-4 bg-slate-50 px-4 py-4">
-          <div>
-            <label for="google-client-id" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.googleClientId')}</label>
-            <input
-              id="google-client-id"
-              type="text"
-              bind:value={googleClientId}
-              class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              placeholder="123456789-abc.apps.googleusercontent.com"
-            />
-          </div>
-
-          <div>
-            <label for="google-client-secret" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.googleClientSecret')}</label>
-            <input
-              id="google-client-secret"
-              type="password"
-              bind:value={googleClientSecret}
-              class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              placeholder="********"
-            />
-          </div>
-        </div>
-      {/if}
     </section>
 
-    <section class="overflow-hidden rounded-md border border-slate-200 bg-white">
-      <div class="flex items-start gap-3 border-b border-slate-200 px-4 py-4">
+    <section class="overflow-hidden rounded-md border border-slate-200 bg-white opacity-75">
+      <div class="flex items-start gap-3 px-4 py-4">
         <input
           id="saml-enabled"
           type="checkbox"
+          disabled
           bind:checked={samlEnabled}
-          class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+          class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed"
         />
         <div class="flex-1">
           <label
             for="saml-enabled"
-            class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-900"
+            class="flex items-center gap-2 text-sm font-semibold text-slate-900"
           >
             <KeyRound class="h-4 w-4" />
             SAML
+            <span
+              class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800"
+            >
+              {$_('common.comingSoon')}
+            </span>
           </label>
           <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.samlDescription')}</p>
         </div>
       </div>
-
-      {#if samlEnabled}
-        <div class="space-y-4 bg-slate-50 px-4 py-4">
-          <div>
-            <label for="saml-entry" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.samlEntryPoint')}</label>
-            <input
-              id="saml-entry"
-              type="text"
-              bind:value={samlEntryPoint}
-              class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              placeholder="https://idp.example.com/sso"
-            />
-          </div>
-
-          <div>
-            <label for="saml-issuer" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.samlIssuer')}</label>
-            <input
-              id="saml-issuer"
-              type="text"
-              bind:value={samlIssuer}
-              class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              placeholder="gitops"
-            />
-          </div>
-
-          <div>
-            <label for="saml-cert" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.samlCertificate')}</label>
-            <textarea
-              id="saml-cert"
-              bind:value={samlCert}
-              rows="4"
-              class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-              placeholder="-----BEGIN CERTIFICATE-----"
-            ></textarea>
-          </div>
-        </div>
-      {/if}
     </section>
 
     {#if configError}

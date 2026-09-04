@@ -5,6 +5,8 @@ import { E2E_BASE_URL } from './e2e/global-setup';
 
 export default defineConfig({
   testDir: './e2e/specs',
+  // app modules imported by the seed use SvelteKit aliases ($lib, $modules, $env) that only this tsconfig maps
+  tsconfig: './e2e/tsconfig.json',
   fullyParallel: false,
   workers: 1,
   retries: 1,
