@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Fondo transparente (puedes cambiarlo a #FFFFFF si quieres fondo blanco estricto) -->
+  <rect width="512" height="512" fill="transparent"/>
+  
+  <!-- Círculo Git: Dark Navy (#0F172A) -->
+  <circle cx="200" cy="256" r="120" fill="#0F172A" opacity="0.96"/>
+  
+  <!-- Círculo Ops: Royal Blue (#2457FF) -->
+  <circle cx="312" cy="256" r="120" fill="#2457FF" opacity="0.90"/>
+</svg>
