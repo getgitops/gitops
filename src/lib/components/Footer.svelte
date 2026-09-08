@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BookOpen, Heart, MessageCircle } from '@lucide/svelte';
+  import { BookOpen, Info, MessageCircle } from '@lucide/svelte';
   import GitDbStatusBadge from './GitDbStatusBadge.svelte';
   import { _ } from '$lib/i18n';
+  import packageJson from '../../../package.json';
 
   const POLL_MS = 15_000;
 
@@ -13,6 +14,27 @@
     state: 'unconfigured',
     label: 'Checking sync status...',
   };
+  let latestRelease: { tag_name: string; html_url: string } | null = null;
+
+  function versionParts(version: string) {
+    return version
+      .replace(/^v/i, '')
+      .split(/[.-]/, 3)
+      .map((part) => Number.parseInt(part, 10) || 0);
+  }
+
+  function isNewerVersion(candidate: string, current: string) {
+    const candidateParts = versionParts(candidate);
+    const currentParts = versionParts(current);
+
+    for (let index = 0; index < 3; index += 1) {
+      if (candidateParts[index] !== currentParts[index]) {
+        return candidateParts[index] > currentParts[index];
+      }
+    }
+
+    return false;
+  }
 
   async function refresh() {
     try {
@@ -24,8 +46,27 @@
     }
   }
 
+  async function checkForUpdates() {
+    try {
+      const response = await fetch('https://api.github.com/repos/getgitops/gitops/releases/latest');
+      if (!response.ok) return;
+
+      const release = (await response.json()) as { tag_name?: string; html_url?: string };
+      if (
+        release.tag_name &&
+        release.html_url &&
+        isNewerVersion(release.tag_name, packageJson.version)
+      ) {
+        latestRelease = { tag_name: release.tag_name, html_url: release.html_url };
+      }
+    } catch {
+      latestRelease = null;
+    }
+  }
+
   onMount(() => {
     void refresh();
+    void checkForUpdates();
     const timer = setInterval(refresh, POLL_MS);
     return () => clearInterval(timer);
   });
@@ -33,14 +74,32 @@
 
 <footer class="app-shell-footer mt-auto border-t border-[#142236] bg-[#05101d]/82 backdrop-blur">
   <div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-6 py-6 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
-    <div class="flex items-center gap-3 text-sm text-slate-400">
-      <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#1b2b42] bg-[#071323] text-[#0d7dff]">
-        <Heart class="h-4 w-4" />
-      </span>
-      <p>{$_('footer.developedWithLove')} <span class="font-semibold text-slate-200">{$_('footer.community')}</span></p>
+    <div class="flex items-center text-sm text-slate-400">
+      <p>
+        {$_('footer.currentVersion')}:
+        <a
+          href="https://getgitops.com/changelog"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-semibold text-slate-200 transition-colors hover:text-white"
+        >v{packageJson.version}</a>
+      </p>
     </div>
 
     <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+      {#if latestRelease}
+        <a
+          href={latestRelease.html_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-2 rounded-lg border border-[#1b2b42] bg-[#071323] px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-[#294467] hover:bg-[#102139] hover:text-white"
+          aria-label={`${$_('footer.updateAvailable')}: ${latestRelease.tag_name}`}
+        >
+          <Info class="h-4 w-4" />
+          {$_('footer.update')}
+        </a>
+      {/if}
+
       {#if showSyncStatus}
         {#if syncStatusHref}
           <a

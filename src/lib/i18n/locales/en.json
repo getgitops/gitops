@@ -59,8 +59,9 @@
     }
   },
   "footer": {
-    "developedWithLove": "Developed with love by the",
-    "community": "community",
+    "currentVersion": "Current Version",
+    "update": "Update",
+    "updateAvailable": "Update available",
     "docs": "Docs",
     "slack": "Slack",
     "gitdbSyncStatus": "GitDB sync status"
