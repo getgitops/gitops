@@ -155,6 +155,43 @@ export class VaultService {
     return folder.toJson();
   }
 
+  async exportEnvFile(projectId: string, environmentSlug: string, path = '/') {
+    const environment = await this.repository.findEnvironmentBySlug(projectId, environmentSlug);
+    if (!environment) throw new Error('Environment not found');
+
+    const folders = (await this.repository.listFolders(projectId)).map((folder) => folder.toJson());
+    const targetFolder = path === '/' ? null : folders.find((folder) => folder.path === path);
+    if (path !== '/' && !targetFolder) throw new Error('Folder not found');
+
+    const scope = this.collectExportFolderIds(targetFolder?.id ?? null, folders);
+    const secrets = (await this.repository.listSecrets(projectId)).map((secret) => secret.toJson());
+
+    return secrets
+      .filter((secret) => scope.has(secret.folderId ?? null))
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map((secret) => `${secret.key}=${secret.values?.[environmentSlug] ?? ''}`)
+      .join('\n');
+  }
+
+  // Un export incluye los secretos del path y los de las carpetas enlazadas desde el, no el resto del arbol.
+  private collectExportFolderIds(
+    folderId: string | null,
+    folders: Array<{ id: string; parentFolderId: string | null; linkedFolderId: string | null }>,
+    scope = new Set<string | null>(),
+  ) {
+    if (scope.has(folderId)) return scope;
+    scope.add(folderId);
+
+    const folder = folderId ? folders.find((candidate) => candidate.id === folderId) : null;
+    if (folder?.linkedFolderId) this.collectExportFolderIds(folder.linkedFolderId, folders, scope);
+
+    for (const child of folders.filter((candidate) => candidate.parentFolderId === folderId)) {
+      if (child.linkedFolderId) this.collectExportFolderIds(child.linkedFolderId, folders, scope);
+    }
+
+    return scope;
+  }
+
   async createSecret(projectId: string, input: VaultSecretInput) {
     await this.requireOptionalProjectFolder(projectId, input.folderId);
     const key = this.normalizeSecretKey(input.key);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { deserialize, enhance } from '$app/forms';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import type { SubmitFunction } from '@sveltejs/kit';
@@ -106,7 +106,7 @@
     null;
   $: selectedFolder = data.folders.find((folder) => folder.id === currentFolderId) ?? null;
   $: childFolders = data.folders.filter((folder) => folder.parentFolderId === currentFolderId);
-  $: visibleSecretFolderIds = selectedFolder ? inheritedFolderIds(selectedFolder) : [null];
+  $: visibleSecretFolderIds = selectedFolder ? folderScopeIds(selectedFolder) : [null];
   $: visibleSecrets = data.secrets.filter((secret) =>
     visibleSecretFolderIds.includes(secret.folderId),
   );
@@ -132,20 +132,12 @@
     }, 2500);
   }
 
-  function inheritedFolderIds(folder: VaultFolder) {
-    const ids: Array<string | null> = [];
-    let cursor: VaultFolder | undefined = folder;
-
-    while (cursor) {
-      ids.push(cursor.id);
-      cursor = cursor.parentFolderId
-        ? data.folders.find((candidate) => candidate.id === cursor?.parentFolderId)
-        : undefined;
-    }
+  function folderScopeIds(folder: VaultFolder): Array<string | null> {
+    const ids: Array<string | null> = [folder.id];
 
     if (folder.linkedFolderId) {
       const linkedFolder = data.folders.find((candidate) => candidate.id === folder.linkedFolderId);
-      if (linkedFolder) ids.push(...inheritedFolderIds(linkedFolder));
+      if (linkedFolder) ids.push(...folderScopeIds(linkedFolder));
     }
 
     return [...new Set(ids)];
@@ -200,14 +192,24 @@
         );
   }
 
-  function downloadEnvFile() {
-    const content = filteredSecrets
-      .map((secret) => `${secret.key}=${secret.values?.[selectedEnvironmentSlug] ?? ''}`)
-      .join('\n');
+  async function downloadEnvFile() {
+    const response = await fetch('?/exportSecrets', {
+      method: 'POST',
+      headers: { 'x-sveltekit-action': 'true' },
+      body: new FormData(),
+    });
+    const result = deserialize(await response.text());
+
+    if (result.type !== 'success' || !result.data) {
+      formError = 'No se pudieron exportar los secretos';
+      return;
+    }
+
+    const { content, filename } = result.data as { content: string; filename: string };
     const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${projectSlug}-${selectedEnvironmentSlug}.env`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
   }

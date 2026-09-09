@@ -218,4 +218,19 @@ export const actions = {
       });
     }
   },
+  exportSecrets: async ({ params, locals }) => {
+    try {
+      const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:read');
+      const content = await vaultService.exportEnvFile(
+        project.id,
+        params.env,
+        routePath(params.path),
+      );
+      return { content, filename: `${params.slug}-${params.env}.env` };
+    } catch (err) {
+      return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
+        error: err instanceof Error ? err.message : 'No se pudieron exportar los secretos',
+      });
+    }
+  },
 };
