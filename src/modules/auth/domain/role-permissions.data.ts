@@ -48,6 +48,7 @@ export const PROJECT_DEVELOPER_PERMISSIONS = [
   'project:vault:environments:read',
   'project:vault:environments:create',
   'project:vault:environments:update',
+  'project:vault:environments:delete',
   'project:codereport:reports:read',
   'project:codereport:reports:create',
   'project:codereport:reports:update',

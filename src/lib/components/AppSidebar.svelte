@@ -110,11 +110,17 @@
               {
                 name: $_('sidebar.modules.vault'),
                 icon: Shield,
+                base: `${projectBase}/vault`,
                 items: [
                   {
-                    label: $_('sidebar.modules.vault'),
+                    label: 'Secrets',
                     href: `${projectBase}/vault`,
                     icon: Shield,
+                  },
+                  {
+                    label: 'Environments',
+                    href: `${projectBase}/vault/environments`,
+                    icon: Settings,
                   },
                 ],
               },

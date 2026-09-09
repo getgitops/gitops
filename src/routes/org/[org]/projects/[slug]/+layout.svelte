@@ -85,7 +85,9 @@
   ];
 
   $: currentPath = $page?.url?.pathname;
-  $: currentTab = tabs.find((tab) => tab.href === currentPath) ?? tabs[0];
+  $: currentTab =
+    tabs.find((tab) => currentPath === tab.href || currentPath?.startsWith(`${tab.href}/`)) ??
+    tabs[0];
 </script>
 
 <div class="mx-auto w-full max-w-7xl space-y-4">

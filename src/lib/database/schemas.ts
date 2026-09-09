@@ -201,6 +201,53 @@ export const CodeReportSecurityPolicyEntity = entity('code_report_security_polic
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const VaultEnvironmentEntity = entity('vault_environments', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  slug: text().notNull(),
+  name: text().notNull(),
+  description: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const VaultFolderEntity = entity('vault_folders', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  parentFolderId: uuid().$defaultFn(() => null),
+  linkedFolderId: uuid().$defaultFn(() => null),
+  name: text().notNull(),
+  path: text().notNull(),
+  description: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const VaultSecretEntity = entity('vault_secrets', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  folderId: uuid().$defaultFn(() => null),
+  key: text().notNull(),
+  description: text(),
+  values: json()
+    .notNull()
+    .$defaultFn(() => ({})),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),
@@ -213,10 +260,30 @@ relations.for(ProjectEntity, ({ one, many }) => ({
     fields: ['id'],
     references: ['projectId'],
   }),
+  vaultEnvironments: many(VaultEnvironmentEntity, { fields: ['id'], references: ['projectId'] }),
+  vaultFolders: many(VaultFolderEntity, { fields: ['id'], references: ['projectId'] }),
+  vaultSecrets: many(VaultSecretEntity, { fields: ['id'], references: ['projectId'] }),
 }));
 
 relations.for(CodeReportSecurityPolicyEntity, ({ one }) => ({
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+}));
+
+relations.for(VaultEnvironmentEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+}));
+
+relations.for(VaultFolderEntity, ({ one, many }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  parent: one(VaultFolderEntity, { fields: ['parentFolderId'], references: ['id'] }),
+  linkedFolder: one(VaultFolderEntity, { fields: ['linkedFolderId'], references: ['id'] }),
+  children: many(VaultFolderEntity, { fields: ['id'], references: ['parentFolderId'] }),
+  secrets: many(VaultSecretEntity, { fields: ['id'], references: ['folderId'] }),
+}));
+
+relations.for(VaultSecretEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  folder: one(VaultFolderEntity, { fields: ['folderId'], references: ['id'] }),
 }));
 
 relations.for(CodeReportServiceEntity, ({ one, many }) => ({
