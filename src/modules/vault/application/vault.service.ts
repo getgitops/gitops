@@ -50,6 +50,9 @@ export class VaultService {
     const existing = await this.repository.findEnvironmentBySlug(projectId, slug);
     if (existing) throw new Error('Ya existe un entorno con ese slug');
 
+    const environments = await this.repository.listEnvironments(projectId);
+    const nextOrder = environments.reduce((max, environment) => Math.max(max, environment.order), -1) + 1;
+
     const id = crypto.randomUUID();
     await this.repository.createEnvironment({
       id,
@@ -57,6 +60,7 @@ export class VaultService {
       slug,
       name,
       description: input.description?.trim() || undefined,
+      order: nextOrder,
     });
     return this.repository.findEnvironmentById(id);
   }
@@ -93,6 +97,23 @@ export class VaultService {
     if (environments.length <= 1) throw new Error('Debe existir al menos un entorno');
 
     await this.repository.deleteEnvironment(environment.id);
+  }
+
+  async moveEnvironment(projectId: string, id: string, direction: 'up' | 'down') {
+    const environments = (await this.repository.listEnvironments(projectId)).sort(
+      (a, b) => a.order - b.order,
+    );
+    const index = environments.findIndex((environment) => environment.id === id);
+    if (index === -1) throw new Error('Environment not found');
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= environments.length) return;
+
+    const current = environments[index];
+    const target = environments[targetIndex];
+
+    await this.repository.updateEnvironment(current.id, { order: target.order });
+    await this.repository.updateEnvironment(target.id, { order: current.order });
   }
 
   async createFolder(
@@ -155,6 +176,27 @@ export class VaultService {
     return folder.toJson();
   }
 
+  async deleteFolder(projectId: string, id: string) {
+    const folder = await this.requireProjectFolder(projectId, id);
+
+    const [folders, secrets] = await Promise.all([
+      this.repository.listFolders(projectId),
+      this.repository.listSecrets(projectId),
+    ]);
+
+    if (folders.some((candidate) => candidate.parentFolderId === folder.id)) {
+      throw new Error('La carpeta tiene subcarpetas, borralas primero');
+    }
+    if (folders.some((candidate) => candidate.linkedFolderId === folder.id)) {
+      throw new Error('La carpeta esta enlazada desde otra carpeta');
+    }
+    if (secrets.some((secret) => secret.folderId === folder.id)) {
+      throw new Error('La carpeta tiene secretos, borralos primero');
+    }
+
+    await this.repository.deleteFolder(folder.id);
+  }
+
   async exportEnvFile(projectId: string, environmentSlug: string, path = '/') {
     const environment = await this.repository.findEnvironmentBySlug(projectId, environmentSlug);
     if (!environment) throw new Error('Environment not found');
@@ -192,6 +234,97 @@ export class VaultService {
     return scope;
   }
 
+  async importEnvFile(
+    projectId: string,
+    environmentSlug: string,
+    folderId: string | null,
+    content: string,
+  ) {
+    const environment = await this.repository.findEnvironmentBySlug(projectId, environmentSlug);
+    if (!environment) throw new Error('Environment not found');
+    await this.requireOptionalProjectFolder(projectId, folderId);
+
+    const entries = this.parseEnvContent(content);
+    if (entries.length === 0) throw new Error('No se encontraron secretos validos');
+
+    const secrets = (await this.repository.listSecrets(projectId)).map((secret) => secret.toJson());
+    let created = 0;
+    let updated = 0;
+
+    for (const [key, value] of entries) {
+      const normalizedKey = this.normalizeSecretKey(key);
+      const existing = secrets.find(
+        (secret) => (secret.folderId ?? null) === (folderId ?? null) && secret.key === normalizedKey,
+      );
+
+      if (existing) {
+        await this.repository.updateSecret(existing.id, {
+          values: { ...existing.values, [environmentSlug]: value },
+        });
+        updated += 1;
+        continue;
+      }
+
+      await this.createSecret(projectId, {
+        folderId,
+        key: normalizedKey,
+        values: { [environmentSlug]: value },
+      });
+      created += 1;
+    }
+
+    return { created, updated };
+  }
+
+  async copyEnvironmentValues(
+    projectId: string,
+    sourceSlug: string,
+    targetSlug: string,
+    folderId: string | null,
+  ) {
+    if (sourceSlug === targetSlug) throw new Error('Selecciona un entorno distinto');
+
+    const [source, target] = await Promise.all([
+      this.repository.findEnvironmentBySlug(projectId, sourceSlug),
+      this.repository.findEnvironmentBySlug(projectId, targetSlug),
+    ]);
+    if (!source || !target) throw new Error('Environment not found');
+    await this.requireOptionalProjectFolder(projectId, folderId);
+
+    const secrets = (await this.repository.listSecrets(projectId)).map((secret) => secret.toJson());
+    let copied = 0;
+
+    for (const secret of secrets) {
+      if ((secret.folderId ?? null) !== (folderId ?? null)) continue;
+      const value = secret.values?.[sourceSlug];
+      if (value === undefined) continue;
+
+      await this.repository.updateSecret(secret.id, {
+        values: { ...secret.values, [targetSlug]: value },
+      });
+      copied += 1;
+    }
+
+    return { copied };
+  }
+
+  private parseEnvContent(content: string) {
+    return content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && line.includes('='))
+      .map((line) => {
+        const separatorIndex = line.indexOf('=');
+        const key = line.slice(0, separatorIndex).trim().replace(/^export\s+/, '');
+        const value = line
+          .slice(separatorIndex + 1)
+          .trim()
+          .replace(/^['"]|['"]$/g, '');
+        return [key, value] as const;
+      })
+      .filter(([key]) => key.length > 0);
+  }
+
   async createSecret(projectId: string, input: VaultSecretInput) {
     await this.requireOptionalProjectFolder(projectId, input.folderId);
     const key = this.normalizeSecretKey(input.key);
@@ -220,15 +353,25 @@ export class VaultService {
     });
   }
 
+  async deleteSecret(projectId: string, id: string) {
+    const secret = await this.repository.findSecretById(id);
+    if (!secret || secret.projectId !== projectId) throw new Error('Secret not found');
+
+    await this.repository.deleteSecret(id);
+  }
+
   private async ensureDefaultEnvironments(projectId: string) {
     const environments = await this.repository.listEnvironments(projectId);
     if (environments.length > 0) return;
 
-    await Promise.all(
-      DEFAULT_ENVIRONMENTS.map((environment) =>
-        this.repository.createEnvironment({ id: crypto.randomUUID(), projectId, ...environment }),
-      ),
-    );
+    for (const [index, environment] of DEFAULT_ENVIRONMENTS.entries()) {
+      await this.repository.createEnvironment({
+        id: crypto.randomUUID(),
+        projectId,
+        order: index,
+        ...environment,
+      });
+    }
   }
 
   private async requireProjectEnvironment(projectId: string, id: string) {

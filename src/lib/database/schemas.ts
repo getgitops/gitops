@@ -1,4 +1,4 @@
-import { bool, defineRelations, entity, json, text, timestamp, uuid } from '@getgitops/gitdb';
+import { bool, defineRelations, entity, integer, json, text, timestamp, uuid } from '@getgitops/gitdb';
 
 export const UserEntity = entity('users', {
   id: uuid().primaryKey(),
@@ -207,6 +207,9 @@ export const VaultEnvironmentEntity = entity('vault_environments', {
   slug: text().notNull(),
   name: text().notNull(),
   description: text(),
+  order: integer()
+    .notNull()
+    .$defaultFn(() => 0),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

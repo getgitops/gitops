@@ -17,7 +17,7 @@ export class VaultRepository extends Repository {
       .select()
       .from(VaultEnvironmentEntity)
       .where({ projectId })
-      .orderBy('createdAt', 'asc');
+      .orderBy('order', 'asc');
     return result.rows.map((row: any) => new VaultEnvironmentDomain(row));
   }
 
@@ -46,6 +46,7 @@ export class VaultRepository extends Repository {
     slug: string;
     name: string;
     description?: string;
+    order?: number;
   }): Promise<void> {
     await this.db.insert(VaultEnvironmentEntity).values({
       ...input,
@@ -56,7 +57,7 @@ export class VaultRepository extends Repository {
 
   async updateEnvironment(
     id: string,
-    changes: { slug?: string; name?: string; description?: string },
+    changes: { slug?: string; name?: string; description?: string; order?: number },
   ): Promise<void> {
     await this.db
       .update(VaultEnvironmentEntity)
@@ -111,6 +112,10 @@ export class VaultRepository extends Repository {
     });
   }
 
+  async deleteFolder(id: string): Promise<void> {
+    await this.db.delete(VaultFolderEntity).where({ id });
+  }
+
   async listSecrets(projectId: string): Promise<VaultSecretDomain[]> {
     const result = await this.db
       .select()
@@ -155,5 +160,9 @@ export class VaultRepository extends Repository {
       .update(VaultSecretEntity)
       .set({ ...changes, updatedAt: new Date().toISOString() })
       .where({ id });
+  }
+
+  async deleteSecret(id: string): Promise<void> {
+    await this.db.delete(VaultSecretEntity).where({ id });
   }
 }

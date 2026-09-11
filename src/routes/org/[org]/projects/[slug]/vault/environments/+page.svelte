@@ -1,13 +1,15 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { invalidateAll } from '$app/navigation';
   import type { SubmitFunction } from '@sveltejs/kit';
-  import { CheckCircle, Edit3, Plus, Trash2 } from '@lucide/svelte';
+  import { CheckCircle, ChevronDown, ChevronUp, Edit3, Plus, Trash2 } from '@lucide/svelte';
 
   type VaultEnvironment = {
     id: string;
     slug: string;
     name: string;
     description?: string | null;
+    order: number;
     createdAt: string;
   };
 
@@ -26,6 +28,7 @@
   let formError = '';
   let success = '';
   let submitting = false;
+  let moving = false;
 
   function flashSuccess(message: string) {
     success = message;
@@ -76,6 +79,26 @@
     if (!value) return '-';
     return new Date(value).toLocaleDateString();
   }
+
+  async function moveEnvironment(environment: VaultEnvironment, direction: 'up' | 'down') {
+    if (moving) return;
+    moving = true;
+    formError = '';
+
+    const body = new FormData();
+    body.set('id', environment.id);
+    body.set('direction', direction);
+
+    const response = await fetch('?/move', { method: 'POST', body });
+    moving = false;
+
+    if (!response.ok) {
+      formError = 'No se pudo reordenar el entorno';
+      return;
+    }
+
+    await invalidateAll();
+  }
 </script>
 
 <svelte:head>
@@ -118,6 +141,7 @@
           <tr
             class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
           >
+            <th class="px-4 py-3"></th>
             <th class="px-4 py-3">Nombre</th>
             <th class="px-4 py-3">Slug</th>
             <th class="px-4 py-3">Descripcion</th>
@@ -126,8 +150,28 @@
           </tr>
         </thead>
         <tbody>
-          {#each data.environments as environment (environment.id)}
+          {#each data.environments as environment, index (environment.id)}
             <tr class="border-t border-slate-100">
+              <td class="px-4 py-3">
+                {#if data.canManageEnvironments}
+                  <div class="flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      disabled={moving || index === 0}
+                      on:click={() => moveEnvironment(environment, 'up')}
+                      class="rounded border border-slate-200 p-0.5 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Subir entorno"><ChevronUp class="h-3.5 w-3.5" /></button
+                    >
+                    <button
+                      type="button"
+                      disabled={moving || index === data.environments.length - 1}
+                      on:click={() => moveEnvironment(environment, 'down')}
+                      class="rounded border border-slate-200 p-0.5 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Bajar entorno"><ChevronDown class="h-3.5 w-3.5" /></button
+                    >
+                  </div>
+                {/if}
+              </td>
               <td class="px-4 py-3 font-medium text-slate-900">{environment.name}</td>
               <td class="px-4 py-3 font-mono text-xs text-slate-600">{environment.slug}</td>
               <td class="px-4 py-3 text-slate-600">{environment.description || '-'}</td>

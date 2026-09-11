@@ -63,6 +63,15 @@ export async function load({ params, locals }) {
         organizationId,
       },
     ),
+    canDeleteSecrets: await cancanService.canSessionUser(
+      locals.user,
+      'project:vault:secrets:delete',
+      {
+        scope: 'project',
+        projectId: project.id,
+        organizationId,
+      },
+    ),
   };
 }
 
@@ -104,23 +113,6 @@ function secretValuesFromForm(formData: FormData) {
   return values;
 }
 
-function parseEnvContent(content: string) {
-  return content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#') && line.includes('='))
-    .map((line) => {
-      const separatorIndex = line.indexOf('=');
-      const key = line.slice(0, separatorIndex).trim().replace(/^export\s+/, '');
-      const value = line
-        .slice(separatorIndex + 1)
-        .trim()
-        .replace(/^['"]|['"]$/g, '');
-      return [key, value] as const;
-    })
-    .filter(([key]) => key.length > 0);
-}
-
 export const actions = {
   createSecret: async ({ request, params, locals }) => {
     try {
@@ -153,6 +145,30 @@ export const actions = {
     } catch (err) {
       return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
         error: err instanceof Error ? err.message : 'No se pudo actualizar el secreto',
+      });
+    }
+  },
+  deleteSecret: async ({ request, params, locals }) => {
+    try {
+      const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:delete');
+      const formData = await request.formData();
+      await vaultService.deleteSecret(project.id, String(formData.get('id') || ''));
+      return { success: true };
+    } catch (err) {
+      return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
+        error: err instanceof Error ? err.message : 'No se pudo borrar el secreto',
+      });
+    }
+  },
+  deleteFolder: async ({ request, params, locals }) => {
+    try {
+      const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:delete');
+      const formData = await request.formData();
+      await vaultService.deleteFolder(project.id, String(formData.get('id') || ''));
+      return { success: true };
+    } catch (err) {
+      return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
+        error: err instanceof Error ? err.message : 'No se pudo borrar la carpeta',
       });
     }
   },
@@ -197,19 +213,13 @@ export const actions = {
       const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:create');
       const formData = await request.formData();
       const folderId = String(formData.get('folderId') || '') || null;
-      const environmentSlug = String(formData.get('environmentSlug') || '');
-      const entries = parseEnvContent(String(formData.get('content') || ''));
-
-      if (entries.length === 0) throw new Error('No se encontraron secretos validos');
-
-      for (const [key, value] of entries) {
-        await vaultService.createSecret(project.id, {
-          folderId,
-          key,
-          description: '',
-          values: { [environmentSlug]: value },
-        });
-      }
+      const environmentSlug = String(formData.get('environmentSlug') || params.env);
+      await vaultService.importEnvFile(
+        project.id,
+        environmentSlug,
+        folderId,
+        String(formData.get('content') || ''),
+      );
 
       return { success: true };
     } catch (err) {
@@ -230,6 +240,23 @@ export const actions = {
     } catch (err) {
       return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
         error: err instanceof Error ? err.message : 'No se pudieron exportar los secretos',
+      });
+    }
+  },
+  copyEnvironment: async ({ request, params, locals }) => {
+    try {
+      const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:update');
+      const formData = await request.formData();
+      await vaultService.copyEnvironmentValues(
+        project.id,
+        String(formData.get('sourceEnvironment') || ''),
+        params.env,
+        String(formData.get('folderId') || '') || null,
+      );
+      return { success: true };
+    } catch (err) {
+      return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
+        error: err instanceof Error ? err.message : 'No se pudieron copiar los secretos',
       });
     }
   },

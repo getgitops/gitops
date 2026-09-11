@@ -1,6 +1,6 @@
 <script lang="ts">
   import { deserialize, enhance } from '$app/forms';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import type { SubmitFunction } from '@sveltejs/kit';
   import {
@@ -14,11 +14,13 @@
     EyeOff,
     Folder,
     FolderInput,
+    Info,
     Link2,
     Plus,
     Search,
     Shield,
     Upload,
+    X,
   } from '@lucide/svelte';
 
   type VaultEnvironment = {
@@ -53,6 +55,7 @@
     currentFolder?: VaultFolder | null;
     currentPath?: string;
     canManageSecrets: boolean;
+    canDeleteSecrets: boolean;
     project?: { name?: string | null; slug?: string | null } | null;
   };
 
@@ -64,10 +67,16 @@
   let searchQuery = '';
   let importOpen = false;
   let importContent = '';
+  let copyEnvOpen = false;
+  let copySourceSlug = '';
+  let dropActive = false;
+  let dropError = '';
   let createSecretOpen = false;
   let createFolderOpen = false;
   let linkFolderOpen = false;
   let editingSecret: VaultSecret | null = null;
+  let deletingSecret: VaultSecret | null = null;
+  let deletingFolder: VaultFolder | null = null;
   let revealed: Record<string, boolean> = {};
   let formError = '';
   let success = '';
@@ -192,6 +201,47 @@
         );
   }
 
+  async function uploadEnvContent(content: string) {
+    const body = new FormData();
+    body.set('folderId', currentFolderId ?? '');
+    body.set('environmentSlug', selectedEnvironmentSlug);
+    body.set('content', content);
+
+    const response = await fetch('?/importSecrets', {
+      method: 'POST',
+      headers: { 'x-sveltekit-action': 'true' },
+      body,
+    });
+    const result = deserialize(await response.text());
+
+    if (result.type !== 'success') {
+      dropError =
+        result.type === 'failure' && result.data?.error
+          ? String(result.data.error)
+          : 'No se pudo importar el archivo';
+      return;
+    }
+
+    dropError = '';
+    await invalidateAll();
+    flashSuccess('Secretos importados');
+  }
+
+  async function handleDrop(event: DragEvent) {
+    dropActive = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    dropError = '';
+    await uploadEnvContent(await file.text());
+  }
+
+  function handleDragLeave(event: DragEvent) {
+    const related = event.relatedTarget as Node | null;
+    if (related && (event.currentTarget as HTMLElement).contains(related)) return;
+    dropActive = false;
+  }
+
   async function downloadEnvFile() {
     const response = await fetch('?/exportSecrets', {
       method: 'POST',
@@ -212,13 +262,6 @@
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
-  }
-
-  function folderLabel(folder: VaultFolder) {
-    const parent = folder.parentFolderId
-      ? data.folders.find((candidate) => candidate.id === folder.parentFolderId)
-      : null;
-    return parent ? `${parent.name} / ${folder.name}` : folder.name;
   }
 
   function resetSecretForm() {
@@ -264,6 +307,14 @@
     importOpen = true;
   }
 
+  function openCopyEnvironment() {
+    formError = '';
+    copySourceSlug =
+      data.environments.find((environment) => environment.slug !== selectedEnvironmentSlug)?.slug ??
+      '';
+    copyEnvOpen = true;
+  }
+
   const handleSubmit: SubmitFunction = () => {
     formError = '';
     submitting = true;
@@ -276,7 +327,10 @@
         createFolderOpen = false;
         linkFolderOpen = false;
         importOpen = false;
+        copyEnvOpen = false;
         editingSecret = null;
+        deletingSecret = null;
+        deletingFolder = null;
         flashSuccess('Cambios guardados');
         return;
       }
@@ -526,14 +580,42 @@
                   </td>
                   <td class="px-4 py-3 text-slate-500"></td>
                   <td class="px-4 py-3 text-right">
-                    <ChevronRight class="ml-auto h-4 w-4 text-slate-400" />
+                    <div class="flex items-center justify-end gap-2">
+                      {#if data.canDeleteSecrets}
+                        <button
+                          type="button"
+                          on:click|stopPropagation={() => (deletingFolder = folder)}
+                          class="inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
+                          aria-label="Borrar carpeta"
+                        >
+                          <X class="h-4 w-4" />
+                        </button>
+                      {/if}
+                      <ChevronRight class="h-4 w-4 text-slate-400" />
+                    </div>
                   </td>
                 </tr>
               {/each}
               {#each filteredSecrets as secret (secret.id)}
                 <tr class="border-t border-slate-100 align-top">
                   <td class="px-4 py-3">
-                    <p class="font-mono text-sm font-semibold text-slate-900">{secret.key}</p>
+                    <span class="inline-flex items-center gap-1.5">
+                      <p class="font-mono text-sm font-semibold text-slate-900">{secret.key}</p>
+                      {#if secret.description}
+                        <span class="group relative inline-flex">
+                          <Info class="h-3.5 w-3.5 shrink-0 cursor-help text-slate-400" />
+                          <span
+                            role="tooltip"
+                            class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-64 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
+                          >
+                            {secret.description}
+                            <span
+                              class="absolute left-1/2 top-full -mt-1 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900"
+                            ></span>
+                          </span>
+                        </span>
+                      {/if}
+                    </span>
                   </td>
                   <td class="px-4 py-3">
                     <button
@@ -562,6 +644,16 @@
                         <Edit3 class="h-4 w-4" />
                       </button>
                     {/if}
+                    {#if data.canDeleteSecrets}
+                      <button
+                        type="button"
+                        on:click={() => (deletingSecret = secret)}
+                        class="ml-2 inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Borrar secreto"
+                      >
+                        <X class="h-4 w-4" />
+                      </button>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -570,6 +662,41 @@
         </table>
       </div>
     </div>
+
+    {#if data.canManageSecrets}
+      <div
+        role="region"
+        aria-label="Importar archivo .env"
+        on:dragenter|preventDefault|stopPropagation={() => (dropActive = true)}
+        on:dragover|preventDefault|stopPropagation={() => (dropActive = true)}
+        on:dragleave|preventDefault|stopPropagation={handleDragLeave}
+        on:drop|preventDefault|stopPropagation={handleDrop}
+        class="flex min-h-40 flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-16 text-center transition {dropActive
+          ? 'border-slate-400 bg-slate-50'
+          : 'border-slate-200 bg-white'}"
+      >
+        <p class="text-sm text-slate-600">
+          Drag and drop .env, or
+          <button
+            type="button"
+            on:click={openImportSecrets}
+            class="font-medium text-slate-900 underline underline-offset-2">import .env</button
+          >
+        </p>
+        <p class="mt-1 text-sm text-slate-500">
+          OR
+          <button
+            type="button"
+            on:click={openCopyEnvironment}
+            class="font-medium text-slate-900 underline underline-offset-2"
+            >Copy from environment</button
+          >
+        </p>
+        {#if dropError}
+          <p class="mt-2 text-sm text-red-600">{dropError}</p>
+        {/if}
+      </div>
+    {/if}
   </section>
 </div>
 
@@ -621,46 +748,44 @@
       method="POST"
       action="?/updateSecret"
       use:enhance={handleSubmit}
-      class="w-full max-w-2xl rounded-md bg-white p-6 shadow-xl"
+      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
     >
       <input type="hidden" name="id" value={editingSecret.id} />
+      <input type="hidden" name="folderId" value={editSecretFolderId} />
+      {#each data.environments as environment (environment.id)}
+        {#if environment.slug !== selectedEnvironmentSlug}
+          <input
+            type="hidden"
+            name={`value:${environment.slug}`}
+            value={editSecretValues[environment.slug] ?? ''}
+          />
+        {/if}
+      {/each}
       <h3 class="text-lg font-semibold text-slate-900">Detalle del secreto</h3>
       {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {formError}
         </p>{/if}
-      <div class="mt-5 grid gap-4 sm:grid-cols-2">
-        <label class="text-sm font-medium text-slate-700"
+      <div class="mt-5 space-y-4">
+        <label class="block text-sm font-medium text-slate-700"
           >Key<input
             name="key"
             bind:value={editSecretKey}
             class="field-input mt-1 w-full rounded-md border px-3 py-2"
           /></label
         >
-        <label class="text-sm font-medium text-slate-700"
-          >Carpeta<select
-            name="folderId"
-            bind:value={editSecretFolderId}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"
-            ><option value="">Root</option>{#each data.folders as folder}<option value={folder.id}
-                >{folderLabel(folder)}</option
-              >{/each}</select
-          ></label
+        <label class="block text-sm font-medium text-slate-700"
+          >Value<input
+            name={`value:${selectedEnvironmentSlug}`}
+            bind:value={editSecretValues[selectedEnvironmentSlug]}
+            class="field-input mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm"
+          /></label
         >
-        <label class="text-sm font-medium text-slate-700 sm:col-span-2"
+        <label class="block text-sm font-medium text-slate-700"
           >Descripcion<textarea
             name="description"
             bind:value={editSecretDescription}
             class="field-input mt-1 w-full rounded-md border px-3 py-2"></textarea></label
         >
-        {#each data.environments as environment (environment.id)}
-          <label class="text-sm font-medium text-slate-700"
-            >{environment.name}<input
-              name={`value:${environment.slug}`}
-              bind:value={editSecretValues[environment.slug]}
-              class="field-input mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm"
-            /></label
-          >
-        {/each}
       </div>
       <div class="mt-6 flex justify-end gap-2">
         <button
@@ -669,6 +794,70 @@
           class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
         ><button disabled={submitting} class="btn-primary rounded-md px-3 py-2 text-sm"
           >Guardar</button
+        >
+      </div>
+    </form>
+  </div>
+{/if}
+
+{#if deletingSecret}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+    <form
+      method="POST"
+      action="?/deleteSecret"
+      use:enhance={handleSubmit}
+      class="w-full max-w-sm rounded-md bg-white p-6 shadow-xl"
+    >
+      <input type="hidden" name="id" value={deletingSecret.id} />
+      <h3 class="text-lg font-semibold text-slate-900">Borrar secreto</h3>
+      <p class="mt-2 text-sm text-slate-600">
+        Se borrara <span class="font-mono font-medium text-slate-900">{deletingSecret.key}</span> de
+        forma permanente.
+      </p>
+      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {formError}
+        </p>{/if}
+      <div class="mt-6 flex justify-end gap-2">
+        <button
+          type="button"
+          on:click={() => (deletingSecret = null)}
+          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
+        ><button
+          disabled={submitting}
+          class="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
+          >Borrar</button
+        >
+      </div>
+    </form>
+  </div>
+{/if}
+
+{#if deletingFolder}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+    <form
+      method="POST"
+      action="?/deleteFolder"
+      use:enhance={handleSubmit}
+      class="w-full max-w-sm rounded-md bg-white p-6 shadow-xl"
+    >
+      <input type="hidden" name="id" value={deletingFolder.id} />
+      <h3 class="text-lg font-semibold text-slate-900">Borrar carpeta</h3>
+      <p class="mt-2 text-sm text-slate-600">
+        Se borrara <span class="font-mono font-medium text-slate-900">{deletingFolder.name}</span>
+        de forma permanente. Debe estar vacia.
+      </p>
+      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {formError}
+        </p>{/if}
+      <div class="mt-6 flex justify-end gap-2">
+        <button
+          type="button"
+          on:click={() => (deletingFolder = null)}
+          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
+        ><button
+          disabled={submitting}
+          class="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
+          >Borrar</button
         >
       </div>
     </form>
@@ -783,6 +972,46 @@
         ><button
           disabled={submitting || !importContent.trim()}
           class="btn-primary rounded-md px-3 py-2 text-sm">Importar</button
+        >
+      </div>
+    </form>
+  </div>
+{/if}
+
+{#if copyEnvOpen}
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+    <form
+      method="POST"
+      action="?/copyEnvironment"
+      use:enhance={handleSubmit}
+      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
+    >
+      <h3 class="text-lg font-semibold text-slate-900">Copiar desde otro entorno</h3>
+      <p class="mt-1 text-sm text-slate-600">
+        Copia los valores de los secretos de <span class="font-mono">{currentPath}</span> hacia
+        {selectedEnvironment?.name ?? selectedEnvironmentSlug}.
+      </p>
+      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {formError}
+        </p>{/if}
+      <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
+      <label class="mt-5 block text-sm font-medium text-slate-700"
+        >Entorno origen<select
+          name="sourceEnvironment"
+          bind:value={copySourceSlug}
+          class="field-input mt-1 w-full rounded-md border px-3 py-2"
+          >{#each data.environments.filter((environment) => environment.slug !== selectedEnvironmentSlug) as environment (environment.id)}<option
+              value={environment.slug}>{environment.name}</option
+            >{/each}</select
+        ></label
+      >
+      <div class="mt-6 flex justify-end gap-2">
+        <button
+          type="button"
+          on:click={() => (copyEnvOpen = false)}
+          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
+        ><button disabled={submitting || !copySourceSlug} class="btn-primary rounded-md px-3 py-2 text-sm"
+          >Copiar</button
         >
       </div>
     </form>

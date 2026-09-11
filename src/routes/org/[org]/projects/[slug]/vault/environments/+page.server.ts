@@ -101,4 +101,21 @@ export const actions = {
       });
     }
   },
+  move: async ({ request, params, locals }) => {
+    try {
+      const project = await getAuthorizedProject(
+        params,
+        locals,
+        'project:vault:environments:update',
+      );
+      const formData = await request.formData();
+      const direction = String(formData.get('direction') || '') === 'up' ? 'up' : 'down';
+      await vaultService.moveEnvironment(project.id, String(formData.get('id') || ''), direction);
+      return { success: true };
+    } catch (err) {
+      return fail(err instanceof Error && err.message === 'Forbidden' ? 403 : 400, {
+        error: err instanceof Error ? err.message : 'No se pudo reordenar el entorno',
+      });
+    }
+  },
 };

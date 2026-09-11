@@ -7,6 +7,7 @@ export class VaultEnvironmentDomain extends Domain {
   public slug = '';
   public name = '';
   public description?: string | null = null;
+  public order = 0;
 
   constructor(data: any) {
     super(data);
@@ -14,6 +15,7 @@ export class VaultEnvironmentDomain extends Domain {
     this.slug = data.slug;
     this.name = data.name;
     this.description = data.description ?? null;
+    this.order = data.order ?? 0;
   }
 
   toJson() {
@@ -23,6 +25,7 @@ export class VaultEnvironmentDomain extends Domain {
       slug: this.slug,
       name: this.name,
       description: this.description,
+      order: this.order,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
