@@ -31,6 +31,7 @@ export async function load({ params, locals }) {
   }
 
   const vault = await vaultService.getProjectVault(project.id);
+  const settings = await vaultService.getSettings(project.id);
   const currentEnvironment = vault.environments.find(
     (environment) => environment.slug === params.env,
   );
@@ -72,6 +73,7 @@ export async function load({ params, locals }) {
         organizationId,
       },
     ),
+    capitalizeSecrets: settings.capitalizeSecrets,
   };
 }
 

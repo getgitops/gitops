@@ -118,8 +118,8 @@
                     icon: Shield,
                   },
                   {
-                    label: 'Environments',
-                    href: `${projectBase}/vault/environments`,
+                    label: 'Settings',
+                    href: `${projectBase}/vault/settings`,
                     icon: Settings,
                   },
                 ],

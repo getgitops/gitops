@@ -94,3 +94,29 @@ export class VaultSecretDomain extends Domain {
     };
   }
 }
+
+export type VaultEncryptionProvider = 'gitops_kms';
+
+export class VaultSettingsDomain extends Domain {
+  public projectId = '';
+  public capitalizeSecrets = true;
+  public encryptionProvider: VaultEncryptionProvider = 'gitops_kms';
+
+  constructor(data: any) {
+    super(data);
+    this.projectId = data.projectId;
+    this.capitalizeSecrets = data.capitalizeSecrets ?? true;
+    this.encryptionProvider = data.encryptionProvider ?? 'gitops_kms';
+  }
+
+  toJson() {
+    return {
+      id: this.id,
+      projectId: this.projectId,
+      capitalizeSecrets: this.capitalizeSecrets,
+      encryptionProvider: this.encryptionProvider,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    };
+  }
+}

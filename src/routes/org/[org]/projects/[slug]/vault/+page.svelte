@@ -56,6 +56,7 @@
     currentPath?: string;
     canManageSecrets: boolean;
     canDeleteSecrets: boolean;
+    capitalizeSecrets: boolean;
     project?: { name?: string | null; slug?: string | null } | null;
   };
 
@@ -262,6 +263,11 @@
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function normalizeKeyInput(event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    return data.capitalizeSecrets ? value.toUpperCase() : value;
   }
 
   function resetSecretForm() {
@@ -717,7 +723,8 @@
         <label class="block text-sm font-medium text-slate-700"
           >Key<input
             name="key"
-            bind:value={newSecretKey}
+            value={newSecretKey}
+            on:input={(event) => (newSecretKey = normalizeKeyInput(event))}
             class="field-input mt-1 w-full rounded-md border px-3 py-2"
           /></label
         >
@@ -769,7 +776,8 @@
         <label class="block text-sm font-medium text-slate-700"
           >Key<input
             name="key"
-            bind:value={editSecretKey}
+            value={editSecretKey}
+            on:input={(event) => (editSecretKey = normalizeKeyInput(event))}
             class="field-input mt-1 w-full rounded-md border px-3 py-2"
           /></label
         >

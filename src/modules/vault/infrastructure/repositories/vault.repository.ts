@@ -3,11 +3,14 @@ import {
   VaultEnvironmentEntity,
   VaultFolderEntity,
   VaultSecretEntity,
+  VaultSettingsEntity,
 } from '$lib/database/schemas';
 import {
   VaultEnvironmentDomain,
   VaultFolderDomain,
   VaultSecretDomain,
+  VaultSettingsDomain,
+  type VaultEncryptionProvider,
   type VaultSecretValues,
 } from '../../domain/vault.domain';
 
@@ -164,5 +167,38 @@ export class VaultRepository extends Repository {
 
   async deleteSecret(id: string): Promise<void> {
     await this.db.delete(VaultSecretEntity).where({ id });
+  }
+
+  async findSettingsByProjectId(projectId: string): Promise<VaultSettingsDomain | null> {
+    const result = await this.db
+      .select()
+      .from(VaultSettingsEntity)
+      .where({ projectId })
+      .limit(1);
+    const row = result.rows[0];
+    return row ? new VaultSettingsDomain(row) : null;
+  }
+
+  async createSettings(input: {
+    id: string;
+    projectId: string;
+    capitalizeSecrets: boolean;
+    encryptionProvider: VaultEncryptionProvider;
+  }): Promise<void> {
+    await this.db.insert(VaultSettingsEntity).values({
+      ...input,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  async updateSettings(
+    id: string,
+    changes: { capitalizeSecrets?: boolean; encryptionProvider?: VaultEncryptionProvider },
+  ): Promise<void> {
+    await this.db
+      .update(VaultSettingsEntity)
+      .set({ ...changes, updatedAt: new Date().toISOString() })
+      .where({ id });
   }
 }

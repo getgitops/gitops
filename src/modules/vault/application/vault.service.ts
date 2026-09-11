@@ -1,11 +1,15 @@
 import crypto from 'crypto';
 import { VaultRepository } from '../infrastructure/repositories/vault.repository';
-import type { VaultSecretValues } from '../domain/vault.domain';
+import type { VaultEncryptionProvider, VaultSecretValues } from '../domain/vault.domain';
 
 const DEFAULT_ENVIRONMENTS = [
   { slug: 'dev', name: 'Development' },
   { slug: 'stage', name: 'Stage' },
   { slug: 'prod', name: 'Production' },
+];
+
+export const VAULT_ENCRYPTION_PROVIDERS: { value: VaultEncryptionProvider; label: string }[] = [
+  { value: 'gitops_kms', label: 'GitOps KMS' },
 ];
 
 export type VaultSecretInput = {
@@ -247,12 +251,13 @@ export class VaultService {
     const entries = this.parseEnvContent(content);
     if (entries.length === 0) throw new Error('No se encontraron secretos validos');
 
+    const capitalize = (await this.getSettings(projectId)).capitalizeSecrets;
     const secrets = (await this.repository.listSecrets(projectId)).map((secret) => secret.toJson());
     let created = 0;
     let updated = 0;
 
     for (const [key, value] of entries) {
-      const normalizedKey = this.normalizeSecretKey(key);
+      const normalizedKey = this.normalizeSecretKey(key, capitalize);
       const existing = secrets.find(
         (secret) => (secret.folderId ?? null) === (folderId ?? null) && secret.key === normalizedKey,
       );
@@ -327,7 +332,8 @@ export class VaultService {
 
   async createSecret(projectId: string, input: VaultSecretInput) {
     await this.requireOptionalProjectFolder(projectId, input.folderId);
-    const key = this.normalizeSecretKey(input.key);
+    const capitalize = (await this.getSettings(projectId)).capitalizeSecrets;
+    const key = this.normalizeSecretKey(input.key, capitalize);
     const values = this.normalizeValues(input.values);
 
     await this.repository.createSecret({
@@ -344,10 +350,11 @@ export class VaultService {
     const secret = await this.repository.findSecretById(id);
     if (!secret || secret.projectId !== projectId) throw new Error('Secret not found');
     await this.requireOptionalProjectFolder(projectId, input.folderId);
+    const capitalize = (await this.getSettings(projectId)).capitalizeSecrets;
 
     await this.repository.updateSecret(id, {
       folderId: input.folderId || null,
-      key: this.normalizeSecretKey(input.key),
+      key: this.normalizeSecretKey(input.key, capitalize),
       description: input.description?.trim(),
       values: this.normalizeValues(input.values),
     });
@@ -358,6 +365,29 @@ export class VaultService {
     if (!secret || secret.projectId !== projectId) throw new Error('Secret not found');
 
     await this.repository.deleteSecret(id);
+  }
+
+  async getSettings(projectId: string) {
+    const existing = await this.repository.findSettingsByProjectId(projectId);
+    if (existing) return existing.toJson();
+
+    const id = crypto.randomUUID();
+    await this.repository.createSettings({
+      id,
+      projectId,
+      capitalizeSecrets: true,
+      encryptionProvider: 'gitops_kms',
+    });
+    return (await this.repository.findSettingsByProjectId(projectId))!.toJson();
+  }
+
+  async updateSettings(
+    projectId: string,
+    changes: { capitalizeSecrets?: boolean; encryptionProvider?: VaultEncryptionProvider },
+  ) {
+    const settings = await this.getSettings(projectId);
+    await this.repository.updateSettings(settings.id, changes);
+    return this.getSettings(projectId);
   }
 
   private async ensureDefaultEnvironments(projectId: string) {
@@ -398,11 +428,11 @@ export class VaultService {
     return normalized;
   }
 
-  private normalizeSecretKey(value: string) {
-    const key = value
-      .trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9_]+/g, '_')
+  private normalizeSecretKey(value: string, capitalize: boolean) {
+    const trimmed = value.trim();
+    const sanitized = capitalize ? trimmed.toUpperCase() : trimmed;
+    const key = sanitized
+      .replace(/[^A-Za-z0-9_]+/g, '_')
       .replace(/^_+|_+$/g, '');
     if (!key) throw new Error('La key del secreto es obligatoria');
     return key;
