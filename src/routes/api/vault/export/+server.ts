@@ -51,11 +51,11 @@ export async function GET({ url, locals }) {
     if (!apiKey.organizationId || apiKey.organizationId !== organizationId) {
       return json({ error: 'Project does not belong to the token organization' }, { status: 403 });
     }
-    if (!cancanService.canApiKey(apiKey, 'project:vault:secrets:read', context)) {
+    if (!cancanService.canApiKey(apiKey, 'project:vault:secrets:export', context)) {
       return json({ error: 'Forbidden' }, { status: 403 });
     }
   } else if (
-    !(await cancanService.canSessionUser(locals.user, 'project:vault:secrets:read', context))
+    !(await cancanService.canSessionUser(locals.user, 'project:vault:secrets:export', context))
   ) {
     return json({ error: 'Forbidden' }, { status: 403 });
   }

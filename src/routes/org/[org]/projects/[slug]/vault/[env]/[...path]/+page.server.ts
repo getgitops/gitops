@@ -232,7 +232,7 @@ export const actions = {
   },
   exportSecrets: async ({ params, locals }) => {
     try {
-      const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:read');
+      const project = await getAuthorizedProject(params, locals, 'project:vault:secrets:export');
       const content = await vaultService.exportEnvFile(
         project.id,
         params.env,

@@ -144,7 +144,7 @@ describe('GET /api/vault/export', () => {
     const response = await request('?project=kettu&env=prod', { user: { id: 'user-1' } });
 
     expect(response.status).toBe(200);
-    expect(canSessionUser).toHaveBeenCalledWith({ id: 'user-1' }, 'project:vault:secrets:read', {
+    expect(canSessionUser).toHaveBeenCalledWith({ id: 'user-1' }, 'project:vault:secrets:export', {
       scope: 'project',
       projectId: 'project-1',
       organizationId: 'org-1',
