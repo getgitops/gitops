@@ -55,7 +55,8 @@ export class VaultService {
     if (existing) throw new Error('Ya existe un entorno con ese slug');
 
     const environments = await this.repository.listEnvironments(projectId);
-    const nextOrder = environments.reduce((max, environment) => Math.max(max, environment.order), -1) + 1;
+    const nextOrder =
+      environments.reduce((max, environment) => Math.max(max, environment.order), -1) + 1;
 
     const id = crypto.randomUUID();
     await this.repository.createEnvironment({
@@ -201,7 +202,7 @@ export class VaultService {
     await this.repository.deleteFolder(folder.id);
   }
 
-  async exportEnvFile(projectId: string, environmentSlug: string, path = '/') {
+  async exportSecrets(projectId: string, environmentSlug: string, path = '/') {
     const environment = await this.repository.findEnvironmentBySlug(projectId, environmentSlug);
     if (!environment) throw new Error('Environment not found');
 
@@ -215,8 +216,17 @@ export class VaultService {
     return secrets
       .filter((secret) => scope.has(secret.folderId ?? null))
       .sort((a, b) => a.key.localeCompare(b.key))
-      .map((secret) => `${secret.key}=${secret.values?.[environmentSlug] ?? ''}`)
-      .join('\n');
+      .map((secret) => [secret.key, secret.values?.[environmentSlug] ?? ''] as const);
+  }
+
+  async exportEnvFile(projectId: string, environmentSlug: string, path = '/') {
+    const entries = await this.exportSecrets(projectId, environmentSlug, path);
+    return entries.map(([key, value]) => `${key}=${value}`).join('\n');
+  }
+
+  async exportJsonFile(projectId: string, environmentSlug: string, path = '/') {
+    const entries = await this.exportSecrets(projectId, environmentSlug, path);
+    return JSON.stringify(Object.fromEntries(entries), null, 2);
   }
 
   // Un export incluye los secretos del path y los de las carpetas enlazadas desde el, no el resto del arbol.
@@ -259,7 +269,8 @@ export class VaultService {
     for (const [key, value] of entries) {
       const normalizedKey = this.normalizeSecretKey(key, capitalize);
       const existing = secrets.find(
-        (secret) => (secret.folderId ?? null) === (folderId ?? null) && secret.key === normalizedKey,
+        (secret) =>
+          (secret.folderId ?? null) === (folderId ?? null) && secret.key === normalizedKey,
       );
 
       if (existing) {
@@ -320,7 +331,10 @@ export class VaultService {
       .filter((line) => line && !line.startsWith('#') && line.includes('='))
       .map((line) => {
         const separatorIndex = line.indexOf('=');
-        const key = line.slice(0, separatorIndex).trim().replace(/^export\s+/, '');
+        const key = line
+          .slice(0, separatorIndex)
+          .trim()
+          .replace(/^export\s+/, '');
         const value = line
           .slice(separatorIndex + 1)
           .trim()
@@ -431,9 +445,7 @@ export class VaultService {
   private normalizeSecretKey(value: string, capitalize: boolean) {
     const trimmed = value.trim();
     const sanitized = capitalize ? trimmed.toUpperCase() : trimmed;
-    const key = sanitized
-      .replace(/[^A-Za-z0-9_]+/g, '_')
-      .replace(/^_+|_+$/g, '');
+    const key = sanitized.replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
     if (!key) throw new Error('La key del secreto es obligatoria');
     return key;
   }
