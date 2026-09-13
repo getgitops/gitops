@@ -55,6 +55,7 @@ async function authorize(
         error: json(
           { error: 'Project does not belong to the token organization' },
           { status: 403 },
+        ),
       };
     }
     if (!cancanService.canApiKey(apiKey, permission, context)) {
