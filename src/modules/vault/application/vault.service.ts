@@ -350,14 +350,16 @@ export class VaultService {
     const key = this.normalizeSecretKey(input.key, capitalize);
     const values = this.normalizeValues(input.values);
 
+    const id = crypto.randomUUID();
     await this.repository.createSecret({
-      id: crypto.randomUUID(),
+      id,
       projectId,
       folderId: input.folderId || null,
       key,
       description: input.description?.trim() || undefined,
       values,
     });
+    return (await this.repository.findSecretById(id))!.toJson();
   }
 
   async updateSecret(projectId: string, id: string, input: VaultSecretInput) {
@@ -372,6 +374,7 @@ export class VaultService {
       description: input.description?.trim(),
       values: this.normalizeValues(input.values),
     });
+    return (await this.repository.findSecretById(id))!.toJson();
   }
 
   async deleteSecret(projectId: string, id: string) {
@@ -379,6 +382,41 @@ export class VaultService {
     if (!secret || secret.projectId !== projectId) throw new Error('Secret not found');
 
     await this.repository.deleteSecret(id);
+  }
+
+  async findSecretByKey(projectId: string, folderId: string | null, key: string) {
+    const capitalize = (await this.getSettings(projectId)).capitalizeSecrets;
+    const secret = await this.repository.findSecretByKey(
+      projectId,
+      folderId,
+      this.normalizeSecretKey(key, capitalize),
+    );
+    return secret?.toJson() ?? null;
+  }
+
+  async setSecretValue(
+    projectId: string,
+    folderId: string | null,
+    key: string,
+    environment: string,
+    value: string,
+    description?: string,
+  ) {
+    const secret = await this.findSecretByKey(projectId, folderId, key);
+    if (!secret) throw new Error('Secret not found');
+
+    return this.updateSecret(projectId, secret.id, {
+      folderId,
+      key,
+      description: description !== undefined ? description : secret.description ?? undefined,
+      values: { ...secret.values, [environment]: value },
+    });
+  }
+
+  async deleteSecretByKey(projectId: string, folderId: string | null, key: string) {
+    const secret = await this.findSecretByKey(projectId, folderId, key);
+    if (!secret) throw new Error('Secret not found');
+    await this.deleteSecret(projectId, secret.id);
   }
 
   async getSettings(projectId: string) {

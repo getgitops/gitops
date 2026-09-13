@@ -11,7 +11,7 @@ test.describe('vault — secrets:read alone is enough', () => {
     loginAs,
   }) => {
     await loginAs('vaultSecretsOnly');
-    await expectAllowed(page, `${base}/vault`);
+    await expectAllowed(page, `${base}/vault/dev`);
   });
 });
 
@@ -21,7 +21,7 @@ test.describe('vault — environments:read alone is enough', () => {
     loginAs,
   }) => {
     await loginAs('vaultEnvironmentsOnly');
-    await expectAllowed(page, `${base}/vault`);
+    await expectAllowed(page, `${base}/vault/dev`);
   });
 });
 

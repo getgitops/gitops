@@ -135,6 +135,20 @@ export class VaultRepository extends Repository {
     return row ? this.toSecretDomain(row) : null;
   }
 
+  async findSecretByKey(
+    projectId: string,
+    folderId: string | null,
+    key: string,
+  ): Promise<VaultSecretDomain | null> {
+    const result = await this.db
+      .select()
+      .from(VaultSecretEntity)
+      .where({ projectId, folderId, key })
+      .limit(1);
+    const row = result.rows[0];
+    return row ? this.toSecretDomain(row) : null;
+  }
+
   // secret values never leave this repository in plaintext: they are sealed with AES-256-GCM
   private toSecretDomain(row: any): VaultSecretDomain {
     return new VaultSecretDomain({ ...row, values: decryptSecretValues(row.id, row.values) });
