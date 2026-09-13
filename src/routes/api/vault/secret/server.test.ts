@@ -79,10 +79,10 @@ describe('POST /api/vault/secret', () => {
     expect(response.status).toBe(404);
   });
 
-  it('rejects a token whose organization does not own the project', async () => {
+  it('rejects an API key from another project', async () => {
     const response = await request(
       { project: 'kettu', key: 'API_KEY' },
-      { apiKey: { ...apiKey, organizationId: 'org-2' } },
+      { apiKey: { ...apiKey, projectId: 'project-2' } },
     );
     expect(response.status).toBe(403);
     expect(createSecret).not.toHaveBeenCalled();

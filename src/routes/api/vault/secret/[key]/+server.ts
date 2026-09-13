@@ -50,13 +50,8 @@ async function authorize(
   };
 
   if (apiKey) {
-    if (!apiKey.organizationId || apiKey.organizationId !== organizationId) {
-      return {
-        error: json(
-          { error: 'Project does not belong to the token organization' },
-          { status: 403 },
-        ),
-      };
+    if (apiKey.projectId !== project.id) {
+      return { error: json({ error: 'Forbidden' }, { status: 403 }) };
     }
     if (!cancanService.canApiKey(apiKey, permission, context)) {
       return { error: json({ error: 'Forbidden' }, { status: 403 }) };

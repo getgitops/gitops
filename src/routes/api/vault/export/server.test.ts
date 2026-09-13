@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const tryFindBySlug = vi.fn();
+const getProject = vi.fn();
 const canApiKey = vi.fn();
 const canSessionUser = vi.fn();
 const exportEnvFile = vi.fn();
@@ -8,7 +8,7 @@ const exportJsonFile = vi.fn();
 
 vi.mock('$modules/projects', () => ({
   projectService: {
-    tryFindBySlug: (slug: string) => tryFindBySlug(slug),
+    getProject: (id: string) => getProject(id),
   },
 }));
 
@@ -54,65 +54,55 @@ function request(query: string, locals: Record<string, unknown> = { apiKey }) {
 describe('GET /api/vault/export', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tryFindBySlug.mockResolvedValue(project);
+    getProject.mockResolvedValue(project);
     canApiKey.mockReturnValue(true);
     canSessionUser.mockResolvedValue(true);
     exportEnvFile.mockResolvedValue('API_KEY=abc\nDB_HOST=localhost');
     exportJsonFile.mockResolvedValue('{\n  "API_KEY": "abc"\n}');
   });
 
-  it('requires the project slug', async () => {
+  it('requires the project ID', async () => {
     const response = await request('?env=prod');
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'project is required' });
+    await expect(response.json()).resolves.toEqual({ error: 'projectId is required' });
   });
 
   it('requires the environment', async () => {
-    const response = await request('?project=kettu');
+    const response = await request('?projectId=project-1');
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'env is required' });
   });
 
   it('rejects unsupported formats', async () => {
-    const response = await request('?project=kettu&env=prod&format=yaml');
+    const response = await request('?projectId=project-1&env=prod&format=yaml');
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "format must be 'env' or 'json'" });
   });
 
   it('returns 404 when the project does not exist', async () => {
-    tryFindBySlug.mockResolvedValue(null);
-    const response = await request('?project=missing&env=prod');
+    getProject.mockResolvedValue(null);
+    const response = await request('?projectId=missing&env=prod');
     expect(response.status).toBe(404);
   });
 
-  it('rejects a token whose organization does not own the project', async () => {
-    const response = await request('?project=kettu&env=prod', {
-      apiKey: { ...apiKey, organizationId: 'org-2' },
+  it('rejects an API key from another project', async () => {
+    const response = await request('?projectId=project-1&env=prod', {
+      apiKey: { ...apiKey, projectId: 'project-2' },
     });
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Project does not belong to the token organization',
-    });
-    expect(exportEnvFile).not.toHaveBeenCalled();
-  });
-
-  it('rejects a token without organization', async () => {
-    const response = await request('?project=kettu&env=prod', {
-      apiKey: { ...apiKey, organizationId: null },
-    });
-    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
     expect(exportEnvFile).not.toHaveBeenCalled();
   });
 
   it('rejects a token without the read permission', async () => {
     canApiKey.mockReturnValue(false);
-    const response = await request('?project=kettu&env=prod');
+    const response = await request('?projectId=project-1&env=prod');
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
   });
 
   it('exports the env format by default', async () => {
-    const response = await request('?project=kettu&env=prod');
+    const response = await request('?projectId=project-1&env=prod');
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
@@ -124,7 +114,7 @@ describe('GET /api/vault/export', () => {
   });
 
   it('exports the json format', async () => {
-    const response = await request('?project=kettu&env=prod&format=json&path=/database/creds');
+    const response = await request('?projectId=project-1&env=prod&format=json&path=/database/creds');
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
@@ -136,12 +126,12 @@ describe('GET /api/vault/export', () => {
   });
 
   it('normalizes the requested path', async () => {
-    await request('?project=kettu&env=prod&path=database//creds/');
+    await request('?projectId=project-1&env=prod&path=database//creds/');
     expect(exportEnvFile).toHaveBeenCalledWith('project-1', 'prod', '/database/creds');
   });
 
   it('authorizes a session user when no api key is present', async () => {
-    const response = await request('?project=kettu&env=prod', { user: { id: 'user-1' } });
+    const response = await request('?projectId=project-1&env=prod', { user: { id: 'user-1' } });
 
     expect(response.status).toBe(200);
     expect(canSessionUser).toHaveBeenCalledWith({ id: 'user-1' }, 'project:vault:secrets:export', {
@@ -153,13 +143,13 @@ describe('GET /api/vault/export', () => {
 
   it('rejects a session user without permission', async () => {
     canSessionUser.mockResolvedValue(false);
-    const response = await request('?project=kettu&env=prod', { user: { id: 'user-1' } });
+    const response = await request('?projectId=project-1&env=prod', { user: { id: 'user-1' } });
     expect(response.status).toBe(403);
   });
 
   it('maps service errors to 400', async () => {
     exportEnvFile.mockRejectedValue(new Error('Environment not found'));
-    const response = await request('?project=kettu&env=nope');
+    const response = await request('?projectId=project-1&env=nope');
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'Environment not found' });
   });

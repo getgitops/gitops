@@ -48,8 +48,8 @@ export async function POST({ request, locals }) {
   };
 
   if (apiKey) {
-    if (!apiKey.organizationId || apiKey.organizationId !== organizationId) {
-      return json({ error: 'Project does not belong to the token organization' }, { status: 403 });
+    if (apiKey.projectId !== project.id) {
+      return json({ error: 'Forbidden' }, { status: 403 });
     }
     if (!cancanService.canApiKey(apiKey, 'project:vault:secrets:create', context)) {
       return json({ error: 'Forbidden' }, { status: 403 });

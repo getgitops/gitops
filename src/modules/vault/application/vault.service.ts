@@ -175,8 +175,9 @@ export class VaultService {
   }
 
   async getFolderByPath(projectId: string, path: string) {
-    if (path === '/') return null;
-    const folder = await this.repository.findFolderByPath(projectId, path);
+    const normalizedPath = this.normalizeFolderPath(path);
+    if (normalizedPath === '/') return null;
+    const folder = await this.repository.findFolderByPath(projectId, normalizedPath);
     if (!folder) throw new Error('Folder not found');
     return folder.toJson();
   }
@@ -206,9 +207,8 @@ export class VaultService {
     const environment = await this.repository.findEnvironmentBySlug(projectId, environmentSlug);
     if (!environment) throw new Error('Environment not found');
 
+    const targetFolder = await this.getFolderByPath(projectId, path);
     const folders = (await this.repository.listFolders(projectId)).map((folder) => folder.toJson());
-    const targetFolder = path === '/' ? null : folders.find((folder) => folder.path === path);
-    if (path !== '/' && !targetFolder) throw new Error('Folder not found');
 
     const scope = this.collectExportFolderIds(targetFolder?.id ?? null, folders);
     const secrets = (await this.repository.listSecrets(projectId)).map((secret) => secret.toJson());
@@ -246,6 +246,11 @@ export class VaultService {
     }
 
     return scope;
+  }
+
+  private normalizeFolderPath(path: string) {
+    const segments = path.split('/').filter(Boolean);
+    return segments.length === 0 ? '/' : `/${segments.join('/')}`;
   }
 
   async importEnvFile(

@@ -24,6 +24,13 @@ class FakeVaultRepository {
     return this.folders.filter((folder) => folder.projectId === projectId).map(jsonRow);
   }
 
+  async findFolderByPath(projectId: string, path: string) {
+    const found = this.folders.find(
+      (folder) => folder.projectId === projectId && folder.path === path,
+    );
+    return found ? jsonRow(found) : null;
+  }
+
   async findFolderById(id: string) {
     const found = this.folders.find((folder) => folder.id === id);
     return found ? jsonRow(found) : null;
@@ -103,6 +110,11 @@ describe('VaultService export', () => {
 
   it('exports root secrets sorted by key in env format', async () => {
     const content = await service.exportEnvFile('p1', 'prod', '/');
+    expect(content).toBe('API_KEY=abc\nONLY_DEV=\nZONE=eu');
+  });
+
+  it('normalizes alternate root paths when exporting secrets', async () => {
+    const content = await service.exportEnvFile('p1', 'prod', '///');
     expect(content).toBe('API_KEY=abc\nONLY_DEV=\nZONE=eu');
   });
 
