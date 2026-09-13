@@ -14,6 +14,7 @@
     Lock,
     PanelLeftClose,
     PanelLeftOpen,
+    Plug,
     ScrollText,
     Settings,
     Shield,
@@ -116,6 +117,11 @@
                     label: 'Secrets',
                     href: `${projectBase}/vault`,
                     icon: Shield,
+                  },
+                  {
+                    label: 'Integrations',
+                    href: `${projectBase}/vault/integrations`,
+                    icon: Plug,
                   },
                   {
                     label: 'Settings',

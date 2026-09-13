@@ -13,6 +13,7 @@ import {
   type VaultEncryptionProvider,
   type VaultSecretValues,
 } from '../../domain/vault.domain';
+import { decryptSecretValues, encryptSecretValues } from '../crypto/secret-cipher';
 
 export class VaultRepository extends Repository {
   async listEnvironments(projectId: string): Promise<VaultEnvironmentDomain[]> {
@@ -125,13 +126,18 @@ export class VaultRepository extends Repository {
       .from(VaultSecretEntity)
       .where({ projectId })
       .orderBy('createdAt', 'desc');
-    return result.rows.map((row: any) => new VaultSecretDomain(row));
+    return result.rows.map((row: any) => this.toSecretDomain(row));
   }
 
   async findSecretById(id: string): Promise<VaultSecretDomain | null> {
     const result = await this.db.select().from(VaultSecretEntity).where({ id }).limit(1);
     const row = result.rows[0];
-    return row ? new VaultSecretDomain(row) : null;
+    return row ? this.toSecretDomain(row) : null;
+  }
+
+  // secret values never leave this repository in plaintext: they are sealed with AES-256-GCM
+  private toSecretDomain(row: any): VaultSecretDomain {
+    return new VaultSecretDomain({ ...row, values: decryptSecretValues(row.id, row.values) });
   }
 
   async createSecret(input: {
@@ -145,6 +151,7 @@ export class VaultRepository extends Repository {
     await this.db.insert(VaultSecretEntity).values({
       ...input,
       folderId: input.folderId || null,
+      values: encryptSecretValues(input.id, input.values),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -161,7 +168,11 @@ export class VaultRepository extends Repository {
   ): Promise<void> {
     await this.db
       .update(VaultSecretEntity)
-      .set({ ...changes, updatedAt: new Date().toISOString() })
+      .set({
+        ...changes,
+        ...(changes.values ? { values: encryptSecretValues(id, changes.values) } : {}),
+        updatedAt: new Date().toISOString(),
+      })
       .where({ id });
   }
 
@@ -170,11 +181,7 @@ export class VaultRepository extends Repository {
   }
 
   async findSettingsByProjectId(projectId: string): Promise<VaultSettingsDomain | null> {
-    const result = await this.db
-      .select()
-      .from(VaultSettingsEntity)
-      .where({ projectId })
-      .limit(1);
+    const result = await this.db.select().from(VaultSettingsEntity).where({ projectId }).limit(1);
     const row = result.rows[0];
     return row ? new VaultSettingsDomain(row) : null;
   }
