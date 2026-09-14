@@ -14,6 +14,7 @@
     Lock,
     PanelLeftClose,
     PanelLeftOpen,
+    Plug,
     ScrollText,
     Settings,
     Shield,
@@ -110,11 +111,22 @@
               {
                 name: $_('sidebar.modules.vault'),
                 icon: Shield,
+                base: `${projectBase}/vault`,
                 items: [
                   {
-                    label: $_('sidebar.modules.vault'),
+                    label: 'Secrets',
                     href: `${projectBase}/vault`,
                     icon: Shield,
+                  },
+                  {
+                    label: 'Integrations',
+                    href: `${projectBase}/vault/integrations`,
+                    icon: Plug,
+                  },
+                  {
+                    label: 'Settings',
+                    href: `${projectBase}/vault/settings`,
+                    icon: Settings,
                   },
                 ],
               },
