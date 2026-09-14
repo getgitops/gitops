@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowUpRight, Package, Terminal } from '@lucide/svelte';
 
-  const DOCS_BASE = 'https://getgitops.com/docs/integrations';
+  const DOCS_BASE = 'https://getgitops.com/docs/vault/integrations';
 
   type Integration = {
     id: string;
