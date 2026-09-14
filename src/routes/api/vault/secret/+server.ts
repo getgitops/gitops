@@ -4,7 +4,7 @@ import { projectService } from '$modules/projects';
 import { vaultService } from '$modules/vault';
 
 type CreateSecretBody = {
-  project?: string;
+  projectId?: string;
   path?: string;
   key?: string;
   description?: string;
@@ -24,17 +24,17 @@ function normalizePath(path: string | undefined) {
 export async function POST({ request, locals }) {
   const log = locals.logger;
   const body = (await request.json().catch(() => ({}))) as CreateSecretBody;
-  const projectSlug = body.project?.trim();
+  const projectId = body.projectId?.trim();
   const path = normalizePath(body.path);
 
-  if (!projectSlug) {
-    return json({ error: 'project is required' }, { status: 400 });
+  if (!projectId) {
+    return json({ error: 'projectId is required' }, { status: 400 });
   }
   if (!body.key?.trim()) {
     return json({ error: 'key is required' }, { status: 400 });
   }
 
-  const project = await projectService.tryFindBySlug(projectSlug);
+  const project = await projectService.getProject(projectId).catch(() => null);
   if (!project) {
     return json({ error: 'Project not found' }, { status: 404 });
   }
@@ -70,7 +70,7 @@ export async function POST({ request, locals }) {
     });
     return json({ secret }, { status: 201 });
   } catch (err) {
-    log?.warn({ err, projectSlug, key: body.key, path }, '[vault] create secret failed');
+    log?.warn({ err, projectId, key: body.key, path }, '[vault] create secret failed');
     return json(
       { error: errorMessage(err) },
       { status: err instanceof Error && err.message === 'Folder not found' ? 404 : 400 },

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const tryFindBySlug = vi.fn();
+const getProject = vi.fn();
 const canApiKey = vi.fn();
 const canSessionUser = vi.fn();
 const getFolderByPath = vi.fn();
@@ -8,7 +8,7 @@ const createSecret = vi.fn();
 
 vi.mock('$modules/projects', () => ({
   projectService: {
-    tryFindBySlug: (slug: string) => tryFindBySlug(slug),
+    getProject: (id: string) => getProject(id),
   },
 }));
 
@@ -54,34 +54,34 @@ function request(body: Record<string, unknown>, locals: Record<string, unknown> 
 describe('POST /api/vault/secret', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    tryFindBySlug.mockResolvedValue(project);
+    getProject.mockResolvedValue(project);
     canApiKey.mockReturnValue(true);
     canSessionUser.mockResolvedValue(true);
     getFolderByPath.mockResolvedValue(null);
     createSecret.mockResolvedValue({ id: 's1', key: 'API_KEY', values: {} });
   });
 
-  it('requires the project slug', async () => {
+  it('requires the project ID', async () => {
     const response = await request({ key: 'API_KEY' });
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'project is required' });
+    await expect(response.json()).resolves.toEqual({ error: 'projectId is required' });
   });
 
   it('requires the key', async () => {
-    const response = await request({ project: 'kettu' });
+    const response = await request({ projectId: 'project-1' });
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: 'key is required' });
   });
 
   it('returns 404 when the project does not exist', async () => {
-    tryFindBySlug.mockResolvedValue(null);
-    const response = await request({ project: 'missing', key: 'API_KEY' });
+    getProject.mockResolvedValue(null);
+    const response = await request({ projectId: 'missing', key: 'API_KEY' });
     expect(response.status).toBe(404);
   });
 
   it('rejects an API key from another project', async () => {
     const response = await request(
-      { project: 'kettu', key: 'API_KEY' },
+      { projectId: 'project-1', key: 'API_KEY' },
       { apiKey: { ...apiKey, projectId: 'project-2' } },
     );
     expect(response.status).toBe(403);
@@ -90,19 +90,19 @@ describe('POST /api/vault/secret', () => {
 
   it('rejects a token without the create permission', async () => {
     canApiKey.mockReturnValue(false);
-    const response = await request({ project: 'kettu', key: 'API_KEY' });
+    const response = await request({ projectId: 'project-1', key: 'API_KEY' });
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
   });
 
   it('rejects a session user without permission', async () => {
     canSessionUser.mockResolvedValue(false);
-    const response = await request({ project: 'kettu', key: 'API_KEY' }, { user: { id: 'u1' } });
+    const response = await request({ projectId: 'project-1', key: 'API_KEY' }, { user: { id: 'u1' } });
     expect(response.status).toBe(403);
   });
 
   it('creates the secret at the root path by default', async () => {
-    const response = await request({ project: 'kettu', key: 'API_KEY', values: { prod: 'x' } });
+    const response = await request({ projectId: 'project-1', key: 'API_KEY', values: { prod: 'x' } });
 
     expect(response.status).toBe(201);
     expect(getFolderByPath).toHaveBeenCalledWith('project-1', '/');
@@ -119,7 +119,7 @@ describe('POST /api/vault/secret', () => {
 
   it('resolves the folder from the given path', async () => {
     getFolderByPath.mockResolvedValue({ id: 'folder-1', path: '/database' });
-    await request({ project: 'kettu', key: 'DB_HOST', path: 'database' });
+    await request({ projectId: 'project-1', key: 'DB_HOST', path: 'database' });
 
     expect(getFolderByPath).toHaveBeenCalledWith('project-1', '/database');
     expect(createSecret).toHaveBeenCalledWith(
@@ -130,14 +130,14 @@ describe('POST /api/vault/secret', () => {
 
   it('maps an unknown path to 404', async () => {
     getFolderByPath.mockRejectedValue(new Error('Folder not found'));
-    const response = await request({ project: 'kettu', key: 'API_KEY', path: 'nope' });
+    const response = await request({ projectId: 'project-1', key: 'API_KEY', path: 'nope' });
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({ error: 'Folder not found' });
   });
 
   it('maps other service errors to 400', async () => {
     createSecret.mockRejectedValue(new Error('La key del secreto es obligatoria'));
-    const response = await request({ project: 'kettu', key: 'API_KEY' });
+    const response = await request({ projectId: 'project-1', key: 'API_KEY' });
     expect(response.status).toBe(400);
   });
 });

@@ -24,19 +24,19 @@ function normalizePath(path: string | null) {
   return segments.length === 0 ? '/' : `/${segments.join('/')}`;
 }
 
-// resolves the project from the `project` query param and checks the given permission,
+// resolves the project from the `projectId` query param and checks the given permission,
 // for either a project-scoped API key or a session user
 async function authorize(
   url: URL,
   locals: App.Locals,
   permission: 'project:vault:secrets:read' | 'project:vault:secrets:update' | 'project:vault:secrets:delete',
 ) {
-  const projectSlug = url.searchParams.get('project')?.trim();
-  if (!projectSlug) {
-    return { error: json({ error: 'project is required' }, { status: 400 }) };
+  const projectId = url.searchParams.get('projectId')?.trim();
+  if (!projectId) {
+    return { error: json({ error: 'projectId is required' }, { status: 400 }) };
   }
 
-  const project = await projectService.tryFindBySlug(projectSlug);
+  const project = await projectService.getProject(projectId).catch(() => null);
   if (!project) {
     return { error: json({ error: 'Project not found' }, { status: 404 }) };
   }
@@ -107,7 +107,8 @@ export async function PATCH({ params, url, request, locals }) {
       body.value,
       body.description,
     );
-    return json({ secret });
+    const { values: _, ...secretWithoutValues } = secret;
+    return json({ secret: { ...secretWithoutValues, value: body.value } });
   } catch (err) {
     locals.logger?.warn({ err, key: params.key, path }, '[vault] update secret failed');
     return json({ error: errorMessage(err) }, { status: notFoundStatus(err) });
