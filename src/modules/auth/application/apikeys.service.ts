@@ -2,6 +2,12 @@ import crypto from 'crypto';
 import type { ApiKeyView, AuthenticatedApiKey, SessionRole } from '../domain/entities';
 import type { RoleDomain } from '../domain/role.domain';
 import { ApiKeyRepository } from '../infrastructure/repositories/apikey.repository';
+import {
+  eventBus,
+  ProjectServerKeyCreatedEvent,
+  ProjectServerKeyDeletedEvent,
+  ProjectServerKeyRegeneratedEvent,
+} from '$modules/events';
 
 const TOKEN_PREFIX = 'gvs_';
 const PREFIX_LENGTH = 10;
@@ -112,7 +118,7 @@ export class ApiKeysService {
   }): Promise<{ token: string; key: ApiKeyView }> {
     await this.assertRoleBelongsToProject(input.roleId, input.projectId);
 
-    return this.persist({
+    const created = await this.persist({
       userId: null,
       projectId: input.projectId,
       roleId: input.roleId,
@@ -120,6 +126,19 @@ export class ApiKeysService {
       name: input.name,
       expiresAt: input.expiresAt,
     });
+
+    await eventBus.emit(
+      new ProjectServerKeyCreatedEvent({
+        projectId: input.projectId,
+        keyId: created.key.id,
+        name: created.key.name,
+        roleId: input.roleId,
+        createdByUserId: input.createdByUserId,
+        expiresAt: input.expiresAt,
+      }),
+    );
+
+    return created;
   }
 
   async revokeApiKey(userId: string, keyId: string): Promise<void> {
@@ -144,6 +163,10 @@ export class ApiKeysService {
     }
 
     await this.apiKeyRepository.revokeAny(keyId);
+
+    await eventBus.emit(
+      new ProjectServerKeyDeletedEvent({ projectId, keyId, name: existing.name }),
+    );
   }
 
   async regenerateApiKey(
@@ -173,7 +196,18 @@ export class ApiKeysService {
       throw new Error('API key is revoked');
     }
 
-    return this.rotate(existing);
+    const rotated = await this.rotate(existing);
+
+    await eventBus.emit(
+      new ProjectServerKeyRegeneratedEvent({
+        projectId,
+        keyId: rotated.key.id,
+        name: rotated.key.name,
+        expiresAt: rotated.key.expiresAt ?? null,
+      }),
+    );
+
+    return rotated;
   }
 
   private async findProjectKey(projectId: string, keyId: string): Promise<ApiKeyView> {

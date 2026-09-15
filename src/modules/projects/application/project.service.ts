@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { ProjectRepository } from '../infrastructure/repositories/project.repostitory';
+import { eventBus, ProjectCreatedEvent, ProjectDeletedEvent } from '$modules/events';
 import {
   DEFAULT_PROJECT_MODULES,
   DEFAULT_PROJECT_SETTINGS,
@@ -96,6 +97,18 @@ export class ProjectService {
       throw new Error('Failed to create project');
     }
 
+    await eventBus.emit(
+      new ProjectCreatedEvent(
+        {
+          projectId: created.id,
+          organizationId,
+          name: created.name,
+          slug: created.slug,
+        },
+        { organizationId },
+      ),
+    );
+
     return created.toJson();
   }
 
@@ -189,6 +202,18 @@ export class ProjectService {
     }
 
     await this.repository.deleteById(id);
+
+    await eventBus.emit(
+      new ProjectDeletedEvent(
+        {
+          projectId: project.id,
+          organizationId: project.organization?.id ?? null,
+          name: project.name,
+          slug: project.slug,
+        },
+        { organizationId: project.organization?.id ?? null },
+      ),
+    );
   }
 
   private normalizeSlug(value: string): string {

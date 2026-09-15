@@ -3,6 +3,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '$modules/auth';
 import { organizationService } from '$modules/organization';
 import { projectService } from '$modules/projects';
+import { startEvents } from '$modules/events';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
 import { markServerFailed, markServerReady } from '$lib/server/server-ready';
@@ -19,6 +20,7 @@ const startupLog = createLogger('startup');
 // clone, manifest, sync poll and bootstrap detection run once per process
 const serverReady = (async () => {
   await startGitDb();
+  startEvents();
   await ensureAuthReady();
   await refreshBootstrapState();
   markServerReady();

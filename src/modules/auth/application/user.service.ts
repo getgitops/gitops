@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type { Role, UpdateUserInput } from '../domain/entities';
 import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { PasswordService } from './password.service';
+import { eventBus, UserCreatedEvent, UserDeletedEvent } from '$modules/events';
 
 export class UserService {
   constructor(
@@ -37,6 +38,16 @@ export class UserService {
       throw new Error('Failed to create user');
     }
 
+    await eventBus.emit(
+      new UserCreatedEvent({
+        userId: created.id,
+        username: created.username,
+        email: created.email ?? null,
+        scope: 'cluster',
+        roleId: created.role?.id ?? null,
+      }),
+    );
+
     return {
       id: created.id,
       username: created.username,
@@ -71,7 +82,15 @@ export class UserService {
     }
 
     await this.ensureNotRemovingLastAdmin(targetUserId);
+    const target = await this.userRepository.findById(targetUserId);
     await this.userRepository.deleteById(targetUserId);
+
+    await eventBus.emit(
+      new UserDeletedEvent(
+        { userId: targetUserId, username: target?.username ?? null, scope: 'cluster' },
+        { actorId: actorUserId },
+      ),
+    );
   }
 
   private async ensureNotRemovingLastAdmin(targetUserId: string): Promise<void> {

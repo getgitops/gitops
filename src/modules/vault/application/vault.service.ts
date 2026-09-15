@@ -1,5 +1,11 @@
 import crypto from 'crypto';
 import { VaultRepository } from '../infrastructure/repositories/vault.repository';
+import {
+  eventBus,
+  VaultEnvironmentCreatedEvent,
+  VaultEnvironmentDeletedEvent,
+  VaultEnvironmentUpdatedEvent,
+} from '$modules/events';
 import type { VaultEncryptionProvider, VaultSecretValues } from '../domain/vault.domain';
 
 const DEFAULT_ENVIRONMENTS = [
@@ -67,6 +73,11 @@ export class VaultService {
       description: input.description?.trim() || undefined,
       order: nextOrder,
     });
+
+    await eventBus.emit(
+      new VaultEnvironmentCreatedEvent({ projectId, environmentId: id, name, slug }),
+    );
+
     return this.repository.findEnvironmentById(id);
   }
 
@@ -94,6 +105,15 @@ export class VaultService {
     if (changes.description !== undefined) patch.description = changes.description.trim();
 
     await this.repository.updateEnvironment(id, patch);
+
+    await eventBus.emit(
+      new VaultEnvironmentUpdatedEvent({
+        projectId,
+        environmentId: environment.id,
+        slug: patch.slug ?? environment.slug,
+        changes: patch,
+      }),
+    );
   }
 
   async deleteEnvironment(projectId: string, id: string) {
@@ -102,6 +122,15 @@ export class VaultService {
     if (environments.length <= 1) throw new Error('Debe existir al menos un entorno');
 
     await this.repository.deleteEnvironment(environment.id);
+
+    await eventBus.emit(
+      new VaultEnvironmentDeletedEvent({
+        projectId,
+        environmentId: environment.id,
+        name: environment.name,
+        slug: environment.slug,
+      }),
+    );
   }
 
   async moveEnvironment(projectId: string, id: string, direction: 'up' | 'down') {

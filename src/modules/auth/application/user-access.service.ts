@@ -7,6 +7,12 @@ import type { RoleRepository } from '../infrastructure/repositories/role.reposit
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { PasswordService } from './password.service';
+import {
+  eventBus,
+  OrganizationUserAssignedEvent,
+  UserCreatedEvent,
+  UserDeletedEvent,
+} from '$modules/events';
 
 type UserAccessRow = {
   id: string;
@@ -107,6 +113,33 @@ export class UserAccessService {
       scope: 'organization',
       organizationId,
     });
+
+    await eventBus.emit(
+      new UserCreatedEvent(
+        {
+          userId: user.id,
+          username: user.username,
+          email: user.email ?? null,
+          scope: 'organization',
+          organizationId,
+          roleId: role.id,
+        },
+        { organizationId },
+      ),
+    );
+    await eventBus.emit(
+      new OrganizationUserAssignedEvent(
+        {
+          organizationId,
+          userId: user.id,
+          roleId: role.id,
+          accessId: access.id,
+          origin: 'created',
+        },
+        { organizationId },
+      ),
+    );
+
     return this.toRow(access);
   }
 
@@ -156,6 +189,19 @@ export class UserAccessService {
       });
     }
 
+    await eventBus.emit(
+      new OrganizationUserAssignedEvent(
+        {
+          organizationId,
+          userId: user.id,
+          roleId: role.id,
+          accessId: access.id,
+          origin: 'invited',
+        },
+        { organizationId },
+      ),
+    );
+
     return this.toRow(access);
   }
 
@@ -201,6 +247,17 @@ export class UserAccessService {
 
     const user = await this.userRepository.findByUsername(username);
     if (!user) throw new Error('Failed to create user');
+
+    await eventBus.emit(
+      new UserCreatedEvent({
+        userId: user.id,
+        username: user.username,
+        email: user.email ?? null,
+        scope: 'cluster',
+        roleId: role.id,
+      }),
+    );
+
     return this.toClusterRow(user);
   }
 
@@ -224,6 +281,20 @@ export class UserAccessService {
       scope: 'organization',
       organizationId,
     });
+
+    await eventBus.emit(
+      new OrganizationUserAssignedEvent(
+        {
+          organizationId,
+          userId,
+          roleId: role.id,
+          accessId: access.id,
+          origin: 'assigned',
+        },
+        { organizationId },
+      ),
+    );
+
     return this.toRow(access);
   }
 
@@ -291,6 +362,18 @@ export class UserAccessService {
       const userAccess = await this.userAccessRepository.findByUserId(access.userId);
       await Promise.all(userAccess.map((entry) => this.userAccessRepository.deleteById(entry.id)));
       await this.userRepository.deleteById(userId);
+
+      await eventBus.emit(
+        new UserDeletedEvent(
+          {
+            userId,
+            username: access.user?.username ?? null,
+            scope: input.scope,
+            organizationId: input.scope === 'organization' ? (input.scopeId ?? null) : null,
+          },
+          { organizationId: input.scope === 'organization' ? (input.scopeId ?? null) : null },
+        ),
+      );
       return;
     }
 

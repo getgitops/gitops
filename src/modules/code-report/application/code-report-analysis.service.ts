@@ -7,7 +7,12 @@ import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/
 import type { SecurityPolicy } from '$lib/code-report/security-policy';
 import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
 import { createLogger } from '$lib/server/logger';
-import { CodeReportAnalysisCompletedEvent, eventBus } from '$modules/events';
+import {
+  CodeReportAnalysisCompletedEvent,
+  CodeReportAnalysisFailedEvent,
+  CodeReportAnalysisStartedEvent,
+  eventBus,
+} from '$modules/events';
 
 const log = createLogger('code-report-analysis');
 
@@ -91,6 +96,16 @@ export class CodeReportAnalysisService {
       status: 'in_progress',
       gitInfo: input.gitInfo,
     });
+
+    await eventBus.emit(
+      new CodeReportAnalysisStartedEvent({
+        analysisId: id,
+        serviceId: input.serviceId,
+        tool,
+        startedAt: new Date().toISOString(),
+      }),
+    );
+
     return { id, serviceId: input.serviceId, tool, status: 'in_progress', gitInfo: input.gitInfo };
     // return this.getById(id);
   }
@@ -252,7 +267,23 @@ export class CodeReportAnalysisService {
       gitInfo: input.gitInfo,
     });
 
-    return this.getById(id);
+    const failed = await this.getById(id);
+
+    log.warn(
+      { analysisId: id, serviceId: analysis.serviceId, tool: analysis.tool, error },
+      'analysis failed, emitting event',
+    );
+    await eventBus.emit(
+      new CodeReportAnalysisFailedEvent({
+        analysisId: id,
+        serviceId: analysis.serviceId,
+        tool: analysis.tool,
+        error,
+        failedAt: new Date().toISOString(),
+      }),
+    );
+
+    return failed;
   }
 
   async deleteAnalysis(id: string) {

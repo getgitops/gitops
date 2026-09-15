@@ -1,5 +1,11 @@
 import crypto from 'crypto';
 import { OrganizationRepository } from '../infrastructure/repositories/organization.repository';
+import {
+  eventBus,
+  OrganizationCreatedEvent,
+  OrganizationDeletedEvent,
+  OrganizationUpdatedEvent,
+} from '$modules/events';
 
 export type Organization = {
   id: string;
@@ -75,6 +81,13 @@ export class OrganizationService {
       throw new Error('Failed to create organization');
     }
 
+    await eventBus.emit(
+      new OrganizationCreatedEvent(
+        { organizationId: created.id, name: created.name, slug: created.slug },
+        { organizationId: created.id },
+      ),
+    );
+
     return created.toJson();
   }
 
@@ -121,6 +134,13 @@ export class OrganizationService {
       throw new Error('Failed to update organization');
     }
 
+    await eventBus.emit(
+      new OrganizationUpdatedEvent(
+        { organizationId: updated.id, name: updated.name, slug: updated.slug, changes: patch },
+        { organizationId: updated.id },
+      ),
+    );
+
     return updated.toJson();
   }
 
@@ -131,6 +151,13 @@ export class OrganizationService {
     }
 
     await this.repository.deleteById(id);
+
+    await eventBus.emit(
+      new OrganizationDeletedEvent(
+        { organizationId: organization.id, name: organization.name, slug: organization.slug },
+        { organizationId: organization.id },
+      ),
+    );
   }
 
   private normalizeSlug(value: string): string {

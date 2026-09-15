@@ -2,18 +2,20 @@
   import { onMount } from 'svelte';
   import { Activity, BellOff, CheckCircle2, Clock, RefreshCw, TriangleAlert } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
-  import type { EventStoreMetrics, StoredEvent } from '$modules/events';
+  import type { EventStoreMetrics, EventNameMetrics, StoredEvent } from '$modules/events';
 
   type Subscription = { event: string; handlers: string[] };
 
   export let data: {
     metrics: EventStoreMetrics;
     subscriptions: Subscription[];
+    catalog: string[];
     events: StoredEvent[];
   };
 
   let metrics: EventStoreMetrics = data.metrics;
   let subscriptions: Subscription[] = data.subscriptions;
+  let catalog: string[] = data.catalog;
   let events: StoredEvent[] = data.events;
   let refreshing = false;
   let error = '';
@@ -33,6 +35,7 @@
       const payload = await response.json();
       metrics = payload.metrics;
       subscriptions = payload.subscriptions;
+      catalog = payload.catalog;
       events = payload.events;
       error = '';
     } catch {
@@ -57,6 +60,24 @@
   }
 
   $: ttlMinutes = Math.round(metrics.ttlMs / 60_000);
+  // every catalog event is listed, even the ones that never fired
+  $: eventRows = catalog
+    .map((name) => {
+      const row = metrics.byEvent.find((entry) => entry.name === name);
+      const counters: EventNameMetrics = row ?? {
+        emitted: 0,
+        processed: 0,
+        failed: 0,
+        withoutSubscribers: 0,
+        expired: 0,
+      };
+      return {
+        name,
+        ...counters,
+        handlers: subscriptions.find((entry) => entry.event === name)?.handlers ?? [],
+      };
+    })
+    .sort((left, right) => right.emitted - left.emitted || left.name.localeCompare(right.name));
   $: cards = [
     {
       key: 'total',
@@ -162,7 +183,7 @@
         {$_('clusterSettings.monitoring.byEvent')}
       </h4>
     </div>
-    {#if metrics.byEvent.length === 0}
+    {#if eventRows.length === 0}
       <p class="px-4 py-6 text-sm text-slate-500">{$_('clusterSettings.monitoring.empty')}</p>
     {:else}
       <table class="w-full text-left text-sm">
@@ -179,19 +200,17 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          {#each metrics.byEvent as row (row.name)}
-            {@const handlers =
-              subscriptions.find((entry) => entry.event === row.name)?.handlers ?? []}
+          {#each eventRows as row (row.name)}
             <tr>
               <td class="px-4 py-2 font-mono text-xs text-slate-900">{row.name}</td>
               <td class="px-4 py-2 text-slate-700">
-                {#if handlers.length === 0}
+                {#if row.handlers.length === 0}
                   <span class="inline-flex items-center gap-1 text-amber-700">
                     <TriangleAlert class="h-3.5 w-3.5" />
                     0
                   </span>
                 {:else}
-                  <span title={handlers.join(', ')}>{handlers.length}</span>
+                  <span title={row.handlers.join(', ')}>{row.handlers.length}</span>
                 {/if}
               </td>
               <td class="px-4 py-2 text-slate-700">{row.emitted}</td>
