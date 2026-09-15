@@ -55,6 +55,7 @@
       "organizations": "Organizaciones",
       "database": "Base de datos",
       "auditLog": "Registro de auditoría",
+      "monitoring": "Monitorización",
       "registration": "Registro"
     }
   },
@@ -239,6 +240,35 @@
   },
   "clusterSettings": {
     "title": "Ajustes del clúster",
+    "monitoring": {
+      "title": "Monitorización",
+      "description": "Actividad del almacén local de eventos: emitidos, procesados y sin suscriptores.",
+      "refresh": "Actualizar",
+      "refreshFailed": "No se han podido actualizar las métricas de eventos.",
+      "totalEvents": "Eventos totales",
+      "processedEvents": "Eventos procesados",
+      "withoutSubscribers": "Sin suscriptores",
+      "pending": "Pendientes",
+      "failed": "Fallidos",
+      "expired": "Caducados",
+      "lifetime": "Tiempo de vida",
+      "minutes": "min",
+      "byEvent": "Métricas por evento",
+      "recent": "Eventos en el almacén",
+      "recentHint": "Los eventos se mantienen en memoria hasta que caduca su tiempo de vida.",
+      "event": "Evento",
+      "subscribers": "Suscriptores",
+      "status": "Estado",
+      "occurredAt": "Ocurrido",
+      "expiresAt": "Caduca",
+      "empty": "Todavía no hay eventos registrados.",
+      "statuses": {
+        "pending": "Pendiente",
+        "processed": "Procesado",
+        "failed": "Fallido",
+        "unsubscribed": "Sin suscriptores"
+      }
+    },
     "audit": {
       "title": "Registro de auditoría del clúster",
       "description": "Historial de cambios registrados en el repositorio de datos del clúster."

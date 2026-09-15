@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import {
+    Activity,
     BarChart3,
     Building2,
     ChevronDown,
@@ -354,6 +355,11 @@
                     label: $_('sidebar.items.auditLog'),
                     href: '/cluster-settings/audit',
                     icon: ScrollText,
+                  },
+                  {
+                    label: $_('sidebar.items.monitoring'),
+                    href: '/cluster-settings/monitoring',
+                    icon: Activity,
                   },
                 ],
               },

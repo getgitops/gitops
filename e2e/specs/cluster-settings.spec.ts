@@ -7,6 +7,7 @@ const clusterRoutes = [
   '/cluster-settings/access-control',
   '/cluster-settings/database',
   '/cluster-settings/audit',
+  '/cluster-settings/monitoring',
 ];
 
 test.describe('cluster settings — cluster admin', () => {

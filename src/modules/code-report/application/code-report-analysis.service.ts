@@ -7,6 +7,7 @@ import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/
 import type { SecurityPolicy } from '$lib/code-report/security-policy';
 import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
 import { createLogger } from '$lib/server/logger';
+import { CodeReportAnalysisCompletedEvent, eventBus } from '$modules/events';
 
 const log = createLogger('code-report-analysis');
 
@@ -108,16 +109,39 @@ export class CodeReportAnalysisService {
       throw new Error('Result is required to complete an analysis');
     }
 
+    const securityPolicies = await this.evaluateSecurityPolicies(
+      analysis.serviceId,
+      analysis.tool,
+      input.result,
+    );
+
     await this.repository.update(id, {
       status: 'completed',
       result: input.result,
       summary: input.summary,
-      securityPolicies: await this.evaluateSecurityPolicies(analysis.serviceId, analysis.tool, input.result),
+      securityPolicies,
       gitInfo: this.resolveGitInfo(analysis.gitInfo, input.gitInfo, input.result),
       error: null,
     });
 
-    return this.getById(id);
+    const completed = await this.getById(id);
+
+    log.info(
+      { analysisId: id, serviceId: analysis.serviceId, tool: analysis.tool },
+      'analysis completed, emitting event',
+    );
+    await eventBus.emit(
+      new CodeReportAnalysisCompletedEvent({
+        analysisId: id,
+        serviceId: analysis.serviceId,
+        tool: analysis.tool,
+        completedAt: new Date().toISOString(),
+        summary: input.summary,
+        policyCompliant: securityPolicies ? securityPolicies.status !== 'violated' : null,
+      }),
+    );
+
+    return completed;
   }
 
   private resolveGitInfo(

@@ -55,6 +55,7 @@
       "organizations": "Organizations",
       "database": "Database",
       "auditLog": "Audit Log",
+      "monitoring": "Monitoring",
       "registration": "Registration"
     }
   },
@@ -239,6 +240,35 @@
   },
   "clusterSettings": {
     "title": "Cluster Settings",
+    "monitoring": {
+      "title": "Monitoring",
+      "description": "Local event store activity: emitted, processed and events nobody is listening to.",
+      "refresh": "Refresh",
+      "refreshFailed": "Failed to refresh event metrics.",
+      "totalEvents": "Total events",
+      "processedEvents": "Processed events",
+      "withoutSubscribers": "Without subscribers",
+      "pending": "Pending",
+      "failed": "Failed",
+      "expired": "Expired",
+      "lifetime": "Lifetime",
+      "minutes": "min",
+      "byEvent": "Metrics by event",
+      "recent": "Events in store",
+      "recentHint": "Events are kept in memory until their lifetime expires.",
+      "event": "Event",
+      "subscribers": "Subscribers",
+      "status": "Status",
+      "occurredAt": "Occurred at",
+      "expiresAt": "Expires at",
+      "empty": "No events recorded yet.",
+      "statuses": {
+        "pending": "Pending",
+        "processed": "Processed",
+        "failed": "Failed",
+        "unsubscribed": "No subscribers"
+      }
+    },
     "audit": {
       "title": "Cluster Audit Log",
       "description": "History of changes recorded across the cluster's data repository."
