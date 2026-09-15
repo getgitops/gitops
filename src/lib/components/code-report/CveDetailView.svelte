@@ -12,6 +12,10 @@
     TrendingUp,
     Wrench,
   } from '@lucide/svelte';
+  import {
+    renderVulnerabilityDescription,
+    vulnerabilitySourceLabel,
+  } from '$lib/code-report/vulnerability-format';
 
   type CveDetail = {
     id: string;
@@ -118,6 +122,7 @@
   $: epssScorePercent = cve.epssScore !== null ? Math.min(100, cve.epssScore * 100) : 0;
   $: epssPercentilePercent =
     cve.epssPercentile !== null ? Math.min(100, cve.epssPercentile * 100) : 0;
+  $: renderedDescription = cve.description ? renderVulnerabilityDescription(cve.description) : '';
 
   $: filteredAffectedServices = affectedServices.filter((service) => {
     const query = affectedServicesQuery.trim().toLowerCase();
@@ -218,7 +223,11 @@
 
     <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Overview</h2>
-      <p class="mt-2 text-sm text-slate-600">{cve.description || 'Sin descripcion disponible.'}</p>
+      {#if renderedDescription}
+        <div class="cve-description mt-2 text-sm text-slate-600">{@html renderedDescription}</div>
+      {:else}
+        <p class="mt-2 text-sm text-slate-600">Sin descripcion disponible.</p>
+      {/if}
       {#if cve.lastModifiedDate}
         <p class="mt-3 text-xs text-slate-400">
           Ultima actualizacion: {new Date(cve.lastModifiedDate).toLocaleDateString()}
@@ -347,7 +356,7 @@
               rel="noreferrer noopener"
               class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:text-blue-900"
             >
-              <ExternalLink class="h-3.5 w-3.5" />NVD: {cve.id}
+              <ExternalLink class="h-3.5 w-3.5" />{vulnerabilitySourceLabel(cve.id)}: {cve.id}
             </a>
           </li>
           {#if cve.primaryUrl}
@@ -505,3 +514,66 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .cve-description :global(h1),
+  .cve-description :global(h2),
+  .cve-description :global(h3),
+  .cve-description :global(h4) {
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+    color: rgb(15 23 42);
+    font-weight: 700;
+  }
+
+  .cve-description :global(h3:first-child) {
+    margin-top: 0;
+  }
+
+  .cve-description :global(p),
+  .cve-description :global(ul),
+  .cve-description :global(ol),
+  .cve-description :global(pre) {
+    margin-top: 0.75rem;
+  }
+
+  .cve-description :global(ul),
+  .cve-description :global(ol) {
+    padding-left: 1.5rem;
+  }
+
+  .cve-description :global(ul) {
+    list-style: disc;
+  }
+
+  .cve-description :global(ol) {
+    list-style: decimal;
+  }
+
+  .cve-description :global(a) {
+    color: rgb(29 78 216);
+    text-decoration: underline;
+  }
+
+  .cve-description :global(code) {
+    border-radius: 0.25rem;
+    background: rgb(51 65 85);
+    padding: 0.125rem 0.25rem;
+    color: rgb(241 245 249);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875em;
+  }
+
+  .cve-description :global(pre) {
+    overflow-x: auto;
+    border-radius: 0.5rem;
+    background: rgb(15 23 42);
+    padding: 0.75rem;
+    color: rgb(241 245 249);
+  }
+
+  .cve-description :global(pre code) {
+    background: transparent;
+    padding: 0;
+  }
+</style>
