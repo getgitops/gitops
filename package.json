@@ -53,6 +53,7 @@
     "@google-cloud/storage": "^8.0.1",
     "@lucide/svelte": "^1.34.0",
     "chart.js": "^4.5.1",
+    "marked": "^18.0.13",
     "nodemailer": "^9.0.6",
     "pino": "^10.3.1"
   }

@@ -1,5 +1,7 @@
 // Best-effort summary for Trivy-style JSON reports (top-level `Results[]`, each entry may
 // carry `Vulnerabilities`/`Secrets`/`Packages`). Other tool formats simply yield all-zero counts.
+import { vulnerabilityUrl } from './vulnerability-format';
+
 export type AnalysisSummary = {
   vulnerabilities: {
     critical: number;
@@ -156,9 +158,11 @@ export function extractVulnerabilities(result: unknown): VulnerabilityFinding[] 
           ? Number((epss as Record<string, unknown>).Percentile)
           : null;
 
+      const vulnerabilityId = String(vuln.VulnerabilityID || `${vuln.PkgName || 'unknown'}-${row.Target || ''}`);
+
       return [
         {
-          id: String(vuln.VulnerabilityID || `${vuln.PkgName || 'unknown'}-${row.Target || ''}`),
+          id: vulnerabilityId,
           packageName: String(vuln.PkgName || 'Paquete desconocido'),
           installedVersion: String(vuln.InstalledVersion || 'desconocida'),
           fixedVersion: String(vuln.FixedVersion || ''),
@@ -179,7 +183,7 @@ export function extractVulnerabilities(result: unknown): VulnerabilityFinding[] 
           title: String(vuln.Title || 'Vulnerabilidad sin título'),
           description: String(vuln.Description || ''),
           primaryUrl: String(vuln.PrimaryURL || ''),
-          cveUrl: `https://nvd.nist.gov/vuln/detail/${String(vuln.VulnerabilityID || '')}`,
+          cveUrl: vulnerabilityUrl(vulnerabilityId, String(vuln.PrimaryURL || '')),
           cvssScore: score,
           cweIds: Array.isArray(vuln.CweIDs) ? vuln.CweIDs.map(String) : [],
           references: Array.isArray(vuln.References) ? vuln.References.map(String) : [],
