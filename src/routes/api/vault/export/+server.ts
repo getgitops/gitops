@@ -48,16 +48,25 @@ export async function GET({ url, locals }) {
   };
 
   if (apiKey) {
+    // the caller only learns it was rejected; the mismatch detail stays in the logs
     if (apiKey.projectId !== project.id) {
-      return json({ error: 'Project mismatch', projectId: apiKey.projectId, project }, { status: 403 });
+      log?.warn(
+        { keyId: apiKey.id, keyProjectId: apiKey.projectId, projectId: project.id },
+        '[vault] export rejected: API key belongs to another project',
+      );
+      return json({ error: 'Forbidden' }, { status: 403 });
     }
     if (!cancanService.canApiKey(apiKey, 'project:vault:secrets:export', context)) {
-      return json({ error: 'Permission denied' }, { status: 403 });
+      log?.warn(
+        { keyId: apiKey.id, projectId: project.id },
+        '[vault] export rejected: API key lacks project:vault:secrets:export',
+      );
+      return json({ error: 'Forbidden' }, { status: 403 });
     }
   } else if (
     !(await cancanService.canSessionUser(locals.user, 'project:vault:secrets:export', context))
   ) {
-    return json({ error: 'User does not have permission' }, { status: 403 });
+    return json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {

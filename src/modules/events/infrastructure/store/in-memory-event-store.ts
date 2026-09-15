@@ -34,7 +34,10 @@ export class InMemoryEventStore {
     if (this.timer) return;
     this.timer = setInterval(() => this.sweep(), this.sweepIntervalMs);
     this.timer.unref?.();
-    log.info({ ttlMs: this.ttlMs, sweepIntervalMs: this.sweepIntervalMs }, 'event store sweeper started');
+    log.info(
+      { ttlMs: this.ttlMs, sweepIntervalMs: this.sweepIntervalMs },
+      'event store sweeper started',
+    );
   }
 
   stopSweeper() {

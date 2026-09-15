@@ -43,7 +43,11 @@ export class EventBusService {
 
     this.register(eventClass.eventName, entry);
     log.info(
-      { event: eventClass.eventName, handler: entry.name, handlers: this.countHandlers(eventClass.eventName) },
+      {
+        event: eventClass.eventName,
+        handler: entry.name,
+        handlers: this.countHandlers(eventClass.eventName),
+      },
       'event handler registered',
     );
 
@@ -84,7 +88,10 @@ export class EventBusService {
 
     this.attached.set(subscriber, entries);
     log.info(
-      { subscriber: subscriber.name, events: subscriber.subscribedTo().map((item) => item.eventName) },
+      {
+        subscriber: subscriber.name,
+        events: subscriber.subscribedTo().map((item) => item.eventName),
+      },
       'subscriber attached',
     );
   }

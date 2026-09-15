@@ -138,7 +138,9 @@
     {#each cards as card (card.key)}
       <div class="rounded-md border border-slate-200 bg-white px-4 py-4">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-medium tracking-wide text-slate-500 uppercase">{card.label}</span>
+          <span class="text-xs font-medium tracking-wide text-slate-500 uppercase"
+            >{card.label}</span
+          >
           <svelte:component this={card.icon} class="h-4 w-4 {card.tone}" />
         </div>
         <p class="mt-2 text-3xl font-semibold text-slate-900">{card.value}</p>
@@ -192,7 +194,8 @@
             <th class="px-4 py-2 font-medium">{$_('clusterSettings.monitoring.event')}</th>
             <th class="px-4 py-2 font-medium">{$_('clusterSettings.monitoring.subscribers')}</th>
             <th class="px-4 py-2 font-medium">{$_('clusterSettings.monitoring.totalEvents')}</th>
-            <th class="px-4 py-2 font-medium">{$_('clusterSettings.monitoring.processedEvents')}</th>
+            <th class="px-4 py-2 font-medium">{$_('clusterSettings.monitoring.processedEvents')}</th
+            >
             <th class="px-4 py-2 font-medium">
               {$_('clusterSettings.monitoring.withoutSubscribers')}
             </th>

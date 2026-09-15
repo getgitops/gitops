@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import type { RequestEvent } from '@sveltejs/kit';
 import { cancanService } from '$modules/auth';
 import { projectService } from '$modules/projects';
 import { vaultService } from '$modules/vault';
@@ -28,7 +29,7 @@ function normalizePath(path: string | null) {
 // for either a project-scoped API key or a session user
 async function authorize(
   url: URL,
-  locals: App.Locals,
+  locals: RequestEvent['locals'],
   permission: 'project:vault:secrets:read' | 'project:vault:secrets:update' | 'project:vault:secrets:delete',
 ) {
   const projectId = url.searchParams.get('projectId')?.trim();

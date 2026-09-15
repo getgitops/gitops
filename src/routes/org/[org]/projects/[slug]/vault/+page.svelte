@@ -68,6 +68,7 @@
   let searchQuery = '';
   let importOpen = false;
   let importContent = '';
+  const importPlaceholder = 'API_KEY=123\nDATABASE_URL=postgres://...';
   let copyEnvOpen = false;
   let copySourceSlug = '';
   let dropActive = false;
@@ -969,7 +970,7 @@
         name="content"
         bind:value={importContent}
         rows="10"
-        placeholder={'API_KEY=123\nDATABASE_URL=postgres://...'}
+        placeholder={importPlaceholder}
         class="field-input mt-4 w-full rounded-md border px-3 py-2 font-mono text-sm"
       ></textarea>
       <div class="mt-6 flex justify-end gap-2">

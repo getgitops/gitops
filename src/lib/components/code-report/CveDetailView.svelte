@@ -224,6 +224,8 @@
     <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Overview</h2>
       {#if renderedDescription}
+        <!-- renderVulnerabilityDescription escapes raw HTML and only allows safe link hrefs -->
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         <div class="cve-description mt-2 text-sm text-slate-600">{@html renderedDescription}</div>
       {:else}
         <p class="mt-2 text-sm text-slate-600">Sin descripcion disponible.</p>

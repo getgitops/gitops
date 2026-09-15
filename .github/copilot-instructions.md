@@ -50,7 +50,7 @@ automatizar el login excepto en `e2e/specs/login.spec.ts`.
 La logica vive en `src/modules/<module>/` con `domain/`, `application/`, `infrastructure/` e
 `index.ts` como composition root. El `domain/` contiene entidades (`*.domain.ts`) y datos
 centralizados (`*.data.ts`) para constantes: permisos de roles, defaults de proyecto, pesos de
-riesgo y mapeos de herramientas. Los modulos actuales son `auth`, `config`, `organization`,
+riesgo y mapeos de herramientas. Los modulos actuales son `auth`, `config`, `events`, `organization`,
 `projects`, `storage` y `code-report`. Las rutas deben importar desde el `index.ts` publico.
 
 GitDB es la unica fuente de verdad para usuarios, roles, API keys, organizaciones, proyectos,
@@ -104,6 +104,36 @@ Al crear una organizacion (via bootstrap o cluster-settings), se llama automatic
 - Mantener scrypt para passwords, HMAC para sesiones y comparaciones timing-safe.
 - No devolver secretos crudos por API.
 - Cubrir con tests los cambios de permisos, persistencia y endpoints.
+
+## Eventos
+
+`$modules/events` es un bus de eventos local en memoria (sin broker ni persistencia). Los services
+emiten eventos de dominio tras una escritura correcta para que otras partes reaccionen sin acoplarse
+al emisor. Cada evento tiene su propia clase en `src/modules/events/domain/events/`, extiende
+`DomainEvent` y declara `static readonly eventName`.
+
+```typescript
+import { eventBus, ProjectCreatedEvent } from '$modules/events';
+
+await eventBus.emit(new ProjectCreatedEvent({ projectId, organizationId, name, slug }));
+
+const off = eventBus.on(ProjectCreatedEvent, async (event) => { /* ... */ });
+eventBus.attach(subscriber); // EventSubscriber con subscribedTo() + handle()
+eventBus.detach(subscriber);
+```
+
+Reglas:
+- `startEvents()` se llama una vez por proceso en `hooks.server.ts`, **despues** de `startGitDb()`.
+- Emitir desde los services de `application/`, nunca desde rutas ni repositorios, y solo tras
+  persistir el cambio.
+- Los eventos viven 5 minutos; un sweeper borra los que nadie consumio y los cuenta como expirados.
+- Los handlers deben ser idempotentes; los fallos se loguean y cuentan, no se reintentan.
+- Todo evento nuevo se registra en `EVENT_CATALOG` (`src/modules/events/index.ts`) y se documenta en
+  `docs/EVENTS.md`.
+- Los cluster admins ven totales, procesados y eventos sin suscriptores en
+  `/cluster-settings/monitoring`.
+
+La tabla completa de eventos (nombre, clase, emisor, payload) esta en [docs/EVENTS.md](../docs/EVENTS.md).
 
 ## Convenciones
 

@@ -78,7 +78,7 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 `*.data.ts`) for configuration constants: role permissions, default project settings, risk weights,
 and tool policy mappings.
 
-Current modules include `auth`, `config`, `organization`, `projects`, `storage`, and
+Current modules include `auth`, `config`, `events`, `organization`, `projects`, `storage`, and
 `code-report`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
 their `index.ts`, not internal layers.
 
@@ -173,6 +173,35 @@ own project.
 
 `locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or the `can*`
 helpers. Keep authorization tests beside changes to permission behavior.
+
+## Events
+
+`$modules/events` is a local, in-memory event bus (no broker, no persistence). Services emit domain
+events after a successful write so other parts of the platform can react without being coupled to
+the emitter. Every event has its own class in `src/modules/events/domain/events/`, extends
+`DomainEvent` and declares `static readonly eventName`.
+
+```typescript
+import { eventBus, ProjectCreatedEvent } from '$modules/events';
+
+await eventBus.emit(new ProjectCreatedEvent({ projectId, organizationId, name, slug }));
+
+const off = eventBus.on(ProjectCreatedEvent, async (event) => { /* ... */ });
+eventBus.attach(subscriber); // EventSubscriber with subscribedTo() + handle()
+eventBus.detach(subscriber);
+```
+
+Rules:
+- `startEvents()` is called once per process in `hooks.server.ts`, **after** `startGitDb()`.
+- Emit from application services, never from routes or repositories, and only after the write
+  succeeded.
+- Events live for 5 minutes; a sweeper drops whatever nobody consumed and counts it as expired.
+- Handlers must be idempotent; failures are logged and counted, never retried.
+- New events must be registered in `EVENT_CATALOG` (`src/modules/events/index.ts`) and documented in
+  `docs/EVENTS.md`.
+- Cluster admins see totals, processed and subscriber-less events at `/cluster-settings/monitoring`.
+
+The full event table (name, class, emitter, payload) is in [docs/EVENTS.md](docs/EVENTS.md).
 
 ## Security rules
 

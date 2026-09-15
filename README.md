@@ -53,6 +53,9 @@ bun run format:check
 Use `bun run test` for the Vitest suite. For end-to-end tests, install Playwright's Chromium
 browser once with `bunx playwright install chromium`, then run `bun run test:e2e`.
 
+Internal documentation lives in `docs/`: [docs/EVENTS.md](docs/EVENTS.md) covers the local event bus
+and the full event catalog.
+
 ## Contributing
 
 Contributions of code, tests, documentation, accessibility improvements, bug reports, and
