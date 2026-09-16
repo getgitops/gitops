@@ -6,6 +6,7 @@
   export let value = '';
   export let ariaLabel = 'Select option';
   export let disabled = false;
+  export let fullWidth = false;
 
   let isOpen = false;
 
@@ -29,10 +30,12 @@
   }
 </script>
 
-<div class="relative inline-block text-left">
+<div class="relative {fullWidth ? 'block w-full' : 'inline-block'} text-left">
   <button
     type="button"
-    class="btn-secondary inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+    class="btn-secondary inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 {fullWidth
+      ? 'w-full justify-between py-2.5'
+      : ''}"
     aria-haspopup="listbox"
     aria-expanded={isOpen}
     aria-label={ariaLabel}
@@ -51,7 +54,9 @@
       aria-label="Close dropdown"
     ></button>
 
-    <div class="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
+    <div
+      class="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+    >
       <ul class="max-h-64 overflow-y-auto py-1" role="listbox" aria-label={ariaLabel}>
         {#each options as option}
           <li>

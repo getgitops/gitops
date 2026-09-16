@@ -56,7 +56,8 @@
       "database": "Database",
       "auditLog": "Audit Log",
       "monitoring": "Monitoring",
-      "registration": "Registration"
+      "registration": "Registration",
+      "notifications": "Notifications"
     }
   },
   "footer": {
@@ -419,7 +420,9 @@
       "rolesAndPermissionsSubtitle": "Define roles and permissions specific to this project.",
       "serverAccessKeysSubtitle": "Credentials so external tools can report analysis into this project.",
       "audit": "Audit",
-      "auditSubtitle": "History of changes and relevant project activity."
+      "auditSubtitle": "History of changes and relevant project activity.",
+      "notifications": "Notifications",
+      "notificationsSubtitle": "Rules and delivery history for project notifications."
     },
     "overview": {
       "inviteMembers": "Invite members",
@@ -461,6 +464,63 @@
     }
   },
   "projectSettings": {
+    "notifications": {
+      "title": "Notifications",
+      "description": "Send a notification when selected events occur in this project.",
+      "rules": "Rules",
+      "history": "History",
+      "historyDescription": "Status of every notification executed for this project.",
+      "newRule": "New rule",
+      "builderDescription": "Define the event, its conditions, and how the team should be notified.",
+      "namePlaceholder": "Notify the operations team",
+      "descriptionPlaceholder": "Explain when and why this rule runs.",
+      "event": "Event",
+      "channel": "Channel",
+      "organizationScope": "This event is evaluated for the organization that owns the project.",
+      "conditions": "Conditions",
+      "conditionsDescription": "Every condition must match before the notification is sent.",
+      "addCondition": "Add condition",
+      "property": "Property",
+      "operator": "Operator",
+      "value": "Value",
+      "noValue": "No value required",
+      "allEvents": "ALL EVENTS MATCH",
+      "provider": "Provider",
+      "providerDescription": "Select where this notification will be delivered.",
+      "providerChannel": "Channel",
+      "providerSoon": "This provider will be available soon.",
+      "readyToCreate": "The rule will be enabled when it is created.",
+      "recipients": "Recipients",
+      "recipientsHint": "Separate multiple email addresses with commas.",
+      "create": "Create rule",
+      "empty": "No notification rules",
+      "emptyDescription": "Create a rule to notify your team when a project event occurs.",
+      "emptyHistory": "No notifications have been executed yet.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "enable": "Enable",
+      "disable": "Disable",
+      "soon": "Soon",
+      "statusLabel": "Status",
+      "executedAt": "Executed at",
+      "operators": {
+        "equals": "equals",
+        "notEquals": "does not equal",
+        "contains": "contains",
+        "notContains": "does not contain",
+        "startsWith": "starts with",
+        "greaterThan": "is greater than",
+        "greaterOrEqual": "is greater than or equal to",
+        "lessThan": "is less than",
+        "lessOrEqual": "is less than or equal to",
+        "exists": "exists"
+      },
+      "status": {
+        "pending": "Pending",
+        "sent": "Sent",
+        "failed": "Failed"
+      }
+    },
     "users": {
       "title": "Project Users",
       "descriptionPrefix": "Assign existing organization users to",

@@ -4,16 +4,12 @@ import { apiKeysService, authService, cancanService, ensureAuthReady } from '$mo
 import { organizationService } from '$modules/organization';
 import { projectService } from '$modules/projects';
 import { startEvents } from '$modules/events';
+import { startProjectNotifications } from '$modules/project-notifications';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
 import { markServerFailed, markServerReady } from '$lib/server/server-ready';
 import { runWithActor } from '$lib/server/request-context';
-import {
-  createLogger,
-  createRequestLogger,
-  logHttpRequest,
-  logger,
-} from '$lib/server/logger';
+import { createLogger, createRequestLogger, logHttpRequest, logger } from '$lib/server/logger';
 
 const startupLog = createLogger('startup');
 
@@ -21,6 +17,7 @@ const startupLog = createLogger('startup');
 const serverReady = (async () => {
   await startGitDb();
   startEvents();
+  startProjectNotifications();
   await ensureAuthReady();
   await refreshBootstrapState();
   markServerReady();

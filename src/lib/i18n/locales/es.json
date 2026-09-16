@@ -56,7 +56,8 @@
       "database": "Base de datos",
       "auditLog": "Registro de auditoría",
       "monitoring": "Monitorización",
-      "registration": "Registro"
+      "registration": "Registro",
+      "notifications": "Notificaciones"
     }
   },
   "footer": {
@@ -419,7 +420,9 @@
       "rolesAndPermissionsSubtitle": "Define roles y permisos específicos para este proyecto.",
       "serverAccessKeysSubtitle": "Credenciales para que herramientas externas reporten análisis a este proyecto.",
       "audit": "Auditoría",
-      "auditSubtitle": "Historial de cambios y actividad relevante del proyecto."
+      "auditSubtitle": "Historial de cambios y actividad relevante del proyecto.",
+      "notifications": "Notificaciones",
+      "notificationsSubtitle": "Reglas e historial de envíos de las notificaciones del proyecto."
     },
     "overview": {
       "inviteMembers": "Invitar miembros",
@@ -461,6 +464,63 @@
     }
   },
   "projectSettings": {
+    "notifications": {
+      "title": "Notificaciones",
+      "description": "Envía una notificación cuando ocurran los eventos seleccionados en este proyecto.",
+      "rules": "Reglas",
+      "history": "Historial",
+      "historyDescription": "Estado de cada notificación ejecutada para este proyecto.",
+      "newRule": "Nueva regla",
+      "builderDescription": "Define el evento, sus condiciones y cómo debe avisarse al equipo.",
+      "namePlaceholder": "Avisar al equipo de operaciones",
+      "descriptionPlaceholder": "Explica cuándo y por qué se ejecuta esta regla.",
+      "event": "Evento",
+      "channel": "Canal",
+      "organizationScope": "Este evento se evaluará para la organización a la que pertenece el proyecto.",
+      "conditions": "Condiciones",
+      "conditionsDescription": "Todas las condiciones deben cumplirse para enviar la notificación.",
+      "addCondition": "Añadir condición",
+      "property": "Propiedad",
+      "operator": "Operador",
+      "value": "Valor",
+      "noValue": "No necesita valor",
+      "allEvents": "TODOS LOS EVENTOS COINCIDEN",
+      "provider": "Proveedor",
+      "providerDescription": "Selecciona dónde se entregará esta notificación.",
+      "providerChannel": "Canal",
+      "providerSoon": "Este proveedor estará disponible próximamente.",
+      "readyToCreate": "La regla se activará al crearla.",
+      "recipients": "Destinatarios",
+      "recipientsHint": "Separa varias direcciones de correo con comas.",
+      "create": "Crear regla",
+      "empty": "No hay reglas de notificación",
+      "emptyDescription": "Crea una regla para avisar a tu equipo cuando ocurra un evento del proyecto.",
+      "emptyHistory": "Todavía no se ha ejecutado ninguna notificación.",
+      "active": "Activa",
+      "inactive": "Inactiva",
+      "enable": "Activar",
+      "disable": "Desactivar",
+      "soon": "Próximamente",
+      "statusLabel": "Estado",
+      "executedAt": "Ejecutada",
+      "operators": {
+        "equals": "es igual a",
+        "notEquals": "no es igual a",
+        "contains": "contiene",
+        "notContains": "no contiene",
+        "startsWith": "empieza por",
+        "greaterThan": "es mayor que",
+        "greaterOrEqual": "es mayor o igual que",
+        "lessThan": "es menor que",
+        "lessOrEqual": "es menor o igual que",
+        "exists": "existe"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "sent": "Enviada",
+        "failed": "Fallida"
+      }
+    },
     "users": {
       "title": "Usuarios del proyecto",
       "descriptionPrefix": "Asigna usuarios existentes de la organización a",

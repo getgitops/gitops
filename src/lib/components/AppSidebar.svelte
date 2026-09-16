@@ -3,6 +3,7 @@
   import {
     Activity,
     BarChart3,
+    BellRing,
     Building2,
     ChevronDown,
     ChevronRight,
@@ -233,6 +234,12 @@
               href: `${projectBase}/settings/server-access-keys`,
               icon: Shield,
               visible: canReadProjectServerKeys,
+            },
+            {
+              label: $_('sidebar.items.notifications'),
+              href: `${projectBase}/settings/notifications`,
+              icon: BellRing,
+              visible: canReadProjectInfo,
             },
           ]
             .filter((item) => item.visible)

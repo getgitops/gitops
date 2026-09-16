@@ -2,7 +2,11 @@ import crypto from 'crypto';
 import { CodeReportAnalysisRepository } from '../infrastructure/repositories/code-report-analysis.repository';
 import type { CodeReportAnalysisDomain } from '../domain/code-report-analysis.domain';
 import type { CodeReportGitInfo } from '../domain/code-report-analysis.domain';
-import { extractSecrets, extractVulnerabilities } from '$lib/code-report/analysis-summary';
+import {
+  extractSecrets,
+  extractVulnerabilities,
+  summarizeAnalysisResult,
+} from '$lib/code-report/analysis-summary';
 import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
 import type { SecurityPolicy } from '$lib/code-report/security-policy';
 import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
@@ -73,15 +77,15 @@ export class CodeReportAnalysisService {
 
   // called when a scan tool starts running against a service, reports 'in_progress' with no result yet
   async startAnalysis(input: { serviceId: string; tool: string; gitInfo?: CodeReportGitInfo }) {
-      // const serviceId = input.serviceId?.trim();
-      // if (!serviceId) {
-      //   throw new Error('Service is required');
-      // }
+    // const serviceId = input.serviceId?.trim();
+    // if (!serviceId) {
+    //   throw new Error('Service is required');
+    // }
 
-      // const service = await this.serviceLookup.findById(serviceId);
-      // if (!service) {
-      //   throw new Error('Service not found');
-      // }
+    // const service = await this.serviceLookup.findById(serviceId);
+    // if (!service) {
+    //   throw new Error('Service not found');
+    // }
 
     const tool = input.tool?.trim();
     if (!tool) {
@@ -129,11 +133,12 @@ export class CodeReportAnalysisService {
       analysis.tool,
       input.result,
     );
+    const summary = summarizeAnalysisResult(input.result);
 
     await this.repository.update(id, {
       status: 'completed',
       result: input.result,
-      summary: input.summary,
+      summary,
       securityPolicies,
       gitInfo: this.resolveGitInfo(analysis.gitInfo, input.gitInfo, input.result),
       error: null,
@@ -151,7 +156,10 @@ export class CodeReportAnalysisService {
         serviceId: analysis.serviceId,
         tool: analysis.tool,
         completedAt: new Date().toISOString(),
-        summary: input.summary,
+        summary: {
+          vulnerabilities: summary.vulnerabilities,
+          totalVulnerabilities: summary.totalVulnerabilities,
+        },
         policyCompliant: securityPolicies ? securityPolicies.status !== 'violated' : null,
       }),
     );
@@ -171,7 +179,8 @@ export class CodeReportAnalysisService {
       const metadata = root.Metadata;
       if (metadata && typeof metadata === 'object') {
         const row = metadata as Record<string, unknown>;
-        resolved.repositoryUrl = resolved.repositoryUrl ?? (row.RepoURL ? String(row.RepoURL) : null);
+        resolved.repositoryUrl =
+          resolved.repositoryUrl ?? (row.RepoURL ? String(row.RepoURL) : null);
         resolved.commit = resolved.commit ?? (row.Commit ? String(row.Commit) : null);
         resolved.commitMessage =
           resolved.commitMessage ?? (row.CommitMsg ? String(row.CommitMsg) : null);
@@ -179,11 +188,15 @@ export class CodeReportAnalysisService {
         resolved.committer = resolved.committer ?? (row.Committer ? String(row.Committer) : null);
       }
       resolved.scannedAt = resolved.scannedAt ?? (root.CreatedAt ? String(root.CreatedAt) : null);
-      resolved.artifactName = resolved.artifactName ?? (root.ArtifactName ? String(root.ArtifactName) : null);
-      resolved.artifactType = resolved.artifactType ?? (root.ArtifactType ? String(root.ArtifactType) : null);
+      resolved.artifactName =
+        resolved.artifactName ?? (root.ArtifactName ? String(root.ArtifactName) : null);
+      resolved.artifactType =
+        resolved.artifactType ?? (root.ArtifactType ? String(root.ArtifactType) : null);
     }
 
-    return Object.values(resolved).some((value) => value !== undefined && value !== null && value !== '')
+    return Object.values(resolved).some(
+      (value) => value !== undefined && value !== null && value !== '',
+    )
       ? resolved
       : undefined;
   }

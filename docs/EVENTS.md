@@ -79,25 +79,25 @@ Every event instance carries `id`, `name`, `occurredAt`, `payload` and optional 
 All classes live in `src/modules/events/domain/events/` and are registered in `EVENT_CATALOG`
 (`src/modules/events/index.ts`).
 
-| Event name                       | Class                              | Emitted from                                                                                     | Purpose / payload                                                                                                                          |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `project.created`                | `ProjectCreatedEvent`              | `ProjectService.createProject`                                                                   | A project was created. `projectId`, `organizationId`, `name`, `slug`                                                                       |
-| `project.deleted`                | `ProjectDeletedEvent`              | `ProjectService.deleteProject`                                                                   | A project was removed (cleanup, revoke integrations). `projectId`, `organizationId`, `name`, `slug`                                        |
-| `project.server-key.created`     | `ProjectServerKeyCreatedEvent`     | `ApiKeysService.createProjectApiKey`                                                             | A project server key was issued. `projectId`, `keyId`, `name`, `roleId`, `createdByUserId`, `expiresAt`                                    |
-| `project.server-key.regenerated` | `ProjectServerKeyRegeneratedEvent` | `ApiKeysService.regenerateProjectApiKey`                                                         | A key was rotated; the previous token stops working. `projectId`, `keyId`, `name`, `expiresAt`                                             |
-| `project.server-key.deleted`     | `ProjectServerKeyDeletedEvent`     | `ApiKeysService.revokeProjectApiKey`                                                             | A key was revoked. `projectId`, `keyId`, `name`                                                                                            |
-| `code-report.analysis.started`   | `CodeReportAnalysisStartedEvent`   | `CodeReportAnalysisService.startAnalysis`                                                        | A scan started (`in_progress`). `analysisId`, `serviceId`, `tool`, `startedAt`                                                             |
-| `code-report.analysis.completed` | `CodeReportAnalysisCompletedEvent` | `CodeReportAnalysisService.completeAnalysis`                                                     | A scan finished with results and frozen policy compliance. `analysisId`, `serviceId`, `tool`, `completedAt`, `summary`, `policyCompliant`  |
-| `code-report.analysis.failed`    | `CodeReportAnalysisFailedEvent`    | `CodeReportAnalysisService.failAnalysis`                                                         | A scan could not complete. `analysisId`, `serviceId`, `tool`, `error`, `failedAt`                                                          |
-| `vault.environment.created`      | `VaultEnvironmentCreatedEvent`     | `VaultService.createEnvironment`                                                                 | A vault environment was added. `projectId`, `environmentId`, `name`, `slug`                                                                |
-| `vault.environment.updated`      | `VaultEnvironmentUpdatedEvent`     | `VaultService.updateEnvironment`                                                                 | An environment was renamed/re-slugged. `projectId`, `environmentId`, `slug`, `changes`                                                     |
-| `vault.environment.deleted`      | `VaultEnvironmentDeletedEvent`     | `VaultService.deleteEnvironment`                                                                 | An environment was removed. `projectId`, `environmentId`, `name`, `slug`                                                                   |
-| `organization.created`           | `OrganizationCreatedEvent`         | `OrganizationService.createOrganization`                                                         | A new organization exists (provisioning hooks). `organizationId`, `name`, `slug`                                                           |
-| `organization.updated`           | `OrganizationUpdatedEvent`         | `OrganizationService.updateOrganization`                                                         | Organization metadata changed. `organizationId`, `name`, `slug`, `changes`                                                                 |
-| `organization.deleted`           | `OrganizationDeletedEvent`         | `OrganizationService.deleteOrganization`                                                         | An organization was removed. `organizationId`, `name`, `slug`                                                                              |
-| `organization.user.assigned`     | `OrganizationUserAssignedEvent`    | `UserAccessService.createOrganizationUser` / `inviteOrganizationUser` / `assignOrganizationUser` | A user gained access to an organization. `organizationId`, `userId`, `roleId`, `accessId`, `origin` (`created` \| `invited` \| `assigned`) |
-| `user.created`                   | `UserCreatedEvent`                 | `UserService.createUser`, `UserAccessService.createClusterUser` / `createOrganizationUser`       | A user account was created. `userId`, `username`, `email`, `scope`, `organizationId`, `roleId`                                             |
-| `user.deleted`                   | `UserDeletedEvent`                 | `UserService.deleteUser`, `UserAccessService.removeAccess`                                       | A user account was deleted. `userId`, `username`, `scope`, `organizationId`                                                                |
+| Event name                       | Class                              | Emitted from                                                                                     | Purpose / payload                                                                                                                                                  |
+| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project.created`                | `ProjectCreatedEvent`              | `ProjectService.createProject`                                                                   | A project was created. `projectId`, `organizationId`, `name`, `slug`                                                                                               |
+| `project.deleted`                | `ProjectDeletedEvent`              | `ProjectService.deleteProject`                                                                   | A project was removed (cleanup, revoke integrations). `projectId`, `organizationId`, `name`, `slug`                                                                |
+| `project.server-key.created`     | `ProjectServerKeyCreatedEvent`     | `ApiKeysService.createProjectApiKey`                                                             | A project server key was issued. `projectId`, `keyId`, `name`, `roleId`, `createdByUserId`, `expiresAt`                                                            |
+| `project.server-key.regenerated` | `ProjectServerKeyRegeneratedEvent` | `ApiKeysService.regenerateProjectApiKey`                                                         | A key was rotated; the previous token stops working. `projectId`, `keyId`, `name`, `expiresAt`                                                                     |
+| `project.server-key.deleted`     | `ProjectServerKeyDeletedEvent`     | `ApiKeysService.revokeProjectApiKey`                                                             | A key was revoked. `projectId`, `keyId`, `name`                                                                                                                    |
+| `code-report.analysis.started`   | `CodeReportAnalysisStartedEvent`   | `CodeReportAnalysisService.startAnalysis`                                                        | A scan started (`in_progress`). `analysisId`, `serviceId`, `tool`, `startedAt`                                                                                     |
+| `code-report.analysis.completed` | `CodeReportAnalysisCompletedEvent` | `CodeReportAnalysisService.completeAnalysis`                                                     | A scan finished with results and frozen policy compliance. `analysisId`, `serviceId`, `tool`, `completedAt`, `summary`, `policyCompliant`                          |
+| `code-report.analysis.failed`    | `CodeReportAnalysisFailedEvent`    | `CodeReportAnalysisService.failAnalysis`                                                         | A scan could not complete. `analysisId`, `serviceId`, `tool`, `error`, `failedAt`                                                                                  |
+| `vault.environment.created`      | `VaultEnvironmentCreatedEvent`     | `VaultService.createEnvironment`                                                                 | A vault environment was added. `projectId`, `environmentId`, `name`, `slug`                                                                                        |
+| `vault.environment.updated`      | `VaultEnvironmentUpdatedEvent`     | `VaultService.updateEnvironment`                                                                 | An environment was renamed/re-slugged. `projectId`, `environmentId`, `slug`, `changes`                                                                             |
+| `vault.environment.deleted`      | `VaultEnvironmentDeletedEvent`     | `VaultService.deleteEnvironment`                                                                 | An environment was removed. `projectId`, `environmentId`, `name`, `slug`                                                                                           |
+| `organization.created`           | `OrganizationCreatedEvent`         | `OrganizationService.createOrganization`                                                         | A new organization exists (provisioning hooks). `organizationId`, `name`, `slug`                                                                                   |
+| `organization.updated`           | `OrganizationUpdatedEvent`         | `OrganizationService.updateOrganization`                                                         | Organization metadata changed. `organizationId`, `name`, `slug`, `changes`                                                                                         |
+| `organization.deleted`           | `OrganizationDeletedEvent`         | `OrganizationService.deleteOrganization`                                                         | An organization was removed. `organizationId`, `name`, `slug`                                                                                                      |
+| `organization.user.assigned`     | `OrganizationUserAssignedEvent`    | `UserAccessService.createOrganizationUser` / `inviteOrganizationUser` / `assignOrganizationUser` | A user gained access to an organization. `organizationId`, `userId`, `roleId`, `roleName`, `roleSlug`, `accessId`, `origin` (`created` \| `invited` \| `assigned`) |
+| `user.created`                   | `UserCreatedEvent`                 | `UserService.createUser`, `UserAccessService.createClusterUser` / `createOrganizationUser`       | A user account was created. `userId`, `username`, `email`, `scope`, `organizationId`, `roleId`                                                                     |
+| `user.deleted`                   | `UserDeletedEvent`                 | `UserService.deleteUser`, `UserAccessService.removeAccess`                                       | A user account was deleted. `userId`, `username`, `scope`, `organizationId`                                                                                        |
 
 ## Adding a new event
 
@@ -114,6 +114,29 @@ All classes live in `src/modules/events/domain/events/` and are registered in `E
 without subscribers, plus pending, failed, expired and the configured lifetime. The table lists every
 event in `EVENT_CATALOG` — even the ones that never fired — and highlights those with zero
 subscribers. It refreshes every 10 s against `/cluster-settings/monitoring/metrics`.
+
+## Project notifications
+
+Project notification rules and their delivery history are persisted in GitDB as
+`project_notifications` and `project_notification_deliveries`. The `project-notifications`
+subscriber is attached during server startup and listens to project events whose payload contains a
+`projectId`; Code Report events are mapped from their `serviceId` to the owning project. For each
+enabled matching rule it creates a pending delivery, sends the email through the configured
+notification transport, and records the result as `sent` or `failed`.
+
+Rules are managed at `/org/:org/projects/:slug/settings/notifications`; delivery status is available
+under its `/history` tab. Email is the only active channel. Slack, Google Chat, and HTTP are reserved
+in the UI for future transports.
+
+Rules can contain up to ten structured conditions. Conditions are stored as a validated JSON AST
+(`field`, `operator`, `value`), displayed as a JQL-style expression, and combined with `AND`. Only
+fields declared for the selected event can be stored. Organization user-assignment events are also
+available to project rules: they are delivered only when the rule's project belongs to that
+organization, and expose `roleName`, `roleSlug`, and `origin` for filtering.
+
+Ordered operators (`>`, `>=`, `<`, `<=`) compare numeric fields or ISO dates. Server-key created and
+regenerated events expose `expiresAt`; completed Code Report analyses expose normalized counters at
+`summary.vulnerabilities.critical`, `.high`, `.medium`, and `.low`.
 
 ## Logging
 

@@ -1,4 +1,13 @@
-import { bool, defineRelations, entity, integer, json, text, timestamp, uuid } from '@getgitops/gitdb';
+import {
+  bool,
+  defineRelations,
+  entity,
+  integer,
+  json,
+  text,
+  timestamp,
+  uuid,
+} from '@getgitops/gitdb';
 
 export const UserEntity = entity('users', {
   id: uuid().primaryKey(),
@@ -133,6 +142,49 @@ export const ProjectEntity = entity('projects', {
   updatedAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
+});
+
+export const ProjectNotificationEntity = entity('project_notifications', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  name: text().notNull(),
+  description: text(),
+  eventName: text().notNull(),
+  channel: text().notNull().default('mail'),
+  filters: json()
+    .notNull()
+    .$defaultFn(() => []),
+  providerConfig: json()
+    .notNull()
+    .$defaultFn(() => ({})),
+  recipients: json()
+    .notNull()
+    .$defaultFn(() => []),
+  enabled: bool().notNull().default(true),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const ProjectNotificationDeliveryEntity = entity('project_notification_deliveries', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  notificationId: uuid().notNull(),
+  eventId: uuid().notNull(),
+  eventName: text().notNull(),
+  channel: text().notNull(),
+  recipients: json()
+    .notNull()
+    .$defaultFn(() => []),
+  status: text().notNull().default('pending'),
+  error: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  sentAt: timestamp(),
 });
 
 export const CodeReportServiceEntity = entity('code_report_services', {
@@ -284,6 +336,27 @@ relations.for(ProjectEntity, ({ one, many }) => ({
   vaultFolders: many(VaultFolderEntity, { fields: ['id'], references: ['projectId'] }),
   vaultSecrets: many(VaultSecretEntity, { fields: ['id'], references: ['projectId'] }),
   vaultSettings: many(VaultSettingsEntity, { fields: ['id'], references: ['projectId'] }),
+  notifications: many(ProjectNotificationEntity, { fields: ['id'], references: ['projectId'] }),
+  notificationDeliveries: many(ProjectNotificationDeliveryEntity, {
+    fields: ['id'],
+    references: ['projectId'],
+  }),
+}));
+
+relations.for(ProjectNotificationEntity, ({ one, many }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  deliveries: many(ProjectNotificationDeliveryEntity, {
+    fields: ['id'],
+    references: ['notificationId'],
+  }),
+}));
+
+relations.for(ProjectNotificationDeliveryEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  notification: one(ProjectNotificationEntity, {
+    fields: ['notificationId'],
+    references: ['id'],
+  }),
 }));
 
 relations.for(CodeReportSecurityPolicyEntity, ({ one }) => ({

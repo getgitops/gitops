@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import {
     BarChart3,
+    BellRing,
     ChevronRight,
     GitBranch,
     Info,
@@ -81,6 +82,12 @@
       href: `/org/${orgSlug}/projects/${project.slug}/settings/audit`,
       icon: ScrollText,
       subtitle: $_('project.layout.auditSubtitle'),
+    },
+    {
+      label: $_('project.layout.notifications'),
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/notifications`,
+      icon: BellRing,
+      subtitle: $_('project.layout.notificationsSubtitle'),
     },
   ];
 

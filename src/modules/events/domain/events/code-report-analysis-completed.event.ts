@@ -1,11 +1,22 @@
 import { DomainEvent, type DomainEventMetadata } from '../domain-event';
 
+export interface CodeReportVulnerabilitySummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  unknown: number;
+}
+
 export interface CodeReportAnalysisCompletedPayload {
   analysisId: string;
   serviceId: string;
   tool: string;
   completedAt: string;
-  summary?: unknown;
+  summary: {
+    vulnerabilities: CodeReportVulnerabilitySummary;
+    totalVulnerabilities: number;
+  };
   policyCompliant?: boolean | null;
 }
 
