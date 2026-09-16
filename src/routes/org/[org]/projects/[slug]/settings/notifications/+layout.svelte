@@ -3,8 +3,17 @@
   import { BellRing, History } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
 
-  $: basePath = `/org/${$page.params.org}/projects/${$page.params.slug}/settings/notifications`;
-  $: currentPath = $page.url.pathname;
+  export let data: {
+    project?: {
+      slug?: string | null;
+      organization?: { slug?: string | null } | null;
+    };
+  };
+
+  $: orgSlug = data?.project?.organization?.slug ?? $page?.params?.org ?? '';
+  $: projectSlug = data?.project?.slug ?? $page?.params?.slug ?? '';
+  $: basePath = `/org/${orgSlug}/projects/${projectSlug}/settings/notifications`;
+  $: currentPath = $page?.url?.pathname ?? '';
   $: tabs = [
     { label: $_('projectSettings.notifications.rules'), href: basePath, icon: BellRing },
     {

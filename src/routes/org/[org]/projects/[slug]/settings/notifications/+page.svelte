@@ -7,6 +7,7 @@
     MessageCircle,
     Pencil,
     Plus,
+    Power,
     Trash2,
     Webhook,
     X,
@@ -228,43 +229,91 @@
       </div>
     </div>
   {:else}
-    <div class="divide-y divide-slate-200 rounded-md border border-slate-200">
+    <div class="space-y-3">
       {#each data.notifications as rule (rule.id)}
-        <div class="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <Mail class="h-4 w-4 shrink-0 text-slate-500" />
-              <p class="truncate text-sm font-semibold text-slate-900">{rule.name}</p>
-              <span
-                class="rounded-full px-2 py-0.5 text-xs font-medium {rule.enabled
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'bg-slate-100 text-slate-500'}"
-              >
-                {rule.enabled
-                  ? $_('projectSettings.notifications.active')
-                  : $_('projectSettings.notifications.inactive')}
-              </span>
+        <article
+          class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+        >
+          <div class="flex items-start gap-4 px-5 py-5">
+            <div
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700"
+            >
+              <Mail class="h-5 w-5" />
             </div>
-            <p class="mt-1 text-sm text-slate-600">
-              <span class="font-medium text-slate-700"
-                >{$_('projectSettings.notifications.action')}:</span
-              >
-              {eventLabel(rule.eventName)}
-            </p>
-            {#if rule.description}
-              <p class="mt-1 text-sm text-slate-600">{rule.description}</p>
-            {/if}
-            {#if rule.filters.length}
-              <p class="mt-2 font-mono text-xs text-slate-500">
-                {rule.filters
-                  .map((filter) => `${filter.field} ${filter.operator} ${filter.value}`)
-                  .join(' AND ')}
-              </p>
-            {/if}
-            <p class="mt-1 break-all text-sm text-slate-600">{rule.recipients.join(', ')}</p>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="truncate text-base font-semibold text-slate-950">{rule.name}</h3>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium {rule.enabled
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-slate-100 text-slate-500'}"
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full {rule.enabled
+                      ? 'bg-emerald-500'
+                      : 'bg-slate-400'}"
+                  ></span>
+                  {rule.enabled
+                    ? $_('projectSettings.notifications.active')
+                    : $_('projectSettings.notifications.inactive')}
+                </span>
+              </div>
+              {#if rule.description}
+                <p class="mt-1 max-w-3xl text-sm leading-5 text-slate-600">{rule.description}</p>
+              {/if}
+            </div>
           </div>
+
+          <div class="grid gap-4 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 sm:gap-0">
+            <div class="flex items-start gap-3 sm:border-r sm:border-slate-200 sm:pr-5">
+              <BellRing class="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase text-slate-500">
+                  {$_('projectSettings.notifications.action')}
+                </p>
+                <p class="mt-1 truncate text-sm font-medium text-slate-800">
+                  {eventLabel(rule.eventName)}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 sm:pl-5">
+              <Mail class="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
+              <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase text-slate-500">
+                  {$_('projectSettings.notifications.provider')}
+                </p>
+                <p class="mt-1 text-sm font-medium text-sky-800">Email</p>
+                <p class="mt-1 break-all text-xs text-slate-600">
+                  <span class="font-medium text-slate-700"
+                    >{$_('projectSettings.notifications.channel')}:</span
+                  >
+                  {rule.recipients.join(', ')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {#if rule.filters.length}
+            <div class="flex items-start gap-3 px-5 py-3">
+              <Braces class="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase text-slate-500">
+                  {$_('projectSettings.notifications.conditions')}
+                </p>
+                <code class="mt-1 block break-all text-xs leading-5 text-slate-600">
+                  {rule.filters
+                    .map((filter) => `${filter.field} ${filter.operator} ${filter.value}`)
+                    .join(' AND ')}
+                </code>
+              </div>
+            </div>
+          {/if}
+
           {#if data.canUpdate}
-            <div class="flex shrink-0 items-center gap-2">
+            <div
+              class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3"
+            >
               <button
                 type="button"
                 on:click={() => openEditor(rule)}
@@ -278,8 +327,9 @@
                 <input type="hidden" name="enabled" value={rule.enabled ? 'false' : 'true'} />
                 <button
                   type="submit"
-                  class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+                  class="btn-secondary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
                 >
+                  <Power class="h-4 w-4" />
                   {rule.enabled
                     ? $_('projectSettings.notifications.disable')
                     : $_('projectSettings.notifications.enable')}
@@ -290,14 +340,14 @@
                 <button
                   type="submit"
                   title={$_('common.delete')}
-                  class="rounded-md border border-red-200 p-2 text-red-600 hover:bg-red-50"
+                  class="inline-flex items-center justify-center rounded-md border border-red-200 p-2 text-red-600 hover:bg-red-50"
                 >
                   <Trash2 class="h-4 w-4" />
                 </button>
               </form>
             </div>
           {/if}
-        </div>
+        </article>
       {/each}
     </div>
   {/if}

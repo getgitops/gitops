@@ -1,5 +1,15 @@
 <script lang="ts">
-  import { CheckCircle2, Clock3, History, XCircle } from '@lucide/svelte';
+  import {
+    BellRing,
+    CheckCircle2,
+    Clock3,
+    Hash,
+    History,
+    Mail,
+    MessageCircle,
+    Webhook,
+    XCircle,
+  } from '@lucide/svelte';
   import { _, locale } from '$lib/i18n';
 
   type Delivery = {
@@ -13,7 +23,10 @@
     sentAt: string | null;
   };
 
-  export let data: { deliveries: Delivery[] };
+  export let data: {
+    deliveries: Delivery[];
+    events: Array<{ id: string; name: string }>;
+  };
 
   function formatDate(value: string) {
     return new Intl.DateTimeFormat($locale ?? 'es', {
@@ -24,6 +37,18 @@
 
   function statusLabel(status: Delivery['status']) {
     return $_(`projectSettings.notifications.status.${status}`);
+  }
+
+  function eventLabel(eventName: string) {
+    return data.events.find((event) => event.id === eventName)?.name ?? eventName;
+  }
+
+  function provider(channel: string) {
+    if (channel === 'mail') return { name: 'Email', icon: Mail };
+    if (channel === 'slack') return { name: 'Slack', icon: Hash };
+    if (channel === 'google-chat') return { name: 'Google Chat', icon: MessageCircle };
+    if (channel === 'http') return { name: 'HTTP', icon: Webhook };
+    return { name: channel, icon: BellRing };
   }
 </script>
 
@@ -55,9 +80,9 @@
           <tr
             ><th class="px-4 py-3">{$_('projectSettings.notifications.statusLabel')}</th><th
               class="px-4 py-3">{$_('projectSettings.notifications.event')}</th
-            ><th class="px-4 py-3">{$_('projectSettings.notifications.recipients')}</th><th
-              class="px-4 py-3">{$_('projectSettings.notifications.executedAt')}</th
-            ></tr
+            ><th class="px-4 py-3">{$_('projectSettings.notifications.provider')}</th><th
+              class="px-4 py-3">{$_('projectSettings.notifications.recipients')}</th
+            ><th class="px-4 py-3">{$_('projectSettings.notifications.executedAt')}</th></tr
           >
         </thead>
         <tbody class="divide-y divide-slate-200 bg-white">
@@ -82,9 +107,18 @@
                     {delivery.error}
                   </p>{/if}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 align-top font-mono text-xs text-slate-700"
-                >{delivery.eventName}</td
-              >
+              <td class="whitespace-nowrap px-4 py-3 align-top">
+                <p class="text-sm font-medium text-slate-900">{eventLabel(delivery.eventName)}</p>
+                <p class="mt-1 font-mono text-xs text-slate-500">
+                  {$_('projectSettings.notifications.event')}: {delivery.eventName}
+                </p>
+              </td>
+              <td class="whitespace-nowrap px-4 py-3 align-top">
+                <span class="inline-flex items-center gap-2 font-medium text-slate-700">
+                  <svelte:component this={provider(delivery.channel).icon} class="h-4 w-4" />
+                  {provider(delivery.channel).name}
+                </span>
+              </td>
               <td class="max-w-sm break-all px-4 py-3 align-top text-slate-600"
                 >{delivery.recipients.join(', ')}</td
               >
