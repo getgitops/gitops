@@ -121,12 +121,12 @@ Project notification rules and their delivery history are persisted in GitDB as
 `project_notifications` and `project_notification_deliveries`. The `project-notifications`
 subscriber is attached during server startup and listens to project events whose payload contains a
 `projectId`; Code Report events are mapped from their `serviceId` to the owning project. For each
-enabled matching rule it creates a pending delivery, sends the email through the configured
-notification transport, and records the result as `sent` or `failed`.
+enabled matching rule it creates a pending delivery, renders the target's default template, sends
+the result through the configured target, and records the delivery as `sent` or `failed`.
 
 Rules are managed at `/org/:org/projects/:slug/settings/notifications`; delivery status is available
-under its `/history` tab. Email is the only active channel. Slack, Google Chat, and HTTP are reserved
-in the UI for future transports.
+under its `/history` tab. Email, Slack, and Google Chat are active targets; HTTP configuration and
+delivery remain reserved for a later iteration.
 
 Rules can contain up to ten structured conditions. Conditions are stored as a validated JSON AST
 (`field`, `operator`, `value`), displayed as a JQL-style expression, and combined with `AND`. Only
@@ -137,6 +137,27 @@ organization, and expose `roleName`, `roleSlug`, and `origin` for filtering.
 Ordered operators (`>`, `>=`, `<`, `<=`) compare numeric fields or ISO dates. Server-key created and
 regenerated events expose `expiresAt`; completed Code Report analyses expose normalized counters at
 `summary.vulnerabilities.critical`, `.high`, `.medium`, and `.low`.
+
+The `/targets` tab stores one project-level configuration for Slack and Google Chat. Credentials are
+encrypted with `GITDB_ENCRYPTION_KEY`; only users allowed to update the project can reveal them on
+the target settings page. Slack has no configurable
+API URL: delivery uses the official `@slack/web-api` `WebClient`, initialized with the decrypted
+token only while sending. Google Chat stores its complete space webhook URL as the encrypted
+credential and posts directly to it without an access token or per-rule space. Slack channels remain
+selected independently on each notification rule.
+
+Reusable content is persisted in `project_notification_templates`. The `/templates` tab supports
+creating and editing templates per target; names produce stable slugs. Every project gets default
+Email, Slack, Google Chat, and HTTP templates. Targets reference their default template, and all
+templates share `{{rule.name}}`, `{{event.name}}`, and `{{event.payload}}` variables. HTTP template
+content is validated as JSON before it is stored.
+
+Every notification rule may select multiple destinations. Each destination has its own template and
+target-specific configuration (Email recipients, Slack channel, or the configured Google Chat
+webhook). The subscriber executes destinations independently and creates one delivery-history row
+per destination. Each selected template falls back to the target default when omitted. Email
+templates may define default recipients; an Email destination can leave recipients empty to inherit
+them, or provide its own addresses to override the template recipients for that rule.
 
 ## Logging
 

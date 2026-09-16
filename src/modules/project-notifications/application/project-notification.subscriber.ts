@@ -4,6 +4,13 @@ import type { DomainEvent, EventSubscriber } from '$modules/events';
 import { PROJECT_NOTIFICATION_EVENT_CLASSES } from '../domain/project-notification-events';
 import { matchesProjectNotificationFilters } from '../domain/project-notification-filter';
 import type { ProjectNotificationRepository } from '../infrastructure/repositories/project-notification.repository';
+import type { ProjectNotificationTargetSender } from './project-notification-target.sender';
+import type { ProjectNotificationTemplateService } from './project-notification-template.service';
+import type { ProjectNotificationTargetService } from './project-notification-target.service';
+import type {
+  ProjectNotificationDestination,
+  ProjectNotificationDomain,
+} from '../domain/project-notification.domain';
 
 type ProjectResolver = {
   getById(id: string): Promise<{ projectId: string }>;
@@ -29,6 +36,9 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
     private readonly repository: ProjectNotificationRepository,
     private readonly projectResolver?: ProjectResolver,
     private readonly projectLookup?: ProjectLookup,
+    private readonly targetSender?: ProjectNotificationTargetSender,
+    private readonly templateService?: ProjectNotificationTemplateService,
+    private readonly targetService?: ProjectNotificationTargetService,
   ) {}
 
   subscribedTo() {
@@ -41,7 +51,9 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
       matchesProjectNotificationFilters(event.payload, rule.filters),
     );
     const results = await Promise.allSettled(
-      matchingRules.map((rule) => this.deliver(rule, event)),
+      matchingRules.flatMap((rule) =>
+        rule.destinations.map((destination) => this.deliver(rule, destination, event)),
+      ),
     );
     const failed = results.find((result) => result.status === 'rejected');
     if (failed?.status === 'rejected') throw failed.reason;
@@ -76,9 +88,30 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
   }
 
   private async deliver(
-    rule: Awaited<ReturnType<ProjectNotificationRepository['findById']>> & {},
+    rule: ProjectNotificationDomain,
+    destination: ProjectNotificationDestination,
     event: DomainEvent,
   ): Promise<void> {
+    if (!this.templateService || !this.targetService) {
+      throw new Error('Notification templates are not configured');
+    }
+    const targetTemplateId = await this.targetService.defaultTemplateId(
+      rule.projectId,
+      destination.channel,
+    );
+    const templateId = destination.templateId ?? targetTemplateId;
+    const effectiveRecipients =
+      destination.channel === 'mail'
+        ? destination.recipients.length > 0
+          ? destination.recipients
+          : await this.templateService.recipients(rule.projectId, destination.channel, templateId)
+        : destination.channel === 'slack'
+          ? [destination.providerConfig.channel].filter(Boolean)
+          : ['Google Chat webhook'];
+    if (destination.channel === 'mail' && effectiveRecipients.length === 0) {
+      throw new Error('Email notification requires recipients on the rule or template');
+    }
+
     const deliveryId = crypto.randomUUID();
     await this.repository.createDelivery({
       id: deliveryId,
@@ -86,19 +119,41 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
       notificationId: rule.id,
       eventId: event.id,
       eventName: event.name,
-      channel: rule.channel,
-      recipients: rule.recipients,
+      channel: destination.channel,
+      recipients: effectiveRecipients,
     });
 
     try {
-      const payload = escapeHtml(JSON.stringify(event.payload, null, 2));
-      await notify(
-        new MailNotification({
-          to: rule.recipients,
-          subject: `[GitOps] ${rule.name}: ${event.name}`,
-          content: `<h1>${escapeHtml(rule.name)}</h1><p>The event <strong>${escapeHtml(event.name)}</strong> occurred.</p><pre>${payload}</pre>`,
-        }),
+      const payload = JSON.stringify(event.payload, null, 2);
+      const content = await this.templateService.render(
+        rule.projectId,
+        destination.channel,
+        templateId,
+        {
+          'rule.name': destination.channel === 'mail' ? escapeHtml(rule.name) : rule.name,
+          'event.name': destination.channel === 'mail' ? escapeHtml(event.name) : event.name,
+          'event.payload': destination.channel === 'mail' ? escapeHtml(payload) : payload,
+        },
       );
+      if (destination.channel === 'mail') {
+        await notify(
+          new MailNotification({
+            to: effectiveRecipients,
+            subject: `[GitOps] ${rule.name}: ${event.name}`,
+            content,
+          }),
+        );
+      } else if (destination.channel === 'slack' || destination.channel === 'google-chat') {
+        if (!this.targetSender) throw new Error('Notification target sender is not configured');
+        await this.targetSender.send(
+          rule.projectId,
+          destination.channel,
+          destination.channel === 'slack' ? destination.providerConfig.channel : '',
+          content,
+        );
+      } else {
+        throw new Error(`Unsupported notification target: ${destination.channel}`);
+      }
       await this.repository.finishDelivery(deliveryId, 'sent');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

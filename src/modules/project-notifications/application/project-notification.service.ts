@@ -9,6 +9,11 @@ import {
   type ProjectNotificationFilter,
 } from '../domain/project-notification-filter';
 import type { ProjectNotificationRepository } from '../infrastructure/repositories/project-notification.repository';
+import type {
+  ProjectNotificationChannel,
+  ProjectNotificationDestination,
+} from '../domain/project-notification.domain';
+import type { ProjectNotificationTemplateRepository } from '../infrastructure/repositories/project-notification-template.repository';
 
 export type ProjectNotificationInput = {
   name: string;
@@ -17,12 +22,17 @@ export type ProjectNotificationInput = {
   channel?: string;
   filters?: unknown;
   providerConfig?: Record<string, string>;
+  templateId?: string | null;
+  destinations?: unknown;
   recipients: string | string[];
   enabled?: boolean;
 };
 
 export class ProjectNotificationService {
-  constructor(private readonly repository: ProjectNotificationRepository) {}
+  constructor(
+    private readonly repository: ProjectNotificationRepository,
+    private readonly templateRepository: ProjectNotificationTemplateRepository,
+  ) {}
 
   listEvents() {
     return PROJECT_NOTIFICATION_EVENT_DEFINITIONS;
@@ -37,7 +47,7 @@ export class ProjectNotificationService {
   }
 
   async create(projectId: string, input: ProjectNotificationInput) {
-    const normalized = this.normalize(input);
+    const normalized = await this.normalize(projectId, input);
     const id = crypto.randomUUID();
     await this.repository.create({ id, projectId, ...normalized });
     return (await this.repository.findById(id))?.toJson();
@@ -46,7 +56,7 @@ export class ProjectNotificationService {
   async update(id: string, projectId: string, input: ProjectNotificationInput) {
     const notification = await this.requireOwned(id, projectId);
     await this.repository.update(notification.id, {
-      ...this.normalize(input),
+      ...(await this.normalize(projectId, input)),
       enabled: notification.enabled,
     });
     return (await this.repository.findById(id))?.toJson();
@@ -70,39 +80,96 @@ export class ProjectNotificationService {
     return notification;
   }
 
-  private normalize(input: ProjectNotificationInput) {
+  private async normalize(projectId: string, input: ProjectNotificationInput) {
     const name = input.name?.trim();
     if (!name) throw new Error('Notification name is required');
     if (!isProjectNotificationEvent(input.eventName)) {
       throw new Error('Unsupported project event');
     }
-    if ((input.channel ?? 'mail') !== 'mail') {
-      throw new Error('This notification provider is not available yet');
-    }
-
     const description = input.description?.trim() || undefined;
     const filters = this.normalizeFilters(input.eventName, input.filters);
-
-    const source = Array.isArray(input.recipients) ? input.recipients : input.recipients.split(',');
-    const recipients = [
-      ...new Set(source.map((item) => item.trim().toLowerCase()).filter(Boolean)),
-    ];
-    if (recipients.length === 0) throw new Error('At least one recipient is required');
-    for (const recipient of recipients) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
-        throw new Error(`Invalid email address: ${recipient}`);
-      }
+    if (input.destinations !== undefined && !Array.isArray(input.destinations)) {
+      throw new Error('Invalid notification destinations');
     }
+    const rawDestinations = input.destinations
+      ? input.destinations
+      : [
+          {
+            channel: input.channel ?? 'mail',
+            templateId: input.templateId,
+            providerConfig: input.providerConfig,
+            recipients: input.recipients,
+          },
+        ];
+    if (rawDestinations.length === 0) throw new Error('At least one destination is required');
+    const destinations = await Promise.all(
+      rawDestinations.map((destination) => this.normalizeDestination(projectId, destination)),
+    );
+    const uniqueChannels = new Set(destinations.map((destination) => destination.channel));
+    if (uniqueChannels.size !== destinations.length) {
+      throw new Error('A notification rule cannot repeat a destination');
+    }
+    const primary = destinations[0];
 
     return {
       name,
       description,
       eventName: input.eventName,
+      channel: primary.channel,
+      templateId: primary.templateId,
       filters,
-      providerConfig: {},
-      recipients,
+      providerConfig: primary.providerConfig,
+      destinations,
+      recipients: primary.recipients,
       enabled: input.enabled ?? true,
     };
+  }
+
+  private async normalizeDestination(
+    projectId: string,
+    value: unknown,
+  ): Promise<ProjectNotificationDestination> {
+    if (!value || typeof value !== 'object') throw new Error('Invalid notification destination');
+    const input = value as {
+      channel?: unknown;
+      templateId?: unknown;
+      providerConfig?: unknown;
+      recipients?: unknown;
+    };
+    const channel = String(input.channel ?? '') as ProjectNotificationChannel;
+    if (!['mail', 'slack', 'google-chat'].includes(channel)) {
+      throw new Error('This notification target is not available yet');
+    }
+    const templateId = String(input.templateId ?? '').trim() || null;
+    if (templateId) {
+      const template = await this.templateRepository.findById(templateId);
+      if (!template || template.projectId !== projectId || template.provider !== channel) {
+        throw new Error('Notification template does not belong to this target');
+      }
+    }
+
+    const providerConfig: Record<string, string> = {};
+    let recipients: string[] = [];
+    if (channel === 'mail') {
+      const rawRecipients = input.recipients;
+      const source = Array.isArray(rawRecipients)
+        ? rawRecipients
+        : String(rawRecipients ?? '').split(',');
+      recipients = [
+        ...new Set(source.map((item) => String(item).trim().toLowerCase()).filter(Boolean)),
+      ];
+      for (const recipient of recipients) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+          throw new Error(`Invalid email address: ${recipient}`);
+        }
+      }
+    } else if (channel === 'slack') {
+      const config = input.providerConfig as Record<string, unknown> | undefined;
+      const targetChannel = String(config?.channel ?? '').trim();
+      if (!targetChannel) throw new Error('Target channel is required');
+      providerConfig.channel = targetChannel;
+    }
+    return { channel, templateId, providerConfig, recipients };
   }
 
   private normalizeFilters(eventName: string, value: unknown): ProjectNotificationFilter[] {

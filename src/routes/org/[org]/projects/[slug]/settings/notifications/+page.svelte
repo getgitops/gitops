@@ -2,6 +2,7 @@
   import {
     BellRing,
     Braces,
+    Check,
     Hash,
     Mail,
     MessageCircle,
@@ -20,9 +21,8 @@
     name: string;
     description: string | null;
     eventName: string;
-    channel: 'mail';
+    destinations: DestinationDraft[];
     filters: FilterCondition[];
-    recipients: string[];
     enabled: boolean;
   };
 
@@ -51,17 +51,34 @@
     | 'exists';
   type FilterCondition = { id: number; field: string; operator: FilterOperator; value: string };
   type ProviderId = 'mail' | 'slack' | 'google-chat' | 'http';
+  type TemplateOption = { id: string; provider: ProviderId; name: string };
+  type DestinationDraft = {
+    channel: ProviderId;
+    templateId: string | null;
+    providerConfig: { channel?: string };
+    recipients: string[];
+  };
 
-  export let data: { notifications: Rule[]; events: EventDefinition[]; canUpdate: boolean };
+  export let data: {
+    notifications: Rule[];
+    events: EventDefinition[];
+    targets: Array<{
+      id: ProviderId;
+      configured: boolean;
+      enabled: boolean;
+      defaultTemplateId: string | null;
+    }>;
+    templates: TemplateOption[];
+    canUpdate: boolean;
+  };
   export let form: { error?: string; success?: boolean } | null;
 
   let modalOpen = false;
   let editingRuleId: string | null = null;
   let ruleName = '';
   let ruleDescription = '';
-  let recipients = '';
   let eventName = data.events[0]?.id ?? '';
-  let channel: ProviderId = 'mail';
+  let destinations: DestinationDraft[] = [];
   let filters: FilterCondition[] = [];
   let conditionSequence = 0;
 
@@ -71,10 +88,11 @@
     id: field.id,
     name: field.name,
   }));
+  $: selectedChannels = new Set(destinations.map((destination) => destination.channel));
   const providers = [
     { id: 'mail' as const, name: 'Email', icon: Mail, soon: false },
-    { id: 'slack' as const, name: 'Slack', icon: Hash, soon: true },
-    { id: 'google-chat' as const, name: 'Google Chat', icon: MessageCircle, soon: true },
+    { id: 'slack' as const, name: 'Slack', icon: Hash, soon: false },
+    { id: 'google-chat' as const, name: 'Google Chat', icon: MessageCircle, soon: false },
     { id: 'http' as const, name: 'HTTP', icon: Webhook, soon: true },
   ];
   $: filterExpression = filters.length
@@ -119,9 +137,8 @@
     editingRuleId = null;
     ruleName = '';
     ruleDescription = '';
-    recipients = '';
     eventName = data.events[0]?.id ?? '';
-    channel = 'mail';
+    destinations = [newDestination('mail')];
     filters = [];
   }
 
@@ -134,15 +151,87 @@
     editingRuleId = rule.id;
     ruleName = rule.name;
     ruleDescription = rule.description ?? '';
-    recipients = rule.recipients.join(', ');
     eventName = rule.eventName;
-    channel = rule.channel;
+    destinations = rule.destinations.map((destination) => ({
+      channel: destination.channel,
+      templateId: destination.templateId ?? defaultTemplateFor(destination.channel),
+      providerConfig: { ...destination.providerConfig },
+      recipients: [...destination.recipients],
+    }));
     filters = rule.filters.map((filter) => ({ ...filter, id: ++conditionSequence }));
     modalOpen = true;
   }
 
   function eventLabel(id: string) {
     return data.events.find((event) => event.id === id)?.name ?? id;
+  }
+
+  function targetAvailable(id: ProviderId) {
+    if (id === 'mail') return true;
+    return data.targets.some((target) => target.id === id && target.configured && target.enabled);
+  }
+
+  function targetDefinition(id: ProviderId) {
+    return providers.find((provider) => provider.id === id) ?? providers[0];
+  }
+
+  function templateLabel(destination: DestinationDraft) {
+    const selectedId = destination.templateId ?? defaultTemplateFor(destination.channel);
+    return data.templates.find((template) => template.id === selectedId)?.name ?? '—';
+  }
+
+  function defaultTemplateFor(id: ProviderId) {
+    return (
+      data.targets.find((target) => target.id === id)?.defaultTemplateId ??
+      data.templates.find((template) => template.provider === id)?.id ??
+      ''
+    );
+  }
+
+  function newDestination(channel: ProviderId): DestinationDraft {
+    return {
+      channel,
+      templateId: defaultTemplateFor(channel),
+      providerConfig: {},
+      recipients: [],
+    };
+  }
+
+  function destinationFor(channel: ProviderId) {
+    return destinations.find((destination) => destination.channel === channel);
+  }
+
+  function toggleTarget(channel: ProviderId) {
+    if (destinationFor(channel)) {
+      if (destinations.length === 1) return;
+      destinations = destinations.filter((destination) => destination.channel !== channel);
+      return;
+    }
+    if (channel === 'http' || !targetAvailable(channel)) return;
+    destinations = [...destinations, newDestination(channel)];
+  }
+
+  function updateDestination(channel: ProviderId, changes: Partial<DestinationDraft>) {
+    destinations = destinations.map((destination) =>
+      destination.channel === channel ? { ...destination, ...changes } : destination,
+    );
+  }
+
+  function destinationTemplates(channel: ProviderId) {
+    return data.templates.filter((template) => template.provider === channel);
+  }
+
+  function destinationsValid() {
+    return (
+      destinations.length > 0 &&
+      destinations.every(
+        (destination) =>
+          destination.channel !== 'http' &&
+          targetAvailable(destination.channel) &&
+          Boolean(destination.templateId) &&
+          (destination.channel !== 'slack' || Boolean(destination.providerConfig.channel?.trim())),
+      )
+    );
   }
 
   function selectEvent(id: string) {
@@ -238,7 +327,7 @@
             <div
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700"
             >
-              <Mail class="h-5 w-5" />
+              <BellRing class="h-5 w-5" />
             </div>
 
             <div class="min-w-0 flex-1">
@@ -265,8 +354,10 @@
             </div>
           </div>
 
-          <div class="grid gap-4 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 sm:gap-0">
-            <div class="flex items-start gap-3 sm:border-r sm:border-slate-200 sm:pr-5">
+          <div
+            class="grid gap-5 border-t border-slate-100 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]"
+          >
+            <div class="flex items-start gap-3 lg:border-r lg:border-slate-200 lg:pr-5">
               <BellRing class="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
               <div class="min-w-0">
                 <p class="text-[11px] font-semibold uppercase text-slate-500">
@@ -277,19 +368,39 @@
                 </p>
               </div>
             </div>
-            <div class="flex items-start gap-3 sm:pl-5">
-              <Mail class="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
-              <div class="min-w-0">
-                <p class="text-[11px] font-semibold uppercase text-slate-500">
-                  {$_('projectSettings.notifications.provider')}
-                </p>
-                <p class="mt-1 text-sm font-medium text-sky-800">Email</p>
-                <p class="mt-1 break-all text-xs text-slate-600">
-                  <span class="font-medium text-slate-700"
-                    >{$_('projectSettings.notifications.channel')}:</span
-                  >
-                  {rule.recipients.join(', ')}
-                </p>
+            <div class="min-w-0 lg:pl-5">
+              <p class="text-[11px] font-semibold uppercase text-slate-500">
+                {$_('projectSettings.notifications.destinations')}
+              </p>
+              <div class="mt-2 space-y-3">
+                {#each rule.destinations as destination}
+                  <div class="flex items-start gap-3">
+                    <svelte:component
+                      this={targetDefinition(destination.channel).icon}
+                      class="mt-0.5 h-4 w-4 shrink-0 text-sky-700"
+                    />
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-sky-800">
+                        {targetDefinition(destination.channel).name}
+                      </p>
+                      <p class="mt-0.5 text-xs text-slate-600">
+                        {$_('projectSettings.notifications.templates.template')}:
+                        {templateLabel(destination)}
+                      </p>
+                      <p class="mt-0.5 break-all text-xs text-slate-500">
+                        {#if destination.channel === 'mail'}
+                          {destination.recipients.length
+                            ? destination.recipients.join(', ')
+                            : $_('projectSettings.notifications.templates.inheritedRecipients')}
+                        {:else if destination.channel === 'slack'}
+                          {destination.providerConfig.channel}
+                        {:else}
+                          {$_('projectSettings.notifications.targets.configuredWebhook')}
+                        {/if}
+                      </p>
+                    </div>
+                  </div>
+                {/each}
               </div>
             </div>
           </div>
@@ -356,7 +467,7 @@
 {#if modalOpen}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">
     <div
-      class="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-md bg-white shadow-2xl"
+      class="flex max-h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-md bg-white shadow-2xl"
     >
       <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
         <div>
@@ -383,7 +494,7 @@
       >
         {#if editingRuleId}<input type="hidden" name="id" value={editingRuleId} />{/if}
         <input type="hidden" name="eventName" value={eventName} />
-        <input type="hidden" name="channel" value={channel} />
+        <input type="hidden" name="destinations" value={JSON.stringify(destinations)} />
         <input
           type="hidden"
           name="filters"
@@ -392,226 +503,309 @@
           )}
         />
 
-        <div class="min-h-0 flex-1 space-y-7 overflow-y-auto p-5 sm:p-6">
-          <section class="space-y-4">
-            <div>
-              <label for="notification-name" class="block text-sm font-medium text-slate-700"
-                >{$_('common.name')}</label
-              >
-              <input
-                id="notification-name"
-                name="name"
-                required
-                bind:value={ruleName}
-                class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                placeholder={$_('projectSettings.notifications.namePlaceholder')}
-              />
-            </div>
-            <div>
-              <label for="notification-description" class="block text-sm font-medium text-slate-700"
-                >{$_('common.description')}</label
-              >
-              <textarea
-                id="notification-description"
-                name="description"
-                rows="3"
-                bind:value={ruleDescription}
-                class="field-input mt-1 w-full resize-none rounded-md border px-3 py-2 text-sm"
-                placeholder={$_('projectSettings.notifications.descriptionPlaceholder')}></textarea>
-            </div>
-            <div>
-              <p class="mb-1 text-sm font-medium text-slate-700">
-                {$_('projectSettings.notifications.event')}
-              </p>
-              <Dropdown
-                options={eventOptions}
-                value={eventName}
-                fullWidth
-                ariaLabel={$_('projectSettings.notifications.event')}
-                on:change={(event) => selectEvent(event.detail.id)}
-              />
-              {#if selectedEvent?.scope === 'organization'}
-                <p class="mt-1 text-xs text-amber-700">
-                  {$_('projectSettings.notifications.organizationScope')}
-                </p>
-              {/if}
-            </div>
-          </section>
-
-          <section class="space-y-3 border-t border-slate-200 pt-6">
-            <div class="flex items-start justify-between gap-4">
+        <div
+          class="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]"
+        >
+          <div
+            class="min-h-0 space-y-7 overflow-y-auto border-b border-slate-200 p-5 sm:p-6 lg:border-b-0 lg:border-r"
+          >
+            <section class="space-y-4">
               <div>
-                <h4 class="text-sm font-semibold text-slate-900">
-                  {$_('projectSettings.notifications.conditions')}
-                </h4>
-                <p class="mt-1 text-sm text-slate-500">
-                  {$_('projectSettings.notifications.conditionsDescription')}
-                </p>
-              </div>
-              <button
-                type="button"
-                on:click={addCondition}
-                class="btn-secondary inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-              >
-                <Plus class="h-4 w-4" />
-                {$_('projectSettings.notifications.addCondition')}
-              </button>
-            </div>
-
-            {#each filters as condition (condition.id)}
-              <div
-                class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center"
-              >
-                <Dropdown
-                  options={fieldOptions}
-                  value={condition.field}
-                  ariaLabel={$_('projectSettings.notifications.property')}
-                  on:change={(event) =>
-                    updateCondition(condition.id, {
-                      field: event.detail.id,
-                      operator: 'equals',
-                      value: '',
-                    })}
-                />
-                <Dropdown
-                  options={operatorsFor(condition)}
-                  value={condition.operator}
-                  ariaLabel={$_('projectSettings.notifications.operator')}
-                  on:change={(event) =>
-                    updateCondition(condition.id, { operator: event.detail.id as FilterOperator })}
-                />
-                {#if condition.operator === 'exists'}
-                  <span class="px-2 text-sm text-slate-400"
-                    >{$_('projectSettings.notifications.noValue')}</span
-                  >
-                {:else if fieldFor(condition)?.options}
-                  <Dropdown
-                    options={(fieldFor(condition)?.options ?? []).map((option) => ({
-                      id: option,
-                      name: option,
-                    }))}
-                    value={condition.value}
-                    ariaLabel={$_('projectSettings.notifications.value')}
-                    on:change={(event) => updateCondition(condition.id, { value: event.detail.id })}
-                  />
-                {:else}
-                  <input
-                    aria-label={$_('projectSettings.notifications.value')}
-                    type={fieldFor(condition)?.type === 'number'
-                      ? 'number'
-                      : fieldFor(condition)?.type === 'datetime'
-                        ? 'datetime-local'
-                        : 'text'}
-                    step={fieldFor(condition)?.type === 'number' ? '1' : undefined}
-                    min={fieldFor(condition)?.type === 'number' ? '0' : undefined}
-                    required
-                    bind:value={condition.value}
-                    class="field-input w-full rounded-md border px-3 py-2 text-sm"
-                    placeholder={$_('projectSettings.notifications.value')}
-                  />
-                {/if}
-                <button
-                  type="button"
-                  on:click={() => removeCondition(condition.id)}
-                  title={$_('common.delete')}
-                  class="justify-self-end rounded-md p-2 text-slate-500 hover:bg-white hover:text-red-600"
-                  ><Trash2 class="h-4 w-4" /></button
+                <label for="notification-name" class="block text-sm font-medium text-slate-700"
+                  >{$_('common.name')}</label
                 >
+                <input
+                  id="notification-name"
+                  name="name"
+                  required
+                  bind:value={ruleName}
+                  class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                  placeholder={$_('projectSettings.notifications.namePlaceholder')}
+                />
               </div>
-            {/each}
-
-            <div
-              class="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-950 px-4 py-3 text-slate-100"
-            >
-              <Braces class="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-              <code class="min-w-0 break-all text-xs leading-5">{filterExpression}</code>
-            </div>
-          </section>
-
-          <section class="space-y-4 border-t border-slate-200 pt-6">
-            <div>
-              <h4 class="text-sm font-semibold text-slate-900">
-                {$_('projectSettings.notifications.provider')}
-              </h4>
-              <p class="mt-1 text-sm text-slate-500">
-                {$_('projectSettings.notifications.providerDescription')}
-              </p>
-            </div>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {#each providers as provider}
-                <button
-                  type="button"
-                  on:click={() => (channel = provider.id)}
-                  class="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-md border p-3 text-center transition {channel ===
-                  provider.id
-                    ? 'border-slate-900 bg-slate-50 text-slate-950 ring-1 ring-slate-900'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-400'}"
-                >
-                  <svelte:component this={provider.icon} class="h-6 w-6" />
-                  <span class="text-sm font-semibold">{provider.name}</span>
-                  {#if provider.soon}<span
-                      class="absolute right-2 top-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500"
-                      >{$_('projectSettings.notifications.soon')}</span
-                    >{/if}
-                </button>
-              {/each}
-            </div>
-
-            {#if channel === 'mail'}
               <div>
                 <label
-                  for="notification-recipients"
-                  class="block text-sm font-medium text-slate-700"
-                  >{$_('projectSettings.notifications.recipients')}</label
+                  for="notification-description"
+                  class="block text-sm font-medium text-slate-700">{$_('common.description')}</label
                 >
-                <input
-                  id="notification-recipients"
-                  name="recipients"
-                  type="text"
-                  required
-                  bind:value={recipients}
-                  class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                  placeholder="ops@example.com, owner@example.com"
+                <textarea
+                  id="notification-description"
+                  name="description"
+                  rows="3"
+                  bind:value={ruleDescription}
+                  class="field-input mt-1 w-full resize-none rounded-md border px-3 py-2 text-sm"
+                  placeholder={$_('projectSettings.notifications.descriptionPlaceholder')}
+                ></textarea>
+              </div>
+              <div>
+                <p class="mb-1 text-sm font-medium text-slate-700">
+                  {$_('projectSettings.notifications.event')}
+                </p>
+                <Dropdown
+                  options={eventOptions}
+                  value={eventName}
+                  fullWidth
+                  ariaLabel={$_('projectSettings.notifications.event')}
+                  on:change={(event) => selectEvent(event.detail.id)}
                 />
-                <p class="mt-1 text-xs text-slate-500">
-                  {$_('projectSettings.notifications.recipientsHint')}
+                {#if selectedEvent?.scope === 'organization'}
+                  <p class="mt-1 text-xs text-amber-700">
+                    {$_('projectSettings.notifications.organizationScope')}
+                  </p>
+                {/if}
+              </div>
+            </section>
+
+            <section class="space-y-3 border-t border-slate-200 pt-6">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-900">
+                    {$_('projectSettings.notifications.conditions')}
+                  </h4>
+                  <p class="mt-1 text-sm text-slate-500">
+                    {$_('projectSettings.notifications.conditionsDescription')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  on:click={addCondition}
+                  class="btn-secondary inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+                >
+                  <Plus class="h-4 w-4" />
+                  {$_('projectSettings.notifications.addCondition')}
+                </button>
+              </div>
+
+              {#each filters as condition (condition.id)}
+                <div
+                  class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center"
+                >
+                  <Dropdown
+                    options={fieldOptions}
+                    value={condition.field}
+                    ariaLabel={$_('projectSettings.notifications.property')}
+                    on:change={(event) =>
+                      updateCondition(condition.id, {
+                        field: event.detail.id,
+                        operator: 'equals',
+                        value: '',
+                      })}
+                  />
+                  <Dropdown
+                    options={operatorsFor(condition)}
+                    value={condition.operator}
+                    ariaLabel={$_('projectSettings.notifications.operator')}
+                    on:change={(event) =>
+                      updateCondition(condition.id, {
+                        operator: event.detail.id as FilterOperator,
+                      })}
+                  />
+                  {#if condition.operator === 'exists'}
+                    <span class="px-2 text-sm text-slate-400"
+                      >{$_('projectSettings.notifications.noValue')}</span
+                    >
+                  {:else if fieldFor(condition)?.options}
+                    <Dropdown
+                      options={(fieldFor(condition)?.options ?? []).map((option) => ({
+                        id: option,
+                        name: option,
+                      }))}
+                      value={condition.value}
+                      ariaLabel={$_('projectSettings.notifications.value')}
+                      on:change={(event) =>
+                        updateCondition(condition.id, { value: event.detail.id })}
+                    />
+                  {:else}
+                    <input
+                      aria-label={$_('projectSettings.notifications.value')}
+                      type={fieldFor(condition)?.type === 'number'
+                        ? 'number'
+                        : fieldFor(condition)?.type === 'datetime'
+                          ? 'datetime-local'
+                          : 'text'}
+                      step={fieldFor(condition)?.type === 'number' ? '1' : undefined}
+                      min={fieldFor(condition)?.type === 'number' ? '0' : undefined}
+                      required
+                      bind:value={condition.value}
+                      class="field-input w-full rounded-md border px-3 py-2 text-sm"
+                      placeholder={$_('projectSettings.notifications.value')}
+                    />
+                  {/if}
+                  <button
+                    type="button"
+                    on:click={() => removeCondition(condition.id)}
+                    title={$_('common.delete')}
+                    class="justify-self-end rounded-md p-2 text-slate-500 hover:bg-white hover:text-red-600"
+                    ><Trash2 class="h-4 w-4" /></button
+                  >
+                </div>
+              {/each}
+
+              <div
+                class="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-950 px-4 py-3 text-slate-100"
+              >
+                <Braces class="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                <code class="min-w-0 break-all text-xs leading-5">{filterExpression}</code>
+              </div>
+            </section>
+          </div>
+
+          <div class="min-h-0 overflow-y-auto bg-slate-50/50 p-5 sm:p-6">
+            <section class="space-y-4">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-900">
+                  {$_('projectSettings.notifications.destinations')}
+                </h4>
+                <p class="mt-1 text-sm text-slate-500">
+                  {$_('projectSettings.notifications.providerDescription')}
                 </p>
               </div>
-            {:else if channel === 'slack' || channel === 'google-chat'}
-              <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <label for="provider-channel" class="block text-sm font-medium text-slate-700"
-                  >{$_('projectSettings.notifications.providerChannel')}</label
-                >
-                <input
-                  id="provider-channel"
-                  disabled
-                  class="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="#deployments"
-                />
+              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {#each providers as provider}
+                  {@const selectedDestination = selectedChannels.has(provider.id)}
+                  <button
+                    type="button"
+                    on:click={() => toggleTarget(provider.id)}
+                    disabled={!selectedDestination &&
+                      (provider.id === 'http' || !targetAvailable(provider.id))}
+                    aria-pressed={selectedDestination}
+                    class="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-md border p-3 text-center transition {selectedDestination
+                      ? 'border-sky-600 bg-sky-50 text-sky-950 ring-2 ring-sky-500/30 shadow-sm'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-400'} disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {#if selectedDestination}
+                      <span
+                        class="absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-white"
+                      >
+                        <Check class="h-3 w-3" />
+                      </span>
+                    {/if}
+                    <span
+                      class="flex h-10 w-10 items-center justify-center rounded-md {selectedDestination
+                        ? 'bg-sky-100 text-sky-700'
+                        : 'bg-slate-100 text-slate-600'}"
+                    >
+                      <svelte:component this={provider.icon} class="h-6 w-6 shrink-0" />
+                    </span>
+                    <span
+                      class="text-sm font-semibold {selectedDestination
+                        ? 'text-sky-700'
+                        : 'text-slate-700'}"
+                    >
+                      {provider.name}
+                    </span>
+                    {#if provider.soon}<span
+                        class="absolute right-2 top-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500"
+                        >{$_('projectSettings.notifications.soon')}</span
+                      >{/if}
+                    {#if !provider.soon && provider.id !== 'mail' && !targetAvailable(provider.id)}
+                      <span
+                        class="absolute bottom-2 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
+                      >
+                        {$_('projectSettings.notifications.targets.notConfigured')}
+                      </span>
+                    {/if}
+                  </button>
+                {/each}
               </div>
-            {:else}
-              <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
-                <label for="provider-url" class="block text-sm font-medium text-slate-700"
-                  >URL</label
-                >
-                <input
-                  id="provider-url"
-                  disabled
-                  class="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-                  placeholder="https://example.com/webhooks/gitops"
-                />
+
+              <div class="space-y-3">
+                {#each destinations as destination (destination.channel)}
+                  <div class="rounded-md border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-center gap-2">
+                      <svelte:component
+                        this={targetDefinition(destination.channel).icon}
+                        class="h-4 w-4 text-slate-600"
+                      />
+                      <h5 class="text-sm font-semibold text-slate-900">
+                        {targetDefinition(destination.channel).name}
+                      </h5>
+                    </div>
+
+                    <div class="mt-3">
+                      <p class="mb-1 text-sm font-medium text-slate-700">
+                        {$_('projectSettings.notifications.templates.template')}
+                      </p>
+                      <Dropdown
+                        options={destinationTemplates(destination.channel).map((template) => ({
+                          id: template.id,
+                          name: template.name,
+                        }))}
+                        value={destination.templateId ?? ''}
+                        fullWidth
+                        ariaLabel={$_('projectSettings.notifications.templates.template')}
+                        on:change={(event) =>
+                          updateDestination(destination.channel, { templateId: event.detail.id })}
+                      />
+                    </div>
+
+                    {#if destination.channel === 'mail'}
+                      <div class="mt-3">
+                        <label
+                          for="notification-recipients"
+                          class="block text-sm font-medium text-slate-700"
+                          >{$_('projectSettings.notifications.recipients')}</label
+                        >
+                        <input
+                          id="notification-recipients"
+                          type="text"
+                          value={destination.recipients.join(', ')}
+                          on:input={(event) =>
+                            updateDestination(destination.channel, {
+                              recipients: event.currentTarget.value.split(','),
+                            })}
+                          class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                          placeholder="ops@example.com, owner@example.com"
+                        />
+                        <p class="mt-1 text-xs text-slate-500">
+                          {$_('projectSettings.notifications.recipientsOverrideHint')}
+                        </p>
+                      </div>
+                    {:else if destination.channel === 'slack'}
+                      <div class="mt-3">
+                        <label
+                          for="provider-channel"
+                          class="block text-sm font-medium text-slate-700"
+                          >{$_('projectSettings.notifications.providerChannel')}</label
+                        >
+                        <input
+                          id="provider-channel"
+                          required
+                          value={destination.providerConfig.channel ?? ''}
+                          on:input={(event) =>
+                            updateDestination(destination.channel, {
+                              providerConfig: { channel: event.currentTarget.value },
+                            })}
+                          class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
+                          placeholder="#deployments"
+                        />
+                      </div>
+                    {:else if destination.channel === 'google-chat'}
+                      <div class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                        <MessageCircle class="h-4 w-4" />
+                        {$_('projectSettings.notifications.targets.configuredWebhook')}
+                      </div>
+                    {/if}
+
+                    {#if !targetAvailable(destination.channel)}
+                      <p class="mt-2 text-xs text-amber-700">
+                        {$_('projectSettings.notifications.targets.configureBeforeUse')}
+                      </p>
+                    {/if}
+                  </div>
+                {/each}
               </div>
-            {/if}
-          </section>
+            </section>
+          </div>
         </div>
 
         <div
           class="flex items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 px-5 py-4"
         >
           <p class="text-xs text-slate-500">
-            {channel === 'mail'
+            {destinationsValid()
               ? $_('projectSettings.notifications.readyToCreate')
-              : $_('projectSettings.notifications.providerSoon')}
+              : $_('projectSettings.notifications.destinationsIncomplete')}
           </p>
           <div class="flex gap-2">
             <button
@@ -622,7 +816,7 @@
             >
             <button
               type="submit"
-              disabled={channel !== 'mail'}
+              disabled={!destinationsValid()}
               class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
               >{editingRuleId
                 ? $_('projectSettings.notifications.saveChanges')

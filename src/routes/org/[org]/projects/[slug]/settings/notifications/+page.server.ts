@@ -1,6 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { cancanService } from '$modules/auth';
-import { projectNotificationService } from '$modules/project-notifications';
+import {
+  projectNotificationService,
+  projectNotificationTargetService,
+  projectNotificationTemplateService,
+} from '$modules/project-notifications';
 import { projectService } from '$modules/projects';
 
 async function authorize(user: Parameters<typeof cancanService.canSessionUser>[0], slug: string) {
@@ -27,9 +31,12 @@ export async function load({ parent, locals }) {
     organizationId: project.organization?.id,
   });
 
+  const templates = await projectNotificationTemplateService.list(project.id);
   return {
     notifications: await projectNotificationService.listByProject(project.id),
     events: projectNotificationService.listEvents(),
+    targets: await projectNotificationTargetService.list(project.id),
+    templates: templates.map(({ id, provider, name }) => ({ id, provider, name })),
     canUpdate,
   };
 }
@@ -45,9 +52,9 @@ export const actions = {
         name: String(form.get('name') ?? ''),
         description: String(form.get('description') ?? ''),
         eventName: String(form.get('eventName') ?? ''),
-        channel: String(form.get('channel') ?? 'mail'),
+        destinations: JSON.parse(String(form.get('destinations') ?? '[]')),
         filters: JSON.parse(String(form.get('filters') ?? '[]')),
-        recipients: String(form.get('recipients') ?? ''),
+        recipients: '',
       });
       return { success: true };
     } catch (error) {
@@ -65,9 +72,9 @@ export const actions = {
         name: String(form.get('name') ?? ''),
         description: String(form.get('description') ?? ''),
         eventName: String(form.get('eventName') ?? ''),
-        channel: String(form.get('channel') ?? 'mail'),
+        destinations: JSON.parse(String(form.get('destinations') ?? '[]')),
         filters: JSON.parse(String(form.get('filters') ?? '[]')),
-        recipients: String(form.get('recipients') ?? ''),
+        recipients: '',
       });
       return { success: true };
     } catch (error) {

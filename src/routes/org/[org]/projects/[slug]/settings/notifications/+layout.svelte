@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import { BellRing, History } from '@lucide/svelte';
+  import { BellRing, Crosshair, FileText, History } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
 
   export let data: {
@@ -20,6 +20,16 @@
       label: $_('projectSettings.notifications.history'),
       href: `${basePath}/history`,
       icon: History,
+    },
+    {
+      label: $_('projectSettings.notifications.targets.title'),
+      href: `${basePath}/targets`,
+      icon: Crosshair,
+    },
+    {
+      label: $_('projectSettings.notifications.templates.title'),
+      href: `${basePath}/templates`,
+      icon: FileText,
     },
   ];
 </script>

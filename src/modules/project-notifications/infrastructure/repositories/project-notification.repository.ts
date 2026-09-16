@@ -46,15 +46,17 @@ export class ProjectNotificationRepository extends Repository {
     name: string;
     description?: string;
     eventName: string;
+    channel: ProjectNotificationDomain['channel'];
+    templateId?: string | null;
     filters: ProjectNotificationDomain['filters'];
     providerConfig: ProjectNotificationDomain['providerConfig'];
+    destinations: ProjectNotificationDomain['destinations'];
     recipients: string[];
     enabled: boolean;
   }): Promise<void> {
     const now = new Date().toISOString();
     await this.db.insert(ProjectNotificationEntity).values({
       ...input,
-      channel: 'mail',
       createdAt: now,
       updatedAt: now,
     });
@@ -68,8 +70,10 @@ export class ProjectNotificationRepository extends Repository {
         | 'name'
         | 'description'
         | 'eventName'
+        | 'templateId'
         | 'filters'
         | 'providerConfig'
+        | 'destinations'
         | 'recipients'
         | 'enabled'
       >

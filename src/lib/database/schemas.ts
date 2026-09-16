@@ -151,16 +151,54 @@ export const ProjectNotificationEntity = entity('project_notifications', {
   description: text(),
   eventName: text().notNull(),
   channel: text().notNull().default('mail'),
+  templateId: uuid(),
   filters: json()
     .notNull()
     .$defaultFn(() => []),
   providerConfig: json()
     .notNull()
     .$defaultFn(() => ({})),
+  destinations: json()
+    .notNull()
+    .$defaultFn(() => []),
   recipients: json()
     .notNull()
     .$defaultFn(() => []),
   enabled: bool().notNull().default(true),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const ProjectNotificationTargetEntity = entity('project_notification_targets', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  provider: text().notNull(),
+  credentialEncrypted: text().notNull(),
+  defaultTemplateId: uuid(),
+  enabled: bool().notNull().default(true),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const ProjectNotificationTemplateEntity = entity('project_notification_templates', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  provider: text().notNull(),
+  name: text().notNull(),
+  slug: text().notNull(),
+  content: text().notNull(),
+  recipients: json()
+    .notNull()
+    .$defaultFn(() => []),
+  system: bool().notNull().default(false),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -337,6 +375,14 @@ relations.for(ProjectEntity, ({ one, many }) => ({
   vaultSecrets: many(VaultSecretEntity, { fields: ['id'], references: ['projectId'] }),
   vaultSettings: many(VaultSettingsEntity, { fields: ['id'], references: ['projectId'] }),
   notifications: many(ProjectNotificationEntity, { fields: ['id'], references: ['projectId'] }),
+  notificationTargets: many(ProjectNotificationTargetEntity, {
+    fields: ['id'],
+    references: ['projectId'],
+  }),
+  notificationTemplates: many(ProjectNotificationTemplateEntity, {
+    fields: ['id'],
+    references: ['projectId'],
+  }),
   notificationDeliveries: many(ProjectNotificationDeliveryEntity, {
     fields: ['id'],
     references: ['projectId'],
@@ -345,10 +391,26 @@ relations.for(ProjectEntity, ({ one, many }) => ({
 
 relations.for(ProjectNotificationEntity, ({ one, many }) => ({
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  template: one(ProjectNotificationTemplateEntity, {
+    fields: ['templateId'],
+    references: ['id'],
+  }),
   deliveries: many(ProjectNotificationDeliveryEntity, {
     fields: ['id'],
     references: ['notificationId'],
   }),
+}));
+
+relations.for(ProjectNotificationTargetEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  defaultTemplate: one(ProjectNotificationTemplateEntity, {
+    fields: ['defaultTemplateId'],
+    references: ['id'],
+  }),
+}));
+
+relations.for(ProjectNotificationTemplateEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
 }));
 
 relations.for(ProjectNotificationDeliveryEntity, ({ one }) => ({

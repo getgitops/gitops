@@ -30,7 +30,24 @@ function setup() {
     createDelivery: vi.fn(async () => undefined),
     finishDelivery: vi.fn(async () => undefined),
   } as unknown as ProjectNotificationRepository;
-  return { repository, subscriber: new ProjectNotificationSubscriber(repository) };
+  const templateService = {
+    render: vi.fn(async (_projectId, _provider, _templateId, variables) => variables['event.name']),
+    recipients: vi.fn(async () => ['template@example.com']),
+  };
+  const targetService = { defaultTemplateId: vi.fn(async () => null) };
+  return {
+    repository,
+    templateService,
+    targetService,
+    subscriber: new ProjectNotificationSubscriber(
+      repository,
+      undefined,
+      undefined,
+      undefined,
+      templateService as never,
+      targetService as never,
+    ),
+  };
 }
 
 describe('ProjectNotificationSubscriber', () => {
@@ -79,10 +96,63 @@ describe('ProjectNotificationSubscriber', () => {
     );
   });
 
+  it('uses template recipients when an email rule has no override', async () => {
+    const { repository, templateService, subscriber } = setup();
+    vi.mocked(repository.findEnabledByProjectAndEvent).mockResolvedValueOnce([
+      new ProjectNotificationDomain({
+        id: 'notification-1',
+        projectId: 'project-1',
+        name: 'Template recipients',
+        eventName: 'vault.environment.created',
+        templateId: 'template-1',
+        recipients: [],
+      }),
+    ]);
+
+    await subscriber.handle(
+      new VaultEnvironmentCreatedEvent({
+        projectId: 'project-1',
+        environmentId: 'environment-1',
+        name: 'Production',
+        slug: 'production',
+      }),
+    );
+
+    expect(templateService.recipients).toHaveBeenCalledWith('project-1', 'mail', 'template-1');
+    expect(repository.createDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({ recipients: ['template@example.com'] }),
+    );
+  });
+
+  it('prefers email recipients from the rule over template recipients', async () => {
+    const { repository, templateService, subscriber } = setup();
+
+    await subscriber.handle(
+      new VaultEnvironmentCreatedEvent({
+        projectId: 'project-1',
+        environmentId: 'environment-1',
+        name: 'Production',
+        slug: 'production',
+      }),
+    );
+
+    expect(templateService.recipients).not.toHaveBeenCalled();
+    expect(repository.createDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({ recipients: ['ops@example.com'] }),
+    );
+  });
+
   it('resolves Code Report events through their service', async () => {
-    const { repository } = setup();
+    const { repository, templateService, targetService } = setup();
     const projectResolver = { getById: vi.fn(async () => ({ projectId: 'project-1' })) };
-    const subscriber = new ProjectNotificationSubscriber(repository, projectResolver);
+    const subscriber = new ProjectNotificationSubscriber(
+      repository,
+      projectResolver,
+      undefined,
+      undefined,
+      templateService as never,
+      targetService as never,
+    );
 
     await subscriber.handle(
       new CodeReportAnalysisFailedEvent({
@@ -127,7 +197,7 @@ describe('ProjectNotificationSubscriber', () => {
   });
 
   it('matches organization rules by project organization and role slug', async () => {
-    const { repository } = setup();
+    const { repository, templateService, targetService } = setup();
     vi.mocked(repository.findEnabledByEvent).mockResolvedValueOnce([
       new ProjectNotificationDomain({
         id: 'notification-1',
@@ -141,7 +211,14 @@ describe('ProjectNotificationSubscriber', () => {
     const projectLookup = {
       getProject: vi.fn(async () => ({ organization: { id: 'organization-1' } })),
     };
-    const subscriber = new ProjectNotificationSubscriber(repository, undefined, projectLookup);
+    const subscriber = new ProjectNotificationSubscriber(
+      repository,
+      undefined,
+      projectLookup,
+      undefined,
+      templateService as never,
+      targetService as never,
+    );
 
     await subscriber.handle(
       new OrganizationUserAssignedEvent({
@@ -157,5 +234,93 @@ describe('ProjectNotificationSubscriber', () => {
 
     expect(send).toHaveBeenCalledOnce();
     expect(projectLookup.getProject).toHaveBeenCalledWith('project-1');
+  });
+
+  it('delivers Slack rules to the channel stored on the rule', async () => {
+    const { repository, templateService, targetService } = setup();
+    vi.mocked(repository.findEnabledByProjectAndEvent).mockResolvedValueOnce([
+      new ProjectNotificationDomain({
+        id: 'notification-1',
+        projectId: 'project-1',
+        name: 'Slack alerts',
+        eventName: 'vault.environment.created',
+        channel: 'slack',
+        providerConfig: { channel: '#alerts' },
+        recipients: [],
+      }),
+    ]);
+    const targetSender = { send: vi.fn(async () => undefined) };
+    const subscriber = new ProjectNotificationSubscriber(
+      repository,
+      undefined,
+      undefined,
+      targetSender as never,
+      templateService as never,
+      targetService as never,
+    );
+    const event = new VaultEnvironmentCreatedEvent({
+      projectId: 'project-1',
+      environmentId: 'environment-1',
+      name: 'Production',
+      slug: 'production',
+    });
+
+    await subscriber.handle(event);
+
+    expect(send).not.toHaveBeenCalled();
+    expect(targetSender.send).toHaveBeenCalledWith(
+      'project-1',
+      'slack',
+      '#alerts',
+      'vault.environment.created',
+    );
+  });
+
+  it('delivers every destination configured on one rule', async () => {
+    const { repository, templateService, targetService } = setup();
+    vi.mocked(repository.findEnabledByProjectAndEvent).mockResolvedValueOnce([
+      new ProjectNotificationDomain({
+        id: 'notification-1',
+        projectId: 'project-1',
+        name: 'Multi target',
+        eventName: 'vault.environment.created',
+        destinations: [
+          {
+            channel: 'mail',
+            templateId: null,
+            providerConfig: {},
+            recipients: ['ops@example.com'],
+          },
+          {
+            channel: 'slack',
+            templateId: null,
+            providerConfig: { channel: '#alerts' },
+            recipients: [],
+          },
+        ],
+      }),
+    ]);
+    const targetSender = { send: vi.fn(async () => undefined) };
+    const subscriber = new ProjectNotificationSubscriber(
+      repository,
+      undefined,
+      undefined,
+      targetSender as never,
+      templateService as never,
+      targetService as never,
+    );
+
+    await subscriber.handle(
+      new VaultEnvironmentCreatedEvent({
+        projectId: 'project-1',
+        environmentId: 'environment-1',
+        name: 'Production',
+        slug: 'production',
+      }),
+    );
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(targetSender.send).toHaveBeenCalledOnce();
+    expect(repository.createDelivery).toHaveBeenCalledTimes(2);
   });
 });
