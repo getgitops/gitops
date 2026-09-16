@@ -137,7 +137,7 @@ export class ProjectNotificationService {
       recipients?: unknown;
     };
     const channel = String(input.channel ?? '') as ProjectNotificationChannel;
-    if (!['mail', 'slack', 'google-chat'].includes(channel)) {
+    if (!['mail', 'slack', 'google-chat', 'http'].includes(channel)) {
       throw new Error('This notification target is not available yet');
     }
     const templateId = String(input.templateId ?? '').trim() || null;

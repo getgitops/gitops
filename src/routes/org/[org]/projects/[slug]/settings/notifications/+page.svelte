@@ -93,7 +93,7 @@
     { id: 'mail' as const, name: 'Email', icon: Mail, soon: false },
     { id: 'slack' as const, name: 'Slack', icon: Hash, soon: false },
     { id: 'google-chat' as const, name: 'Google Chat', icon: MessageCircle, soon: false },
-    { id: 'http' as const, name: 'HTTP', icon: Webhook, soon: true },
+    { id: 'http' as const, name: 'HTTP', icon: Webhook, soon: false },
   ];
   $: filterExpression = filters.length
     ? filters
@@ -207,7 +207,7 @@
       destinations = destinations.filter((destination) => destination.channel !== channel);
       return;
     }
-    if (channel === 'http' || !targetAvailable(channel)) return;
+    if (!targetAvailable(channel)) return;
     destinations = [...destinations, newDestination(channel)];
   }
 
@@ -226,7 +226,6 @@
       destinations.length > 0 &&
       destinations.every(
         (destination) =>
-          destination.channel !== 'http' &&
           targetAvailable(destination.channel) &&
           Boolean(destination.templateId) &&
           (destination.channel !== 'slack' || Boolean(destination.providerConfig.channel?.trim())),

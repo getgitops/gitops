@@ -1,7 +1,7 @@
 import { Domain } from '$lib/server/domain/domain';
 import type { ProjectNotificationChannel } from './project-notification.domain';
 
-export type ConfigurableNotificationTarget = 'slack' | 'google-chat';
+export type ConfigurableNotificationTarget = 'slack' | 'google-chat' | 'http';
 
 export class ProjectNotificationTargetDomain extends Domain {
   public projectId: string = '';

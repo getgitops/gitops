@@ -13,6 +13,7 @@
     X,
   } from '@lucide/svelte';
   import { _ } from '$lib/i18n';
+  import Dropdown from '$lib/components/Dropdown.svelte';
 
   type TargetId = 'mail' | 'slack' | 'google-chat' | 'http';
   type Template = {
@@ -21,6 +22,8 @@
     name: string;
     slug: string;
     content: string;
+    format: 'html' | 'text' | 'json';
+    httpConfig: { url: string; method: string; headers: Record<string, string> } | null;
     recipients: string[];
     system: boolean;
   };
@@ -43,15 +46,27 @@
   let editing: Template | null = null;
   let name = '';
   let content = '';
+  let format: 'text' | 'json' = 'json';
+  let httpUrl = 'https://cloud.getgitops.com/health';
+  let httpMethod = 'POST';
+  let httpHeaders = '{}';
   let recipients = '';
 
   $: filteredTemplates = data.templates.filter((template) => template.provider === selectedTarget);
   $: selectedDefinition = targets.find((target) => target.id === selectedTarget)!;
+  const httpMethodOptions = ['POST', 'PUT', 'PATCH', 'DELETE'].map((method) => ({
+    id: method,
+    name: method,
+  }));
 
   function openCreate() {
     editing = null;
     name = '';
     content = '';
+    format = selectedTarget === 'http' ? 'json' : 'text';
+    httpUrl = 'https://cloud.getgitops.com/health';
+    httpMethod = 'POST';
+    httpHeaders = '{}';
     recipients = '';
     modalOpen = true;
   }
@@ -60,12 +75,17 @@
     editing = template;
     name = template.name;
     content = template.content;
+    format = template.format === 'json' ? 'json' : 'text';
+    httpUrl = template.httpConfig?.url ?? 'https://cloud.getgitops.com/health';
+    httpMethod = template.httpConfig?.method ?? 'POST';
+    httpHeaders = JSON.stringify(template.httpConfig?.headers ?? {}, null, 2);
     recipients = template.recipients.join(', ');
     modalOpen = true;
   }
 
   function selectTarget(id: TargetId) {
     selectedTarget = id;
+    format = id === 'http' ? 'json' : 'text';
     modalOpen = false;
   }
 </script>
@@ -136,6 +156,13 @@
                     class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500"
                     >{$_('projectSettings.notifications.templates.default')}</span
                   >{/if}
+                {#if template.provider === 'http'}
+                  <span
+                    class="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-700"
+                  >
+                    {template.format === 'json' ? 'JSON' : 'Text'}
+                  </span>
+                {/if}
               </div>
               <p class="mt-1 font-mono text-xs text-slate-500">{template.slug}</p>
             </div>
@@ -159,6 +186,18 @@
               </div>
             {/if}
           </div>
+          {#if template.provider === 'http' && template.httpConfig}
+            <div
+              class="mt-3 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs sm:grid-cols-[90px_minmax(0,1fr)]"
+            >
+              <span class="font-semibold text-slate-500">{template.httpConfig.method}</span>
+              <span class="break-all font-mono text-slate-700">{template.httpConfig.url}</span>
+              <span class="font-semibold text-slate-500">Headers</span>
+              <code class="break-all text-slate-600"
+                >{JSON.stringify(template.httpConfig.headers)}</code
+              >
+            </div>
+          {/if}
           <pre
             class="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-slate-950 p-3 text-xs leading-5 text-slate-100">{template.content}</pre>
           {#if template.provider === 'mail'}
@@ -229,9 +268,56 @@
             </p>
           </div>
         {/if}
+        {#if selectedTarget === 'http'}
+          <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_160px]">
+            <div>
+              <label for="template-http-url" class="block text-sm font-medium text-slate-700">
+                {$_('projectSettings.notifications.targets.httpUrl')}
+              </label>
+              <input
+                id="template-http-url"
+                name="httpUrl"
+                type="url"
+                required
+                bind:value={httpUrl}
+                class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <p class="mb-1 text-sm font-medium text-slate-700">
+                {$_('projectSettings.notifications.targets.httpMethod')}
+              </p>
+              <input type="hidden" name="httpMethod" value={httpMethod} />
+              <Dropdown
+                options={httpMethodOptions}
+                value={httpMethod}
+                fullWidth
+                ariaLabel={$_('projectSettings.notifications.targets.httpMethod')}
+                on:change={(event) => (httpMethod = event.detail.id)}
+              />
+            </div>
+          </div>
+          <div>
+            <label for="template-http-headers" class="block text-sm font-medium text-slate-700">
+              {$_('projectSettings.notifications.targets.httpHeaders')}
+            </label>
+            <textarea
+              id="template-http-headers"
+              name="httpHeaders"
+              rows="5"
+              bind:value={httpHeaders}
+              class="field-input mt-1 w-full resize-y rounded-md border px-3 py-2 font-mono text-sm"
+            ></textarea>
+            <p class="mt-1 text-xs text-slate-500">
+              {$_('projectSettings.notifications.targets.httpHeadersHint')}
+            </p>
+          </div>
+        {/if}
         <div>
           <label for="template-content" class="block text-sm font-medium text-slate-700"
-            >{$_('projectSettings.notifications.templates.content')}</label
+            >{selectedTarget === 'http'
+              ? $_('projectSettings.notifications.templates.body')
+              : $_('projectSettings.notifications.templates.content')}</label
           ><textarea
             id="template-content"
             name="content"
@@ -241,6 +327,25 @@
             class="field-input mt-1 w-full resize-y rounded-md border px-3 py-2 font-mono text-sm"
           ></textarea>
         </div>
+        {#if selectedTarget === 'http'}
+          <div>
+            <p class="mb-1 text-sm font-medium text-slate-700">
+              {$_('projectSettings.notifications.templates.bodyType')}
+            </p>
+            <input type="hidden" name="format" value={format} />
+            <Dropdown
+              options={[
+                { id: 'json', name: 'JSON' },
+                { id: 'text', name: 'Text' },
+              ]}
+              value={format}
+              ariaLabel={$_('projectSettings.notifications.templates.bodyType')}
+              on:change={(event) => (format = event.detail.id as 'text' | 'json')}
+            />
+          </div>
+        {:else}
+          <input type="hidden" name="format" value={selectedTarget === 'mail' ? 'html' : 'text'} />
+        {/if}
         <div
           class="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"
         >
@@ -250,7 +355,7 @@
               >{index < templateVariables.length - 1 ? ', ' : ''}{/each}</span
           >
         </div>
-        {#if selectedTarget === 'http'}<div
+        {#if selectedTarget === 'http' && format === 'json'}<div
             class="inline-flex items-center gap-2 text-xs text-amber-700"
           >
             <FileJson class="h-4 w-4" />{$_('projectSettings.notifications.templates.validJson')}

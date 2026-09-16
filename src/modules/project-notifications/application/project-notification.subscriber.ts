@@ -107,7 +107,9 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
           : await this.templateService.recipients(rule.projectId, destination.channel, templateId)
         : destination.channel === 'slack'
           ? [destination.providerConfig.channel].filter(Boolean)
-          : ['Google Chat webhook'];
+          : destination.channel === 'google-chat'
+            ? ['Google Chat webhook']
+            : ['HTTP endpoint'];
     if (destination.channel === 'mail' && effectiveRecipients.length === 0) {
       throw new Error('Email notification requires recipients on the rule or template');
     }
@@ -125,7 +127,7 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
 
     try {
       const payload = JSON.stringify(event.payload, null, 2);
-      const content = await this.templateService.render(
+      const rendered = await this.templateService.renderMessage(
         rule.projectId,
         destination.channel,
         templateId,
@@ -140,16 +142,22 @@ export class ProjectNotificationSubscriber implements EventSubscriber {
           new MailNotification({
             to: effectiveRecipients,
             subject: `[GitOps] ${rule.name}: ${event.name}`,
-            content,
+            content: rendered.content,
           }),
         );
-      } else if (destination.channel === 'slack' || destination.channel === 'google-chat') {
+      } else if (
+        destination.channel === 'slack' ||
+        destination.channel === 'google-chat' ||
+        destination.channel === 'http'
+      ) {
         if (!this.targetSender) throw new Error('Notification target sender is not configured');
         await this.targetSender.send(
           rule.projectId,
           destination.channel,
           destination.channel === 'slack' ? destination.providerConfig.channel : '',
-          content,
+          rendered.content,
+          rendered.format === 'json' ? 'json' : 'text',
+          rendered.httpConfig,
         );
       } else {
         throw new Error(`Unsupported notification target: ${destination.channel}`);

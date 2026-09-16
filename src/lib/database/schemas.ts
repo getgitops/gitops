@@ -195,6 +195,8 @@ export const ProjectNotificationTemplateEntity = entity('project_notification_te
   name: text().notNull(),
   slug: text().notNull(),
   content: text().notNull(),
+  format: text().notNull().default('text'),
+  httpConfigEncrypted: text().notNull().default(''),
   recipients: json()
     .notNull()
     .$defaultFn(() => []),

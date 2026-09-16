@@ -27,6 +27,15 @@ function setup(existing: ProjectNotificationTargetDomain | null = null) {
 }
 
 describe('ProjectNotificationTargetService', () => {
+  it('returns HTTP as available but not configured before it is enabled', async () => {
+    const { service } = setup();
+
+    const http = (await service.list('project-1')).find((item) => item.id === 'http');
+
+    expect(http?.configured).toBe(false);
+    expect(http?.enabled).toBe(true);
+  });
+
   it('does not expose encrypted tokens in target listings', async () => {
     const target = new ProjectNotificationTargetDomain({
       id: 'target-1',
@@ -120,6 +129,23 @@ describe('ProjectNotificationTargetService', () => {
 
     expect(repository.create).toHaveBeenCalledWith(
       expect.objectContaining({ credentialEncrypted: `encrypted:${webhook}` }),
+    );
+  });
+
+  it('enables HTTP without storing connection details on the target', async () => {
+    const { repository, service } = setup();
+
+    await service.save('project-1', {
+      provider: 'http',
+      enabled: true,
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'http',
+        credentialEncrypted: '',
+        enabled: true,
+      }),
     );
   });
 

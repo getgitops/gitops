@@ -12,7 +12,7 @@ export const NOTIFICATION_TARGETS = [
   { id: 'mail', configurable: false },
   { id: 'slack', configurable: true },
   { id: 'google-chat', configurable: true },
-  { id: 'http', configurable: false },
+  { id: 'http', configurable: true },
 ] as const;
 
 export class ProjectNotificationTargetService {
@@ -25,31 +25,41 @@ export class ProjectNotificationTargetService {
     const configured = await this.repository.findByProjectId(projectId);
     return NOTIFICATION_TARGETS.map((definition) => {
       const target = configured.find((item) => item.provider === definition.id);
+      const credential =
+        options.includeCredentials && target?.credentialEncrypted
+          ? decryptTargetCredential(target.id, target.provider, target.credentialEncrypted)
+          : null;
       return {
         id: definition.id,
         configurable: definition.configurable,
         configured:
-          definition.id === 'mail' || Boolean(target?.credentialEncrypted && target.enabled),
+          definition.id === 'mail' ||
+          (definition.id === 'http'
+            ? Boolean(target?.enabled)
+            : Boolean(target?.credentialEncrypted && target.enabled)),
         hasCredential: Boolean(target?.credentialEncrypted),
-        credential:
-          options.includeCredentials && target?.credentialEncrypted
-            ? decryptTargetCredential(target.id, target.provider, target.credentialEncrypted)
-            : null,
+        credential: definition.id === 'http' ? null : credential,
         defaultTemplateId: target?.defaultTemplateId ?? null,
-        enabled: target?.enabled ?? definition.id !== 'http',
+        enabled: target?.enabled ?? true,
       };
     });
   }
 
   async save(
     projectId: string,
-    input: { provider: string; credential?: string; enabled?: boolean },
+    input: {
+      provider: string;
+      credential?: string;
+      enabled?: boolean;
+    },
   ) {
     const provider = this.normalizeProvider(input.provider);
     const existing = await this.repository.findByProjectAndProvider(projectId, provider);
-    const credential = input.credential?.trim();
+    const credential = provider === 'http' ? '' : input.credential?.trim();
 
-    if (!existing && !credential) throw new Error('Target credential is required');
+    if (!existing && provider !== 'http' && !credential) {
+      throw new Error('Target credential is required');
+    }
     if (provider === 'google-chat' && credential) this.validateGoogleChatWebhook(credential);
 
     if (existing) {
@@ -66,7 +76,7 @@ export class ProjectNotificationTargetService {
         id,
         projectId,
         provider,
-        credentialEncrypted: encryptTargetCredential(id, provider, credential!),
+        credentialEncrypted: credential ? encryptTargetCredential(id, provider, credential) : '',
         enabled: input.enabled ?? true,
       });
     }
@@ -74,11 +84,13 @@ export class ProjectNotificationTargetService {
 
   async credentials(projectId: string, provider: ConfigurableNotificationTarget) {
     const target = await this.repository.findByProjectAndProvider(projectId, provider);
-    if (!target?.enabled || !target.credentialEncrypted) {
+    if (!target?.enabled || (provider !== 'http' && !target.credentialEncrypted)) {
       throw new Error(`${provider} target is not configured or enabled`);
     }
     return {
-      credential: decryptTargetCredential(target.id, provider, target.credentialEncrypted),
+      credential: target.credentialEncrypted
+        ? decryptTargetCredential(target.id, provider, target.credentialEncrypted)
+        : '',
       defaultTemplateId: target.defaultTemplateId ?? null,
     };
   }
@@ -121,7 +133,7 @@ export class ProjectNotificationTargetService {
   }
 
   private normalizeProvider(value: string): ConfigurableNotificationTarget {
-    if (value !== 'slack' && value !== 'google-chat') {
+    if (value !== 'slack' && value !== 'google-chat' && value !== 'http') {
       throw new Error('This notification target cannot be configured yet');
     }
     return value;

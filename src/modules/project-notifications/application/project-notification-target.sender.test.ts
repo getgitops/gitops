@@ -19,10 +19,12 @@ function setup() {
     credentials: vi.fn(async (_projectId: string, provider: string) =>
       provider === 'slack'
         ? { credential: 'secret-token' }
-        : {
-            credential:
-              'https://chat.googleapis.com/v1/spaces/AAAA/messages?key=key-value&token=token-value',
-          },
+        : provider === 'http'
+          ? { credential: '' }
+          : {
+              credential:
+                'https://chat.googleapis.com/v1/spaces/AAAA/messages?key=key-value&token=token-value',
+            },
     ),
   } as unknown as ProjectNotificationTargetService;
   return { targetService, sender: new ProjectNotificationTargetSender(targetService) };
@@ -64,5 +66,26 @@ describe('ProjectNotificationTargetSender', () => {
     await expect(sender.send('project-1', 'slack', '#alerts', 'Deploy complete')).rejects.toThrow(
       'No sender registered for notification target: slack',
     );
+  });
+
+  it('sends the rendered template as the HTTP request body', async () => {
+    const fetchMock = vi.fn(async () => new Response('', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { sender } = setup();
+
+    await sender.send('project-1', 'http', '', '{"status":"ok"}', 'json', {
+      url: 'https://cloud.getgitops.com/health',
+      method: 'POST',
+      headers: { 'x-gitops': 'notifications' },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith('https://cloud.getgitops.com/health', {
+      method: 'POST',
+      headers: {
+        'x-gitops': 'notifications',
+        'content-type': 'application/json',
+      },
+      body: '{"status":"ok"}',
+    });
   });
 });

@@ -2,6 +2,7 @@ import { ProjectNotificationTemplateEntity } from '$lib/database/schemas';
 import { Repository } from '$lib/server/infra/repository';
 import { ProjectNotificationTemplateDomain } from '../../domain/project-notification-template.domain';
 import type { ProjectNotificationChannel } from '../../domain/project-notification.domain';
+import type { NotificationTemplateFormat } from '../../domain/project-notification-template.domain';
 
 export class ProjectNotificationTemplateRepository extends Repository {
   async findByProjectId(projectId: string): Promise<ProjectNotificationTemplateDomain[]> {
@@ -42,6 +43,8 @@ export class ProjectNotificationTemplateRepository extends Repository {
     name: string;
     slug: string;
     content: string;
+    format: NotificationTemplateFormat;
+    httpConfigEncrypted: string;
     recipients: string[];
     system: boolean;
   }): Promise<void> {
@@ -55,7 +58,14 @@ export class ProjectNotificationTemplateRepository extends Repository {
 
   async update(
     id: string,
-    changes: { name: string; slug: string; content: string; recipients: string[] },
+    changes: {
+      name: string;
+      slug: string;
+      content: string;
+      format: NotificationTemplateFormat;
+      httpConfigEncrypted: string;
+      recipients: string[];
+    },
   ): Promise<void> {
     await this.db
       .update(ProjectNotificationTemplateEntity)

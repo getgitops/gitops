@@ -37,7 +37,7 @@
     { id: 'slack' as const, name: 'Slack', icon: Hash, soon: false },
     { id: 'google-chat' as const, name: 'Google Chat', icon: MessageCircle, soon: false },
     { id: 'mail' as const, name: 'Email', icon: Mail, soon: false },
-    { id: 'http' as const, name: 'HTTP', icon: Webhook, soon: true },
+    { id: 'http' as const, name: 'HTTP', icon: Webhook, soon: false },
   ];
 
   let selectedId: TargetId = 'slack';
@@ -144,9 +144,11 @@
           <p class="mt-1 text-sm text-slate-500">
             {selectedId === 'mail'
               ? $_('projectSettings.notifications.targets.mailDescription')
-              : selected?.configurable
-                ? $_('projectSettings.notifications.targets.configureDescription')
-                : $_('projectSettings.notifications.targets.comingSoonDescription')}
+              : selectedId === 'http'
+                ? $_('projectSettings.notifications.targets.httpTemplateDescription')
+                : selected?.configurable
+                  ? $_('projectSettings.notifications.targets.configureDescription')
+                  : $_('projectSettings.notifications.targets.comingSoonDescription')}
           </p>
         </div>
       </div>
@@ -155,49 +157,51 @@
         <form method="POST" action="?/save" use:enhance={submit} class="mt-5 space-y-5">
           <input type="hidden" name="provider" value={selectedId} />
 
-          <div>
-            <label for="target-credential" class="block text-sm font-medium text-slate-700">
-              {selectedId === 'google-chat'
-                ? $_('projectSettings.notifications.targets.webhookUrl')
-                : $_('projectSettings.notifications.targets.token')}
-            </label>
-            <div class="relative mt-1">
-              <input
-                id="target-credential"
-                name="credential"
-                type={credentialVisible ? 'text' : 'password'}
-                bind:value={credential}
-                required={!selected.hasCredential}
-                disabled={!data.canUpdate}
-                autocomplete="new-password"
-                class="field-input w-full rounded-md border py-2 pl-3 pr-11 text-sm"
-                placeholder={selected.hasCredential
-                  ? $_('projectSettings.notifications.targets.credentialConfigured')
-                  : selectedId === 'google-chat'
-                    ? 'https://chat.googleapis.com/v1/spaces/.../messages?key=...&token=...'
-                    : $_('projectSettings.notifications.targets.tokenPlaceholder')}
-              />
-              <button
-                type="button"
-                on:click={() => (credentialVisible = !credentialVisible)}
-                disabled={!credential}
-                title={credentialVisible
-                  ? $_('projectSettings.notifications.targets.hideCredential')
-                  : $_('projectSettings.notifications.targets.showCredential')}
-                class="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {#if credentialVisible}
-                  <EyeOff class="h-4 w-4" />
-                {:else}
-                  <Eye class="h-4 w-4" />
-                {/if}
-              </button>
+          {#if selectedId !== 'http'}
+            <div>
+              <label for="target-credential" class="block text-sm font-medium text-slate-700">
+                {selectedId === 'google-chat'
+                  ? $_('projectSettings.notifications.targets.webhookUrl')
+                  : $_('projectSettings.notifications.targets.token')}
+              </label>
+              <div class="relative mt-1">
+                <input
+                  id="target-credential"
+                  name="credential"
+                  type={credentialVisible ? 'text' : 'password'}
+                  bind:value={credential}
+                  required={!selected.hasCredential}
+                  disabled={!data.canUpdate}
+                  autocomplete="new-password"
+                  class="field-input w-full rounded-md border py-2 pl-3 pr-11 text-sm"
+                  placeholder={selected.hasCredential
+                    ? $_('projectSettings.notifications.targets.credentialConfigured')
+                    : selectedId === 'google-chat'
+                      ? 'https://chat.googleapis.com/v1/spaces/.../messages?key=...&token=...'
+                      : $_('projectSettings.notifications.targets.tokenPlaceholder')}
+                />
+                <button
+                  type="button"
+                  on:click={() => (credentialVisible = !credentialVisible)}
+                  disabled={!credential}
+                  title={credentialVisible
+                    ? $_('projectSettings.notifications.targets.hideCredential')
+                    : $_('projectSettings.notifications.targets.showCredential')}
+                  class="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {#if credentialVisible}
+                    <EyeOff class="h-4 w-4" />
+                  {:else}
+                    <Eye class="h-4 w-4" />
+                  {/if}
+                </button>
+              </div>
+              <p class="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-500">
+                <ShieldCheck class="h-3.5 w-3.5" />
+                {$_('projectSettings.notifications.targets.credentialHint')}
+              </p>
             </div>
-            <p class="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-500">
-              <ShieldCheck class="h-3.5 w-3.5" />
-              {$_('projectSettings.notifications.targets.credentialHint')}
-            </p>
-          </div>
+          {/if}
 
           <label class="flex items-center justify-between gap-4 border-t border-slate-200 pt-5">
             <span>

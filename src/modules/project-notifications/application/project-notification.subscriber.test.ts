@@ -31,7 +31,18 @@ function setup() {
     finishDelivery: vi.fn(async () => undefined),
   } as unknown as ProjectNotificationRepository;
   const templateService = {
-    render: vi.fn(async (_projectId, _provider, _templateId, variables) => variables['event.name']),
+    renderMessage: vi.fn(async (_projectId, provider, _templateId, variables) => ({
+      content: variables['event.name'],
+      format: provider === 'mail' ? 'html' : provider === 'http' ? 'json' : 'text',
+      httpConfig:
+        provider === 'http'
+          ? {
+              url: 'https://cloud.getgitops.com/health',
+              method: 'POST',
+              headers: {},
+            }
+          : undefined,
+    })),
     recipients: vi.fn(async () => ['template@example.com']),
   };
   const targetService = { defaultTemplateId: vi.fn(async () => null) };
@@ -273,6 +284,68 @@ describe('ProjectNotificationSubscriber', () => {
       'slack',
       '#alerts',
       'vault.environment.created',
+      'text',
+      undefined,
+    );
+  });
+
+  it('delivers HTTP rules using the template body format', async () => {
+    const { repository, templateService, targetService } = setup();
+    vi.mocked(repository.findEnabledByProjectAndEvent).mockResolvedValueOnce([
+      new ProjectNotificationDomain({
+        id: 'notification-1',
+        projectId: 'project-1',
+        name: 'HTTP alert',
+        eventName: 'vault.environment.created',
+        destinations: [
+          {
+            channel: 'http',
+            templateId: 'template-http',
+            providerConfig: {},
+            recipients: [],
+          },
+        ],
+      }),
+    ]);
+    vi.mocked(templateService.renderMessage).mockResolvedValueOnce({
+      content: '{"event":"vault.environment.created"}',
+      format: 'json',
+      httpConfig: {
+        url: 'https://cloud.getgitops.com/health',
+        method: 'POST',
+        headers: {},
+      },
+    });
+    const targetSender = { send: vi.fn(async () => undefined) };
+    const subscriber = new ProjectNotificationSubscriber(
+      repository,
+      undefined,
+      undefined,
+      targetSender as never,
+      templateService as never,
+      targetService as never,
+    );
+
+    await subscriber.handle(
+      new VaultEnvironmentCreatedEvent({
+        projectId: 'project-1',
+        environmentId: 'environment-1',
+        name: 'Production',
+        slug: 'production',
+      }),
+    );
+
+    expect(targetSender.send).toHaveBeenCalledWith(
+      'project-1',
+      'http',
+      '',
+      '{"event":"vault.environment.created"}',
+      'json',
+      {
+        url: 'https://cloud.getgitops.com/health',
+        method: 'POST',
+        headers: {},
+      },
     );
   });
 

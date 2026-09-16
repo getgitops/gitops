@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ProjectNotificationTemplateRepository } from '../infrastructure/repositories/project-notification-template.repository';
 import { ProjectNotificationTemplateService } from './project-notification-template.service';
 
+vi.mock('../infrastructure/crypto/target-credential-cipher', () => ({
+  encryptTargetCredential: vi.fn((_id, _provider, credential) => `encrypted:${credential}`),
+  decryptTargetCredential: vi.fn((_id, _provider, stored) => stored.replace('encrypted:', '')),
+}));
+
 function setup() {
   const rows = new Map<string, any>();
   const repository = {
@@ -25,7 +30,13 @@ describe('ProjectNotificationTemplateService', () => {
 
     expect(repository.create).toHaveBeenCalledTimes(4);
     expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'http', slug: 'default-http', system: true }),
+      expect.objectContaining({
+        provider: 'http',
+        slug: 'default-http',
+        format: 'json',
+        httpConfigEncrypted: expect.stringContaining('cloud.getgitops.com'),
+        system: true,
+      }),
     );
   });
 
@@ -64,6 +75,49 @@ describe('ProjectNotificationTemplateService', () => {
     await expect(
       service.create('project-1', { provider: 'http', name: 'Broken', content: '{broken}' }),
     ).rejects.toThrow();
+  });
+
+  it('allows arbitrary text in HTTP text templates', async () => {
+    const { repository, service } = setup();
+
+    await service.create('project-1', {
+      provider: 'http',
+      name: 'Plain text webhook',
+      content: 'event={{event.name}}',
+      format: 'text',
+      httpConfig: {
+        url: 'https://example.com/webhook',
+        method: 'POST',
+        headers: '{}',
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ format: 'text', content: 'event={{event.name}}' }),
+    );
+  });
+
+  it('normalizes and encrypts HTTP URL, method, and headers with the template', async () => {
+    const { repository, service } = setup();
+
+    await service.create('project-1', {
+      provider: 'http',
+      name: 'Deployment webhook',
+      content: '{"event":"{{event.name}}"}',
+      format: 'json',
+      httpConfig: {
+        url: 'https://example.com/hooks/deploy',
+        method: 'patch',
+        headers: '{"Authorization":"Bearer secret"}',
+      },
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        format: 'json',
+        httpConfigEncrypted: expect.stringContaining('"url":"https://example.com/hooks/deploy"'),
+      }),
+    );
   });
 
   it('renders common variables with the target default template', async () => {

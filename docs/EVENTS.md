@@ -125,8 +125,7 @@ enabled matching rule it creates a pending delivery, renders the target's defaul
 the result through the configured target, and records the delivery as `sent` or `failed`.
 
 Rules are managed at `/org/:org/projects/:slug/settings/notifications`; delivery status is available
-under its `/history` tab. Email, Slack, and Google Chat are active targets; HTTP configuration and
-delivery remain reserved for a later iteration.
+under its `/history` tab. Email, Slack, Google Chat, and HTTP are active targets.
 
 Rules can contain up to ten structured conditions. Conditions are stored as a validated JSON AST
 (`field`, `operator`, `value`), displayed as a JQL-style expression, and combined with `AND`. Only
@@ -146,11 +145,17 @@ token only while sending. Google Chat stores its complete space webhook URL as t
 credential and posts directly to it without an access token or per-rule space. Slack channels remain
 selected independently on each notification rule.
 
+HTTP templates contain the complete request: URL, method, headers, body, and body format. URL,
+method, and headers are encrypted together; the body remains the reusable template content. The
+initial values are `https://cloud.getgitops.com/health`, `POST`, no custom headers, and JSON body.
+The HTTP Target itself only controls whether HTTP delivery is enabled and which template is the
+default.
+
 Reusable content is persisted in `project_notification_templates`. The `/templates` tab supports
 creating and editing templates per target; names produce stable slugs. Every project gets default
 Email, Slack, Google Chat, and HTTP templates. Targets reference their default template, and all
-templates share `{{rule.name}}`, `{{event.name}}`, and `{{event.payload}}` variables. HTTP template
-content is validated as JSON before it is stored.
+templates share `{{rule.name}}`, `{{event.name}}`, and `{{event.payload}}` variables. HTTP templates
+support JSON or text bodies; JSON content is validated before it is stored and again after rendering.
 
 Every notification rule may select multiple destinations. Each destination has its own template and
 target-specific configuration (Email recipients, Slack channel, or the configured Google Chat

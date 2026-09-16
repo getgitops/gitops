@@ -21,7 +21,12 @@ export async function load({ parent, locals }) {
     projectId: project.id,
     organizationId: project.organization?.id,
   });
-  return { templates: await projectNotificationTemplateService.list(project.id), canUpdate };
+  return {
+    templates: await projectNotificationTemplateService.list(project.id, {
+      includeHttpConfig: canUpdate,
+    }),
+    canUpdate,
+  };
 }
 
 function input(form: FormData) {
@@ -29,6 +34,12 @@ function input(form: FormData) {
     provider: String(form.get('provider') ?? ''),
     name: String(form.get('name') ?? ''),
     content: String(form.get('content') ?? ''),
+    format: String(form.get('format') ?? ''),
+    httpConfig: {
+      url: String(form.get('httpUrl') ?? ''),
+      method: String(form.get('httpMethod') ?? 'POST'),
+      headers: String(form.get('httpHeaders') ?? '{}'),
+    },
     recipients: String(form.get('recipients') ?? ''),
   };
 }
