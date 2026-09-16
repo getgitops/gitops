@@ -76,6 +76,14 @@ export class EventBusService {
       return;
     }
 
+    const previousInstance = [...this.attached.keys()].find(
+      (attachedSubscriber) => attachedSubscriber.name === subscriber.name,
+    );
+    if (previousInstance) {
+      this.detach(previousInstance);
+      log.info({ subscriber: subscriber.name }, 'subscriber instance replaced');
+    }
+
     const entries = subscriber.subscribedTo().map((eventClass) => {
       const entry: HandlerEntry = {
         id: `subscriber-${(this.sequence += 1)}`,

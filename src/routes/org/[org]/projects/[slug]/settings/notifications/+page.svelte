@@ -5,6 +5,7 @@
     Hash,
     Mail,
     MessageCircle,
+    Pencil,
     Plus,
     Trash2,
     Webhook,
@@ -54,6 +55,10 @@
   export let form: { error?: string; success?: boolean } | null;
 
   let modalOpen = false;
+  let editingRuleId: string | null = null;
+  let ruleName = '';
+  let ruleDescription = '';
+  let recipients = '';
   let eventName = data.events[0]?.id ?? '';
   let channel: ProviderId = 'mail';
   let filters: FilterCondition[] = [];
@@ -110,6 +115,10 @@
   ];
 
   function resetBuilder() {
+    editingRuleId = null;
+    ruleName = '';
+    ruleDescription = '';
+    recipients = '';
     eventName = data.events[0]?.id ?? '';
     channel = 'mail';
     filters = [];
@@ -118,6 +127,21 @@
   function openBuilder() {
     resetBuilder();
     modalOpen = true;
+  }
+
+  function openEditor(rule: Rule) {
+    editingRuleId = rule.id;
+    ruleName = rule.name;
+    ruleDescription = rule.description ?? '';
+    recipients = rule.recipients.join(', ');
+    eventName = rule.eventName;
+    channel = rule.channel;
+    filters = rule.filters.map((filter) => ({ ...filter, id: ++conditionSequence }));
+    modalOpen = true;
+  }
+
+  function eventLabel(id: string) {
+    return data.events.find((event) => event.id === id)?.name ?? id;
   }
 
   function selectEvent(id: string) {
@@ -159,8 +183,6 @@
         : ['equals', 'not_equals', 'contains', 'not_contains', 'starts_with', 'exists'];
     return operatorOptions.filter((option) => allowed.includes(option.id as FilterOperator));
   }
-
-  $: if (form?.success) modalOpen = false;
 </script>
 
 <svelte:head><title>{$_('projectSettings.notifications.title')}</title></svelte:head>
@@ -223,7 +245,12 @@
                   : $_('projectSettings.notifications.inactive')}
               </span>
             </div>
-            <p class="mt-1 text-xs text-slate-500">{rule.eventName}</p>
+            <p class="mt-1 text-sm text-slate-600">
+              <span class="font-medium text-slate-700"
+                >{$_('projectSettings.notifications.action')}:</span
+              >
+              {eventLabel(rule.eventName)}
+            </p>
             {#if rule.description}
               <p class="mt-1 text-sm text-slate-600">{rule.description}</p>
             {/if}
@@ -238,6 +265,14 @@
           </div>
           {#if data.canUpdate}
             <div class="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                on:click={() => openEditor(rule)}
+                class="btn-secondary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+              >
+                <Pencil class="h-4 w-4" />
+                {$_('projectSettings.notifications.editRule')}
+              </button>
               <form method="POST" action="?/toggle">
                 <input type="hidden" name="id" value={rule.id} />
                 <input type="hidden" name="enabled" value={rule.enabled ? 'false' : 'true'} />
@@ -276,7 +311,9 @@
       <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
         <div>
           <h3 class="text-lg font-semibold text-slate-900">
-            {$_('projectSettings.notifications.newRule')}
+            {editingRuleId
+              ? $_('projectSettings.notifications.editRule')
+              : $_('projectSettings.notifications.newRule')}
           </h3>
           <p class="mt-0.5 text-sm text-slate-500">
             {$_('projectSettings.notifications.builderDescription')}
@@ -289,7 +326,12 @@
           class="p-1 text-slate-500 hover:text-slate-900"><X class="h-5 w-5" /></button
         >
       </div>
-      <form method="POST" action="?/create" class="flex min-h-0 flex-1 flex-col">
+      <form
+        method="POST"
+        action={editingRuleId ? '?/update' : '?/create'}
+        class="flex min-h-0 flex-1 flex-col"
+      >
+        {#if editingRuleId}<input type="hidden" name="id" value={editingRuleId} />{/if}
         <input type="hidden" name="eventName" value={eventName} />
         <input type="hidden" name="channel" value={channel} />
         <input
@@ -310,6 +352,7 @@
                 id="notification-name"
                 name="name"
                 required
+                bind:value={ruleName}
                 class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
                 placeholder={$_('projectSettings.notifications.namePlaceholder')}
               />
@@ -322,6 +365,7 @@
                 id="notification-description"
                 name="description"
                 rows="3"
+                bind:value={ruleDescription}
                 class="field-input mt-1 w-full resize-none rounded-md border px-3 py-2 text-sm"
                 placeholder={$_('projectSettings.notifications.descriptionPlaceholder')}></textarea>
             </div>
@@ -475,6 +519,7 @@
                   name="recipients"
                   type="text"
                   required
+                  bind:value={recipients}
                   class="field-input mt-1 w-full rounded-md border px-3 py-2 text-sm"
                   placeholder="ops@example.com, owner@example.com"
                 />
@@ -529,7 +574,9 @@
               type="submit"
               disabled={channel !== 'mail'}
               class="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >{$_('projectSettings.notifications.create')}</button
+              >{editingRuleId
+                ? $_('projectSettings.notifications.saveChanges')
+                : $_('projectSettings.notifications.create')}</button
             >
           </div>
         </div>

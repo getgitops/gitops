@@ -69,6 +69,26 @@ describe('EventBusService', () => {
     expect(bus.getSubscriptions()).toEqual([]);
   });
 
+  it('replaces subscriber instances with the same name', async () => {
+    const handlers = [vi.fn(), vi.fn(), vi.fn(), vi.fn()];
+
+    for (const handle of handlers) {
+      bus.attach({
+        name: 'project-notifications',
+        subscribedTo: () => [TestEvent],
+        handle,
+      });
+    }
+
+    await bus.emit(new TestEvent({ value: 'once' }));
+
+    expect(handlers.slice(0, -1).every((handler) => handler.mock.calls.length === 0)).toBe(true);
+    expect(handlers.at(-1)).toHaveBeenCalledOnce();
+    expect(bus.getSubscriptions()).toEqual([
+      { event: TestEvent.eventName, handlers: ['project-notifications'] },
+    ]);
+  });
+
   it('marks the event as failed when a handler throws', async () => {
     bus.on(TestEvent, () => {
       throw new Error('boom');

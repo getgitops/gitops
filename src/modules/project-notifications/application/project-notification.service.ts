@@ -45,7 +45,10 @@ export class ProjectNotificationService {
 
   async update(id: string, projectId: string, input: ProjectNotificationInput) {
     const notification = await this.requireOwned(id, projectId);
-    await this.repository.update(notification.id, this.normalize(input));
+    await this.repository.update(notification.id, {
+      ...this.normalize(input),
+      enabled: notification.enabled,
+    });
     return (await this.repository.findById(id))?.toJson();
   }
 

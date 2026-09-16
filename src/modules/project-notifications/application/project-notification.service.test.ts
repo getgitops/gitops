@@ -80,4 +80,27 @@ describe('ProjectNotificationService', () => {
     );
     expect(repository.update).not.toHaveBeenCalled();
   });
+
+  it('preserves the enabled state when editing a rule', async () => {
+    const rule = new ProjectNotificationDomain({
+      id: 'notification-1',
+      projectId: 'project-1',
+      name: 'Old name',
+      eventName: 'vault.environment.updated',
+      recipients: ['ops@example.com'],
+      enabled: false,
+    });
+    const { repository, service } = setup(rule);
+
+    await service.update(rule.id, rule.projectId, {
+      name: 'New name',
+      eventName: rule.eventName,
+      recipients: rule.recipients,
+    });
+
+    expect(repository.update).toHaveBeenCalledWith(
+      rule.id,
+      expect.objectContaining({ name: 'New name', enabled: false }),
+    );
+  });
 });

@@ -55,6 +55,26 @@ export const actions = {
     }
   },
 
+  update: async ({ request, params, locals }) => {
+    const { project, canUpdate } = await authorize(locals.user, params.slug);
+    if (!canUpdate) return fail(403, { error: 'Forbidden' });
+    const form = await request.formData();
+
+    try {
+      await projectNotificationService.update(String(form.get('id') ?? ''), project.id, {
+        name: String(form.get('name') ?? ''),
+        description: String(form.get('description') ?? ''),
+        eventName: String(form.get('eventName') ?? ''),
+        channel: String(form.get('channel') ?? 'mail'),
+        filters: JSON.parse(String(form.get('filters') ?? '[]')),
+        recipients: String(form.get('recipients') ?? ''),
+      });
+      return { success: true };
+    } catch (error) {
+      return errorResponse(error);
+    }
+  },
+
   toggle: async ({ request, params, locals }) => {
     const { project, canUpdate } = await authorize(locals.user, params.slug);
     if (!canUpdate) return fail(403, { error: 'Forbidden' });
