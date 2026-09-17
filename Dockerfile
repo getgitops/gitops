@@ -34,7 +34,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
 # Persistent data directory (SQLite DB + gitdb clone)
-VOLUME ["/app/data"]
+# VOLUME ["/app/data"]
 
 EXPOSE 3000
 
