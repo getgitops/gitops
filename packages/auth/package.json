@@ -1,0 +1,7 @@
+{
+  "name": "@getgitops/auth",
+  "version": "0.0.1",
+  "private": true,
+  "module": "./src/index.ts",
+  "type": "module"
+}
