@@ -4,5 +4,10 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "dev": "bun run --filter './apps/*' dev",
+    "dev:cloud": "bun run --cwd apps/cloud dev",
+    "dev:context": "bun run --cwd apps/context dev"
+  }
 }
