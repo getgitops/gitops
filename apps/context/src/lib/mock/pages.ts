@@ -9,6 +9,9 @@ export type Block =
 export interface Person {
 	name: string;
 	initials: string;
+	email: string;
+	/** Tailwind background class for the avatar; defaults to the accent colour. */
+	color?: string;
 }
 
 export interface ActivityEntry {
@@ -42,8 +45,13 @@ export interface Page {
 	blocks: Block[];
 }
 
-export const carlos: Person = { name: 'Carlos', initials: 'CL' };
-export const ana: Person = { name: 'Ana', initials: 'AM' };
+export const carlos: Person = { name: 'Carlos', initials: 'CL', email: 'carlos@kettu.dev' };
+export const ana: Person = {
+	name: 'Ana',
+	initials: 'AM',
+	email: 'ana@kettu.dev',
+	color: 'bg-violet-300'
+};
 
 const defaultGit: Page['git'] = {
 	status: 'in-sync',
@@ -63,7 +71,7 @@ const ol = (...items: string[]): Block => ({
 	items: items.map((html) => ({ id: id(), html }))
 });
 
-function page(data: Partial<Page> & Pick<Page, 'slug' | 'title' | 'path'>): Page {
+export function makePage(data: Partial<Page> & Pick<Page, 'slug' | 'title' | 'path'>): Page {
 	return {
 		description: '',
 		type: 'Document',
@@ -82,6 +90,8 @@ function page(data: Partial<Page> & Pick<Page, 'slug' | 'title' | 'path'>): Page
 		...data
 	};
 }
+
+const page = makePage;
 
 export const mockPages: Page[] = [
 	page({
@@ -211,8 +221,8 @@ export const mockPages: Page[] = [
 	}),
 	page({
 		slug: 'gitops',
-		title: 'GitOps',
-		path: ['Projects'],
+		title: 'Overview',
+		path: ['Projects', 'GitOps'],
 		description: 'Declarative deployments driven by git.',
 		tags: ['project'],
 		blocks: [h('Goals'), p('Ship every environment from a single source of truth.')]
@@ -245,6 +255,22 @@ export const mockPages: Page[] = [
 		path: ['Documentation', 'Guides'],
 		description: 'Set up a local development environment in five minutes.',
 		blocks: [h('Requirements'), ol('Bun 1.2+', 'Docker', 'A GitHub account')]
+	}),
+	page({
+		slug: 'architecture-decisions',
+		title: 'Architecture Decisions',
+		path: ['Documentation', 'Guides'],
+		description: 'Log of the architecture decisions (ADRs) taken for Context.',
+		tags: ['architecture', 'adr'],
+		links: ['system-architecture', 'gitdb'],
+		blocks: [
+			h('Decisions'),
+			ol(
+				'<b>ADR-001</b> – Store content as git repositories (GitDB).',
+				'<b>ADR-002</b> – Use SvelteKit for the frontend.',
+				'<b>ADR-003</b> – Redis for caching and background jobs.'
+			)
+		]
 	}),
 	page({
 		slug: 'ideas',
@@ -280,5 +306,93 @@ export const mockPages: Page[] = [
 			h('Ownership'),
 			p('Each value has a single owner; borrowing is checked at compile time.')
 		]
+	})
+];
+
+/** Pages of the "Handbook" workspace. */
+export const handbookPages: Page[] = [
+	page({
+		slug: 'home',
+		title: 'Home',
+		path: ['Workspace'],
+		description: 'Everything you need to know about working at Kettu.',
+		tags: ['handbook'],
+		links: ['onboarding', 'code-of-conduct'],
+		blocks: [
+			h('Start here'),
+			ol(
+				'<b>Onboarding</b> – Your first two weeks, step by step.',
+				'<b>Code of Conduct</b> – How we treat each other.',
+				'<b>Team Rituals</b> – Weekly meetings and demos.'
+			)
+		]
+	}),
+	page({
+		slug: 'onboarding',
+		title: 'Onboarding',
+		path: ['People'],
+		description: 'Checklist for new team members.',
+		tags: ['people'],
+		author: ana,
+		blocks: [h('Week one'), ol('Set up your laptop', 'Meet your buddy', 'Ship a small fix')]
+	}),
+	page({
+		slug: 'benefits',
+		title: 'Benefits',
+		path: ['People'],
+		description: 'Holidays, equipment budget and learning allowance.',
+		blocks: [h('Time off'), p('25 days of holidays plus local bank holidays.')]
+	}),
+	page({
+		slug: 'code-of-conduct',
+		title: 'Code of Conduct',
+		path: ['Policies'],
+		description: 'Expected behaviour in every Kettu space.',
+		tags: ['policy'],
+		blocks: [h('Our pledge'), p('We make participation a harassment-free experience for everyone.')]
+	}),
+	page({
+		slug: 'team-rituals',
+		title: 'Team Rituals',
+		type: 'Note',
+		path: ['Workspace'],
+		description: 'Recurring meetings and how to run them.',
+		blocks: [ol('<b>Monday</b> – Planning', '<b>Thursday</b> – Demos', '<b>Friday</b> – Retro')]
+	})
+];
+
+/** Pages of the "Research" workspace. */
+export const researchPages: Page[] = [
+	page({
+		slug: 'home',
+		title: 'Home',
+		path: ['Workspace'],
+		description: 'Experiments and write-ups from the research team.',
+		tags: ['research'],
+		links: ['llm-evaluations', 'vector-search'],
+		blocks: [
+			h('Active experiments'),
+			ol(
+				'<b>LLM Evaluations</b> – Benchmarks for page summaries.',
+				'<b>Vector Search</b> – Semantic search over pages.'
+			)
+		]
+	}),
+	page({
+		slug: 'llm-evaluations',
+		title: 'LLM Evaluations',
+		path: ['Experiments'],
+		description: 'How we score AI summaries of pages and folders.',
+		tags: ['ai', 'experiment'],
+		blocks: [h('Metrics'), ol('Faithfulness', 'Coverage', 'Latency')]
+	}),
+	page({
+		slug: 'vector-search',
+		title: 'Vector Search',
+		path: ['Experiments'],
+		description: 'Embedding pages for semantic search.',
+		tags: ['search', 'experiment'],
+		author: ana,
+		blocks: [h('Approach'), p('Chunk pages by heading and embed each chunk separately.')]
 	})
 ];

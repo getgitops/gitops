@@ -17,19 +17,18 @@
 		X
 	} from '@lucide/svelte';
 	import type { Page } from '$lib/mock/pages';
+	import { ui, type InfoTab } from '$lib/state/ui.svelte';
 	import { workspace } from '$lib/state/workspace.svelte';
 	import Avatar from './Avatar.svelte';
 
 	let { page }: { page: Page } = $props();
 
-	type Tab = 'document' | 'links' | 'activity';
-	const tabs: { id: Tab; label: string }[] = [
+	const tabs: { id: InfoTab; label: string }[] = [
 		{ id: 'document', label: 'Document' },
 		{ id: 'links', label: 'Links' },
 		{ id: 'activity', label: 'Activity' }
 	];
 
-	let tab = $state<Tab>('document');
 	let open = $state({ properties: true, git: true, actions: true });
 	let copied = $state(false);
 
@@ -95,13 +94,13 @@
 				type="button"
 				class="relative px-[9px] text-[12.5px] transition-colors {t.id === 'links'
 					? 'ml-[17px]'
-					: ''} {t.id === 'activity' ? 'ml-[23px]' : ''} {tab === t.id
+					: ''} {t.id === 'activity' ? 'ml-[23px]' : ''} {ui.infoTab === t.id
 					? 'font-medium text-fg'
 					: 'text-fg-muted hover:text-fg-soft'}"
-				onclick={() => (tab = t.id)}
+				onclick={() => (ui.infoTab = t.id)}
 			>
 				{t.label}
-				{#if tab === t.id}
+				{#if ui.infoTab === t.id}
 					<span class="absolute inset-x-0 -bottom-px h-[2px] bg-accent"></span>
 				{/if}
 			</button>
@@ -117,7 +116,7 @@
 	</div>
 
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		{#if tab === 'document'}
+		{#if ui.infoTab === 'document'}
 			<section class="px-[23px] pt-[23px] pb-[22px]">
 				{@render sectionHeader('Properties', 'properties')}
 				{#if open.properties}
@@ -229,7 +228,7 @@
 					</ul>
 				{/if}
 			</section>
-		{:else if tab === 'links'}
+		{:else if ui.infoTab === 'links'}
 			<section class="px-[23px] pt-[23px]">
 				<h3 class="text-[13.5px] font-semibold text-fg">
 					Outgoing <span class="font-normal text-fg-muted">{outgoing.length}</span>
