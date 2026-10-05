@@ -95,6 +95,10 @@ const permissions = {
                   resource: 'environments',
                   permissions: grantsFor('project:vault', 'environments'),
                 },
+                settings: {
+                  resource: 'settings',
+                  permissions: grantsFor('project:vault', 'settings'),
+                },
               },
             },
             codereport: {

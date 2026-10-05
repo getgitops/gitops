@@ -9,6 +9,11 @@ export interface CodeReportGitInfo {
   commit?: string | null;
   commitMessage?: string | null;
   author?: string | null;
+  committer?: string | null;
+  version?: string | null;
+  scannedAt?: string | null;
+  artifactName?: string | null;
+  artifactType?: string | null;
 }
 
 export class CodeReportAnalysisDomain extends Domain {

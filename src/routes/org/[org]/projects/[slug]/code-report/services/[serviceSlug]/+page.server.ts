@@ -3,6 +3,8 @@ import { codeReportService, codeReportAnalysisService } from '$modules/code-repo
 import { projectService } from '$modules/projects';
 import { cancanService } from '$modules/auth';
 
+const CODE_REPORT_TOOLS = ['trivy', 'syft', 'sbom', 'gitleaks'];
+
 export async function load({ parent, params, locals }) {
   const { project } = await parent();
 
@@ -51,10 +53,9 @@ export async function load({ parent, params, locals }) {
         updatedAt: analysis.updatedAt,
       }));
 
-    const latestByTool = await codeReportAnalysisService.getLatestByTool(
-      service.id,
-      service.tools ?? [],
-    );
+    const latestByTool = await codeReportAnalysisService.getLatestByTool(service.id, [
+      ...new Set([...(service.tools ?? []), ...CODE_REPORT_TOOLS]),
+    ]);
 
     const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
 

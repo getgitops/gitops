@@ -9,7 +9,7 @@ export default [
   js.configs.recommended,
   ...svelte.configs['flat/recommended'],
   {
-    ignores: ['.svelte-kit/**', 'build/**', 'dist/**'],
+    ignores: ['.svelte-kit/**', 'build/**', 'dist/**', 'src/lib/paraglide/**'],
   },
   {
     files: ['**/*.{js,ts}'],

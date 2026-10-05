@@ -205,7 +205,7 @@ export class ProjectService {
 
   private sanitizeModules(modules?: Partial<ProjectModules>): ProjectModules {
     return {
-      vault: false,
+      vault: modules?.vault ?? DEFAULT_PROJECT_MODULES.vault,
       codereport: modules?.codereport ?? DEFAULT_PROJECT_MODULES.codereport,
       stateiac: false,
     };

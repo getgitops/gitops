@@ -6,8 +6,10 @@ services:
       - .env
     environment:
       GITDB_DATA_PATH: /app/data/gitdb
+      SSH_AUTH_SOCK: /ssh-agent
     ports:
       - '3000:3000'
     volumes:
       - ./data:/app/data
+      - /run/host-services/ssh-auth.sock:/ssh-agent
     restart: unless-stopped

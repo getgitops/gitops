@@ -67,7 +67,6 @@
       label: 'Vault',
       icon: Shield,
       href: `/org/${orgSlug}/projects/${project.slug}/vault`,
-      soon: true,
     },
     {
       key: 'codereport',
@@ -115,11 +114,6 @@
   function toggleModule(key: keyof ProjectModules) {
     if (moduleOptions.some((option) => option.key === key && option.soon)) return;
     editModules = { ...editModules, [key]: !editModules[key] };
-  }
-
-  function moduleValueForSubmit(key: keyof ProjectModules) {
-    const option = moduleOptions.find((moduleOption) => moduleOption.key === key);
-    return editModules[key] && !option?.soon ? 'on' : '';
   }
 
   async function copySlug() {
@@ -244,9 +238,9 @@
     class="overflow-hidden rounded-md border border-slate-200 bg-white"
   >
     <input type="hidden" name="id" value={project.id} />
-    <input type="hidden" name="moduleVault" value={moduleValueForSubmit('vault')} />
-    <input type="hidden" name="moduleCodeReport" value={moduleValueForSubmit('codereport')} />
-    <input type="hidden" name="moduleStateIac" value={moduleValueForSubmit('stateiac')} />
+    <input type="hidden" name="moduleVault" value={editModules.vault ? 'on' : ''} />
+    <input type="hidden" name="moduleCodeReport" value={editModules.codereport ? 'on' : ''} />
+    <input type="hidden" name="moduleStateIac" value="" />
     <div class="flex items-center justify-end gap-3 border-b border-slate-200 px-4 py-4">
       {#if isArchived}
         <span

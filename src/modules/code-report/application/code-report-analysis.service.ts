@@ -113,11 +113,40 @@ export class CodeReportAnalysisService {
       result: input.result,
       summary: input.summary,
       securityPolicies: await this.evaluateSecurityPolicies(analysis.serviceId, analysis.tool, input.result),
-      gitInfo: input.gitInfo,
+      gitInfo: this.resolveGitInfo(analysis.gitInfo, input.gitInfo, input.result),
       error: null,
     });
 
     return this.getById(id);
+  }
+
+  private resolveGitInfo(
+    current: CodeReportGitInfo | null | undefined,
+    incoming: CodeReportGitInfo | null | undefined,
+    result: unknown,
+  ): CodeReportGitInfo | undefined {
+    const resolved: CodeReportGitInfo = { ...(current ?? {}), ...(incoming ?? {}) };
+
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      const root = result as Record<string, unknown>;
+      const metadata = root.Metadata;
+      if (metadata && typeof metadata === 'object') {
+        const row = metadata as Record<string, unknown>;
+        resolved.repositoryUrl = resolved.repositoryUrl ?? (row.RepoURL ? String(row.RepoURL) : null);
+        resolved.commit = resolved.commit ?? (row.Commit ? String(row.Commit) : null);
+        resolved.commitMessage =
+          resolved.commitMessage ?? (row.CommitMsg ? String(row.CommitMsg) : null);
+        resolved.author = resolved.author ?? (row.Author ? String(row.Author) : null);
+        resolved.committer = resolved.committer ?? (row.Committer ? String(row.Committer) : null);
+      }
+      resolved.scannedAt = resolved.scannedAt ?? (root.CreatedAt ? String(root.CreatedAt) : null);
+      resolved.artifactName = resolved.artifactName ?? (root.ArtifactName ? String(root.ArtifactName) : null);
+      resolved.artifactType = resolved.artifactType ?? (root.ArtifactType ? String(root.ArtifactType) : null);
+    }
+
+    return Object.values(resolved).some((value) => value !== undefined && value !== null && value !== '')
+      ? resolved
+      : undefined;
   }
 
   // compliance is frozen at completion time so the UI never re-evaluates on read

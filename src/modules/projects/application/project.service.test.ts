@@ -171,12 +171,12 @@ describe('ProjectService', () => {
       });
     });
 
-    it('keeps soon modules disabled while accepting available module overrides', async () => {
+    it('keeps only unavailable modules disabled while accepting available module overrides', async () => {
       const project = await createProject({
         name: 'Project D',
         modules: { vault: true, codereport: false, stateiac: true },
       });
-      expect(project.modules).toEqual({ vault: false, codereport: false, stateiac: false });
+      expect(project.modules).toEqual({ vault: true, codereport: false, stateiac: false });
     });
   });
 
@@ -227,12 +227,12 @@ describe('ProjectService', () => {
       const updated = await service.updateProject(created.id, {
         modules: { vault: true, stateiac: true },
       });
-      expect(updated.modules).toEqual({ vault: false, codereport: true, stateiac: false });
+      expect(updated.modules).toEqual({ vault: true, codereport: true, stateiac: false });
 
       const updatedAgain = await service.updateProject(created.id, {
         modules: { codereport: false },
       });
-      expect(updatedAgain.modules).toEqual({ vault: false, codereport: false, stateiac: false });
+      expect(updatedAgain.modules).toEqual({ vault: true, codereport: false, stateiac: false });
     });
 
     it('updates the status', async () => {

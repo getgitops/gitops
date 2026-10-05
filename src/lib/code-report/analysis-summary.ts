@@ -1,5 +1,7 @@
 // Best-effort summary for Trivy-style JSON reports (top-level `Results[]`, each entry may
 // carry `Vulnerabilities`/`Secrets`/`Packages`). Other tool formats simply yield all-zero counts.
+import { vulnerabilityUrl } from './vulnerability-format';
+
 export type AnalysisSummary = {
   vulnerabilities: {
     critical: number;
@@ -156,9 +158,11 @@ export function extractVulnerabilities(result: unknown): VulnerabilityFinding[] 
           ? Number((epss as Record<string, unknown>).Percentile)
           : null;
 
+      const vulnerabilityId = String(vuln.VulnerabilityID || `${vuln.PkgName || 'unknown'}-${row.Target || ''}`);
+
       return [
         {
-          id: String(vuln.VulnerabilityID || `${vuln.PkgName || 'unknown'}-${row.Target || ''}`),
+          id: vulnerabilityId,
           packageName: String(vuln.PkgName || 'Paquete desconocido'),
           installedVersion: String(vuln.InstalledVersion || 'desconocida'),
           fixedVersion: String(vuln.FixedVersion || ''),
@@ -179,7 +183,7 @@ export function extractVulnerabilities(result: unknown): VulnerabilityFinding[] 
           title: String(vuln.Title || 'Vulnerabilidad sin título'),
           description: String(vuln.Description || ''),
           primaryUrl: String(vuln.PrimaryURL || ''),
-          cveUrl: `https://nvd.nist.gov/vuln/detail/${String(vuln.VulnerabilityID || '')}`,
+          cveUrl: vulnerabilityUrl(vulnerabilityId, String(vuln.PrimaryURL || '')),
           cvssScore: score,
           cweIds: Array.isArray(vuln.CweIDs) ? vuln.CweIDs.map(String) : [],
           references: Array.isArray(vuln.References) ? vuln.References.map(String) : [],
@@ -306,12 +310,23 @@ export function extractSbomComponents(result: unknown): SbomComponent[] {
           return path ? [String(path)] : [];
         })
       : [];
+    const properties = Array.isArray(row.properties) ? row.properties : [];
+    const propertyValue = (name: string) => {
+      const property = properties.find(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          (item as Record<string, unknown>).name === name,
+      ) as Record<string, unknown> | undefined;
+      return property?.value ? String(property.value) : '';
+    };
+    const type = propertyValue('syft:package:type') || propertyValue('syft:package:language') || row.type;
 
     return [
       {
         name: String(row.name || 'Componente sin nombre'),
         version: String(row.version || 'desconocida'),
-        type: String(row.type || 'unknown'),
+        type: String(type || 'unknown'),
         purl: String(row.purl || ''),
         licenses: [...new Set(licenses)],
         locations,

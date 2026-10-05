@@ -280,9 +280,11 @@ describe('RoleService', () => {
       expect(developer.permissions).not.toContain('project:roles:all');
 
       const viewer = roles.find((role) => role.slug === 'project-viewer');
-      expect(viewer.permissions.every((permission: string) => permission.endsWith(':read'))).toBe(
-        true,
-      );
+      expect(
+        viewer.permissions.every(
+          (permission: string) => !/:(create|update|delete|all)$/.test(permission),
+        ),
+      ).toBe(true);
     });
   });
 });

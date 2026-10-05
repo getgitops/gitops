@@ -5,7 +5,7 @@ import { organizationService } from '$modules/organization';
 import { projectService } from '$modules/projects';
 import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
 import { startGitDb } from '$lib/server/gitdb';
-import { isServerReady, markServerFailed, markServerReady } from '$lib/server/server-ready';
+import { markServerFailed, markServerReady } from '$lib/server/server-ready';
 import { runWithActor } from '$lib/server/request-context';
 import {
   createLogger,
@@ -63,20 +63,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  // while starting up (or if startup failed), skip all validation and show maintenance page
-  if (!isServerReady()) {
-    if (pathname === '/maintenance') {
-      return resolve(event);
-    }
-    if (isApiRequest) {
-      return new Response(JSON.stringify({ error: 'Server is starting up' }), {
-        status: 503,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    return new Response(null, { status: 302, headers: { location: '/maintenance' } });
-  }
-
+  // readiness gating happens at the infrastructure level: Cloud Run's startup probe
+  // polls /health and only routes traffic once the server reports ready
   if (pathname.startsWith('/bootstrap')) {
     if (isBootstrapCompleted()) {
       return new Response(null, { status: 302, headers: { location: '/' } });

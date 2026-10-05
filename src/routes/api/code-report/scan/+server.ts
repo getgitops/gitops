@@ -52,8 +52,10 @@ type AnalyseResultBody = {
     repositoryUrl?: string;
     branch?: string;
     commit?: string;
+    commitMessage?: string;
     version?: string;
     author?: string;
+    committer?: string;
   };
   status?: string;
   error?: string | null;
@@ -74,7 +76,9 @@ function normalizeGitInfo(gitInfo: AnalyseResultBody['gitInfo']) {
     repositoryUrl: gitInfo.repositoryUrl || null,
     branch: gitInfo.branch ?? null,
     commit: gitInfo.commit ?? null,
+    commitMessage: gitInfo.commitMessage ?? null,
     author: gitInfo.author ?? null,
+    committer: gitInfo.committer ?? null,
     version: gitInfo.version ?? null,
   };
 }
@@ -206,6 +210,7 @@ export async function POST({ request, locals }) {
       await codeReportAnalysisService.completeAnalysis(body.analysisId, {
         result: body.result,
         summary: undefined,
+        gitInfo: normalizeGitInfo(body.gitInfo),
       });
     }
   }

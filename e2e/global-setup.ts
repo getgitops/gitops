@@ -59,7 +59,7 @@ async function waitForServer(url: string, timeoutMs: number) {
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, { redirect: 'manual' });
-      // any HTTP response (even a redirect to /bootstrap or /maintenance) means the process
+      // any HTTP response (even a redirect to /bootstrap) means the process
       // is up; we only need "port is listening and hooks.server.ts responded".
       if (response.status > 0) return;
     } catch (error) {
@@ -75,6 +75,11 @@ export default async function globalSetup() {
 
   const env = buildEnv();
   Object.assign(process.env, env);
+
+  // clone the throwaway remote here: without it the seed writes JSON into a directory that has
+  // no `.git`, and the dev server later fails to clone into that non-empty path
+  const { startGitDb } = await import('../src/lib/server/gitdb');
+  await startGitDb();
 
   const { seedAll } = await import('./fixtures/seed');
   const seedOutput = await seedAll();

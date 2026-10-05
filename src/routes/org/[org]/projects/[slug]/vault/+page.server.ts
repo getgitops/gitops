@@ -1,6 +1,7 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { cancanService } from '$modules/auth';
 import { projectService } from '$modules/projects';
+import { vaultService } from '$modules/vault';
 
 export async function load({ params, locals }) {
   let project;
@@ -28,5 +29,9 @@ export async function load({ params, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  return {};
+  const environments = await vaultService.listEnvironments(project.id);
+  throw redirect(
+    302,
+    `/org/${params.org}/projects/${params.slug}/vault/${environments[0]?.slug ?? 'dev'}`,
+  );
 }
