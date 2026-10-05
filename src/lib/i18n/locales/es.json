@@ -212,7 +212,17 @@
     "newPassword": "Nueva contraseña",
     "resetPassword": "Restablecer contraseña",
     "resetting": "Restableciendo...",
-    "passwordResetSuccess": "Tu contraseña se ha restablecido. Inicia sesión con tu nueva contraseña."
+    "passwordResetSuccess": "Tu contraseña se ha restablecido. Inicia sesión con tu nueva contraseña.",
+    "ssoContinueWithGoogle": "Continuar con Google",
+    "ssoOrganizationHint": "Inicio de sesión único de {organization}",
+    "ssoDivider": "o",
+    "ssoErrorCancelled": "Se canceló el inicio de sesión con Google.",
+    "ssoErrorNotConfigured": "El inicio de sesión con Google no está activado para esta organización.",
+    "ssoErrorInvalidState": "La solicitud de inicio de sesión ha caducado. Inténtalo de nuevo.",
+    "ssoErrorEmailNotVerified": "El email de tu cuenta de Google no está verificado.",
+    "ssoErrorDomainNotAllowed": "El dominio de esta cuenta de Google no está permitido en esta organización.",
+    "ssoErrorNotInvited": "Esta cuenta de Google no tiene acceso a esta organización. Pide una invitación a un administrador.",
+    "ssoErrorGeneric": "Falló el inicio de sesión con Google. Inténtalo de nuevo o usa tu contraseña."
   },
   "bootstrap": {
     "title": "Configuración del clúster",
@@ -755,7 +765,13 @@
       "comingSoon": "Próximamente",
       "comingSoonDescription": "La rotación de claves, la política de cifrado y la protección de secretos por ámbito están previstas para una futura versión.",
       "saveNotWired": "La configuración global de autenticación aún no está conectada a una acción del servidor.",
-      "localAuthTitle": "Autenticación local: siempre ACTIVA"
+      "localAuthTitle": "Autenticación local: siempre ACTIVA",
+      "googleSecretConfigured": "Hay un client secret guardado (cifrado). Déjalo vacío para conservarlo o escribe uno nuevo para reemplazarlo.",
+      "googleAllowedDomains": "Dominios de Google Workspace permitidos",
+      "googleAllowedDomainsHelp": "Separados por comas. Solo pueden entrar cuentas de estos dominios de Workspace. Déjalo vacío para aceptar cualquier cuenta de Google verificada. Los usuarios siguen necesitando una invitación a la organización.",
+      "googleRedirectUri": "URI de redirección autorizada (GCP):",
+      "googleLoginUrl": "URL de login de la organización:",
+      "saveSaml": "Guardar ajustes SAML"
     },
     "projects": {
       "title": "Proyectos",

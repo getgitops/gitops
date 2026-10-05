@@ -212,7 +212,17 @@
     "newPassword": "New password",
     "resetPassword": "Reset password",
     "resetting": "Resetting...",
-    "passwordResetSuccess": "Your password has been reset. Sign in with your new password."
+    "passwordResetSuccess": "Your password has been reset. Sign in with your new password.",
+    "ssoContinueWithGoogle": "Continue with Google",
+    "ssoOrganizationHint": "Single sign-on for {organization}",
+    "ssoDivider": "or",
+    "ssoErrorCancelled": "Google sign-in was cancelled.",
+    "ssoErrorNotConfigured": "Google sign-in is not enabled for this organization.",
+    "ssoErrorInvalidState": "The sign-in request expired. Please try again.",
+    "ssoErrorEmailNotVerified": "Your Google account email is not verified.",
+    "ssoErrorDomainNotAllowed": "This Google account domain is not allowed for this organization.",
+    "ssoErrorNotInvited": "This Google account has no access to this organization. Ask an administrator for an invitation.",
+    "ssoErrorGeneric": "Google sign-in failed. Please try again or use your password."
   },
   "bootstrap": {
     "title": "Cluster setup",
@@ -755,7 +765,13 @@
       "comingSoon": "Coming soon",
       "comingSoonDescription": "Key rotation, encryption policy, and scoped secret protection settings are planned for a future release.",
       "saveNotWired": "Global authentication settings are not wired to a server action yet.",
-      "localAuthTitle": "Local authentication: always ON"
+      "localAuthTitle": "Local authentication: always ON",
+      "googleSecretConfigured": "A client secret is stored (encrypted). Leave empty to keep it, or type a new one to replace it.",
+      "googleAllowedDomains": "Allowed Google Workspace domains",
+      "googleAllowedDomainsHelp": "Comma-separated. Only accounts of these Workspace domains can sign in. Leave empty to accept any verified Google account. Users still need an invitation to this organization.",
+      "googleRedirectUri": "Authorized redirect URI (GCP):",
+      "googleLoginUrl": "Organization login URL:",
+      "saveSaml": "Save SAML settings"
     },
     "projects": {
       "title": "Projects",

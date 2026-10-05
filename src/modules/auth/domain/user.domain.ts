@@ -1,6 +1,8 @@
 import { Domain } from './domain';
 import { RoleDomain } from './role.domain';
 
+export type UserAuthProvider = { provider: string; providerId: string | null };
+
 export class UserDomain extends Domain {
   public username: string = '';
   public email: string | null = null;
@@ -9,6 +11,8 @@ export class UserDomain extends Domain {
   public status: 'active' | 'invited' = 'active';
   public invitationExpiresAt: Date | null = null;
   public passwordResetExpiresAt: Date | null = null;
+  public authProviders: UserAuthProvider[] = [];
+  public disabled: boolean = false;
   constructor(data: any) {
     super(data);
     this.username = data.username;
@@ -20,6 +24,14 @@ export class UserDomain extends Domain {
       ? new Date(data.passwordResetExpiresAt)
       : null;
     this.role = data.role ? new RoleDomain(data.role) : null;
+    this.authProviders = Array.isArray(data.authProviders) ? data.authProviders : [];
+    this.disabled = Boolean(data.disabled);
+  }
+
+  hasAuthProvider(provider: string, providerId: string): boolean {
+    return this.authProviders.some(
+      (entry) => entry.provider === provider && entry.providerId === providerId,
+    );
   }
 
   toJson() {
