@@ -94,10 +94,10 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
-  // sign-in, sign-out, self-registration, password recovery and invitation acceptance must work
-  // without (or with a broken) session; each route re-checks whatever it needs server-side
   if (
     pathname === '/auth/login' ||
+    pathname === '/auth/sso/google/start' ||
+    pathname === '/auth/sso/google/callback' ||
     pathname === '/auth/logout' ||
     pathname === '/auth/invitation' ||
     pathname === '/auth/registration' ||
@@ -142,7 +142,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
     if (isApiRequest) {
       return unauthorized('Authentication required');
     }
-    return new Response(null, { status: 302, headers: { location: '/auth/login' } });
+
+    const organizationSlug = event.params.org ?? pathname.match(/^\/org\/([^/]+)/)?.[1];
+    const location = organizationSlug
+      ? `/auth/login?${new URLSearchParams({ org: organizationSlug })}`
+      : '/auth/login';
+    return new Response(null, { status: 302, headers: { location } });
   }
 
   const projectSettingsMatch = event.url.pathname.match(

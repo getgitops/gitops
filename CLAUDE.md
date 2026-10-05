@@ -6,8 +6,20 @@ Guidance for working on GitOps, an open source internal developer platform built
 
 GitOps combines identity and access management, organizations and projects, Open Report security
 analysis, and Pulumi State visibility. The Vault route is currently a UI foundation and does not
-yet provide a complete secrets backend. Google SSO and SAML settings are configuration only; no
-external authentication strategy is implemented.
+yet provide a complete secrets backend. SAML settings are configuration only.
+
+Google SSO is per organization: `/org/<org>/settings/global` stores the OAuth client
+(`OrganizationAuthProviderEntity` in schemas, client secret AES-256-GCM encrypted via
+`SecretCipherService` with a key derived from `GITDB_ENCRYPTION_KEY`, never returned to the UI)
+and an optional list of allowed Workspace domains (checked against the ID token `hd` claim).
+`/auth/login` shows "Continue with Google" next to the always-available password form for the
+organization named by `?org=<slug>` (the auth guard adds it when bouncing an `/org/<slug>/...`
+request), else the `last_org` cookie, else the only organization with Google enabled, if exactly one. `ssoService` in `$modules/auth` runs Authorization Code +
+PKCE through `/auth/sso/google/start` and `/auth/sso/google/callback` (both routes allow unauthenticated access in `hooks.server.ts`), verifies the ID token
+against Google's JWKS via `GoogleOidcClient` in the OIDC infrastructure layer, and only signs in people who already have access to that organization
+(or one of its projects): it never creates accounts or grants roles. It links the Google `sub` to
+the user found by verified email (stored in `user.authProviders[]`), and a pending invitation is accepted on first Google sign-in. Users can be disabled
+via `user.disabled` to block access without deletion.
 
 Self-service registration (`/auth/registration`) lets a visitor create a plain `cluster-user`
 account with no organization membership. It is gated by a cluster-wide toggle managed at
@@ -35,6 +47,10 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - GitDB (`@getgitops/gitdb`) as the only persistence layer
 - Vitest, ESLint, and Prettier
 - Playwright for RBAC end-to-end tests (`e2e/`)
+
+Environment variables: `GITDB_REPOSITORY_URL`, `GITDB_ENCRYPTION_KEY`, `GITDB_SYNC_POLL_SECONDS`. Google OAuth credentials are configured per organization in the UI (stored encrypted in the database), not as global environment variables.
+
+Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 
 ```bash
 bun install
