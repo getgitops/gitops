@@ -99,6 +99,8 @@ export const OrganizationAuthProviderEntity = entity('organization_auth_provider
   allowedDomains: json()
     .notNull()
     .$defaultFn(() => []),
+  autoProvision: bool().notNull().default(false),
+  autoProvisionRoleId: uuid().$defaultFn(() => null),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

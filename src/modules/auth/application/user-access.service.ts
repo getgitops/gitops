@@ -129,7 +129,8 @@ export class UserAccessService {
       : await this.findDefaultOrganizationRole(organizationId);
 
     const user =
-      (await this.userRepository.findByEmail(email)) ?? (await this.createInvitedUser(email));
+      (await this.userRepository.findByEmail(email)) ??
+      (await this.createUserFromEmail(email, 'invited'));
 
     // an already active account just gets access, there is nothing to activate
     const status: UserAccessStatus = user.status === 'active' ? 'active' : 'invited';
@@ -159,7 +160,43 @@ export class UserAccessService {
     return this.toRow(access);
   }
 
-  private async createInvitedUser(email: string) {
+  /**
+   * Grants organization access to an identity already verified by an SSO provider, creating its
+   * account when missing. Callers must have checked the identity against the organization policy.
+   */
+  async provisionOrganizationMember(input: {
+    organizationId: string;
+    email: string;
+    roleId: string;
+    /** existing account to grant access to; otherwise it is looked up or created by email */
+    userId?: string | null;
+  }): Promise<UserDomain> {
+    const organizationId = input.organizationId.trim();
+    const email = input.email.trim().toLowerCase();
+    if (!organizationId) throw new Error('Organization is required');
+    if (!email) throw new Error('Email is required');
+
+    const role = await this.findRoleForScope(input.roleId, 'organization', organizationId);
+    // re-checked on every sign-up: the role may have been edited since it was configured
+    if (!role.isAutoProvisionable) {
+      throw new Error('Role grants administrative permissions');
+    }
+    const existing = input.userId
+      ? await this.userRepository.findById(input.userId)
+      : await this.userRepository.findByEmail(email);
+    if (input.userId && !existing) throw new Error('User not found');
+    const user = existing ?? (await this.createUserFromEmail(email, 'active'));
+
+    await this.createAccess({
+      userId: user.id,
+      roleId: role.id,
+      scope: 'organization',
+      organizationId,
+    });
+    return user;
+  }
+
+  private async createUserFromEmail(email: string, status: UserAccessStatus) {
     const clusterUserRole = await this.ensureClusterUserRole();
     const username = await this.buildUsernameFromEmail(email);
 
@@ -167,10 +204,10 @@ export class UserAccessService {
       id: crypto.randomUUID(),
       username,
       email,
-      // placeholder credential: the invited user must set a password before signing in
+      // placeholder credential: the user signs in through an invitation or SSO, or resets it
       passwordHash: this.passwordService.hashPassword(crypto.randomBytes(32).toString('hex')),
       role: this.toRoleView(clusterUserRole),
-      status: 'invited',
+      status,
     });
 
     const user = await this.userRepository.findByUsername(username);

@@ -23,8 +23,18 @@ export async function load({ parent, locals, url }) {
     },
   );
 
+  // automatic sign-up is a standing invitation, so it also needs the right to invite members
+  const canManageAutoProvision =
+    canUpdate &&
+    (await cancanService.canSessionUser(locals.user, 'organization:users:invite', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }));
+
   return {
     google: await ssoService.getGoogleSettings(organization.id),
+    autoProvisionRoles: await ssoService.listAutoProvisionRoles(organization.id),
+    canManageAutoProvision,
     googleRedirectUri: `${url.origin}/auth/sso/google/callback`,
     loginUrl: `${url.origin}/auth/login?org=${encodeURIComponent(organization.slug)}`,
     canUpdate,
@@ -45,13 +55,27 @@ export const actions = {
       return fail(403, { googleError: 'Forbidden' });
     }
 
+    const canManageAutoProvision = await cancanService.canSessionUser(
+      locals.user,
+      'organization:users:invite',
+      { scope: 'organization', organizationId: organization.id },
+    );
+
     const form = await request.formData();
     try {
+      // without the invite permission the stored auto sign-up policy is kept as is
+      const current = canManageAutoProvision
+        ? null
+        : await ssoService.getGoogleSettings(organization.id);
       await ssoService.saveGoogleSettings(organization.id, {
         enabled: form.get('enabled') === 'on',
         clientId: String(form.get('clientId') ?? ''),
         clientSecret: String(form.get('clientSecret') ?? ''),
         allowedDomains: String(form.get('allowedDomains') ?? '').split(/[\s,]+/),
+        autoProvision: current ? current.autoProvision : form.get('autoProvision') === 'on',
+        autoProvisionRoleId: current
+          ? current.autoProvisionRoleId
+          : String(form.get('autoProvisionRoleId') ?? ''),
       });
     } catch (err) {
       return fail(400, {

@@ -16,10 +16,15 @@ and an optional list of allowed Workspace domains (checked against the ID token 
 organization named by `?org=<slug>` (the auth guard adds it when bouncing an `/org/<slug>/...`
 request), else the `last_org` cookie, else the only organization with Google enabled, if exactly one. `ssoService` in `$modules/auth` runs Authorization Code +
 PKCE through `/auth/sso/google/start` and `/auth/sso/google/callback` (both routes allow unauthenticated access in `hooks.server.ts`), verifies the ID token
-against Google's JWKS via `GoogleOidcClient` in the OIDC infrastructure layer, and only signs in people who already have access to that organization
-(or one of its projects): it never creates accounts or grants roles. It links the Google `sub` to
-the user found by verified email (stored in `user.authProviders[]`), and a pending invitation is accepted on first Google sign-in. Users can be disabled
-via `user.disabled` to block access without deletion.
+against Google's JWKS via `GoogleOidcClient` in the OIDC infrastructure layer, and by default only signs in people who already have access to that organization
+(or one of its projects). To enable automatic sign-up (`autoProvision`), the organization must configure at least one allowed Workspace domain and enable it in
+`/org/<org>/settings/global` (requires `organization:users:invite` permission to change). With automatic sign-up enabled, a verified Workspace account whose
+`hd` matches an allowed domain gets an active `cluster-user` account (if missing) plus organization access with the configured organization role (default
+`org-developer`) through `userAccessService.provisionOrganizationMember()`. That role must pass `RoleDomain.isAutoProvisionable`
+(allow-list: read grants plus `AUTO_PROVISION_ALLOWED_ORGANIZATION_GRANTS`, never admin rights), checked on save and again on every sign-up, so a role
+edited later to gain admin rights blocks automatic sign-up instead of handing them out. Personal Google accounts are never auto-signed-up, as the domain is checked against
+the Workspace `hd` claim, not the email domain. It links the Google `sub` to the user found by verified email (stored in `user.authProviders[]`), and a pending
+invitation is accepted on first Google sign-in. Users can be disabled via `user.disabled` to block access without deletion.
 
 Self-service registration (`/auth/registration`) lets a visitor create a plain `cluster-user`
 account with no organization membership. It is gated by a cluster-wide toggle managed at

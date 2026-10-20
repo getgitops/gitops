@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Mantiene al día los SHA de las actions fijadas en los workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # No se adoptan releases de menos de 7 días.
+    cooldown:
+      default-days: 7

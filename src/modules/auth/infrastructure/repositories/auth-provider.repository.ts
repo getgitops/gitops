@@ -8,6 +8,8 @@ export type AuthProviderChanges = {
   clientId?: string | null;
   clientSecretEncrypted?: string | null;
   allowedDomains?: string[];
+  autoProvision?: boolean;
+  autoProvisionRoleId?: string | null;
 };
 
 export class AuthProviderRepository extends Repository {
@@ -49,6 +51,8 @@ export class AuthProviderRepository extends Repository {
         clientId: changes.clientId ?? null,
         clientSecretEncrypted: changes.clientSecretEncrypted ?? null,
         allowedDomains: changes.allowedDomains ?? [],
+        autoProvision: changes.autoProvision ?? false,
+        autoProvisionRoleId: changes.autoProvisionRoleId ?? null,
         createdAt: now,
         updatedAt: now,
       });

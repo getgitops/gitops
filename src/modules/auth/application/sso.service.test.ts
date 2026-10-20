@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SsoError, SsoService } from './sso.service';
 import { AuthProviderDomain } from '../domain/auth-provider.domain';
+import { RoleDomain } from '../domain/role.domain';
+import {
+  ORGANIZATION_ADMIN_PERMISSIONS,
+  ORGANIZATION_DEVELOPER_PERMISSIONS,
+} from '../domain/role-permissions.data';
 import { UserDomain, type UserAuthProvider } from '../domain/user.domain';
 import { UserAccessDomain } from '../domain/user-access.domain';
 import type { GoogleIdTokenClaims } from '../infrastructure/oidc/google-oidc.client';
@@ -84,6 +89,97 @@ class FakeUserAccessRepository {
   }
 }
 
+class FakeRoleRepository {
+  rows: RoleDomain[] = [
+    role({ id: 'role-dev', slug: 'org-developer', organizationId: ORG.id }),
+    role({
+      id: 'role-admin',
+      slug: 'org-admin',
+      organizationId: ORG.id,
+      permissions: ORGANIZATION_ADMIN_PERMISSIONS,
+    }),
+    role({
+      id: 'role-readers',
+      slug: 'readers',
+      organizationId: ORG.id,
+      permissions: ['organization:projects:read', 'organization:audit:read'],
+    }),
+    // a custom role that looks harmless by name but can manage members
+    role({
+      id: 'role-sneaky',
+      slug: 'support',
+      organizationId: ORG.id,
+      permissions: ['organization:projects:read', 'organization:users:update'],
+    }),
+    role({ id: 'role-other', slug: 'org-developer', organizationId: OTHER_ORG_ID }),
+  ];
+
+  async findAll(_scope: string, organizationId: string) {
+    return this.rows.filter((row) => row.organizationId === organizationId);
+  }
+
+  async findById(id: string) {
+    return this.rows.find((row) => row.id === id) ?? null;
+  }
+
+  async findBySlug(slug: string, scope: string, organizationId?: string) {
+    return (
+      this.rows.find(
+        (row) => row.slug === slug && row.scope === scope && row.organizationId === organizationId,
+      ) ?? null
+    );
+  }
+}
+
+/** Mirrors UserAccessService.provisionOrganizationMember on top of the fakes above. */
+class FakeMemberProvisioner {
+  calls: Array<{ organizationId: string; email: string; roleId: string; userId?: string | null }> =
+    [];
+
+  constructor(
+    private readonly users: FakeUserRepository,
+    private readonly accesses: FakeUserAccessRepository,
+  ) {}
+
+  async provisionOrganizationMember(input: {
+    organizationId: string;
+    email: string;
+    roleId: string;
+    userId?: string | null;
+  }) {
+    this.calls.push(input);
+    let created = input.userId ? this.users.rows.find((row) => row.id === input.userId) : null;
+    if (!created) {
+      created = user({
+        id: `user-${this.users.rows.length + 1}`,
+        username: 'new',
+        email: input.email,
+      });
+      this.users.rows.push(created);
+    }
+    this.accesses.rows.push(
+      access({
+        id: `access-${this.accesses.rows.length + 1}`,
+        userId: created.id,
+        roleId: input.roleId,
+        organizationId: input.organizationId,
+      }),
+    );
+    return created;
+  }
+}
+
+function role(input: { id: string; slug: string; organizationId: string; permissions?: string[] }) {
+  return new RoleDomain({
+    permissions: ORGANIZATION_DEVELOPER_PERMISSIONS,
+    ...input,
+    name: input.slug,
+    scope: 'organization',
+    projectId: null,
+    ...TIMESTAMPS,
+  });
+}
+
 const fakeCipher = {
   encrypt: (value: string) => `enc:${value}`,
   decrypt: (value: string) => value.replace(/^enc:/, ''),
@@ -120,6 +216,8 @@ describe('SsoService', () => {
   let providers: FakeAuthProviderRepository;
   let users: FakeUserRepository;
   let accesses: FakeUserAccessRepository;
+  let roles: FakeRoleRepository;
+  let provisioner: FakeMemberProvisioner;
   let googleClaims: GoogleIdTokenClaims;
   let googleClient: {
     buildAuthorizationUrl: ReturnType<typeof vi.fn>;
@@ -132,6 +230,8 @@ describe('SsoService', () => {
     providers = new FakeAuthProviderRepository();
     users = new FakeUserRepository();
     accesses = new FakeUserAccessRepository();
+    roles = new FakeRoleRepository();
+    provisioner = new FakeMemberProvisioner(users, accesses);
     now = Date.UTC(2026, 0, 1);
     googleClaims = {
       sub: 'google-sub-1',
@@ -151,6 +251,8 @@ describe('SsoService', () => {
       providers as any,
       users as any,
       accesses as any,
+      roles as any,
+      provisioner,
       fakeCipher,
       googleClient as any,
       () => 'signing-key',
@@ -200,6 +302,8 @@ describe('SsoService', () => {
         clientId: 'client-123',
         hasClientSecret: true,
         allowedDomains: ['gigigo.com'],
+        autoProvision: false,
+        autoProvisionRoleId: null,
       });
       expect(JSON.stringify(view)).not.toContain('super-secret');
       expect(providers.rows[0].clientSecretEncrypted).toBe('enc:super-secret');
@@ -261,6 +365,58 @@ describe('SsoService', () => {
         allowedDomains: [],
       });
       expect(await service.isGoogleEnabled(ORG.id)).toBe(false);
+    });
+  });
+
+  describe('automatic sign-up settings', () => {
+    const base = { enabled: true, clientId: 'client-123', allowedDomains: ['gigigo.com'] };
+
+    it('defaults the role to Org Developer of the organization', async () => {
+      const view = await service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true });
+      expect(view).toMatchObject({ autoProvision: true, autoProvisionRoleId: 'role-dev' });
+    });
+
+    it('stores an explicit non-administrative organization role', async () => {
+      const view = await service.saveGoogleSettings(ORG.id, {
+        ...base,
+        autoProvision: true,
+        autoProvisionRoleId: 'role-readers',
+      });
+      expect(view.autoProvisionRoleId).toBe('role-readers');
+    });
+
+    it('rejects roles with administrative permissions, whatever their name', async () => {
+      for (const autoProvisionRoleId of ['role-admin', 'role-sneaky']) {
+        await expect(
+          service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true, autoProvisionRoleId }),
+        ).rejects.toThrow(/administrative permissions/);
+      }
+      expect(providers.rows[0].autoProvision).toBe(false);
+    });
+
+    it('lists only the roles automatic sign-up may grant', async () => {
+      const listed = await service.listAutoProvisionRoles(ORG.id);
+      expect(listed.map((entry) => entry.id)).toEqual(['role-dev', 'role-readers']);
+    });
+
+    it('rejects roles of another organization or unknown roles', async () => {
+      for (const autoProvisionRoleId of ['role-other', 'missing']) {
+        await expect(
+          service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true, autoProvisionRoleId }),
+        ).rejects.toThrow(/role of this organization/);
+      }
+    });
+
+    it('requires at least one allowed domain', async () => {
+      await expect(
+        service.saveGoogleSettings(ORG.id, { ...base, allowedDomains: [], autoProvision: true }),
+      ).rejects.toThrow(/allowed Workspace domain/);
+    });
+
+    it('clears the role when automatic sign-up is turned off', async () => {
+      await service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true });
+      const view = await service.saveGoogleSettings(ORG.id, { ...base, autoProvision: false });
+      expect(view).toMatchObject({ autoProvision: false, autoProvisionRoleId: null });
     });
   });
 
@@ -404,6 +560,77 @@ describe('SsoService', () => {
       });
       delete googleClaims.hd;
       await expect(signIn()).resolves.toMatchObject({ userId: 'user-1' });
+    });
+
+    describe('with automatic sign-up', () => {
+      beforeEach(async () => {
+        await service.saveGoogleSettings(ORG.id, {
+          enabled: true,
+          clientId: 'client-123',
+          allowedDomains: ['gigigo.com'],
+          autoProvision: true,
+        });
+      });
+
+      it('creates an account with the configured role for a new domain user', async () => {
+        users.rows = [];
+        accesses.rows = [];
+
+        const result = await signIn();
+
+        expect(provisioner.calls).toEqual([
+          { organizationId: ORG.id, email: 'ana@gigigo.com', roleId: 'role-dev', userId: null },
+        ]);
+        expect(result.organizationSlug).toBe('gitops');
+        expect(users.rows[0].authProviders).toContainEqual({
+          provider: 'google',
+          providerId: 'google-sub-1',
+        });
+        expect(users.lastLogins).toEqual([result.userId]);
+      });
+
+      it('grants access to an existing account that belongs to another organization', async () => {
+        accesses.rows = [access({ organizationId: OTHER_ORG_ID })];
+
+        await expect(signIn()).resolves.toMatchObject({ userId: 'user-1' });
+        expect(provisioner.calls).toEqual([
+          { organizationId: ORG.id, email: 'ana@gigigo.com', roleId: 'role-dev', userId: 'user-1' },
+        ]);
+      });
+
+      it('does not touch members that already have access', async () => {
+        await signIn();
+        expect(provisioner.calls).toEqual([]);
+      });
+
+      it('still rejects disabled accounts', async () => {
+        accesses.rows = [];
+        users.rows[0].disabled = true;
+        await expectSsoError(signIn(), 'account_disabled');
+        expect(provisioner.calls).toEqual([]);
+      });
+
+      it('still rejects accounts outside the allowed domains', async () => {
+        users.rows = [];
+        googleClaims.hd = 'evil.com';
+        await expectSsoError(signIn(), 'domain_not_allowed');
+        expect(provisioner.calls).toEqual([]);
+      });
+
+      it('never provisions a personal account without the hd claim', async () => {
+        users.rows = [];
+        delete googleClaims.hd;
+        await expectSsoError(signIn(), 'domain_not_allowed');
+        expect(provisioner.calls).toEqual([]);
+      });
+
+      it('fails closed when the configured role no longer exists', async () => {
+        users.rows = [];
+        provisioner.provisionOrganizationMember = async () => {
+          throw new Error('Role not found');
+        };
+        await expectSsoError(signIn(), 'not_invited');
+      });
     });
 
     it('rejects a mismatched state', async () => {

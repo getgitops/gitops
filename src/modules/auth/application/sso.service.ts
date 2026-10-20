@@ -3,14 +3,17 @@ import type { AuthProviderDomain } from '../domain/auth-provider.domain';
 import type { UserDomain } from '../domain/user.domain';
 import type { UserAccessDomain } from '../domain/user-access.domain';
 import type { AuthProviderRepository } from '../infrastructure/repositories/auth-provider.repository';
+import type { RoleRepository } from '../infrastructure/repositories/role.repository';
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { GoogleOidcClient } from '../infrastructure/oidc/google-oidc.client';
 import type { SecretCipherService } from './secret-cipher.service';
+import type { UserAccessService } from './user-access.service';
 
 const GOOGLE = 'google';
 const SECRET_PURPOSE = 'sso:google:client-secret';
 const FLOW_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_AUTO_PROVISION_ROLE = 'org-developer';
 const DOMAIN_PATTERN = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export type SsoErrorCode =
@@ -37,6 +40,8 @@ export type GoogleSsoSettingsView = {
   clientId: string | null;
   hasClientSecret: boolean;
   allowedDomains: string[];
+  autoProvision: boolean;
+  autoProvisionRoleId: string | null;
 };
 
 export type GoogleSsoSettingsInput = {
@@ -45,6 +50,9 @@ export type GoogleSsoSettingsInput = {
   /** empty keeps the stored secret, so the UI never has to receive it back */
   clientSecret?: string;
   allowedDomains: string[];
+  autoProvision?: boolean;
+  /** organization role granted to auto-provisioned members; empty picks Org Developer */
+  autoProvisionRoleId?: string | null;
 };
 
 type SsoFlow = {
@@ -71,6 +79,8 @@ export class SsoService {
       | 'touchLastLogin'
     >,
     private readonly userAccessRepository: Pick<UserAccessRepository, 'findByUserId' | 'update'>,
+    private readonly roleRepository: Pick<RoleRepository, 'findAll' | 'findById' | 'findBySlug'>,
+    private readonly memberProvisioner: Pick<UserAccessService, 'provisionOrganizationMember'>,
     private readonly secretCipher: Pick<SecretCipherService, 'encrypt' | 'decrypt'>,
     private readonly googleClient: Pick<GoogleOidcClient, 'buildAuthorizationUrl' | 'exchangeCode'>,
     private readonly signingKey: () => string,
@@ -103,15 +113,35 @@ export class SsoService {
       }
     }
 
+    const autoProvision = input.autoProvision ?? false;
+    if (autoProvision && allowedDomains.length === 0) {
+      throw new Error('Automatic sign-up requires at least one allowed Workspace domain');
+    }
+    const autoProvisionRoleId = autoProvision
+      ? await this.resolveAutoProvisionRoleId(organizationId, input.autoProvisionRoleId)
+      : null;
+
     const updated = await this.authProviderRepository.upsert(organizationId, GOOGLE, {
       enabled: input.enabled,
       clientId: clientId || null,
       allowedDomains,
+      autoProvision,
+      autoProvisionRoleId,
       ...(clientSecret
         ? { clientSecretEncrypted: this.secretCipher.encrypt(clientSecret, SECRET_PURPOSE) }
         : {}),
     });
     return this.toSettingsView(updated);
+  }
+
+  /** Organization roles automatic sign-up may grant, i.e. without administrative permissions. */
+  async listAutoProvisionRoles(
+    organizationId: string,
+  ): Promise<Array<{ id: string; name: string; slug: string }>> {
+    const roles = await this.roleRepository.findAll('organization', organizationId);
+    return roles
+      .filter((role) => role.organizationId === organizationId && role.isAutoProvisionable)
+      .map((role) => ({ id: role.id, name: role.name, slug: role.slug }));
   }
 
   async isGoogleEnabled(organizationId: string): Promise<boolean> {
@@ -198,16 +228,20 @@ export class SsoService {
       throw new SsoError('domain_not_allowed', 'Google account domain is not allowed');
     }
 
-    const user =
+    let user =
       (await this.userRepository.findByAuthProvider(GOOGLE, claims.sub)) ??
       (await this.userRepository.findByEmail(email));
-    if (!user) throw new SsoError('not_invited', 'No invited account for this Google identity');
-    if (user.disabled) throw new SsoError('account_disabled', 'Account is disabled');
+    if (user?.disabled) throw new SsoError('account_disabled', 'Account is disabled');
 
-    const access = await this.userAccessRepository.findByUserId(user.id);
+    let access = user ? await this.userAccessRepository.findByUserId(user.id) : [];
     if (!access.some((entry) => this.belongsToOrganization(entry, flow.organizationId))) {
-      throw new SsoError('not_invited', 'Account has no access to this organization');
+      if (!provider.allowsAutoProvision(claims.hd)) {
+        throw new SsoError('not_invited', 'Account has no access to this organization');
+      }
+      user = await this.provisionMember(provider, email, user?.id ?? null);
+      access = await this.userAccessRepository.findByUserId(user.id);
     }
+    if (!user) throw new SsoError('not_invited', 'No invited account for this Google identity');
 
     await this.linkGoogleIdentity(user, claims.sub);
     if (user.status === 'invited') await this.acceptPendingInvitation(user.id, access);
@@ -222,6 +256,44 @@ export class SsoService {
       throw new SsoError('not_configured', 'Google sign-in is not enabled for this organization');
     }
     return provider;
+  }
+
+  private async resolveAutoProvisionRoleId(
+    organizationId: string,
+    roleId: string | null | undefined,
+  ): Promise<string> {
+    const role = roleId?.trim()
+      ? await this.roleRepository.findById(roleId.trim())
+      : await this.roleRepository.findBySlug(
+          DEFAULT_AUTO_PROVISION_ROLE,
+          'organization',
+          organizationId,
+        );
+    if (!role || role.scope !== 'organization' || role.organizationId !== organizationId) {
+      throw new Error('Automatic sign-up role must be a role of this organization');
+    }
+    if (!role.isAutoProvisionable) {
+      throw new Error('Automatic sign-up role cannot grant administrative permissions');
+    }
+    return role.id;
+  }
+
+  private async provisionMember(
+    provider: AuthProviderDomain,
+    email: string,
+    userId: string | null,
+  ): Promise<UserDomain> {
+    try {
+      return await this.memberProvisioner.provisionOrganizationMember({
+        organizationId: provider.organizationId,
+        email,
+        roleId: provider.autoProvisionRoleId!,
+        userId,
+      });
+    } catch {
+      // e.g. the configured role was deleted or gained admin permissions afterwards: fail closed
+      throw new SsoError('not_invited', 'Automatic sign-up is misconfigured for this organization');
+    }
   }
 
   private async linkGoogleIdentity(user: UserDomain, sub: string): Promise<void> {
@@ -258,6 +330,8 @@ export class SsoService {
       clientId: provider?.clientId ?? null,
       hasClientSecret: Boolean(provider?.clientSecretEncrypted),
       allowedDomains: provider ? [...provider.allowedDomains] : [],
+      autoProvision: provider?.autoProvision ?? false,
+      autoProvisionRoleId: provider?.autoProvisionRoleId ?? null,
     };
   }
 

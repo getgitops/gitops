@@ -17,7 +17,11 @@
       clientId: string | null;
       hasClientSecret: boolean;
       allowedDomains: string[];
+      autoProvision: boolean;
+      autoProvisionRoleId: string | null;
     };
+    autoProvisionRoles: Array<{ id: string; name: string; slug: string }>;
+    canManageAutoProvision: boolean;
     googleRedirectUri: string;
     loginUrl: string;
     canUpdate: boolean;
@@ -25,6 +29,11 @@
   export let form: ActionData;
 
   let googleSsoEnabled = data.google.enabled;
+  let autoProvision = data.google.autoProvision;
+  let autoProvisionRoleId =
+    data.google.autoProvisionRoleId ??
+    data.autoProvisionRoles.find((role) => role.slug === 'org-developer')?.id ??
+    '';
   let isSavingGoogle = false;
 
   let samlEnabled = false;
@@ -152,6 +161,47 @@
             placeholder="example.com"
           />
           <p class="mt-1 text-xs text-slate-500">{$_('orgSettings.global.googleAllowedDomainsHelp')}</p>
+        </div>
+
+        <div class="space-y-3 rounded-md border border-slate-200 bg-white px-4 py-3">
+          <div class="flex items-start gap-3">
+            <input
+              id="google-auto-provision"
+              name="autoProvision"
+              type="checkbox"
+              bind:checked={autoProvision}
+              disabled={!data.canManageAutoProvision}
+              class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed"
+            />
+            <div class="flex-1">
+              <label for="google-auto-provision" class="text-sm font-medium text-slate-700">{$_('orgSettings.global.googleAutoProvision')}</label>
+              <p class="mt-1 text-xs text-slate-500">{$_('orgSettings.global.googleAutoProvisionHelp')}</p>
+              {#if !data.canManageAutoProvision}
+                <p class="mt-1 text-xs text-amber-700">{$_('orgSettings.global.googleAutoProvisionNoPermission')}</p>
+              {/if}
+            </div>
+          </div>
+
+          {#if autoProvision}
+            <div>
+              <label for="google-auto-provision-role" class="block text-sm font-medium text-slate-700">{$_('orgSettings.global.googleAutoProvisionRole')}</label>
+              <select
+                id="google-auto-provision-role"
+                name="autoProvisionRoleId"
+                bind:value={autoProvisionRoleId}
+                disabled={!data.canManageAutoProvision}
+                class="mt-2 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              >
+                {#each data.autoProvisionRoles as role (role.id)}
+                  <option value={role.id}>{role.name}</option>
+                {/each}
+              </select>
+              <p class="mt-1 text-xs text-slate-500">{$_('orgSettings.global.googleAutoProvisionRoleHelp')}</p>
+              {#if data.google.autoProvisionRoleId && !data.autoProvisionRoles.some((role) => role.id === data.google.autoProvisionRoleId)}
+                <p class="mt-1 text-xs text-red-700">{$_('orgSettings.global.googleAutoProvisionRoleInvalid')}</p>
+              {/if}
+            </div>
+          {/if}
         </div>
 
         <div class="space-y-2 rounded-md border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">

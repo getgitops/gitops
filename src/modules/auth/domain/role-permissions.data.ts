@@ -24,6 +24,10 @@ export const ORGANIZATION_DEVELOPER_PERMISSIONS = [
   'organization:projects:update',
 ];
 
+// besides read grants, the most a role handed out by automatic sign-up may carry
+export const AUTO_PROVISION_ALLOWED_ORGANIZATION_GRANTS: readonly string[] =
+  ORGANIZATION_DEVELOPER_PERMISSIONS;
+
 export const PROJECT_ADMIN_PERMISSIONS = [
   'project:project:all',
   'project:users:all',

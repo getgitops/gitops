@@ -13,9 +13,7 @@ Google SSO es por organización: `/org/<org>/settings/global` almacena el OAuth 
 con clave derivada de `GITDB_ENCRYPTION_KEY`, nunca devuelto a UI) y opcionalmente dominios
 Workspace permitidos. El servicio `ssoService` en `$modules/auth` ejecuta Authorization Code + PKCE
 (rutas `/auth/sso/google/start` y `/auth/sso/google/callback`, ambas sin sesión), verifica el ID token contra JWKS
-de Google via `GoogleOidcClient` en la capa OIDC, y solo autentica usuarios que ya tienen acceso a la organización o sus proyectos
-(vincula el `sub` de Google al usuario en `user.authProviders[]`; la invitación pendiente se acepta
-en el primer sign-in). Los usuarios pueden deshabilitarse via `user.disabled`. Templates de notificación (`src/notifications/`) se leen en tiempo de ejecución. SAML es configuración solo.
+de Google via `GoogleOidcClient` en la capa OIDC, y por defecto solo autentica usuarios que ya tienen acceso a la organización o sus proyectos. Para habilitar auto-registro (`autoProvision`), se requiere al menos un dominio Workspace permitido (configurado en settings) y permiso `organization:users:invite` para cambiar esta opción. Con auto-registro activo, cualquier cuenta de Workspace que coincida con los dominios permitidos se registra automáticamente: se crea la cuenta `cluster-user` si falta y se asigna el rol configurado (por defecto `org-developer`) vía `userAccessService.provisionOrganizationMember()`. Ese rol debe cumplir `RoleDomain.isAutoProvisionable` (solo lecturas y permisos de Org Developer, nunca de administración), comprobado al guardar y en cada alta. Las cuentas personales de Google nunca se auto-registran, porque la validación se hace contra el claim `hd` de Workspace, no contra el dominio del email. El servicio vincula el `sub` de Google al usuario en `user.authProviders[]` y acepta la invitación pendiente en el primer sign-in. Los usuarios pueden deshabilitarse via `user.disabled`. Templates de notificación (`src/notifications/`) se leen en tiempo de ejecución. SAML es configuración solo.
 
 - SvelteKit 2, Svelte 5, Vite 8 y TypeScript 6 strict
 - Tailwind CSS 4 y `@lucide/svelte`

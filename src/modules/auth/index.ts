@@ -64,6 +64,8 @@ export const ssoService = new SsoService(
   authProviderRepository,
   userRepository,
   userAccessRepository,
+  roleRepository,
+  userAccessService,
   new SecretCipherService(() => passwordService.ensureEncryptionKey()),
   new GoogleOidcClient(),
   () => passwordService.ensureEncryptionKey(),

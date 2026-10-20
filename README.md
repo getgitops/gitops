@@ -62,8 +62,15 @@ Each organization configures its own Google OAuth client:
    consent screen in testing mode, only the accounts listed as test users can sign in.
 4. Share `https://<your-host>/auth/login?org=<organization-slug>`.
 
-Only users already invited to the organization can sign in with Google; access and roles are still
-granted through invitations. The client secret is stored encrypted with a key derived from
+By default only users already invited to the organization can sign in with Google. To let anyone
+from your company in without an invitation, set at least one allowed domain and enable
+**Automatically sign up accounts from the allowed domains**: the first Google sign-in of a
+`@yourdomain.com` Workspace account creates the user and grants organization access with the role
+you pick (Org Developer by default). Only roles without administrative permissions can be picked
+(read access and, at most, creating and editing projects); if the role is later edited to gain
+admin rights, automatic sign-up stops until another role is chosen. Changing this setting also requires permission to invite
+organization users. Personal Google accounts are never signed up automatically, because the domain
+is checked against the Workspace `hd` claim, not the email address. The client secret is stored encrypted with a key derived from
 `GITDB_ENCRYPTION_KEY`, so rotating that key requires re-entering the secret.
 
 ## Development

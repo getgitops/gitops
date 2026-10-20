@@ -9,6 +9,9 @@ export class AuthProviderDomain extends Domain {
   public clientId: string | null = null;
   public clientSecretEncrypted: string | null = null;
   public allowedDomains: string[] = [];
+  /** signs up any verified account of an allowed domain without an invitation */
+  public autoProvision: boolean = false;
+  public autoProvisionRoleId: string | null = null;
 
   constructor(data: any) {
     super(data);
@@ -20,6 +23,8 @@ export class AuthProviderDomain extends Domain {
     this.allowedDomains = Array.isArray(data.allowedDomains)
       ? data.allowedDomains.map((domain: unknown) => String(domain).toLowerCase())
       : [];
+    this.autoProvision = Boolean(data.autoProvision);
+    this.autoProvisionRoleId = data.autoProvisionRoleId ?? null;
   }
 
   get isUsable(): boolean {
@@ -31,6 +36,16 @@ export class AuthProviderDomain extends Domain {
     return Boolean(hostedDomain) && this.allowedDomains.includes(hostedDomain!.toLowerCase());
   }
 
+  /** Auto-provisioning is only honoured when restricted to Workspace domains, never for any Google account. */
+  allowsAutoProvision(hostedDomain: string | null | undefined): boolean {
+    return (
+      this.autoProvision &&
+      Boolean(this.autoProvisionRoleId) &&
+      this.allowedDomains.length > 0 &&
+      this.allowsHostedDomain(hostedDomain)
+    );
+  }
+
   toJson() {
     return {
       id: this.id,
@@ -40,6 +55,8 @@ export class AuthProviderDomain extends Domain {
       clientId: this.clientId,
       hasClientSecret: Boolean(this.clientSecretEncrypted),
       allowedDomains: [...this.allowedDomains],
+      autoProvision: this.autoProvision,
+      autoProvisionRoleId: this.autoProvisionRoleId,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
