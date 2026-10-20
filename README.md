@@ -41,6 +41,11 @@ docker compose up --build
 
 The container is available at `http://localhost:3000` and stores persistent data in `./data`.
 
+The production server rejects request bodies larger than `BODY_SIZE_LIMIT` (default `512K`) with
+`413 Payload Too Large`. CI scanners send full reports to `/api/code-report/scan`, so raise it
+(for example `BODY_SIZE_LIMIT=1M` or higher) if scans fail with that error. If a reverse proxy sits
+in front of GitOps, raise its body size limit as well (e.g. nginx `client_max_body_size`).
+
 ## Development
 
 ```bash

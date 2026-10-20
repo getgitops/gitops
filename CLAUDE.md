@@ -97,6 +97,12 @@ Bitbucket, and GitLab; in production, ensure SSH authentication credentials are 
 SvelteKit's CSRF Origin check depends on this value instead of deriving it from the incoming Host
 header, preventing bypasses when running behind a proxy that rewrites Host headers.
 
+`BODY_SIZE_LIMIT` (adapter-node, default `512K`, accepts `K`/`M`/`G`) caps request bodies in the
+built server (`node build`); larger requests fail with `{"message":"Payload Too Large"}` (413).
+`/api/code-report/scan` receives full scanner reports from CI, so deployments should raise it
+(e.g. `1M` or more). `bun run dev` does not enforce it. If a reverse proxy sits in front of
+GitOps, raise its body size limit as well (e.g. nginx `client_max_body_size`).
+
 ## Authorization
 
 Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`

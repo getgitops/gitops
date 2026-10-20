@@ -64,6 +64,11 @@ en produccion, asegurar que las credenciales SSH esten disponibles via `SSH_AUTH
 La variable `ORIGIN` fija el origen de la aplicacion (ej: `http://localhost:3000`) para que el
 CSRF Origin check de SvelteKit no dependa del header Host, previniendo bypass en proxys.
 
+`BODY_SIZE_LIMIT` (adapter-node, default `512K`, acepta sufijos `K`/`M`/`G`) limita el tamaño de
+cuerpos de solicitud en el servidor compilado (`node build`); solicitudes mas grandes fallan con
+`413 Payload Too Large`. `/api/code-report/scan` recibe reportes completos de scanners de CI, por
+lo que en produccion se debe aumentar (ej: `1M` o mas). `bun run dev` no lo enforce.
+
 ## RBAC y seguridad
 
 Los permisos usan `section:action` con scope global, de organizacion o de proyecto. Usar siempre
