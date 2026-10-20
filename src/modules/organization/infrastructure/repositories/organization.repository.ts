@@ -1,6 +1,6 @@
 import { Repository } from '$lib/server/infra/repository';
 import { OrganizationDomain } from '../../domain/organization.domain';
-import { OrganizationEntity } from '$lib/database/schemas';
+import { OrganizationAuthProviderEntity, OrganizationEntity } from '$lib/database/schemas';
 
 export class OrganizationRepository extends Repository {
   async findAll(): Promise<OrganizationDomain[]> {
@@ -47,6 +47,7 @@ export class OrganizationRepository extends Repository {
   }
 
   async deleteById(id: string): Promise<void> {
+    await this.db.delete(OrganizationAuthProviderEntity).where({ organizationId: id });
     await this.db.delete(OrganizationEntity).where({ id });
   }
 }

@@ -2,6 +2,7 @@ import { Domain } from './domain';
 import { normalizePermissionGrants } from '$lib/permissions';
 import { OrganizationDomain } from '../../organization/domain/organization.domain';
 import { ProjectDomain } from '../../projects/domain/project.domain';
+import { AUTO_PROVISION_ALLOWED_ORGANIZATION_GRANTS } from './role-permissions.data';
 
 export type RoleScope = 'cluster' | 'organization' | 'project';
 
@@ -28,6 +29,22 @@ export class RoleDomain extends Domain {
     this.permissions = Array.isArray(data.permissions)
       ? normalizePermissionGrants(data.permissions, this.scope)
       : [];
+  }
+
+  /**
+   * Whether the role may be granted without an administrator's review, as automatic sign-up does:
+   * an organization role with read grants and Org Developer grants only. Allow-listed, so any
+   * management, delete, invite or `:all` grant (including ones added later) disqualifies it.
+   */
+  get isAutoProvisionable(): boolean {
+    return (
+      this.scope === 'organization' &&
+      this.permissions.every(
+        (grant) =>
+          AUTO_PROVISION_ALLOWED_ORGANIZATION_GRANTS.includes(grant) ||
+          /^organization:[a-z-]+:read$/.test(grant),
+      )
+    );
   }
 
   toJson() {

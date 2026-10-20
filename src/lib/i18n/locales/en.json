@@ -212,7 +212,17 @@
     "newPassword": "New password",
     "resetPassword": "Reset password",
     "resetting": "Resetting...",
-    "passwordResetSuccess": "Your password has been reset. Sign in with your new password."
+    "passwordResetSuccess": "Your password has been reset. Sign in with your new password.",
+    "ssoContinueWithGoogle": "Continue with Google",
+    "ssoOrganizationHint": "Single sign-on for {organization}",
+    "ssoDivider": "or",
+    "ssoErrorCancelled": "Google sign-in was cancelled.",
+    "ssoErrorNotConfigured": "Google sign-in is not enabled for this organization.",
+    "ssoErrorInvalidState": "The sign-in request expired. Please try again.",
+    "ssoErrorEmailNotVerified": "Your Google account email is not verified.",
+    "ssoErrorDomainNotAllowed": "This Google account domain is not allowed for this organization.",
+    "ssoErrorNotInvited": "This Google account has no access to this organization. Ask an administrator for an invitation.",
+    "ssoErrorGeneric": "Google sign-in failed. Please try again or use your password."
   },
   "bootstrap": {
     "title": "Cluster setup",
@@ -755,7 +765,19 @@
       "comingSoon": "Coming soon",
       "comingSoonDescription": "Key rotation, encryption policy, and scoped secret protection settings are planned for a future release.",
       "saveNotWired": "Global authentication settings are not wired to a server action yet.",
-      "localAuthTitle": "Local authentication: always ON"
+      "localAuthTitle": "Local authentication: always ON",
+      "googleSecretConfigured": "A client secret is stored (encrypted). Leave empty to keep it, or type a new one to replace it.",
+      "googleAllowedDomains": "Allowed Google Workspace domains",
+      "googleAllowedDomainsHelp": "Comma-separated. Only accounts of these Workspace domains can sign in. Leave empty to accept any verified Google account. Without automatic sign-up, users still need an invitation to this organization.",
+      "googleAutoProvision": "Automatically sign up accounts from the allowed domains",
+      "googleAutoProvisionHelp": "Any Google Workspace account from the allowed domains can sign in without an invitation: its user is created and given access to this organization with the chosen role. Requires at least one allowed domain.",
+      "googleAutoProvisionNoPermission": "You need permission to invite organization users to change automatic sign-up.",
+      "googleAutoProvisionRole": "Role granted to automatically signed-up accounts",
+      "googleAutoProvisionRoleHelp": "Only roles without administrative permissions are listed: read access and, at most, creating and editing projects (like Org Developer). Administrators can grant more afterwards, per user.",
+      "googleAutoProvisionRoleInvalid": "The saved role no longer exists or now grants administrative permissions, so automatic sign-up is blocked. Pick another role and save.",
+      "googleRedirectUri": "Authorized redirect URI (GCP):",
+      "googleLoginUrl": "Organization login URL:",
+      "saveSaml": "Save SAML settings"
     },
     "projects": {
       "title": "Projects",

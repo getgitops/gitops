@@ -89,6 +89,26 @@ export const ClusterSettingsEntity = entity('cluster_settings', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const OrganizationAuthProviderEntity = entity('organization_auth_providers', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  provider: text().notNull(),
+  enabled: bool().notNull().default(false),
+  clientId: text(),
+  clientSecretEncrypted: text(),
+  allowedDomains: json()
+    .notNull()
+    .$defaultFn(() => []),
+  autoProvision: bool().notNull().default(false),
+  autoProvisionRoleId: uuid().$defaultFn(() => null),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const relations = defineRelations();
 
 relations.for(UserEntity, ({ one, many }) => ({

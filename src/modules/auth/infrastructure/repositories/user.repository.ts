@@ -1,8 +1,7 @@
 import { Repository } from './repository';
 import { ApiKeyEntity, UserEntity } from '$lib/database/schemas';
 import type { CreateUserInput } from '../../domain/entities';
-
-import { UserDomain } from '../../domain/user.domain';
+import { UserDomain, type UserAuthProvider } from '../../domain/user.domain';
 
 export class UserRepository extends Repository {
   async findById(id: string): Promise<UserDomain | null> {
@@ -58,6 +57,11 @@ export class UserRepository extends Repository {
       .limit(1);
     const row = result.rows[0];
     return row ? this.toDomain(row) : null;
+  }
+
+  async findByAuthProvider(provider: string, providerId: string): Promise<UserDomain | null> {
+    const users = await this.listUsers();
+    return users.find((user) => user.hasAuthProvider(provider, providerId)) ?? null;
   }
 
   async listUsers(): Promise<UserDomain[]> {
@@ -142,6 +146,32 @@ export class UserRepository extends Repository {
       .where({ id: userId });
   }
 
+  async updateAuthProviders(userId: string, authProviders: UserAuthProvider[]): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({ authProviders, updatedAt: new Date().toISOString() })
+      .where({ id: userId });
+  }
+
+  async activateInvitedUser(userId: string): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({
+        status: 'active',
+        invitationTokenHash: null,
+        invitationExpiresAt: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where({ id: userId });
+  }
+
+  async touchLastLogin(userId: string): Promise<void> {
+    await this.db
+      .update(UserEntity)
+      .set({ lastLoginAt: new Date().toISOString() })
+      .where({ id: userId });
+  }
+
   async setPasswordResetToken(
     userId: string,
     passwordResetTokenHash: string,
@@ -189,6 +219,8 @@ export class UserRepository extends Repository {
       status: user.status,
       invitationExpiresAt: user.invitationExpiresAt ?? null,
       passwordResetExpiresAt: user.passwordResetExpiresAt ?? null,
+      authProviders: user.authProviders ?? [],
+      disabled: user.disabled ?? false,
       role: user.role,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
