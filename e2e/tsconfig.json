@@ -5,9 +5,9 @@
     "target": "esnext",
     "paths": {
       "$lib": ["../src/lib"],
-      "$lib/*": ["../src/lib/*"],
+      "#lib/*": ["../src/lib/*"],
       "$modules": ["../src/modules"],
-      "$modules/*": ["../src/modules/*"],
+      "#modules/*": ["../src/modules/*"],
       "$env/dynamic/private": ["../test/env-dynamic-private.ts"]
     }
   }

@@ -11,9 +11,9 @@
     Users,
     X,
   } from '@lucide/svelte';
-  import permissionsCatalog, { defaultActions } from '$lib/config/permissions';
-  import { normalizePermissionGrant, toStoredPermissionGrant } from '$lib/permissions';
-  import { _ } from '$lib/i18n';
+  import permissionsCatalog, { defaultActions } from '#lib/config/permissions';
+  import { normalizePermissionGrant, toStoredPermissionGrant } from '#lib/permissions';
+  import { _ } from '#lib/i18n';
 
   export let scope: 'cluster' | 'organization' | 'project';
   export let role: RoleRow | null = null;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { registerTransport, resetTransports } from '$lib/server/infra/notifications';
+import { registerTransport, resetTransports } from '#lib/server/infra/notifications';
 import { PasswordResetNotifier } from './password-reset.notifier';
 
 const send = vi.fn(async (notification: { to: string[]; subject: string; content: string }) => {

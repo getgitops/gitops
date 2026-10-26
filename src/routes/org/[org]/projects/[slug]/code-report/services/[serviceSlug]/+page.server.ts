@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
-import { projectService } from '$modules/projects';
-import { cancanService } from '$modules/auth';
+import { codeReportService, codeReportAnalysisService } from '#modules/code-report';
+import { projectService } from '#modules/projects';
+import { cancanService } from '#modules/auth';
 
 const CODE_REPORT_TOOLS = ['trivy', 'syft', 'sbom', 'gitleaks'];
 

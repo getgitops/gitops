@@ -1,10 +1,10 @@
-import { Repository } from '$lib/server/infra/repository';
+import { Repository } from '#lib/server/infra/repository';
 import {
   VaultEnvironmentEntity,
   VaultFolderEntity,
   VaultSecretEntity,
   VaultSettingsEntity,
-} from '$lib/database/schemas';
+} from '#lib/database/schemas';
 import {
   VaultEnvironmentDomain,
   VaultFolderDomain,

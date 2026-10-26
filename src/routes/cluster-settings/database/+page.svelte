@@ -1,10 +1,10 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { onMount } from 'svelte';
-  import type { SubmitFunction } from '@sveltejs/kit';
+  import type { SubmitFunction } from '$app/forms';
   import { CheckCircle, GitBranch, RefreshCw, Timer } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
-  import GitDbStatusBadge from '$lib/components/GitDbStatusBadge.svelte';
+  import { _ } from '#lib/i18n';
+  import GitDbStatusBadge from '#lib/components/GitDbStatusBadge.svelte';
 
   type RepositoryConfig = {
     repositoryUrl: string;

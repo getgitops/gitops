@@ -1,5 +1,5 @@
 import { Domain } from './domain';
-import { normalizePermissionGrants } from '$lib/permissions';
+import { normalizePermissionGrants } from '#lib/permissions';
 import { OrganizationDomain } from '../../organization/domain/organization.domain';
 import { ProjectDomain } from '../../projects/domain/project.domain';
 

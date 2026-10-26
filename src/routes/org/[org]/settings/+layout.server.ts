@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
+import { cancanService } from '#modules/auth';
 
 // shell guard for the whole /settings subtree: CLAUDE.md's canManageOrganization gates this area.
 // individual pages still re-check their own finer-grained organization:*:read permission.

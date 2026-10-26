@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { ArrowLeft } from '@lucide/svelte';
-  import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
-  import { _ } from '$lib/i18n';
+  import SecurityPolicyForm from '#lib/components/code-report/SecurityPolicyForm.svelte';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     services: { id: string; slug: string; name: string; tags: string[] }[];
@@ -14,6 +14,7 @@
   $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
   $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
+  const page = createPageStore();
 </script>
 
 <svelte:head><title>{$_('codeReport.securityPolicy.newPolicy')} - GitOps</title></svelte:head>

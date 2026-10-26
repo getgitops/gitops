@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getServerReadyState } from '$lib/server/server-ready';
+import { getServerReadyState } from '#lib/server/server-ready';
 
 export function GET() {
   const state = getServerReadyState();

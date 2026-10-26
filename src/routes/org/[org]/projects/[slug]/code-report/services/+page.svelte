@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
   import { Boxes, Plus, Search, X } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   type SeverityCounts = {
     critical: number;
@@ -97,6 +97,7 @@
   $: if (form?.success) {
     modalOpen = false;
   }
+  const page = createPageStore();
 </script>
 
 <svelte:head>

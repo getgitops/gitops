@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '$modules/auth';
-import { organizationService } from '$modules/organization';
-import { projectService } from '$modules/projects';
+import { cancanService, roleService } from '#modules/auth';
+import { organizationService } from '#modules/organization';
+import { projectService } from '#modules/projects';
 
 function errorResponse(error: unknown) {
   return fail(400, { error: error instanceof Error ? error.message : 'Project action failed.' });

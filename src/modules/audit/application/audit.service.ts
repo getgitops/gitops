@@ -1,4 +1,4 @@
-import { getGitDb, getRepositoryWebUrl } from '$lib/server/gitdb';
+import { getGitDb, getRepositoryWebUrl } from '#lib/server/gitdb';
 import type { AuditEvent, EntityRowChange } from '@getgitops/gitdb';
 
 export type AuditListOptions = {

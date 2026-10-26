@@ -6,20 +6,20 @@ const canSessionUser = vi.fn();
 const exportEnvFile = vi.fn();
 const exportJsonFile = vi.fn();
 
-vi.mock('$modules/projects', () => ({
+vi.mock('#modules/projects', () => ({
   projectService: {
     getProject: (id: string) => getProject(id),
   },
 }));
 
-vi.mock('$modules/auth', () => ({
+vi.mock('#modules/auth', () => ({
   cancanService: {
     canApiKey: (...args: unknown[]) => canApiKey(...args),
     canSessionUser: (...args: unknown[]) => canSessionUser(...args),
   },
 }));
 
-vi.mock('$modules/vault', () => ({
+vi.mock('#modules/vault', () => ({
   vaultService: {
     exportEnvFile: (...args: unknown[]) => exportEnvFile(...args),
     exportJsonFile: (...args: unknown[]) => exportJsonFile(...args),
@@ -90,7 +90,7 @@ describe('GET /api/vault/export', () => {
       apiKey: { ...apiKey, projectId: 'project-2' },
     });
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({ error: 'Project mismatch' });
     expect(exportEnvFile).not.toHaveBeenCalled();
   });
 
@@ -98,7 +98,7 @@ describe('GET /api/vault/export', () => {
     canApiKey.mockReturnValue(false);
     const response = await request('?projectId=project-1&env=prod');
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({ error: 'Permission denied' });
   });
 
   it('exports the env format by default', async () => {

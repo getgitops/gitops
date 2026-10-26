@@ -1,7 +1,7 @@
-import { apiKeysService, roleService, userAccessService } from '$modules/auth';
-import { organizationService } from '$modules/organization';
-import { projectService } from '$modules/projects';
-import { codeReportService } from '$modules/code-report';
+import { apiKeysService, roleService, userAccessService } from '#modules/auth';
+import { organizationService } from '#modules/organization';
+import { projectService } from '#modules/projects';
+import { codeReportService } from '#modules/code-report';
 
 export const E2E_PASSWORD = 'E2ePassword!123';
 
@@ -56,6 +56,11 @@ function roleIdBySlug(roles: { id: string; slug: string }[], slug: string): stri
   const role = roles.find((r) => r.slug === slug);
   if (!role) throw new Error(`Seed role not found: ${slug}`);
   return role.id;
+}
+
+function requireSeedSlug(slug: string | null, entity: string): string {
+  if (!slug) throw new Error(`Seed ${entity} was created without a slug`);
+  return slug;
 }
 
 export async function seedAll(): Promise<SeedOutput> {
@@ -263,7 +268,7 @@ export async function seedAll(): Promise<SeedOutput> {
   );
 
   const seededService = await codeReportService.createService({
-    project: primaryProject.slug,
+    project: requireSeedSlug(primaryProject.slug, 'primary project'),
     name: 'E2E Seeded Service',
   });
 
@@ -379,9 +384,9 @@ export async function seedAll(): Promise<SeedOutput> {
     },
     primaryOrgSlug: primaryOrg.slug,
     primaryOrgId: primaryOrg.id,
-    primaryProjectSlug: primaryProject.slug,
-    outsiderOrgSlug: outsiderOrg.slug,
-    outsiderProjectSlug: outsiderProject.slug,
+    primaryProjectSlug: requireSeedSlug(primaryProject.slug, 'primary project'),
+    outsiderOrgSlug: requireSeedSlug(outsiderOrg.slug, 'outsider organization'),
+    outsiderProjectSlug: requireSeedSlug(outsiderProject.slug, 'outsider project'),
     seededServiceSlug: seededService.slug,
     apiKeys: {
       readOnly: readOnlyApiKeyToken,

@@ -1,10 +1,10 @@
-import { Repository } from '$lib/server/infra/repository';
+import { Repository } from '#lib/server/infra/repository';
 import {
   ProjectDomain,
   type ProjectModules,
   type ProjectSettings,
 } from '../../domain/project.domain';
-import { ProjectEntity } from '$lib/database/schemas';
+import { ProjectEntity } from '#lib/database/schemas';
 
 export class ProjectRepository extends Repository {
   async findByName(name: string): Promise<ProjectDomain | null> {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { page } from '$app/stores';
-  import type { SubmitFunction } from '@sveltejs/kit';
+  import { createPageStore } from '#lib/page-store';
+  import type { SubmitFunction } from '$app/forms';
   import {
     Archive,
     ArchiveRestore,
@@ -17,7 +17,7 @@
     Terminal,
     Trash2,
   } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   type ProjectModules = {
     vault: boolean;
@@ -210,6 +210,7 @@
       }
     };
   };
+  const page = createPageStore();
 </script>
 
 <svelte:head>

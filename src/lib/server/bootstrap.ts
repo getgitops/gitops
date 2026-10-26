@@ -1,5 +1,5 @@
-import { isRepositoryConfigured } from '$lib/server/gitdb';
-import { createLogger } from '$lib/server/logger';
+import { isRepositoryConfigured } from '#lib/server/gitdb';
+import { createLogger } from '#lib/server/logger';
 
 const log = createLogger('bootstrap');
 
@@ -33,8 +33,8 @@ export async function refreshBootstrapState(): Promise<BootstrapState> {
 
   // imported lazily: these modules instantiate repositories bound to the GitDB client
   const [{ roleService, userService }, { organizationService }] = await Promise.all([
-    import('$modules/auth'),
-    import('$modules/organization'),
+    import('#modules/auth'),
+    import('#modules/organization'),
   ]);
 
   const [roles, users, organizations] = await Promise.all([

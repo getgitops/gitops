@@ -8,20 +8,20 @@ const findSecretByKey = vi.fn();
 const setSecretValue = vi.fn();
 const deleteSecretByKey = vi.fn();
 
-vi.mock('$modules/projects', () => ({
+vi.mock('#modules/projects', () => ({
   projectService: {
     getProject: (id: string) => getProject(id),
   },
 }));
 
-vi.mock('$modules/auth', () => ({
+vi.mock('#modules/auth', () => ({
   cancanService: {
     canApiKey: (...args: unknown[]) => canApiKey(...args),
     canSessionUser: (...args: unknown[]) => canSessionUser(...args),
   },
 }));
 
-vi.mock('$modules/vault', () => ({
+vi.mock('#modules/vault', () => ({
   vaultService: {
     getFolderByPath: (...args: unknown[]) => getFolderByPath(...args),
     findSecretByKey: (...args: unknown[]) => findSecretByKey(...args),

@@ -1,10 +1,10 @@
-import { Repository } from '$lib/server/infra/repository';
+import { Repository } from '#lib/server/infra/repository';
 import {
   CodeReportAnalysisDomain,
   type CodeReportAnalysisStatus,
   type CodeReportGitInfo,
 } from '../../domain/code-report-analysis.domain';
-import { CodeReportAnalysisEntity } from '$lib/database/schemas';
+import { CodeReportAnalysisEntity } from '#lib/database/schemas';
 
 export class CodeReportAnalysisRepository extends Repository {
   async findByServiceId(serviceId: string): Promise<CodeReportAnalysisDomain[]> {

@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { readRepositoryConfigView } from '$lib/server/gitdb/config';
-import { gitDbSyncService } from '$lib/server/gitdb/sync';
+import { cancanService } from '#modules/auth';
+import { readRepositoryConfigView } from '#lib/server/gitdb/config';
+import { gitDbSyncService } from '#lib/server/gitdb/sync';
 
 export async function load() {
   return {

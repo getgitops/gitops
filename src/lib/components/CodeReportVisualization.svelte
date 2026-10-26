@@ -7,9 +7,9 @@
     extractVulnerabilities,
     summarizeAnalysisResult,
     type VulnerabilityFinding,
-  } from '$lib/code-report/analysis-summary';
-  import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
-  import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
+  } from '#lib/code-report/analysis-summary';
+  import type { PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
+  import { mergeComplianceReports } from '#lib/code-report/policy-evaluation';
   import CodeReportFiles from './code-report/CodeReportFiles.svelte';
   import CodeReportSbom from './code-report/CodeReportSbom.svelte';
   import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';

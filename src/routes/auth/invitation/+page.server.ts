@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { authService, invitationService } from '$modules/auth';
+import { authService, invitationService } from '#modules/auth';
 
 const SESSION_COOKIE = 'pos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;

@@ -1,6 +1,6 @@
-import { Repository } from '$lib/server/infra/repository';
+import { Repository } from '#lib/server/infra/repository';
 import { OrganizationDomain } from '../../domain/organization.domain';
-import { OrganizationEntity } from '$lib/database/schemas';
+import { OrganizationEntity } from '#lib/database/schemas';
 
 export class OrganizationRepository extends Repository {
   async findAll(): Promise<OrganizationDomain[]> {

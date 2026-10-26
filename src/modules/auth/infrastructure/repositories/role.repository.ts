@@ -1,4 +1,4 @@
-import { RoleEntity } from '$lib/database/schemas';
+import { RoleEntity } from '#lib/database/schemas';
 import type { RoleView } from '../../domain/entities';
 import { RoleDomain, type RoleScope } from '../../domain/role.domain';
 import { Repository } from './repository';

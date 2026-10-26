@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { _ } from '$lib/i18n';
-  import { page } from '$app/stores';
-  import CveDetailView from '$lib/components/code-report/CveDetailView.svelte';
+  import { _ } from '#lib/i18n';
+  import { createPageStore } from '#lib/page-store';
+  import CveDetailView from '#lib/components/code-report/CveDetailView.svelte';
 
   export let data: {
     cve: {
@@ -42,6 +42,7 @@
   $: orgSlug = $page?.params?.org ?? '';
   $: projectSlug = $page?.params?.slug ?? '';
   $: cvesHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/cves`;
+  const page = createPageStore();
 </script>
 
 <svelte:head>

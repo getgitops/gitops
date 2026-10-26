@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { Bot, ListChecks, Settings, Webhook } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     project?: {
@@ -23,6 +23,7 @@
   ];
 
   $: currentPath = $page?.url?.pathname ?? '';
+  const page = createPageStore();
 </script>
 
 <div class="mx-auto w-full max-w-7xl">

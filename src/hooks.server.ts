@@ -1,18 +1,18 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { sequence } from '@sveltejs/kit/hooks';
-import { apiKeysService, authService, cancanService, ensureAuthReady } from '$modules/auth';
-import { organizationService } from '$modules/organization';
-import { projectService } from '$modules/projects';
-import { isBootstrapCompleted, refreshBootstrapState } from '$lib/server/bootstrap';
-import { startGitDb } from '$lib/server/gitdb';
-import { markServerFailed, markServerReady } from '$lib/server/server-ready';
-import { runWithActor } from '$lib/server/request-context';
+import { apiKeysService, authService, cancanService, ensureAuthReady } from '#modules/auth';
+import { organizationService } from '#modules/organization';
+import { projectService } from '#modules/projects';
+import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
+import { startGitDb } from '#lib/server/gitdb';
+import { markServerFailed, markServerReady } from '#lib/server/server-ready';
+import { runWithActor } from '#lib/server/request-context';
 import {
   createLogger,
   createRequestLogger,
   logHttpRequest,
   logger,
-} from '$lib/server/logger';
+} from '#lib/server/logger';
 
 const startupLog = createLogger('startup');
 
@@ -171,8 +171,20 @@ export const handle = sequence(requestLogger, authGuard);
 
 // unexpected errors from load/actions/endpoints land here: log with the request's
 // trace-aware logger so the entry is correlated with the failed httpRequest
-export const handleError: HandleServerError = ({ error, event, status, message }) => {
+export const handleError: HandleServerError = ({ error, event, kind }) => {
   const log = event.locals.logger ?? logger;
-  const err = error instanceof Error ? error : new Error(String(error));
+  const status =
+    kind === 'framework' || kind === 'validation'
+      ? error.status
+      : kind === 'app'
+        ? (error.status ?? 500)
+        : 500;
+  const message =
+    kind === 'framework' || kind === 'validation' || kind === 'app'
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  const err = error instanceof Error ? error : new Error(message);
   log.error(err, `[${status}] ${message}`);
 };

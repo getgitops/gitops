@@ -1,6 +1,6 @@
 <script lang="ts">
-  import RolePermissions from '$lib/components/RolePermissions.svelte';
-  import { _ } from '$lib/i18n';
+  import RolePermissions from '#lib/components/RolePermissions.svelte';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     project: { slug: string; organization: { slug: string } | null };

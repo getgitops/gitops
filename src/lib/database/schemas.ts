@@ -189,7 +189,7 @@ export const CodeReportSecurityPolicyEntity = entity('code_report_security_polic
   scope: json()
     .notNull()
     .$defaultFn(() => ({ mode: 'all', services: [], tags: [] })),
-  // type-specific configuration, see $lib/code-report/security-policy
+  // type-specific configuration, see #lib/code-report/security-policy
   rules: json()
     .notNull()
     .$defaultFn(() => ({})),

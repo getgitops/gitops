@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { _ } from '$lib/i18n';
-  import CveDetailView from '$lib/components/code-report/CveDetailView.svelte';
+  import { _ } from '#lib/i18n';
+  import CveDetailView from '#lib/components/code-report/CveDetailView.svelte';
 
   export let data: {
     orgSlug: string;

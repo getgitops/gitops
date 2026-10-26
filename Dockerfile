@@ -16,7 +16,7 @@ RUN bun run build
 RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # ─── Stage 2: production image ───────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM node:26.12.1-alpine AS runner
 
 WORKDIR /app
 

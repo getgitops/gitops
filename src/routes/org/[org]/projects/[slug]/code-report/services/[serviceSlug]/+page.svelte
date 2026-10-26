@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
   import { ArrowLeft, History, Trash2, X } from '@lucide/svelte';
-  import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
-  import { _ } from '$lib/i18n';
+  import CodeReportVisualization from '#lib/components/CodeReportVisualization.svelte';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     service: { id: string; name: string; slug: string; tags?: string[] };
@@ -28,6 +28,7 @@
   let deleting = false;
   let deleteError: string | null = null;
   $: if (form?.error) deleteError = form.error;
+  const page = createPageStore();
 </script>
 
 <svelte:head><title>{data.service.name} - Code Report - GitOps</title></svelte:head>

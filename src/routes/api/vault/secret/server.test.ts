@@ -6,20 +6,20 @@ const canSessionUser = vi.fn();
 const getFolderByPath = vi.fn();
 const createSecret = vi.fn();
 
-vi.mock('$modules/projects', () => ({
+vi.mock('#modules/projects', () => ({
   projectService: {
     getProject: (id: string) => getProject(id),
   },
 }));
 
-vi.mock('$modules/auth', () => ({
+vi.mock('#modules/auth', () => ({
   cancanService: {
     canApiKey: (...args: unknown[]) => canApiKey(...args),
     canSessionUser: (...args: unknown[]) => canSessionUser(...args),
   },
 }));
 
-vi.mock('$modules/vault', () => ({
+vi.mock('#modules/vault', () => ({
   vaultService: {
     getFolderByPath: (...args: unknown[]) => getFolderByPath(...args),
     createSecret: (...args: unknown[]) => createSecret(...args),

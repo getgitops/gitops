@@ -1,11 +1,11 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
-  import { page } from '$app/stores';
-  import AppNavbar from '$lib/components/AppNavbar.svelte';
-  import AppSidebar from '$lib/components/AppSidebar.svelte';
-  import Footer from '$lib/components/Footer.svelte';
-  import { setupI18n } from '$lib/i18n';
+  import { createPageStore } from '#lib/page-store';
+  import AppNavbar from '#lib/components/AppNavbar.svelte';
+  import AppSidebar from '#lib/components/AppSidebar.svelte';
+  import Footer from '#lib/components/Footer.svelte';
+  import { setupI18n } from '#lib/i18n';
 
   export let data: any;
 
@@ -25,6 +25,7 @@
   $: if (sidebarStateReady) {
     localStorage.setItem('gitops-sidebar-collapsed', sidebarCollapsed ? '1' : '0');
   }
+  const page = createPageStore();
 </script>
 
 <div

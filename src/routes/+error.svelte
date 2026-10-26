@@ -1,8 +1,8 @@
 <script lang="ts">
   import '../app.css';
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { ShieldAlert, FileQuestion, ServerCrash, ArrowLeft, Home } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   $: status = $page.status;
   $: message = $page.error?.message;
@@ -28,6 +28,7 @@
             description: message || $_('error.genericDescription'),
             accent: 'red',
           };
+  const page = createPageStore();
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-16">

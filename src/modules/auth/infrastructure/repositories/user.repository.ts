@@ -1,5 +1,5 @@
 import { Repository } from './repository';
-import { ApiKeyEntity, UserEntity } from '$lib/database/schemas';
+import { ApiKeyEntity, UserEntity } from '#lib/database/schemas';
 import type { CreateUserInput } from '../../domain/entities';
 
 import { UserDomain } from '../../domain/user.domain';

@@ -1,4 +1,4 @@
-import type { PermissionGrant } from '$lib/permissions';
+import type { PermissionGrant } from '#lib/permissions';
 import type { ProjectDomain } from '../../projects/domain/project.domain';
 import type { RoleDomain } from '../domain/role.domain';
 import type { UserDomain } from '../domain/user.domain';

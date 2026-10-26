@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import {
     ArrowRight,
     BarChart3,
@@ -11,7 +11,7 @@
     Shield,
     Terminal,
   } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   type ProjectRow = {
     id: string;
@@ -78,6 +78,7 @@
       (project.description ?? '').toLowerCase().includes(query)
     );
   });
+  const page = createPageStore();
 </script>
 
 <svelte:head>

@@ -1,4 +1,4 @@
-import { Domain } from '$lib/server/domain/domain';
+import { Domain } from '#lib/server/domain/domain';
 
 export type VaultSecretValues = Record<string, string>;
 

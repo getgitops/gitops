@@ -1,5 +1,5 @@
-import { Domain } from '$lib/server/domain/domain';
-import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
+import { Domain } from '#lib/server/domain/domain';
+import type { PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
 
 export type CodeReportAnalysisStatus = 'in_progress' | 'completed' | 'failed';
 

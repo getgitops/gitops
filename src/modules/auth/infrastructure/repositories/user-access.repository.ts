@@ -1,4 +1,4 @@
-import { UserAccessEntity } from '$lib/database/schemas';
+import { UserAccessEntity } from '#lib/database/schemas';
 import {
   UserAccessDomain,
   type UserAccessScope,

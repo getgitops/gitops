@@ -1,4 +1,4 @@
-import type { SecurityPolicyType } from '$lib/code-report/security-policy';
+import type { SecurityPolicyType } from '#lib/code-report/security-policy';
 
 // each tool only produces evidence for some policy types
 export const TOOL_POLICY_TYPES: Record<string, SecurityPolicyType[]> = {
