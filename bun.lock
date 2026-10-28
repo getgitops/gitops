@@ -6,7 +6,7 @@
       "name": "gitops",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.1156.0",
-        "@getgitops/gitdb": "^0.10.0",
+        "@getgitops/gitdb": "^0.11.5",
         "@google-cloud/storage": "^8.4.0",
         "@lucide/svelte": "^1.61.0",
         "chart.js": "^4.6.1",
@@ -143,7 +143,7 @@
 
     "@eslint/plugin-kit": ["@eslint/plugin-kit@0.7.3", "", { "dependencies": { "@eslint/core": "^1.2.1", "levn": "^0.4.1" } }, "sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q=="],
 
-    "@getgitops/gitdb": ["@getgitops/gitdb@0.10.0", "", {}, "sha512-RYdKpx55hQWXiq1Ix/Auj1bkYYfEwQT0ebBGDZrDx6C1ccLLOrNKQpf+oajl1yPSmxY3jWBM69yr3jKIUXKsUA=="],
+    "@getgitops/gitdb": ["@getgitops/gitdb@0.11.5", "", {}, "sha512-VZLNRS8E/HBGoLBVZTdAFiXEh6BzF6BSZj5+G99h/cRyONarpYLRWT+7YxwqihH9LO1u2WRwPgUjLNPHg6KSSw=="],
 
     "@google-cloud/paginator": ["@google-cloud/paginator@7.0.1", "", { "dependencies": { "extend": "^3.0.2" } }, "sha512-k32cWlHAF8yTgg8rciLI8mPMI6UzuJdKp53YRxISRwMFxUl2FYplvs+Mr2UHxKn0W7rXsqZnUZy73AOJFDP8iA=="],
 
