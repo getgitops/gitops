@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 
 export class PasswordService {
   private static readonly HASH_PREFIX = 'scrypt';

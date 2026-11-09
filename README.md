@@ -32,6 +32,11 @@ bun run dev
 Set `GITDB_REPOSITORY_URL` and a long, random `GITDB_ENCRYPTION_KEY` in `.env`. The development
 server is available at `http://localhost:5173`.
 
+Private runtime variables are declared in `src/env.ts` and imported from `$app/env/private`.
+When adding one, keep its existing consumer defaults and validation.
+Logging defaults to `pino-pretty` in development and structured GCP JSON in production.
+Use `LOG_MODE=standard|gcp` and `LOG_FORMAT=pretty|json` to override these defaults.
+
 ### Docker
 
 ```bash

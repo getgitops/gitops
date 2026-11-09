@@ -1,4 +1,5 @@
 import pino, { type Logger } from 'pino';
+import { createRequire } from 'node:module';
 import type { RequestEvent } from '@sveltejs/kit';
 
 /**
@@ -42,8 +43,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 const logMode = process.env.LOG_MODE ?? (isProduction ? 'gcp' : 'standard');
 const gcpMode = logMode === 'gcp';
 
-const useJson =
-  process.env.LOG_FORMAT === 'json' || (!process.env.LOG_FORMAT && gcpMode);
+const useJson = process.env.LOG_FORMAT === 'json' || (!process.env.LOG_FORMAT && gcpMode);
+
+// Vite SSR callsites are not usable by Pino's automatic transport resolution.
+const require = createRequire(import.meta.url);
 
 const redact = {
   paths: [
@@ -95,7 +98,7 @@ export const logger = gcpMode
       transport: useJson
         ? undefined
         : {
-            target: 'pino-pretty',
+            target: require.resolve('pino-pretty'),
             options: { colorize: true, translateTime: 'SYS:HH:MM:ss.l', ignore: 'pid,hostname' },
           },
     })
@@ -113,7 +116,7 @@ export const logger = gcpMode
       transport: useJson
         ? undefined
         : {
-            target: 'pino-pretty',
+            target: require.resolve('pino-pretty'),
             options: {
               colorize: true,
               translateTime: 'SYS:HH:MM:ss.l',
