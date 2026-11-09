@@ -5,8 +5,17 @@ import {
   type CodeReportGitInfo,
 } from '../../domain/code-report-analysis.domain';
 import { CodeReportAnalysisEntity } from '#lib/database/schemas';
+import { ServiceAnalysisOverview } from './service-analysis-overview';
 
 export class CodeReportAnalysisRepository extends Repository {
+  private readonly overview = new ServiceAnalysisOverview();
+
+  findServiceOverview(serviceId: string) {
+    return this.db.projectRows(CodeReportAnalysisEntity, (rows) =>
+      this.overview.project(rows, serviceId),
+    );
+  }
+
   async findByServiceId(serviceId: string): Promise<CodeReportAnalysisDomain[]> {
     const result = await this.db
       .select()

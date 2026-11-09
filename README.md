@@ -63,6 +63,14 @@ large deployments. There is no eviction or TTL by default. The current deploymen
 assumes a single writer: changes made outside GitOps require restarting it to rebuild
 the cache. Redis alone would not add cross-process invalidation.
 
+The Code Report service-detail page uses a single cache projection: it returns full
+results only for the latest analysis of each tool and compact counters for every
+completed historical analysis. Historical chart points are not truncated; full older
+reports remain available from the history page. Derived counters are memoized against
+immutable cache snapshots and refreshed when those snapshots change. Debug logs named
+`code report service detail loaded` include loader and analysis-loading durations;
+the HTTP duration also includes ancestor loaders, SSR, and response serialization.
+
 ### Docker
 
 ```bash

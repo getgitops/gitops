@@ -66,6 +66,15 @@ export class CachedGitDb {
     );
   }
 
+  /** Internal projections must not mutate snapshots; only their returned payload is cloned. */
+  async projectRows<T>(
+    definition: EntityDefinition,
+    project: (rows: readonly Readonly<EntityRow>[]) => T,
+  ): Promise<T> {
+    await this.startup;
+    return structuredClone(project(await this.store.read(definition.name)));
+  }
+
   insert(entity: EntityDefinition): InsertQuery {
     return this.cacheWrite(entity, this.db.insert(entity));
   }

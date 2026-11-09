@@ -30,6 +30,10 @@ export class CodeReportAnalysisService {
     return analyses.map((analysis) => analysis.toJson());
   }
 
+  getServiceOverview(serviceId: string) {
+    return this.repository.findServiceOverview(serviceId);
+  }
+
   async getLatestByTool(serviceId: string, tools: string[]) {
     const analyses = await Promise.all(
       tools.map((tool) => this.repository.findLatestByServiceIdAndTool(serviceId, tool)),

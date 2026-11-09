@@ -231,6 +231,19 @@ describe('GitOps entity cache with real GitDB persistence', () => {
     expect(clone).toHaveBeenCalledOnce();
   });
 
+  it('projects cached snapshots before cloning and refreshes projections after writes', async () => {
+    const clone = vi.spyOn(globalThis, 'structuredClone');
+    const projected = await db.projectRows(Items, (rows) => ({
+      ids: rows.map((row) => row.id),
+      count: rows.length,
+    }));
+    expect(clone).toHaveBeenCalledExactlyOnceWith({ ids: ['1', '2', '3', '4'], count: 4 });
+    projected.ids[0] = 'changed';
+    expect((await db.select().from(Items).where({ id: '1' })).rows).toHaveLength(1);
+    await db.insert(Items).values({ id: '5' });
+    expect(await db.projectRows(Items, (rows) => rows.length)).toBe(5);
+  });
+
   it('isolates returned nested data and write-returning data from the cached snapshots', async () => {
     const first = await db.select().from(Items).where({ id: '1' });
     first.rows[0].payload = { corrupted: true };
