@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { OrganizationAuthProviderEntity } from '$lib/database/schemas';
+import { OrganizationAuthProviderEntity } from '#lib/database/schemas';
 import { AuthProviderDomain, type AuthProviderType } from '../../domain/auth-provider.domain';
 import { Repository } from './repository';
 

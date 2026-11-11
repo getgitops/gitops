@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { authService } from '#modules/auth';
+import { authService, ssoService } from '#modules/auth';
+import { organizationService } from '#modules/organization';
 import { clusterSettingsService } from '#modules/config';
 
 const SESSION_COOKIE = 'pos_session';

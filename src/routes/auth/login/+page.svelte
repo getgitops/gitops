@@ -4,13 +4,14 @@
   import type { ActionData } from './$types';
   import { ShieldCheck } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
-
   export let data: {
     registrationEnabled: boolean;
     sso: { organizationSlug: string; organizationName: string; google: boolean } | null;
     ssoError: string | null;
   };
   export let form: ActionData;
+
+  const page = createPageStore();
 
   let isSubmitting = false;
 
