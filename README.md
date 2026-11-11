@@ -33,6 +33,45 @@ bun run dev
 Set `GITDB_REPOSITORY_URL` and a long, random `GITDB_ENCRYPTION_KEY` in `.env`. The development
 server is available at `http://localhost:5173`.
 
+Private runtime variables are declared in `src/env.ts` and imported from `$app/env/private`.
+When adding one, keep its existing consumer defaults and validation.
+Logging defaults to `pino-pretty` in development and structured GCP JSON in production.
+Use `LOG_MODE=standard|gcp` and `LOG_FORMAT=pretty|json` to override these defaults.
+
+### GitDB read cache
+
+GitOps preloads every current entity table into RAM after GitDB clones or opens the
+local repository. Startup readiness includes this preload. Queries, nested relations,
+and aggregates read the cache first; cache misses fall back to GitDB and repopulate it.
+Cache hits do not stat or read files, reconstruct chunks, or clone entire tables before
+filtering and pagination. Only the returned rows are cloned to isolate callers.
+
+GitDB remains the source of truth for writes, schema validation, commits, and audit
+history. GitOps serializes writes per entity and refreshes that entity's cache after
+each write, including actor-scoped writes. Failed cache operations are logged and
+fall back to GitDB without hiding persistence errors.
+
+The cache lives entirely in `src/lib/server/gitdb/` in this application, not in the
+GitDB library. `EntityCache` defines an async `get`/`set`/`delete` contract;
+`MemoryEntityCache` is the default backend. `CachedGitDb` accepts another backend
+through its constructor, so a future Redis adapter can use the same repository-scoped
+keys without changing repositories or query callers.
+
+This caches the current tables, not `.git` history or unrelated files. Allow enough
+Node.js heap for decoded JSON and temporary write buffers (potentially several times
+the repository's on-disk size); adjust `NODE_OPTIONS=--max-old-space-size=<MiB>` for
+large deployments. There is no eviction or TTL by default. The current deployment
+assumes a single writer: changes made outside GitOps require restarting it to rebuild
+the cache. Redis alone would not add cross-process invalidation.
+
+The Code Report service-detail page uses a single cache projection: it returns full
+results only for the latest analysis of each tool and compact counters for every
+completed historical analysis. Historical chart points are not truncated; full older
+reports remain available from the history page. Derived counters are memoized against
+immutable cache snapshots and refreshed when those snapshots change. Debug logs named
+`code report service detail loaded` include loader and analysis-loading durations;
+the HTTP duration also includes ancestor loaders, SSR, and response serialization.
+
 ### Docker
 
 ```bash

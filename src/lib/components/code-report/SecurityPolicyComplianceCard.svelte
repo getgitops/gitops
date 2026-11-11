@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AlertTriangle, ChevronDown, ChevronUp, ShieldAlert, ShieldCheck, ShieldQuestion } from '@lucide/svelte';
-  import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
+  import type { PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
 
   export let report: PolicyComplianceReport;
   export let policiesHref: string | null = null;

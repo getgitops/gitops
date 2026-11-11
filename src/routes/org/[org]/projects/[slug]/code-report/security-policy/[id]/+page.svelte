@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
   import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from '@lucide/svelte';
-  import SecurityPolicyForm from '$lib/components/code-report/SecurityPolicyForm.svelte';
-  import { _ } from '$lib/i18n';
+  import SecurityPolicyForm from '#lib/components/code-report/SecurityPolicyForm.svelte';
+  import { _ } from '#lib/i18n';
   import {
     describeScope,
     SECURITY_POLICY_ENFORCEMENT_META,
     SECURITY_POLICY_TYPE_META,
     type SecurityPolicy,
-  } from '$lib/code-report/security-policy';
+  } from '#lib/code-report/security-policy';
 
   type AffectedService = {
     id: string;
@@ -86,6 +86,7 @@
     if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'Ninguno';
     return String(value);
   }
+  const page = createPageStore();
 </script>
 
 <svelte:head><title>{policy.name} - Security Policies - GitOps</title></svelte:head>

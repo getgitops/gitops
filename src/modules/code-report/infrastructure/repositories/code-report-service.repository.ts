@@ -1,6 +1,6 @@
-import { Repository } from '$lib/server/infra/repository';
+import { Repository } from '#lib/server/infra/repository';
 import { CodeReportServiceDomain } from '../../domain/code-report-service.domain';
-import { CodeReportServiceEntity } from '$lib/database/schemas';
+import { CodeReportServiceEntity } from '#lib/database/schemas';
 
 export class CodeReportServiceRepository extends Repository {
   async findAll(): Promise<CodeReportServiceDomain[]> {

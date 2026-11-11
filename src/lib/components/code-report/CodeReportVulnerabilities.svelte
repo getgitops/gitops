@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AlertCircle, Search } from '@lucide/svelte';
-  import type { VulnerabilityFinding } from '$lib/code-report/analysis-summary';
+  import type { VulnerabilityFinding } from '#lib/code-report/analysis-summary';
   export let analysis: { status: string; error?: string | null };
   export let vulnerabilities: VulnerabilityFinding[] = [];
   export let filteredVulnerabilities: VulnerabilityFinding[] = [];

@@ -1,4 +1,4 @@
-import { Domain } from '$lib/server/domain/domain';
+import { Domain } from '#lib/server/domain/domain';
 
 export class ClusterSettingsDomain extends Domain {
   public registrationEnabled: boolean = false;

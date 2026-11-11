@@ -1,4 +1,4 @@
-import { Domain } from '$lib/server/domain/domain';
+import { Domain } from '#lib/server/domain/domain';
 import { OrganizationDomain } from '../../organization/domain/organization.domain';
 import {
   DEFAULT_PROJECT_MODULES,

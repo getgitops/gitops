@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { ArrowLeft } from '@lucide/svelte';
-  import CodeReportVisualization from '$lib/components/CodeReportVisualization.svelte';
-  import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  import { _ } from '$lib/i18n';
+  import CodeReportVisualization from '#lib/components/CodeReportVisualization.svelte';
+  import CodeReportToolBadge from '#lib/components/code-report/CodeReportToolBadge.svelte';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     service: { id: string; name: string; slug: string; tags?: string[] };
@@ -15,6 +15,7 @@
   $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
   $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
   $: historyHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/history`;
+  const page = createPageStore();
 </script>
 
 <svelte:head><title>{data.service.name} - {$_('codeReport.history.title')}</title></svelte:head>

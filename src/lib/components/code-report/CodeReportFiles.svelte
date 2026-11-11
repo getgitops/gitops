@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Search } from '@lucide/svelte';
-  import type { VulnerabilityFinding } from '$lib/code-report/analysis-summary';
+  import type { VulnerabilityFinding } from '#lib/code-report/analysis-summary';
   type FileGroup = { path: string; vulnerabilities: VulnerabilityFinding[] };
   export let fileGroups: FileGroup[] = [];
   export let filteredFileGroups: FileGroup[] = [];

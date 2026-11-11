@@ -1,9 +1,12 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { ArrowLeft, Check, ChevronDown, Clock, Search } from '@lucide/svelte';
-  import { summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
-  import CodeReportToolBadge from '$lib/components/code-report/CodeReportToolBadge.svelte';
-  import { _ } from '$lib/i18n';
+  import { summarizeAnalysisResult } from '#lib/code-report/analysis-summary';
+  import CodeReportToolBadge from '#lib/components/code-report/CodeReportToolBadge.svelte';
+  import { _ } from '#lib/i18n';
+
+  const page = createPageStore();
+
   export let data: {
     services: { id: string; slug: string; name: string }[];
     analyses: any[];

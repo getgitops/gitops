@@ -1,8 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { projectService } from '$modules/projects';
-import { vaultService, VAULT_ENCRYPTION_PROVIDERS } from '$modules/vault';
+import { cancanService } from '#modules/auth';
+import { projectService } from '#modules/projects';
+import { vaultService, VAULT_ENCRYPTION_PROVIDERS } from '#modules/vault';
 
 export async function load({ parent, locals }) {
   const { project } = await parent();

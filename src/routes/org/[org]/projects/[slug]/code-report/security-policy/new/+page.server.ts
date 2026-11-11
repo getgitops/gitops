@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { codeReportSecurityPolicyService, codeReportService } from '$modules/code-report';
-import { projectService } from '$modules/projects';
+import { cancanService } from '#modules/auth';
+import { codeReportSecurityPolicyService, codeReportService } from '#modules/code-report';
+import { projectService } from '#modules/projects';
 
 export async function load({ parent, locals }) {
   const { project } = await parent();

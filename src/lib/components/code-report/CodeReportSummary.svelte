@@ -1,6 +1,6 @@
 <script lang="ts">
   import { GitBranch, Info } from '@lucide/svelte';
-  import type { AnalysisSummary } from '$lib/code-report/analysis-summary';
+  import type { AnalysisSummary } from '#lib/code-report/analysis-summary';
   import CodeReportToolBadge from './CodeReportToolBadge.svelte';
   type Analysis = {
     tool: string;

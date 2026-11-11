@@ -1,4 +1,4 @@
-import { MailNotification, notify, renderTemplate } from '$lib/server/infra/notifications';
+import { MailNotification, notify, renderTemplate } from '#lib/server/infra/notifications';
 
 export type PasswordResetNotificationInput = {
   email: string;

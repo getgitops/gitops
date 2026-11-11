@@ -1,8 +1,8 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { ShieldCheck } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   export let form: { email?: string; error?: string } | null = null;
 
@@ -10,6 +10,7 @@
 
   $: email = form?.email ?? '';
   $: loggedOut = $page.url.searchParams.has('loggedOut');
+  const page = createPageStore();
 </script>
 
 <svelte:head>

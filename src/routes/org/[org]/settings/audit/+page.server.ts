@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import { auditService } from '$modules/audit';
-import { cancanService } from '$modules/auth';
-import { organizationService } from '$modules/organization';
+import { auditService } from '#modules/audit';
+import { cancanService } from '#modules/auth';
+import { organizationService } from '#modules/organization';
 
 export async function load({ parent, url, locals }) {
   const { organization } = await parent();

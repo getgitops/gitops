@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
-import { projectService } from '$modules/projects';
-import { cancanService } from '$modules/auth';
+import { codeReportService, codeReportAnalysisService } from '#modules/code-report';
+import { projectService } from '#modules/projects';
+import { cancanService } from '#modules/auth';
 
 type ProjectSettingsTool = {
   id: string;

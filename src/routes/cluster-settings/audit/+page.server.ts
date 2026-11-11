@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { auditService } from '$modules/audit';
-import { organizationService } from '$modules/organization';
+import { auditService } from '#modules/audit';
+import { organizationService } from '#modules/organization';
 
 export async function load({ url }) {
   const [{ events, page, perPage, total, totalPages }, organizations] = await Promise.all([

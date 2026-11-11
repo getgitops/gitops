@@ -12,7 +12,7 @@
     type SecurityPolicyEnforcement,
     type SecurityPolicyScope,
     type SecurityPolicyType,
-  } from '$lib/code-report/security-policy';
+  } from '#lib/code-report/security-policy';
 
   type ServiceOption = { id: string; slug: string; name: string; tags: string[] };
 

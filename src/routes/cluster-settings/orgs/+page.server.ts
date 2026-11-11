@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService, roleService } from '$modules/auth';
-import { organizationService } from '$modules/organization';
+import { cancanService, roleService } from '#modules/auth';
+import { organizationService } from '#modules/organization';
 
 function errorResponse(error: unknown) {
   return fail(400, {

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { projectService } from '$modules/projects';
-import { vaultService } from '$modules/vault';
+import { cancanService } from '#modules/auth';
+import { projectService } from '#modules/projects';
+import { vaultService } from '#modules/vault';
 
 type CreateSecretBody = {
   projectId?: string;

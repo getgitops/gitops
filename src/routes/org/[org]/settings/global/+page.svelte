@@ -8,7 +8,7 @@
     RefreshCw,
     Shield,
   } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
   import type { ActionData } from './$types';
 
   export let data: {

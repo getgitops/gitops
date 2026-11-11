@@ -51,7 +51,7 @@
     {
       id: 'sveltekit',
       name: 'SvelteKit',
-      description: 'Alimenta $env/dynamic/private con el vault.',
+      description: 'Alimenta $app/env/private con el vault.',
       logo: '/integrations/sveltekit.svg',
     },
     {

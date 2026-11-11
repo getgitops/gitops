@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
-  import type { SubmitFunction } from '@sveltejs/kit';
+  import type { SubmitFunction } from '$app/forms';
   import { ArrowRight, Building2, Plus } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   type OrganizationRow = {
     id: string;
@@ -61,6 +61,7 @@
           : $_('clusterSettings.organizations.createFailed');
     };
   };
+  const page = createPageStore();
 </script>
 
 <svelte:head>

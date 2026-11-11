@@ -1,12 +1,12 @@
-import { Repository } from '$lib/server/infra/repository';
+import { Repository } from '#lib/server/infra/repository';
 import { CodeReportSecurityPolicyDomain } from '../../domain/code-report-security-policy.domain';
-import { CodeReportSecurityPolicyEntity } from '$lib/database/schemas';
+import { CodeReportSecurityPolicyEntity } from '#lib/database/schemas';
 import type {
   SecurityPolicyEnforcement,
   SecurityPolicyRules,
   SecurityPolicyScope,
   SecurityPolicyType,
-} from '$lib/code-report/security-policy';
+} from '#lib/code-report/security-policy';
 
 export class CodeReportSecurityPolicyRepository extends Repository {
   async findByProjectId(projectId: string): Promise<CodeReportSecurityPolicyDomain[]> {

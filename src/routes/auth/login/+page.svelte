@@ -1,9 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import type { ActionData } from './$types';
   import { ShieldCheck } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     registrationEnabled: boolean;

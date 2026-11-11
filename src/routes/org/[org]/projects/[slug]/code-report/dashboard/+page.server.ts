@@ -1,15 +1,15 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
+import { cancanService } from '#modules/auth';
 import {
   codeReportAnalysisService,
   codeReportCveService,
   codeReportSecurityPolicyService,
   codeReportService,
-} from '$modules/code-report';
-import { extractSecrets, summarizeAnalysisResult } from '$lib/code-report/analysis-summary';
-import { summarizeCves } from '$lib/code-report/cve-aggregation';
-import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
-import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
+} from '#modules/code-report';
+import { extractSecrets, summarizeAnalysisResult } from '#lib/code-report/analysis-summary';
+import { summarizeCves } from '#lib/code-report/cve-aggregation';
+import type { PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
+import { mergeComplianceReports } from '#lib/code-report/policy-evaluation';
 
 const STALE_AFTER_DAYS = 30;
 

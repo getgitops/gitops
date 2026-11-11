@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import type { VaultSecretValues } from '../../domain/vault.domain';
 
 const ALGORITHM = 'aes-256-gcm';

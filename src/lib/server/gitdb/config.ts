@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 
 export type GitDbAuthMode = 'none' | 'basic' | 'token';
 
@@ -31,7 +31,7 @@ export const MIN_SYNC_POLL_SECONDS = 10;
 export const MAX_SYNC_POLL_SECONDS = 86_400;
 export const DEFAULT_SYNC_POLL_SECONDS = 60;
 
-function value(name: string): string | null {
+function value(name: keyof typeof env): string | null {
   const raw = env[name]?.trim();
   if (!raw) return null;
 
@@ -136,7 +136,10 @@ export function readRepositoryConfigView(): GitDbRepositoryConfigView | null {
  * Username/token pair for HTTPS auth, resolved transiently for each git operation.
  * Never embedded into `repositoryUrl`, never persisted, never logged.
  */
-export function resolveAuthCredentials(config: GitDbRepositoryConfig): { authUsername: string; authToken: string } {
+export function resolveAuthCredentials(config: GitDbRepositoryConfig): {
+  authUsername: string;
+  authToken: string;
+} {
   if (config.authMode === 'none' || !config.secret) {
     return { authUsername: '', authToken: '' };
   }
@@ -151,7 +154,8 @@ export function resolveAuthCredentials(config: GitDbRepositoryConfig): { authUse
     return { authUsername: '', authToken: '' };
   }
 
-  const authUsername = config.authMode === 'token' ? config.username || 'git' : (config.username ?? '');
+  const authUsername =
+    config.authMode === 'token' ? config.username || 'git' : (config.username ?? '');
   return { authUsername, authToken: config.secret };
 }
 

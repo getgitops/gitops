@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { getBootstrapState, nextBootstrapStep, refreshBootstrapState } from '$lib/server/bootstrap';
-import { createLogger } from '$lib/server/logger';
+import { getBootstrapState, nextBootstrapStep, refreshBootstrapState } from '#lib/server/bootstrap';
+import { createLogger } from '#lib/server/logger';
 
 const log = createLogger('bootstrap');
 
@@ -30,7 +30,7 @@ export const actions = {
         throw new Error('Password must be at least 8 characters long');
       }
 
-      const { roleService, userAccessService } = await import('$modules/auth');
+      const { roleService, userAccessService } = await import('#modules/auth');
 
       const roles = await roleService.listRoles('cluster');
       const adminRole = roles.find((role: any) => role.slug === 'cluster-admin');
@@ -59,8 +59,8 @@ export const actions = {
 
     try {
       const form = await request.formData();
-      const { organizationService } = await import('$modules/organization');
-      const { roleService } = await import('$modules/auth');
+      const { organizationService } = await import('#modules/organization');
+      const { roleService } = await import('#modules/auth');
       const organization = await organizationService.createOrganization({
         name: String(form.get('name') ?? ''),
         slug: String(form.get('slug') ?? '') || undefined,

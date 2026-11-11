@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
 
   export let data: {
     project?: {
@@ -12,6 +12,7 @@
   $: projectSlug = data?.project?.slug ?? $page?.params?.slug ?? '';
   
 
+  const page = createPageStore();
 </script>
 
 <div class="space-y-6">

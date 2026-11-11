@@ -1,4 +1,4 @@
-import { Domain } from '$lib/server/domain/domain';
+import { Domain } from '#lib/server/domain/domain';
 import { ProjectDomain } from '../../projects/domain/project.domain';
 import {
   defaultScope,
@@ -6,7 +6,7 @@ import {
   type SecurityPolicyRules,
   type SecurityPolicyScope,
   type SecurityPolicyType,
-} from '$lib/code-report/security-policy';
+} from '#lib/code-report/security-policy';
 
 export class CodeReportSecurityPolicyDomain extends Domain {
   public projectId: string = '';

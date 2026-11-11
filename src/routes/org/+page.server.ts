@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { organizationService } from '$modules/organization';
-import { cancanService, roleService, userAccessService } from '$modules/auth';
+import { organizationService } from '#modules/organization';
+import { cancanService, roleService, userAccessService } from '#modules/auth';
 
 export async function load({ locals }) {
   const allOrganizations = await organizationService.listOrganizations();

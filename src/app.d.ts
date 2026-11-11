@@ -1,4 +1,4 @@
-import type { AuthenticatedApiKey, AuthenticatedUser } from '$modules/auth/domain/entities';
+import type { AuthenticatedApiKey, AuthenticatedUser } from '#modules/auth/domain/entities';
 import type { Logger } from 'pino';
 
 declare global {

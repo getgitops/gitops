@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { authService, passwordResetService } from '$modules/auth';
+import { authService, passwordResetService } from '#modules/auth';
 
 const SESSION_COOKIE = 'pos_session';
 

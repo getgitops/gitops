@@ -1,6 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { clusterSettingsService } from '$modules/config';
+import { cancanService } from '#modules/auth';
+import { clusterSettingsService } from '#modules/config';
 
 export async function load() {
   const settings = await clusterSettingsService.getSettings();

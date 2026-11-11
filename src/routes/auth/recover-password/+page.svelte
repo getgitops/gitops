@@ -2,7 +2,7 @@
   import { enhance } from '$app/forms';
   import type { ActionData } from './$types';
   import { Mail, ShieldCheck } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   export let form: ActionData;
 

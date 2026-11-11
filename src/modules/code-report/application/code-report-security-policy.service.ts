@@ -10,7 +10,7 @@ import {
   type SecurityPolicyRules,
   type SecurityPolicyScope,
   type SecurityPolicyType,
-} from '$lib/code-report/security-policy';
+} from '#lib/code-report/security-policy';
 
 export type SecurityPolicyInput = {
   name: string;

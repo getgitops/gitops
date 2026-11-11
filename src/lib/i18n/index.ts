@@ -1,7 +1,7 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { writable, type Readable } from 'svelte/store';
-import * as messages from '$lib/paraglide/messages.js';
-import { setLocale as paraglideSetLocale } from '$lib/paraglide/runtime.js';
+import * as messages from '#lib/paraglide/messages.js';
+import { setLocale as paraglideSetLocale } from '#lib/paraglide/runtime.js';
 
 const LOCALE_KEY = 'gitops-locale';
 export const SUPPORTED_LOCALES = ['es', 'en'] as const;

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
-  import type { SubmitFunction } from '@sveltejs/kit';
+  import type { SubmitFunction } from '$app/forms';
   import { CheckCircle, ChevronDown, ChevronUp, Edit3, Plus, Trash2 } from '@lucide/svelte';
-  import Dropdown from '$lib/components/Dropdown.svelte';
+  import Dropdown from '#lib/components/Dropdown.svelte';
 
   type VaultEnvironment = {
     id: string;

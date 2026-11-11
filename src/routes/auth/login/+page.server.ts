@@ -1,7 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { authService, ssoService } from '$modules/auth';
-import { clusterSettingsService } from '$modules/config';
-import { organizationService } from '$modules/organization';
+import { authService } from '#modules/auth';
+import { clusterSettingsService } from '#modules/config';
 
 const SESSION_COOKIE = 'pos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;

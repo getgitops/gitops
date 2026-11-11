@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 
 export type SmtpConfig = {
   host: string;
@@ -13,11 +13,11 @@ export type SmtpConfig = {
 
 const DEFAULT_PORT = 587;
 
-function value(name: string): string | null {
+function value(name: keyof typeof env): string | null {
   return env[name]?.trim() || null;
 }
 
-function flag(name: string, fallback: boolean): boolean {
+function flag(name: keyof typeof env, fallback: boolean): boolean {
   const raw = value(name);
   if (raw === null) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { projectService } from '$modules/projects';
-import { vaultService } from '$modules/vault';
+import { cancanService } from '#modules/auth';
+import { projectService } from '#modules/projects';
+import { vaultService } from '#modules/vault';
 
 const FORMATS = ['env', 'json'] as const;
 type ExportFormat = (typeof FORMATS)[number];
@@ -49,7 +49,7 @@ export async function GET({ url, locals }) {
 
   if (apiKey) {
     if (apiKey.projectId !== project.id) {
-      return json({ error: 'Project mismatch', projectId: apiKey.projectId, project }, { status: 403 });
+      return json({ error: 'Project mismatch' }, { status: 403 });
     }
     if (!cancanService.canApiKey(apiKey, 'project:vault:secrets:export', context)) {
       return json({ error: 'Permission denied' }, { status: 403 });

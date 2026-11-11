@@ -1,8 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { projectService } from '$modules/projects';
-import { vaultService } from '$modules/vault';
+import { cancanService } from '#modules/auth';
+import { projectService } from '#modules/projects';
+import { vaultService } from '#modules/vault';
 
 export async function load({ params, locals }) {
   let project;

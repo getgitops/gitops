@@ -7,9 +7,9 @@
     extractVulnerabilities,
     summarizeAnalysisResult,
     type VulnerabilityFinding,
-  } from '$lib/code-report/analysis-summary';
-  import type { PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
-  import { mergeComplianceReports } from '$lib/code-report/policy-evaluation';
+  } from '#lib/code-report/analysis-summary';
+  import type { PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
+  import { mergeComplianceReports } from '#lib/code-report/policy-evaluation';
   import CodeReportFiles from './code-report/CodeReportFiles.svelte';
   import CodeReportSbom from './code-report/CodeReportSbom.svelte';
   import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';
@@ -23,6 +23,7 @@
     status: 'in_progress' | 'completed' | 'failed';
     result: unknown;
     summary?: unknown;
+    visualizationSummary?: ReturnType<typeof summarizeAnalysisResult>;
     securityPolicies?: PolicyComplianceReport | null;
     error?: string | null;
     gitInfo?: {
@@ -106,7 +107,7 @@
     .reverse()
     .map((item) => ({
       date: new Date(item.createdAt).toLocaleDateString(),
-      summary: summarizeAnalysisResult(item.result),
+      summary: item.visualizationSummary ?? summarizeAnalysisResult(item.result),
     }));
   $: riskScore = summary ? calculateRiskScore(summary) : 0;
   $: riskLevel =
@@ -264,8 +265,11 @@
   onDestroy(() => chart?.destroy());
   function groupByFile(findings: VulnerabilityFinding[]) {
     const groups = new Map<string, VulnerabilityFinding[]>();
-    for (const finding of findings)
-      groups.set(finding.packagePath, [...(groups.get(finding.packagePath) ?? []), finding]);
+    for (const finding of findings) {
+      const group = groups.get(finding.packagePath);
+      if (group) group.push(finding);
+      else groups.set(finding.packagePath, [finding]);
+    }
     return [...groups.entries()]
       .map(([path, groupedFindings]) => ({ path, vulnerabilities: groupedFindings }))
       .sort((a, b) => b.vulnerabilities.length - a.vulnerabilities.length);

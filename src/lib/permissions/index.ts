@@ -1,4 +1,4 @@
-import permissionsCatalog from '$lib/config/permissions';
+import permissionsCatalog from '#lib/config/permissions';
 
 export type PermissionGrant = string;
 export type PermissionScope = 'cluster' | 'organization' | 'project';

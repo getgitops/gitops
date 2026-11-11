@@ -1,5 +1,5 @@
-import { Repository } from '$lib/server/infra/repository';
-import { ClusterSettingsEntity } from '$lib/database/schemas';
+import { Repository } from '#lib/server/infra/repository';
+import { ClusterSettingsEntity } from '#lib/database/schemas';
 import { ClusterSettingsDomain } from '../../domain/cluster-settings.domain';
 
 // the row is a singleton; every read/write targets this fixed id

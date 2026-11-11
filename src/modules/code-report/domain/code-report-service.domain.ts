@@ -1,4 +1,4 @@
-import { Domain } from '$lib/server/domain/domain';
+import { Domain } from '#lib/server/domain/domain';
 import { ProjectDomain } from '../../projects/domain/project.domain';
 
 export class CodeReportServiceDomain extends Domain {

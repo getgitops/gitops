@@ -15,7 +15,7 @@
   import {
     renderVulnerabilityDescription,
     vulnerabilitySourceLabel,
-  } from '$lib/code-report/vulnerability-format';
+  } from '#lib/code-report/vulnerability-format';
 
   type CveDetail = {
     id: string;

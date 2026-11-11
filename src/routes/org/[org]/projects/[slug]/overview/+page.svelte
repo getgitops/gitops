@@ -8,8 +8,8 @@
     Shield,
     UserPlus,
   } from '@lucide/svelte';
-  import { page } from '$app/stores';
-  import { _ } from '$lib/i18n';
+  import { createPageStore } from '#lib/page-store';
+  import { _ } from '#lib/i18n';
 
   type ProjectModules = {
     vault: boolean;
@@ -83,6 +83,7 @@
       icon: KeyRound,
     },
   ];
+  const page = createPageStore();
 </script>
 
 <svelte:head>

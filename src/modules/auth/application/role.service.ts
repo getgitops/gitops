@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { isValidPermissionGrant, normalizePermissionGrants } from '$lib/permissions';
+import { isValidPermissionGrant, normalizePermissionGrants } from '#lib/permissions';
 import type { RoleRepository } from '../infrastructure/repositories/role.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';

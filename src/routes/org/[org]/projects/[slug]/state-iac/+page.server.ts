@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
-import { projectService } from '$modules/projects';
+import { cancanService } from '#modules/auth';
+import { projectService } from '#modules/projects';
 
 export async function load({ params, locals }) {
   let project;

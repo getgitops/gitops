@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import type { PermissionGrant } from '$lib/permissions';
-import { apiKeysService, cancanService, roleService } from '$modules/auth';
-import { projectService } from '$modules/projects';
+import type { PermissionGrant } from '#lib/permissions';
+import { apiKeysService, cancanService, roleService } from '#modules/auth';
+import { projectService } from '#modules/projects';
 
 async function authorize(
   user: Parameters<typeof cancanService.canSessionUser>[0],

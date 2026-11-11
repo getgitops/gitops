@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '$modules/auth';
+import { cancanService } from '#modules/auth';
 
 export async function load({ parent, locals }) {
   const { organization } = await parent();

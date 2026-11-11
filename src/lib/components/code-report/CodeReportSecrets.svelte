@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AlertCircle, KeyRound, Search } from '@lucide/svelte';
-  import type { SecretFinding } from '$lib/code-report/analysis-summary';
+  import type { SecretFinding } from '#lib/code-report/analysis-summary';
 
   type Analysis = { tool: string; status: string; createdAt: string; error?: string | null } | null;
 

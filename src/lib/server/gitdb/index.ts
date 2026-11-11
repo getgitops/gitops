@@ -8,12 +8,13 @@ import {
 } from './config';
 import { getCurrentActor } from '../request-context';
 import { createGitDbLogger, createLogger } from '../logger';
+import { CachedGitDb } from './cached-client';
 
 const log = createLogger('gitdb');
 // bridges gitdb's message-first logger contract into the structured pino logger
 const gitDbLogger = createGitDbLogger('gitdb');
 
-let instance: GitDB | null = null;
+let instance: CachedGitDb | null = null;
 let startup: Promise<void> | null = null;
 
 export { isRepositoryConfigured };
@@ -55,17 +56,27 @@ async function boot(): Promise<void> {
     'gitdb starting',
   );
 
-  const client = createClient(config.authorName, config.authorEmail);
-  await client.ready();
+  const client = instance ?? createClient(config.authorName, config.authorEmail);
   instance = client;
+  try {
+    await client.ready();
+  } catch (error) {
+    instance = null;
+    try {
+      await client.close();
+    } catch (err) {
+      log.warn({ err }, 'gitdb cleanup after failed startup');
+    }
+    throw error;
+  }
 
   log.info('gitdb ready');
 }
 
-function createClient(authorName: string, authorEmail: string): GitDB {
+function createClient(authorName: string, authorEmail: string): CachedGitDb {
   const config = requireRepositoryConfig();
   const { authUsername, authToken } = resolveAuthCredentials(config);
-  return gitDb(config.repositoryUrl, {
+  const db: GitDB = gitDb(config.repositoryUrl, {
     gitUserName: authorName,
     gitUserEmail: authorEmail,
     syncPollSeconds: config.syncPollSeconds,
@@ -75,9 +86,10 @@ function createClient(authorName: string, authorEmail: string): GitDB {
     authToken,
     logger: gitDbLogger,
   });
+  return new CachedGitDb(db, config.dataPath);
 }
 
-export function getGitDb(): GitDB {
+export function getGitDb(): CachedGitDb {
   if (!instance) {
     const config = requireRepositoryConfig();
     instance = createClient(config.authorName, config.authorEmail);

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { deserialize, enhance } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
-  import { page } from '$app/stores';
-  import type { SubmitFunction } from '@sveltejs/kit';
+  import { createPageStore } from '#lib/page-store';
+  import type { SubmitFunction } from '$app/forms';
   import {
     Check,
     CheckCircle,
@@ -352,6 +352,7 @@
     if (!value) return 'Sin valor';
     return '************';
   }
+  const page = createPageStore();
 </script>
 
 <svelte:head>

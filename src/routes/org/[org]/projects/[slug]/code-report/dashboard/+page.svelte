@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import {
     AlertTriangle,
     Boxes,
@@ -155,6 +155,7 @@
   function formatDate(value: string | null) {
     return value ? new Date(value).toLocaleDateString() : 'Nunca';
   }
+  const page = createPageStore();
 </script>
 
 <svelte:head>

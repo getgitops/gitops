@@ -1,5 +1,7 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vitest/config';
 
@@ -26,7 +28,10 @@ export default defineConfig({
       outdir: './src/lib/paraglide',
       emitTsDeclarations: true,
     }),
-    sveltekit(),
+    sveltekit({
+      adapter: adapter(),
+      preprocess: vitePreprocess(),
+    }),
     warmupHooksPlugin(),
   ],
   test: {

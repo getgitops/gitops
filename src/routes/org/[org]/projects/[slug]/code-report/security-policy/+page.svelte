@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
   import { Plus, Search, ShieldCheck, ShieldOff } from '@lucide/svelte';
   import {
@@ -7,7 +7,7 @@
     SECURITY_POLICY_ENFORCEMENT_META,
     SECURITY_POLICY_TYPE_META,
     type SecurityPolicy,
-  } from '$lib/code-report/security-policy';
+  } from '#lib/code-report/security-policy';
 
   export let data: {
     policies: SecurityPolicy[];
@@ -32,6 +32,7 @@
       (policy.description ?? '').toLowerCase().includes(query)
     );
   });
+  const page = createPageStore();
 </script>
 
 <svelte:head><title>Security Policies - Code Report - GitOps</title></svelte:head>

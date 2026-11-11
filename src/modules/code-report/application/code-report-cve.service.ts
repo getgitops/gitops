@@ -1,4 +1,4 @@
-import { collectCveOccurrences, type CompletedAnalysis, type CveOccurrence } from '$lib/code-report/cve-aggregation';
+import { collectCveOccurrences, type CompletedAnalysis, type CveOccurrence } from '#lib/code-report/cve-aggregation';
 import type { CodeReportService } from './code-report.service';
 import type { CodeReportAnalysisService } from './code-report-analysis.service';
 

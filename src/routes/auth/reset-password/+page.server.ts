@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { passwordResetService } from '$modules/auth';
+import { passwordResetService } from '#modules/auth';
 
 export function load({ url }) {
   const token = url.searchParams.get('token') ?? '';

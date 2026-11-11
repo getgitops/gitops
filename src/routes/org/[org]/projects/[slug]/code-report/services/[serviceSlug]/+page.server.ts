@@ -1,11 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { codeReportService, codeReportAnalysisService } from '$modules/code-report';
-import { projectService } from '$modules/projects';
-import { cancanService } from '$modules/auth';
+import { codeReportService, codeReportAnalysisService } from '#modules/code-report';
+import { projectService } from '#modules/projects';
+import { cancanService } from '#modules/auth';
 
 const CODE_REPORT_TOOLS = ['trivy', 'syft', 'sbom', 'gitleaks'];
 
 export async function load({ parent, params, locals }) {
+  const startedAt = performance.now();
   const { project } = await parent();
 
   const canRead = await cancanService.canSessionUser(
@@ -35,29 +36,34 @@ export async function load({ parent, params, locals }) {
     }),
   ]);
 
+  let service;
   try {
-    const service = await codeReportService.getByProjectIdAndSlug(project.id, params.serviceSlug);
-    const analyses = await codeReportAnalysisService.listByService(service.id);
-    const latestAnalysis = analyses[0] ?? null;
-    const analysisHistory = analyses
-      .filter((analysis) => analysis.status === 'completed')
-      .map((analysis) => ({
-        id: analysis.id,
-        createdAt: analysis.createdAt,
-        result: analysis.result,
-        summary: analysis.summary,
-        status: analysis.status,
-        tool: analysis.tool,
-        gitInfo: analysis.gitInfo,
-        error: analysis.error,
-        updatedAt: analysis.updatedAt,
-      }));
-
-    const latestByTool = await codeReportAnalysisService.getLatestByTool(service.id, [
-      ...new Set([...(service.tools ?? []), ...CODE_REPORT_TOOLS]),
+    service = await codeReportService.getByProjectIdAndSlug(project.id, params.serviceSlug);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'Service not found') {
+      throw error(404, 'Service not found');
+    }
+    throw err;
+  }
+  const analysesStartedAt = performance.now();
+  try {
+    const [overview, riskWeights] = await Promise.all([
+      codeReportAnalysisService.getServiceOverview(service.id),
+      codeReportService.getRiskWeightsByProjectId(project.id),
     ]);
-
-    const riskWeights = await codeReportService.getRiskWeightsByProjectId(project.id);
+    const { latestAnalysis, latestByTool, analysisHistory } = overview;
+    for (const tool of [...(service.tools ?? []), ...CODE_REPORT_TOOLS]) {
+      if (!Object.hasOwn(latestByTool, tool)) latestByTool[tool] = null;
+    }
+    locals.logger.debug(
+      {
+        serviceId: service.id,
+        historyEntries: analysisHistory.length,
+        analysesDurationMs: performance.now() - analysesStartedAt,
+        durationMs: performance.now() - startedAt,
+      },
+      'code report service detail loaded',
+    );
 
     return {
       service,
@@ -68,8 +74,9 @@ export async function load({ parent, params, locals }) {
       canCreate,
       canDelete,
     };
-  } catch {
-    throw error(404, 'Service not found');
+  } catch (err) {
+    locals.logger.error({ err, serviceId: service.id }, 'code report service detail failed');
+    throw err;
   }
 }
 

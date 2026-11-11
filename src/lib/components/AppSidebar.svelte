@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import {
     BarChart3,
     Building2,
@@ -22,7 +22,7 @@
     Layers,
     ShieldAlert,
   } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   type NavIcon = typeof Building2;
   type NavItem = { label: string; href: string; icon: NavIcon };
@@ -394,6 +394,7 @@
   function toggleCollapsed() {
     collapsed = !collapsed;
   }
+  const page = createPageStore();
 </script>
 
 <aside class="flex h-full flex-col gap-5">

@@ -2,11 +2,11 @@ import crypto from 'crypto';
 import { CodeReportAnalysisRepository } from '../infrastructure/repositories/code-report-analysis.repository';
 import type { CodeReportAnalysisDomain } from '../domain/code-report-analysis.domain';
 import type { CodeReportGitInfo } from '../domain/code-report-analysis.domain';
-import { extractSecrets, extractVulnerabilities } from '$lib/code-report/analysis-summary';
-import { evaluatePolicies, type PolicyComplianceReport } from '$lib/code-report/policy-evaluation';
-import type { SecurityPolicy } from '$lib/code-report/security-policy';
+import { extractSecrets, extractVulnerabilities } from '#lib/code-report/analysis-summary';
+import { evaluatePolicies, type PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
+import type { SecurityPolicy } from '#lib/code-report/security-policy';
 import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
-import { createLogger } from '$lib/server/logger';
+import { createLogger } from '#lib/server/logger';
 
 const log = createLogger('code-report-analysis');
 
@@ -28,6 +28,10 @@ export class CodeReportAnalysisService {
   async listByService(serviceId: string) {
     const analyses = await this.repository.findByServiceId(serviceId);
     return analyses.map((analysis) => analysis.toJson());
+  }
+
+  getServiceOverview(serviceId: string) {
+    return this.repository.findServiceOverview(serviceId);
   }
 
   async getLatestByTool(serviceId: string, tools: string[]) {

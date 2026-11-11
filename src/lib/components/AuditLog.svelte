@@ -1,11 +1,11 @@
 <script lang="ts">
   import { ChevronLeft, ChevronRight, ExternalLink, Eye, Search, X } from '@lucide/svelte';
   import { enhance } from '$app/forms';
-  import { page } from '$app/stores';
-  import type { SubmitFunction } from '@sveltejs/kit';
+  import { createPageStore } from '#lib/page-store';
+  import type { SubmitFunction } from '$app/forms';
   import { diffListItems, summarizeChange, type EntityRowChange } from './audit-summary';
   import AuditFieldValue from './AuditFieldValue.svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   type AuditAction = 'insert' | 'update' | 'delete' | 'other';
 
@@ -34,7 +34,7 @@
 
   const PER_PAGE_OPTIONS = [10, 20, 50, 100];
 
-  $: params = $page.url.searchParams;
+  $: params = new URLSearchParams($page.url.searchParams.toString());
   $: currentSearch = params.get('search') ?? '';
   $: currentFrom = params.get('from') ?? '';
   $: currentTo = params.get('to') ?? '';
@@ -186,6 +186,7 @@
     diffChanges = [];
     diffError = '';
   }
+  const page = createPageStore();
 </script>
 
 <svelte:head>

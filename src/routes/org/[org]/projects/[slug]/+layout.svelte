@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { createPageStore } from '#lib/page-store';
   import {
     BarChart3,
     ChevronRight,
@@ -11,7 +11,7 @@
     Shield,
     Users,
   } from '@lucide/svelte';
-  import { _ } from '$lib/i18n';
+  import { _ } from '#lib/i18n';
 
   export let data: {
     project: {
@@ -88,6 +88,7 @@
   $: currentTab =
     tabs.find((tab) => currentPath === tab.href || currentPath?.startsWith(`${tab.href}/`)) ??
     tabs[0];
+  const page = createPageStore();
 </script>
 
 <div class="mx-auto w-full max-w-7xl space-y-4">

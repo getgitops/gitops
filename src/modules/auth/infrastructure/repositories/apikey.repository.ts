@@ -1,5 +1,5 @@
 import { Repository } from './repository';
-import { ApiKeyEntity } from '$lib/database/schemas';
+import { ApiKeyEntity } from '#lib/database/schemas';
 import type { ApiKeyView } from '../../domain/entities';
 
 type ApiKeyRow = {
