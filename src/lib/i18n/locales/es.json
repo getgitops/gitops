@@ -32,7 +32,7 @@
       "stateIac": "State IaC",
       "projectSettings": "Ajustes de proyecto",
       "organizationSettings": "Configuración",
-      "clusterSettings": "Ajustes del clúster"
+      "clusterSettings": "Ajustes de GitOps"
     },
     "items": {
       "overview": "Vista general",
@@ -109,6 +109,7 @@
     "days": "días",
     "cancel": "Cancelar",
     "closeCreateApiKeyModal": "Cerrar modal de creación de clave API",
+    "language": "Idioma",
     "languageDescription": "Selecciona el idioma de la interfaz.",
     "spanish": "Español",
     "english": "Inglés",
@@ -194,7 +195,7 @@
     "activating": "Activando...",
     "registrationTitle": "Crea tu cuenta",
     "registrationSubtitle": "Regístrate para empezar a usar GitOps.",
-    "registrationDisabled": "El registro por autoservicio está deshabilitado actualmente. Pide una invitación a un administrador del clúster.",
+    "registrationDisabled": "El registro por autoservicio está deshabilitado actualmente. Pide una invitación a un administrador de GitOps.",
     "register": "Crear cuenta",
     "registering": "Creando cuenta...",
     "alreadyHaveAccount": "¿Ya tienes una cuenta?",
@@ -224,13 +225,13 @@
     "ssoErrorGeneric": "Falló el inicio de sesión con Google. Inténtalo de nuevo o usa tu contraseña."
   },
   "bootstrap": {
-    "title": "Configuración del clúster",
+    "title": "Configuración de GitOps",
     "subtitle": "El repositorio de GitDB ya está conectado. Completa estos pasos para terminar la instalación.",
-    "stepAdministrator": "Crear administrador del clúster",
+    "stepAdministrator": "Crear administrador de GitOps",
     "stepOrganization": "Crear organización",
-    "createAdministratorFailed": "No se pudo crear el administrador del clúster.",
-    "administratorCardTitle": "1. Crear administrador del clúster",
-    "administratorCardDescription": "Esta cuenta tendrá acceso completo a la configuración del clúster.",
+    "createAdministratorFailed": "No se pudo crear el administrador de GitOps.",
+    "administratorCardTitle": "1. Crear administrador de GitOps",
+    "administratorCardDescription": "Esta cuenta tendrá acceso completo a la configuración de GitOps.",
     "createAdministrator": "Crear administrador",
     "createOrganizationFailed": "No se pudo crear la organización.",
     "organizationCardTitle": "2. Crear organización",
@@ -247,19 +248,19 @@
     "startingDescription": "El servidor se está iniciando. Esta página se actualizará automáticamente."
   },
   "clusterSettings": {
-    "title": "Ajustes del clúster",
+    "title": "Ajustes de GitOps",
     "audit": {
-      "title": "Registro de auditoría del clúster",
-      "description": "Historial de cambios registrados en el repositorio de datos del clúster."
+      "title": "Registro de auditoría de GitOps",
+      "description": "Historial de cambios registrados en el repositorio de datos de GitOps."
     },
     "users": {
-      "title": "Usuarios del clúster",
-      "description": "Crea usuarios y dales acceso a este clúster."
+      "title": "Usuarios de GitOps",
+      "description": "Crea usuarios y dales acceso a GitOps."
     },
     "roles": {
-      "title": "Roles y permisos del clúster",
-      "description": "Gestiona roles y políticas de acceso granulares en todo el clúster.",
-      "addRole": "Añadir rol del clúster"
+      "title": "Roles y permisos de GitOps",
+      "description": "Gestiona roles y políticas de acceso granulares en todo GitOps.",
+      "addRole": "Añadir rol de GitOps"
     },
     "database": {
       "title": "Base de datos",
@@ -282,7 +283,7 @@
       "authentication": "Autenticación",
       "credentialLoaded": "credencial cargada",
       "commitAuthor": "Autor del commit",
-      "repositoryMissing": "GITDB_REPOSITORY_URL no está configurado. El clúster no puede arrancar sin él.",
+      "repositoryMissing": "GITDB_REPOSITORY_URL no está configurado. GitOps no puede arrancar sin él.",
       "syncPoll": "Intervalo de sincronización",
       "everySeconds": "Cada",
       "seconds": "segundos",
@@ -290,7 +291,7 @@
     },
     "organizations": {
       "title": "Organizaciones",
-      "description": "Crear, ver y gestionar organizaciones del clúster.",
+      "description": "Crear, ver y gestionar organizaciones de GitOps.",
       "searchPlaceholder": "Buscar por nombre, slug o descripción...",
       "nameRequired": "El nombre de la organización es obligatorio.",
       "created": "Organización creada.",
@@ -335,7 +336,7 @@
       "deleteConfirmationEnd": "? Esta acción no se puede deshacer.",
       "deleting": "Eliminando...",
       "copySlugFailed": "No se pudo copiar el slug.",
-      "titleSuffix": "Ajustes del clúster",
+      "titleSuffix": "Ajustes de GitOps",
       "optionalDescription": "Descripción opcional",
       "closeDeleteModal": "Cerrar modal de eliminar organización",
       "deleteModal": "Modal de eliminar organización",
@@ -347,7 +348,7 @@
       "title": "Registro",
       "description": "Controla si los nuevos usuarios pueden crear su propia cuenta desde la página de inicio de sesión.",
       "enableLabel": "Permitir registro por autoservicio",
-      "enableDescription": "Al habilitarlo, cualquiera puede crear una cuenta de usuario del clúster en /auth/registration sin invitación. Empiezan sin organización y pueden crear la suya propia.",
+      "enableDescription": "Al habilitarlo, cualquiera puede crear una cuenta de usuario de GitOps en /auth/registration sin invitación. Empiezan sin organización y pueden crear la suya propia.",
       "updated": "Configuración de registro actualizada.",
       "updateFailed": "No se pudo actualizar la configuración de registro."
     }
@@ -765,14 +766,11 @@
       "comingSoonDescription": "La rotación de claves, la política de cifrado y la protección de secretos por ámbito están previstas para una futura versión.",
       "saveNotWired": "La configuración global de autenticación aún no está conectada a una acción del servidor.",
       "localAuthTitle": "Autenticación local: siempre ACTIVA",
-      "googleClusterEnabledBadge": "Activado en el clúster",
+      "googleClusterEnabledBadge": "Activado en GitOps",
       "googleClusterDisabledBadge": "No configurado",
-      "googleClusterEnabled": "Tu clúster tiene activado el inicio de sesión con Google: los miembros de esta organización pueden usar \"Continuar con Google\" en la pantalla de login. Lo gestiona el administrador del clúster; aquí no hay nada que configurar.",
-      "googleClusterDomains": "Dominios de Workspace permitidos: {domains}.",
-      "googleClusterAnyDomain": "Cualquier cuenta de Google verificada puede entrar si corresponde a un usuario existente.",
-      "googleClusterAutoProvision": "Las cuentas nuevas de Workspace de esos dominios se dan de alta automáticamente como usuarios del clúster; para entrar en esta organización siguen necesitando una invitación.",
-      "googleClusterInviteOnly": "Solo los usuarios existentes o invitados pueden entrar con Google.",
-      "googleClusterDisabled": "El inicio de sesión con Google no está configurado en este clúster. Un administrador del clúster puede activarlo con las variables de entorno GOOGLE_SSO_*."
+      "googleClusterEnabledTitle": "Autenticación con Google SSO: activada",
+      "googleClusterEnabled": "Cualquier miembro con invitación puede acceder con su cuenta de Google.",
+      "googleClusterDisabled": "El inicio de sesión con Google no está configurado en GitOps. Un administrador de GitOps puede activarlo con las variables de entorno GOOGLE_SSO_*."
     },
     "projects": {
       "title": "Proyectos",
@@ -882,7 +880,7 @@
     "systemRoleDeleteDisabled": "Los roles de sistema no se pueden borrar.",
     "orgRoleDetails": "Detalle del rol de organización",
     "projectRoleDetails": "Detalle del rol de proyecto",
-    "clusterRoleDetails": "Detalle del rol de clúster",
+    "clusterRoleDetails": "Detalle del rol de GitOps",
     "roleId": "ID del rol",
     "developerPlaceholder": "Developer",
     "newRole": "Nuevo rol",
@@ -899,7 +897,7 @@
     "fullAccess": "Acceso completo",
     "custom": "Personalizado",
     "sectionGroup": "Grupo de secciones",
-    "addClusterRole": "Añadir rol del clúster",
+    "addClusterRole": "Añadir rol de GitOps",
     "addOrganizationRole": "Añadir rol de la organización",
     "addProjectRole": "Añadir rol del proyecto"
   },

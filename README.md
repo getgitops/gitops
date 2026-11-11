@@ -113,7 +113,7 @@ in testing mode, only the accounts listed as test users can sign in.
 
 By default only existing or invited users can sign in with Google. With
 `GOOGLE_SSO_AUTO_PROVISION=true` (requires at least one allowed domain), the first Google sign-in of
-an unknown `@example.com` Workspace account creates a plain cluster user with no organization
+an unknown `@example.com` Workspace account creates a plain GitOps User (`cluster-user`) with no organization
 membership; organizations still have to invite it. Personal Google accounts are never signed up
 automatically, because the domain is checked against the Workspace `hd` claim, not the email
 address. If the variables are inconsistent (only one credential set, an invalid domain, or

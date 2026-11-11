@@ -44,7 +44,7 @@ export class AuthService {
 
     if (existing) {
       await this.roleRepository.update(existing.id, {
-        name: 'Cluster Admin',
+        name: 'GitOps Admin',
         permissions: CLUSTER_ADMIN_PERMISSIONS,
       });
       const updated = await this.roleRepository.findById(existing.id);
@@ -55,7 +55,7 @@ export class AuthService {
     await this.roleRepository.create({
       id: crypto.randomUUID(),
       slug: 'cluster-admin',
-      name: 'Cluster Admin',
+      name: 'GitOps Admin',
       scope: 'cluster',
       permissions: CLUSTER_ADMIN_PERMISSIONS,
     });
@@ -70,7 +70,7 @@ export class AuthService {
 
     if (existing) {
       await this.roleRepository.update(existing.id, {
-        name: 'Cluster User',
+        name: 'GitOps User',
         permissions: CLUSTER_USER_PERMISSIONS,
       });
       const updated = await this.roleRepository.findById(existing.id);
@@ -81,7 +81,7 @@ export class AuthService {
     await this.roleRepository.create({
       id: crypto.randomUUID(),
       slug: 'cluster-user',
-      name: 'Cluster User',
+      name: 'GitOps User',
       scope: 'cluster',
       permissions: CLUSTER_USER_PERMISSIONS,
     });
