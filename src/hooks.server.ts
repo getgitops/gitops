@@ -7,12 +7,7 @@ import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstr
 import { startGitDb } from '#lib/server/gitdb';
 import { markServerFailed, markServerReady } from '#lib/server/server-ready';
 import { runWithActor } from '#lib/server/request-context';
-import {
-  createLogger,
-  createRequestLogger,
-  logHttpRequest,
-  logger,
-} from '#lib/server/logger';
+import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
 const startupLog = createLogger('startup');
 
@@ -82,6 +77,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
+  // sign-in, sign-out, self-registration, password recovery, invitation acceptance and the Google
+  // SSO round trip must work without (or with a broken) session; each route re-checks what it needs
   if (
     pathname === '/auth/login' ||
     pathname === '/auth/sso/google/start' ||
@@ -130,12 +127,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
     if (isApiRequest) {
       return unauthorized('Authentication required');
     }
-
-    const organizationSlug = event.params.org ?? pathname.match(/^\/org\/([^/]+)/)?.[1];
-    const location = organizationSlug
-      ? `/auth/login?${new URLSearchParams({ org: organizationSlug })}`
-      : '/auth/login';
-    return new Response(null, { status: 302, headers: { location } });
+    return new Response(null, { status: 302, headers: { location: '/auth/login' } });
   }
 
   const projectSettingsMatch = event.url.pathname.match(

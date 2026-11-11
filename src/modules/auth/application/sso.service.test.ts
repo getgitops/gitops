@@ -1,51 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SsoError, SsoService } from './sso.service';
-import { AuthProviderDomain } from '../domain/auth-provider.domain';
-import { RoleDomain } from '../domain/role.domain';
-import {
-  ORGANIZATION_ADMIN_PERMISSIONS,
-  ORGANIZATION_DEVELOPER_PERMISSIONS,
-} from '../domain/role-permissions.data';
+import { GoogleSsoConfig } from '../domain/google-sso-config.domain';
 import { UserDomain, type UserAuthProvider } from '../domain/user.domain';
 import { UserAccessDomain } from '../domain/user-access.domain';
 import type { GoogleIdTokenClaims } from '../infrastructure/oidc/google-oidc.client';
 
-const ORG = { id: 'org-1', slug: 'gitops' };
-const OTHER_ORG_ID = 'org-2';
 const REDIRECT_URI = 'https://gitops.local/auth/sso/google/callback';
 const TIMESTAMPS = { createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
-
-class FakeAuthProviderRepository {
-  rows: AuthProviderDomain[] = [];
-
-  async findByOrganization(organizationId: string, provider: string) {
-    return (
-      this.rows.find((row) => row.organizationId === organizationId && row.provider === provider) ??
-      null
-    );
-  }
-
-  async findEnabled(provider: string) {
-    return this.rows.filter((row) => row.provider === provider && row.enabled);
-  }
-
-  async upsert(organizationId: string, provider: 'google', changes: Record<string, unknown>) {
-    const existing = await this.findByOrganization(organizationId, provider);
-    const next = new AuthProviderDomain({
-      id: existing?.id ?? `provider-${this.rows.length + 1}`,
-      organizationId,
-      provider,
-      enabled: existing?.enabled ?? false,
-      clientId: existing?.clientId ?? null,
-      clientSecretEncrypted: existing?.clientSecretEncrypted ?? null,
-      allowedDomains: existing?.allowedDomains ?? [],
-      ...changes,
-      ...TIMESTAMPS,
-    });
-    this.rows = [...this.rows.filter((row) => row !== existing), next];
-    return next;
-  }
-}
 
 class FakeUserRepository {
   rows: UserDomain[] = [];
@@ -89,101 +50,19 @@ class FakeUserAccessRepository {
   }
 }
 
-class FakeRoleRepository {
-  rows: RoleDomain[] = [
-    role({ id: 'role-dev', slug: 'org-developer', organizationId: ORG.id }),
-    role({
-      id: 'role-admin',
-      slug: 'org-admin',
-      organizationId: ORG.id,
-      permissions: ORGANIZATION_ADMIN_PERMISSIONS,
-    }),
-    role({
-      id: 'role-readers',
-      slug: 'readers',
-      organizationId: ORG.id,
-      permissions: ['organization:projects:read', 'organization:audit:read'],
-    }),
-    // a custom role that looks harmless by name but can manage members
-    role({
-      id: 'role-sneaky',
-      slug: 'support',
-      organizationId: ORG.id,
-      permissions: ['organization:projects:read', 'organization:users:update'],
-    }),
-    role({ id: 'role-other', slug: 'org-developer', organizationId: OTHER_ORG_ID }),
-  ];
+/** Mirrors UserAccessService.provisionClusterUser on top of the fake user repository. */
+class FakeUserProvisioner {
+  calls: string[] = [];
 
-  async findAll(_scope: string, organizationId: string) {
-    return this.rows.filter((row) => row.organizationId === organizationId);
-  }
+  constructor(private readonly users: FakeUserRepository) {}
 
-  async findById(id: string) {
-    return this.rows.find((row) => row.id === id) ?? null;
-  }
-
-  async findBySlug(slug: string, scope: string, organizationId?: string) {
-    return (
-      this.rows.find(
-        (row) => row.slug === slug && row.scope === scope && row.organizationId === organizationId,
-      ) ?? null
-    );
-  }
-}
-
-/** Mirrors UserAccessService.provisionOrganizationMember on top of the fakes above. */
-class FakeMemberProvisioner {
-  calls: Array<{ organizationId: string; email: string; roleId: string; userId?: string | null }> =
-    [];
-
-  constructor(
-    private readonly users: FakeUserRepository,
-    private readonly accesses: FakeUserAccessRepository,
-  ) {}
-
-  async provisionOrganizationMember(input: {
-    organizationId: string;
-    email: string;
-    roleId: string;
-    userId?: string | null;
-  }) {
-    this.calls.push(input);
-    let created = input.userId ? this.users.rows.find((row) => row.id === input.userId) : null;
-    if (!created) {
-      created = user({
-        id: `user-${this.users.rows.length + 1}`,
-        username: 'new',
-        email: input.email,
-      });
-      this.users.rows.push(created);
-    }
-    this.accesses.rows.push(
-      access({
-        id: `access-${this.accesses.rows.length + 1}`,
-        userId: created.id,
-        roleId: input.roleId,
-        organizationId: input.organizationId,
-      }),
-    );
+  async provisionClusterUser(email: string) {
+    this.calls.push(email);
+    const created = user({ id: `user-${this.users.rows.length + 1}`, username: 'new', email });
+    this.users.rows.push(created);
     return created;
   }
 }
-
-function role(input: { id: string; slug: string; organizationId: string; permissions?: string[] }) {
-  return new RoleDomain({
-    permissions: ORGANIZATION_DEVELOPER_PERMISSIONS,
-    ...input,
-    name: input.slug,
-    scope: 'organization',
-    projectId: null,
-    ...TIMESTAMPS,
-  });
-}
-
-const fakeCipher = {
-  encrypt: (value: string) => `enc:${value}`,
-  decrypt: (value: string) => value.replace(/^enc:/, ''),
-};
 
 function user(overrides: Record<string, unknown> = {}) {
   return new UserDomain({
@@ -205,7 +84,7 @@ function access(overrides: Record<string, unknown> = {}) {
     userId: 'user-1',
     roleId: 'role-dev',
     scope: 'organization',
-    organizationId: ORG.id,
+    organizationId: 'org-1',
     status: 'active',
     ...TIMESTAMPS,
     ...overrides,
@@ -213,11 +92,11 @@ function access(overrides: Record<string, unknown> = {}) {
 }
 
 describe('SsoService', () => {
-  let providers: FakeAuthProviderRepository;
+  let config: GoogleSsoConfig | null;
+  let configError: Error | null;
   let users: FakeUserRepository;
   let accesses: FakeUserAccessRepository;
-  let roles: FakeRoleRepository;
-  let provisioner: FakeMemberProvisioner;
+  let provisioner: FakeUserProvisioner;
   let googleClaims: GoogleIdTokenClaims;
   let googleClient: {
     buildAuthorizationUrl: ReturnType<typeof vi.fn>;
@@ -226,12 +105,12 @@ describe('SsoService', () => {
   let now: number;
   let service: SsoService;
 
-  beforeEach(async () => {
-    providers = new FakeAuthProviderRepository();
+  beforeEach(() => {
+    config = new GoogleSsoConfig('client-123', 'super-secret', ['gigigo.com'], false);
+    configError = null;
     users = new FakeUserRepository();
     accesses = new FakeUserAccessRepository();
-    roles = new FakeRoleRepository();
-    provisioner = new FakeMemberProvisioner(users, accesses);
+    provisioner = new FakeUserProvisioner(users);
     now = Date.UTC(2026, 0, 1);
     googleClaims = {
       sub: 'google-sub-1',
@@ -248,23 +127,18 @@ describe('SsoService', () => {
       exchangeCode: vi.fn(async () => ({ ...googleClaims, nonce: lastNonce() })),
     };
     service = new SsoService(
-      providers as any,
+      () => {
+        if (configError) throw configError;
+        return config;
+      },
       users as any,
       accesses as any,
-      roles as any,
       provisioner,
-      fakeCipher,
       googleClient as any,
       () => 'signing-key',
       () => now,
     );
 
-    await service.saveGoogleSettings(ORG.id, {
-      enabled: true,
-      clientId: 'client-123',
-      clientSecret: 'super-secret',
-      allowedDomains: ['gigigo.com'],
-    });
     users.rows.push(user());
     accesses.rows.push(access());
   });
@@ -274,15 +148,17 @@ describe('SsoService', () => {
     return new URL(url).searchParams.get('nonce') ?? undefined;
   }
 
-  async function signIn(overrides: { state?: string; flowCookie?: string } = {}) {
-    const started = await service.startGoogleSignIn({
-      organization: ORG,
-      redirectUri: REDIRECT_URI,
-    });
+  function start() {
+    const started = service.startGoogleSignIn({ redirectUri: REDIRECT_URI });
     const state = new URL(started.authorizationUrl).searchParams.get('state')!;
+    return { ...started, state };
+  }
+
+  async function signIn(overrides: { state?: string; flowCookie?: string } = {}) {
+    const started = start();
     return service.completeGoogleSignIn({
       flowCookie: overrides.flowCookie ?? started.flowCookie,
-      state: overrides.state ?? state,
+      state: overrides.state ?? started.state,
       code: 'auth-code',
       redirectUri: REDIRECT_URI,
     });
@@ -293,161 +169,42 @@ describe('SsoService', () => {
     await expect(promise).rejects.toMatchObject({ code });
   }
 
-  describe('settings', () => {
-    it('stores the client secret encrypted and never returns it', async () => {
-      const view = await service.getGoogleSettings(ORG.id);
+  describe('status', () => {
+    it('reports the cluster configuration without the client credentials', () => {
+      const status = service.getGoogleStatus();
 
-      expect(view).toEqual({
+      expect(status).toEqual({
         enabled: true,
-        clientId: 'client-123',
-        hasClientSecret: true,
         allowedDomains: ['gigigo.com'],
         autoProvision: false,
-        autoProvisionRoleId: null,
       });
-      expect(JSON.stringify(view)).not.toContain('super-secret');
-      expect(providers.rows[0].clientSecretEncrypted).toBe('enc:super-secret');
+      expect(JSON.stringify(status)).not.toContain('super-secret');
+      expect(JSON.stringify(status)).not.toContain('client-123');
+      expect(service.isGoogleEnabled()).toBe(true);
     });
 
-    it('keeps the stored secret when saved with an empty one', async () => {
-      await service.saveGoogleSettings(ORG.id, {
-        enabled: true,
-        clientId: 'client-456',
-        clientSecret: '',
-        allowedDomains: [],
-      });
-      expect(providers.rows[0].clientSecretEncrypted).toBe('enc:super-secret');
-      expect(providers.rows[0].clientId).toBe('client-456');
-    });
-
-    it('normalizes and validates allowed domains', async () => {
-      const view = await service.saveGoogleSettings(ORG.id, {
-        enabled: true,
-        clientId: 'client-123',
-        allowedDomains: [' Gigigo.com ', 'gigigo.com', '', 'example.org'],
-      });
-      expect(view.allowedDomains).toEqual(['gigigo.com', 'example.org']);
-
-      await expect(
-        service.saveGoogleSettings(ORG.id, {
-          enabled: true,
-          clientId: 'client-123',
-          allowedDomains: ['not a domain'],
-        }),
-      ).rejects.toThrow(/valid domain/);
-    });
-
-    it('refuses to enable Google without client credentials', async () => {
-      await expect(
-        service.saveGoogleSettings(OTHER_ORG_ID, {
-          enabled: true,
-          clientId: 'client-123',
-          allowedDomains: [],
-        }),
-      ).rejects.toThrow(/Client Secret/);
-      await expect(
-        service.saveGoogleSettings(OTHER_ORG_ID, {
-          enabled: true,
-          clientId: ' ',
-          clientSecret: 'secret',
-          allowedDomains: [],
-        }),
-      ).rejects.toThrow(/Client ID/);
-    });
-
-    it('reports whether Google sign-in is usable', async () => {
-      expect(await service.isGoogleEnabled(ORG.id)).toBe(true);
-      expect(await service.isGoogleEnabled(OTHER_ORG_ID)).toBe(false);
-
-      await service.saveGoogleSettings(ORG.id, {
+    it('is disabled when Google sign-in is not configured', () => {
+      config = null;
+      expect(service.isGoogleEnabled()).toBe(false);
+      expect(service.getGoogleStatus()).toEqual({
         enabled: false,
-        clientId: 'client-123',
         allowedDomains: [],
+        autoProvision: false,
       });
-      expect(await service.isGoogleEnabled(ORG.id)).toBe(false);
-    });
-  });
-
-  describe('automatic sign-up settings', () => {
-    const base = { enabled: true, clientId: 'client-123', allowedDomains: ['gigigo.com'] };
-
-    it('defaults the role to Org Developer of the organization', async () => {
-      const view = await service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true });
-      expect(view).toMatchObject({ autoProvision: true, autoProvisionRoleId: 'role-dev' });
     });
 
-    it('stores an explicit non-administrative organization role', async () => {
-      const view = await service.saveGoogleSettings(ORG.id, {
-        ...base,
-        autoProvision: true,
-        autoProvisionRoleId: 'role-readers',
-      });
-      expect(view.autoProvisionRoleId).toBe('role-readers');
-    });
-
-    it('rejects roles with administrative permissions, whatever their name', async () => {
-      for (const autoProvisionRoleId of ['role-admin', 'role-sneaky']) {
-        await expect(
-          service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true, autoProvisionRoleId }),
-        ).rejects.toThrow(/administrative permissions/);
-      }
-      expect(providers.rows[0].autoProvision).toBe(false);
-    });
-
-    it('lists only the roles automatic sign-up may grant', async () => {
-      const listed = await service.listAutoProvisionRoles(ORG.id);
-      expect(listed.map((entry) => entry.id)).toEqual(['role-dev', 'role-readers']);
-    });
-
-    it('rejects roles of another organization or unknown roles', async () => {
-      for (const autoProvisionRoleId of ['role-other', 'missing']) {
-        await expect(
-          service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true, autoProvisionRoleId }),
-        ).rejects.toThrow(/role of this organization/);
-      }
-    });
-
-    it('requires at least one allowed domain', async () => {
-      await expect(
-        service.saveGoogleSettings(ORG.id, { ...base, allowedDomains: [], autoProvision: true }),
-      ).rejects.toThrow(/allowed Workspace domain/);
-    });
-
-    it('clears the role when automatic sign-up is turned off', async () => {
-      await service.saveGoogleSettings(ORG.id, { ...base, autoProvision: true });
-      const view = await service.saveGoogleSettings(ORG.id, { ...base, autoProvision: false });
-      expect(view).toMatchObject({ autoProvision: false, autoProvisionRoleId: null });
-    });
-  });
-
-  describe('findSoleGoogleOrganizationId', () => {
-    it('returns the organization when it is the only one with Google enabled', async () => {
-      expect(await service.findSoleGoogleOrganizationId()).toBe(ORG.id);
-    });
-
-    it('returns null when several organizations have Google enabled', async () => {
-      await service.saveGoogleSettings(OTHER_ORG_ID, {
-        enabled: true,
-        clientId: 'client-other',
-        clientSecret: 'other-secret',
-        allowedDomains: [],
-      });
-      expect(await service.findSoleGoogleOrganizationId()).toBeNull();
-    });
-
-    it('returns null when no organization has Google enabled', async () => {
-      await service.saveGoogleSettings(ORG.id, {
-        enabled: false,
-        clientId: 'client-123',
-        allowedDomains: [],
-      });
-      expect(await service.findSoleGoogleOrganizationId()).toBeNull();
+    it('treats a misconfigured provider as disabled instead of throwing', () => {
+      configError = new Error(
+        'GOOGLE_SSO_CLIENT_ID and GOOGLE_SSO_CLIENT_SECRET must be set together',
+      );
+      expect(service.isGoogleEnabled()).toBe(false);
+      expect(service.getGoogleStatus().enabled).toBe(false);
     });
   });
 
   describe('startGoogleSignIn', () => {
-    it('builds a PKCE request with the hosted domain hint', async () => {
-      await service.startGoogleSignIn({ organization: ORG, redirectUri: REDIRECT_URI });
+    it('builds a PKCE request with the hosted domain hint', () => {
+      start();
 
       const request = googleClient.buildAuthorizationUrl.mock.calls[0]?.[0];
       expect(request).toMatchObject({
@@ -458,22 +215,39 @@ describe('SsoService', () => {
       expect(request.codeChallenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
     });
 
-    it('fails when the organization has no usable provider', async () => {
-      await expectSsoError(
-        service.startGoogleSignIn({
-          organization: { id: OTHER_ORG_ID, slug: 'other' },
-          redirectUri: REDIRECT_URI,
-        }),
-        'not_configured',
+    it('omits the hosted domain hint when several domains are allowed', () => {
+      config = new GoogleSsoConfig(
+        'client-123',
+        'super-secret',
+        ['gigigo.com', 'example.org'],
+        false,
       );
+      start();
+      expect(googleClient.buildAuthorizationUrl.mock.calls[0]?.[0].hostedDomain).toBeUndefined();
+    });
+
+    it('fails when Google sign-in is not configured', () => {
+      config = null;
+      expect(() => start()).toThrow(SsoError);
+      expect(() => start()).toThrow(/not enabled/);
+    });
+
+    it('fails with not_configured when it is misconfigured', () => {
+      configError = new Error('"bad" is not a valid domain');
+      try {
+        start();
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'not_configured' });
+      }
     });
   });
 
   describe('completeGoogleSignIn', () => {
-    it('signs in an invited member and links the Google identity', async () => {
+    it('signs in an existing user and links the Google identity', async () => {
       const result = await signIn();
 
-      expect(result).toEqual({ userId: 'user-1', organizationSlug: 'gitops' });
+      expect(result).toEqual({ userId: 'user-1' });
       expect(users.rows[0].authProviders).toContainEqual({
         provider: 'google',
         providerId: 'google-sub-1',
@@ -483,58 +257,42 @@ describe('SsoService', () => {
       expect(exchange.clientSecret).toBe('super-secret');
     });
 
+    it('signs in users regardless of the organizations they belong to', async () => {
+      accesses.rows = [];
+      await expect(signIn()).resolves.toEqual({ userId: 'user-1' });
+      expect(provisioner.calls).toEqual([]);
+    });
+
     it('resolves an already linked user by Google subject even if the email changed', async () => {
       users.rows[0].email = 'ana.old@gigigo.com';
       users.rows[0].authProviders.push({ provider: 'google', providerId: 'google-sub-1' });
 
-      await expect(signIn()).resolves.toMatchObject({ userId: 'user-1' });
+      await expect(signIn()).resolves.toEqual({ userId: 'user-1' });
     });
 
     it('accepts a pending invitation instead of asking for a password', async () => {
       users.rows[0].status = 'invited';
-      accesses.rows[0].status = 'invited';
+      accesses.rows = [
+        access({ id: 'access-1', status: 'invited' }),
+        access({ id: 'access-2', organizationId: 'org-2', status: 'invited' }),
+      ];
 
       await signIn();
 
       expect(users.activated).toEqual(['user-1']);
-      expect(accesses.rows[0].status).toBe('active');
-    });
-
-    it('accepts users whose only access is to a project of the organization', async () => {
-      accesses.rows = [
-        access({
-          scope: 'project',
-          organizationId: null,
-          projectId: 'project-1',
-          project: {
-            id: 'project-1',
-            name: 'P',
-            slug: 'p',
-            organization: { id: ORG.id, ...TIMESTAMPS },
-            ...TIMESTAMPS,
-          },
-        }),
-      ];
-
-      await expect(signIn()).resolves.toMatchObject({ userId: 'user-1' });
+      expect(accesses.rows.map((row) => row.status)).toEqual(['active', 'active']);
     });
 
     it('rejects users with no account', async () => {
       users.rows = [];
       await expectSsoError(signIn(), 'not_invited');
-    });
-
-    it('rejects users invited only to another organization', async () => {
-      accesses.rows = [access({ organizationId: OTHER_ORG_ID })];
-      await expectSsoError(signIn(), 'not_invited');
-      expect(users.rows[0].authProviders).not.toContainEqual(
-        expect.objectContaining({ provider: 'google' }),
-      );
+      expect(provisioner.calls).toEqual([]);
     });
 
     it('rejects disabled accounts', async () => {
       users.rows[0].disabled = true;
       await expectSsoError(signIn(), 'account_disabled');
+      expect(users.lastLogins).toEqual([]);
     });
 
     it('rejects unverified emails', async () => {
@@ -553,35 +311,22 @@ describe('SsoService', () => {
     });
 
     it('accepts any verified account when no domain is restricted', async () => {
-      await service.saveGoogleSettings(ORG.id, {
-        enabled: true,
-        clientId: 'client-123',
-        allowedDomains: [],
-      });
+      config = new GoogleSsoConfig('client-123', 'super-secret', [], false);
       delete googleClaims.hd;
-      await expect(signIn()).resolves.toMatchObject({ userId: 'user-1' });
+      await expect(signIn()).resolves.toEqual({ userId: 'user-1' });
     });
 
     describe('with automatic sign-up', () => {
-      beforeEach(async () => {
-        await service.saveGoogleSettings(ORG.id, {
-          enabled: true,
-          clientId: 'client-123',
-          allowedDomains: ['gigigo.com'],
-          autoProvision: true,
-        });
+      beforeEach(() => {
+        config = new GoogleSsoConfig('client-123', 'super-secret', ['gigigo.com'], true);
       });
 
-      it('creates an account with the configured role for a new domain user', async () => {
+      it('creates a cluster user for a new Workspace account of an allowed domain', async () => {
         users.rows = [];
-        accesses.rows = [];
 
         const result = await signIn();
 
-        expect(provisioner.calls).toEqual([
-          { organizationId: ORG.id, email: 'ana@gigigo.com', roleId: 'role-dev', userId: null },
-        ]);
-        expect(result.organizationSlug).toBe('gitops');
+        expect(provisioner.calls).toEqual(['ana@gigigo.com']);
         expect(users.rows[0].authProviders).toContainEqual({
           provider: 'google',
           providerId: 'google-sub-1',
@@ -589,22 +334,12 @@ describe('SsoService', () => {
         expect(users.lastLogins).toEqual([result.userId]);
       });
 
-      it('grants access to an existing account that belongs to another organization', async () => {
-        accesses.rows = [access({ organizationId: OTHER_ORG_ID })];
-
-        await expect(signIn()).resolves.toMatchObject({ userId: 'user-1' });
-        expect(provisioner.calls).toEqual([
-          { organizationId: ORG.id, email: 'ana@gigigo.com', roleId: 'role-dev', userId: 'user-1' },
-        ]);
-      });
-
-      it('does not touch members that already have access', async () => {
+      it('does not provision users that already exist', async () => {
         await signIn();
         expect(provisioner.calls).toEqual([]);
       });
 
       it('still rejects disabled accounts', async () => {
-        accesses.rows = [];
         users.rows[0].disabled = true;
         await expectSsoError(signIn(), 'account_disabled');
         expect(provisioner.calls).toEqual([]);
@@ -624,10 +359,10 @@ describe('SsoService', () => {
         expect(provisioner.calls).toEqual([]);
       });
 
-      it('fails closed when the configured role no longer exists', async () => {
+      it('fails closed when provisioning fails', async () => {
         users.rows = [];
-        provisioner.provisionOrganizationMember = async () => {
-          throw new Error('Role not found');
+        provisioner.provisionClusterUser = async () => {
+          throw new Error('GitDB unavailable');
         };
         await expectSsoError(signIn(), 'not_invited');
       });
@@ -639,26 +374,31 @@ describe('SsoService', () => {
     });
 
     it('rejects a tampered flow cookie', async () => {
-      const started = await service.startGoogleSignIn({
-        organization: ORG,
-        redirectUri: REDIRECT_URI,
-      });
-      const [payload] = started.flowCookie.split('.');
+      const [payload] = start().flowCookie.split('.');
       await expectSsoError(signIn({ flowCookie: `${payload}.forged` }), 'invalid_state');
     });
 
+    it('rejects a missing flow cookie', async () => {
+      const started = start();
+      await expectSsoError(
+        service.completeGoogleSignIn({
+          flowCookie: undefined,
+          state: started.state,
+          code: 'auth-code',
+          redirectUri: REDIRECT_URI,
+        }),
+        'invalid_state',
+      );
+    });
+
     it('rejects an expired flow', async () => {
-      const started = await service.startGoogleSignIn({
-        organization: ORG,
-        redirectUri: REDIRECT_URI,
-      });
-      const state = new URL(started.authorizationUrl).searchParams.get('state')!;
+      const started = start();
       now += 11 * 60 * 1000;
 
       await expectSsoError(
         service.completeGoogleSignIn({
           flowCookie: started.flowCookie,
-          state,
+          state: started.state,
           code: 'auth-code',
           redirectUri: REDIRECT_URI,
         }),
@@ -676,36 +416,19 @@ describe('SsoService', () => {
       await expectSsoError(signIn(), 'provider_error');
     });
 
-    it('fails when the provider was disabled mid-flow', async () => {
-      const started = await service.startGoogleSignIn({
-        organization: ORG,
-        redirectUri: REDIRECT_URI,
-      });
-      const state = new URL(started.authorizationUrl).searchParams.get('state')!;
-      await service.saveGoogleSettings(ORG.id, {
-        enabled: false,
-        clientId: 'client-123',
-        allowedDomains: [],
-      });
+    it('fails when Google sign-in was disabled mid-flow', async () => {
+      const started = start();
+      config = null;
 
       await expectSsoError(
         service.completeGoogleSignIn({
           flowCookie: started.flowCookie,
-          state,
+          state: started.state,
           code: 'auth-code',
           redirectUri: REDIRECT_URI,
         }),
         'not_configured',
       );
     });
-  });
-
-  it('exposes the organization of a pending flow', async () => {
-    const started = await service.startGoogleSignIn({
-      organization: ORG,
-      redirectUri: REDIRECT_URI,
-    });
-    expect(service.peekFlowOrganization(started.flowCookie)).toBe('gitops');
-    expect(service.peekFlowOrganization('garbage')).toBeNull();
   });
 });

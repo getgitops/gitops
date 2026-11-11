@@ -9,13 +9,12 @@ import { InvitationService } from './application/invitation.service';
 import { PasswordResetService } from './application/password-reset.service';
 import { CanCanService } from './application/cancan.service';
 import { RoleService } from './application/role.service';
-import { SecretCipherService } from './application/secret-cipher.service';
 import { SsoService } from './application/sso.service';
 import { UserRepository } from './infrastructure/repositories/user.repository';
 import { RoleRepository } from './infrastructure/repositories/role.repository';
 import { ApiKeyRepository } from './infrastructure/repositories/apikey.repository';
 import { UserAccessRepository } from './infrastructure/repositories/user-access.repository';
-import { AuthProviderRepository } from './infrastructure/repositories/auth-provider.repository';
+import { readGoogleSsoConfig } from './infrastructure/config/google-sso.config';
 import { GoogleOidcClient } from './infrastructure/oidc/google-oidc.client';
 import { InvitationNotifier } from './infrastructure/notifications/invitation.notifier';
 import { PasswordResetNotifier } from './infrastructure/notifications/password-reset.notifier';
@@ -25,7 +24,6 @@ const userRepository = new UserRepository();
 const roleRepository = new RoleRepository();
 const apiKeyRepository = new ApiKeyRepository();
 const userAccessRepository = new UserAccessRepository();
-const authProviderRepository = new AuthProviderRepository();
 const invitationNotifier = new InvitationNotifier();
 const passwordResetNotifier = new PasswordResetNotifier();
 
@@ -61,16 +59,14 @@ export const userAccessService = new UserAccessService(
   invitationService,
 );
 export const ssoService = new SsoService(
-  authProviderRepository,
+  readGoogleSsoConfig,
   userRepository,
   userAccessRepository,
-  roleRepository,
   userAccessService,
-  new SecretCipherService(() => passwordService.ensureEncryptionKey()),
   new GoogleOidcClient(),
   () => passwordService.ensureEncryptionKey(),
 );
-export { SsoError, type SsoErrorCode } from './application/sso.service';
+export { SsoError, type SsoErrorCode, type GoogleSsoStatus } from './application/sso.service';
 export const cancanService = new CanCanService(
   userRepository,
   userAccessRepository,

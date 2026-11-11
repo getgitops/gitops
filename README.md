@@ -13,7 +13,7 @@ operational data versioned and auditable in Git.
 
 - Identity and access management for users, organizations, projects, roles, permissions,
   invitations, sessions, and API keys.
-- Per-organization Google sign-in (OpenID Connect) alongside local email and password login.
+- Cluster-wide Google sign-in (OpenID Connect) alongside local email and password login.
 - Security reporting for vulnerabilities, SBOMs, secrets, licenses, and services.
 - Pulumi state, history, and lock visibility for S3 and Google Cloud Storage backends.
 - Git-backed, auditable application data through GitDB.
@@ -86,7 +86,7 @@ and authenticate with `GITDB_TOKEN` (or `GITDB_USERNAME`/`GITDB_PASSWORD`); with
 
 ### Google sign-in
 
-Each organization configures its own Google OAuth client:
+Google sign-in is configured once for the whole cluster, through environment variables:
 
 1. In Google Cloud Console, open **APIs & Services → Credentials** and create an **OAuth client ID**
    of type **Web application** (configure the consent screen as *Internal* for Workspace-only
@@ -95,22 +95,29 @@ Each organization configures its own Google OAuth client:
    `https://<your-host>/auth/sso/google/callback`. For local use add the URI of the port you run
    on, which must match exactly: `http://localhost:5173/auth/sso/google/callback` for
    `bun run dev`, `http://localhost:3000/auth/sso/google/callback` for Docker.
-3. In GitOps, open **Organization settings → Global**, enable Google SSO, paste the client ID and
-   secret, and optionally restrict sign-in to your Workspace domains. Leave the domain list empty
-   for personal `@gmail.com` accounts, which carry no Workspace domain. With an *External*
-   consent screen in testing mode, only the accounts listed as test users can sign in.
-4. Share `https://<your-host>/auth/login?org=<organization-slug>`.
+3. Set the variables and restart GitOps:
 
-By default only users already invited to the organization can sign in with Google. To let anyone
-from your company in without an invitation, set at least one allowed domain and enable
-**Automatically sign up accounts from the allowed domains**: the first Google sign-in of a
-`@yourdomain.com` Workspace account creates the user and grants organization access with the role
-you pick (Org Developer by default). Only roles without administrative permissions can be picked
-(read access and, at most, creating and editing projects); if the role is later edited to gain
-admin rights, automatic sign-up stops until another role is chosen. Changing this setting also requires permission to invite
-organization users. Personal Google accounts are never signed up automatically, because the domain
-is checked against the Workspace `hd` claim, not the email address. The client secret is stored encrypted with a key derived from
-`GITDB_ENCRYPTION_KEY`, so rotating that key requires re-entering the secret.
+   ```bash
+   GOOGLE_SSO_CLIENT_ID=123456789-abc.apps.googleusercontent.com
+   GOOGLE_SSO_CLIENT_SECRET=...
+   # optional: comma-separated Google Workspace domains allowed to sign in
+   GOOGLE_SSO_ALLOWED_DOMAINS=example.com
+   # optional: sign up unknown Workspace accounts of the allowed domains automatically
+   GOOGLE_SSO_AUTO_PROVISION=false
+   ```
+
+The login page then shows **Continue with Google**, and every organization's **Settings → Global**
+shows Google SSO as enabled for the cluster. Leave `GOOGLE_SSO_ALLOWED_DOMAINS` empty to accept
+personal `@gmail.com` accounts, which carry no Workspace domain. With an *External* consent screen
+in testing mode, only the accounts listed as test users can sign in.
+
+By default only existing or invited users can sign in with Google. With
+`GOOGLE_SSO_AUTO_PROVISION=true` (requires at least one allowed domain), the first Google sign-in of
+an unknown `@example.com` Workspace account creates a plain cluster user with no organization
+membership; organizations still have to invite it. Personal Google accounts are never signed up
+automatically, because the domain is checked against the Workspace `hd` claim, not the email
+address. If the variables are inconsistent (only one credential set, an invalid domain, or
+automatic sign-up without domains), the Google button is hidden and the reason is logged.
 
 ## Development
 

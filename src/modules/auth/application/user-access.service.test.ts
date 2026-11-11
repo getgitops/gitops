@@ -251,24 +251,9 @@ describe('UserAccessService', () => {
     expect(userRepository.rows[0].role?.slug).toBe('cluster-user');
   });
 
-  describe('provisionOrganizationMember', () => {
-    beforeEach(() => {
-      roleRepository.rows.push(
-        role({
-          id: 'org-developer-id',
-          slug: 'org-developer',
-          scope: 'organization',
-          organizationId: 'gitops',
-        }),
-      );
-    });
-
-    it('creates an active account with organization access and no invitation', async () => {
-      const created = await service.provisionOrganizationMember({
-        organizationId: 'gitops',
-        email: 'Ana@Gigigo.com',
-        roleId: 'org-developer-id',
-      });
+  describe('provisionClusterUser', () => {
+    it('creates an active cluster-user account with no organization access', async () => {
+      const created = await service.provisionClusterUser('Ana@Gigigo.com');
 
       expect(created.status).toBe('active');
       expect(userRepository.rows[0]).toMatchObject({
@@ -277,65 +262,23 @@ describe('UserAccessService', () => {
         status: 'active',
       });
       expect(userRepository.rows[0].role?.slug).toBe('cluster-user');
-      expect(userAccessRepository.rows[0]).toMatchObject({
-        userId: created.id,
-        roleId: 'org-developer-id',
-        scope: 'organization',
-        organizationId: 'gitops',
-        status: 'active',
-      });
+      expect(userAccessRepository.rows).toHaveLength(0);
       expect(invitationNotifier.sendInvitation).not.toHaveBeenCalled();
     });
 
-    it('grants access to the given existing account', async () => {
-      userRepository.rows.push(user({ id: 'existing', username: 'ana', email: null, role: null }));
+    it('returns the existing account for that email instead of creating another', async () => {
+      userRepository.rows.push(
+        user({ id: 'existing', username: 'ana', email: 'ana@gigigo.com', role: null }),
+      );
 
-      const provisioned = await service.provisionOrganizationMember({
-        organizationId: 'gitops',
-        email: 'ana@gigigo.com',
-        roleId: 'org-developer-id',
-        userId: 'existing',
-      });
+      const provisioned = await service.provisionClusterUser('ana@gigigo.com');
 
       expect(provisioned.id).toBe('existing');
       expect(userRepository.rows).toHaveLength(1);
-      expect(userAccessRepository.rows[0].userId).toBe('existing');
     });
 
-    it('refuses roles that grant administrative permissions', async () => {
-      roleRepository.rows.push(
-        new RoleDomain({
-          id: 'org-admin-id',
-          slug: 'org-admin',
-          name: 'Org Admin',
-          scope: 'organization',
-          organizationId: 'gitops',
-          projectId: null,
-          permissions: ['organization:users:all'],
-          createdAt: '2024-01-01T00:00:00.000Z',
-          updatedAt: '2024-01-01T00:00:00.000Z',
-        }),
-      );
-
-      await expect(
-        service.provisionOrganizationMember({
-          organizationId: 'gitops',
-          email: 'ana@gigigo.com',
-          roleId: 'org-admin-id',
-        }),
-      ).rejects.toThrow(/administrative permissions/);
-      expect(userRepository.rows).toHaveLength(0);
-      expect(userAccessRepository.rows).toHaveLength(0);
-    });
-
-    it('rejects roles that do not belong to the organization', async () => {
-      await expect(
-        service.provisionOrganizationMember({
-          organizationId: 'other',
-          email: 'ana@gigigo.com',
-          roleId: 'org-developer-id',
-        }),
-      ).rejects.toThrow(/does not belong/);
+    it('requires an email', async () => {
+      await expect(service.provisionClusterUser('  ')).rejects.toThrow(/Email is required/);
       expect(userRepository.rows).toHaveLength(0);
     });
   });

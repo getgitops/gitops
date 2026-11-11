@@ -8,12 +8,23 @@ con SvelteKit. Mantener este archivo y `CLAUDE.md` equivalentes en arquitectura 
 GitOps combina autenticacion y RBAC, organizaciones y proyectos, Open Report de seguridad y
 visibilidad de Pulumi State. La ruta Vault es actualmente una base visual sin backend completo.
 
-Google SSO es por organización: `/org/<org>/settings/global` almacena el OAuth client
-(entidad `OrganizationAuthProviderEntity`, client secret AES-256-GCM cifrado vía `SecretCipherService`
-con clave derivada de `GITDB_ENCRYPTION_KEY`, nunca devuelto a UI) y opcionalmente dominios
-Workspace permitidos. El servicio `ssoService` en `$modules/auth` ejecuta Authorization Code + PKCE
-(rutas `/auth/sso/google/start` y `/auth/sso/google/callback`, ambas sin sesión), verifica el ID token contra JWKS
-de Google via `GoogleOidcClient` en la capa OIDC, y por defecto solo autentica usuarios que ya tienen acceso a la organización o sus proyectos. Para habilitar auto-registro (`autoProvision`), se requiere al menos un dominio Workspace permitido (configurado en settings) y permiso `organization:users:invite` para cambiar esta opción. Con auto-registro activo, cualquier cuenta de Workspace que coincida con los dominios permitidos se registra automáticamente: se crea la cuenta `cluster-user` si falta y se asigna el rol configurado (por defecto `org-developer`) vía `userAccessService.provisionOrganizationMember()`. Ese rol debe cumplir `RoleDomain.isAutoProvisionable` (solo lecturas y permisos de Org Developer, nunca de administración), comprobado al guardar y en cada alta. Las cuentas personales de Google nunca se auto-registran, porque la validación se hace contra el claim `hd` de Workspace, no contra el dominio del email. El servicio vincula el `sub` de Google al usuario en `user.authProviders[]` y acepta la invitación pendiente en el primer sign-in. Los usuarios pueden deshabilitarse via `user.disabled`. Templates de notificación (`src/notifications/`) se leen en tiempo de ejecución. SAML es configuración solo.
+Google SSO es a nivel de clúster y se configura solo con variables de entorno
+(`GOOGLE_SSO_CLIENT_ID`, `GOOGLE_SSO_CLIENT_SECRET` y, opcionales, `GOOGLE_SSO_ALLOWED_DOMAINS` y
+`GOOGLE_SSO_AUTO_PROVISION`), leídas en cada request por `readGoogleSsoConfig()` desde
+`src/modules/auth/infrastructure/config/google-sso.config.ts` en `GoogleSsoConfig`; nada se
+persiste en GitDB. Si ambas credenciales están válidas, `/auth/login` muestra "Continuar con
+Google" y `/org/<org>/settings/global` muestra Google SSO en solo lectura (sin exponer credenciales).
+Una configuración inválida (credencial faltante, dominio inválido, inconsistencia en auto-provision)
+se silencia como deshabilitada y se registra la razón; la UI nunca se rompe. `ssoService` en
+`$modules/auth` ejecuta Authorization Code + PKCE (`/auth/sso/google/start` y
+`/auth/sso/google/callback`, ambas sin sesión), verifica el ID token contra JWKS de Google con
+`GoogleOidcClient` y autentica al usuario existente y no deshabilitado por `sub` o email verificado;
+vincula el `sub` en `user.authProviders[]` y acepta invitaciones pendientes. Los dominios se
+comprueban contra el claim `hd` de Workspace, no email. Con `GOOGLE_SSO_AUTO_PROVISION=true`
+(requiere dominios permitidos), una cuenta Workspace desconocida recibe una cuenta `cluster-user`
+activa sin organización vía `userAccessService.provisionClusterUser()`. `user.disabled` solo lo
+aplica Google sign-in. Templates de notificación (`src/notifications/`) se leen en tiempo de
+ejecución. SAML es configuración solo.
 
 - SvelteKit 2, Svelte 5, Vite 8 y TypeScript 6 strict
 - Tailwind CSS 4 y `@lucide/svelte`
@@ -23,7 +34,7 @@ de Google via `GoogleOidcClient` en la capa OIDC, y por defecto solo autentica u
 - Vitest, ESLint y Prettier
 - Playwright para tests e2e de RBAC (`e2e/`)
 
-Variables de entorno: `GITDB_REPOSITORY_URL`, `GITDB_ENCRYPTION_KEY`, `GITDB_SYNC_POLL_SECONDS`. Las credenciales de Google OAuth se configuran por organización en la UI (almacenadas cifradas en la base de datos), no como variables de entorno globales.
+Las variables de entorno se declaran en `src/env.ts` y se documentan en `.env.example`; Google SSO usa las `GOOGLE_SSO_*` descritas arriba.
 
 Comandos:
 

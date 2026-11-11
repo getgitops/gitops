@@ -8,23 +8,24 @@ GitOps combines identity and access management, organizations and projects, Open
 analysis, and Pulumi State visibility. The Vault route is currently a UI foundation and does not
 yet provide a complete secrets backend. SAML settings are configuration only.
 
-Google SSO is per organization: `/org/<org>/settings/global` stores the OAuth client
-(`OrganizationAuthProviderEntity` in schemas, client secret AES-256-GCM encrypted via
-`SecretCipherService` with a key derived from `GITDB_ENCRYPTION_KEY`, never returned to the UI)
-and an optional list of allowed Workspace domains (checked against the ID token `hd` claim).
-`/auth/login` shows "Continue with Google" next to the always-available password form for the
-organization named by `?org=<slug>` (the auth guard adds it when bouncing an `/org/<slug>/...`
-request), else the `last_org` cookie, else the only organization with Google enabled, if exactly one. `ssoService` in `$modules/auth` runs Authorization Code +
-PKCE through `/auth/sso/google/start` and `/auth/sso/google/callback` (both routes allow unauthenticated access in `hooks.server.ts`), verifies the ID token
-against Google's JWKS via `GoogleOidcClient` in the OIDC infrastructure layer, and by default only signs in people who already have access to that organization
-(or one of its projects). To enable automatic sign-up (`autoProvision`), the organization must configure at least one allowed Workspace domain and enable it in
-`/org/<org>/settings/global` (requires `organization:users:invite` permission to change). With automatic sign-up enabled, a verified Workspace account whose
-`hd` matches an allowed domain gets an active `cluster-user` account (if missing) plus organization access with the configured organization role (default
-`org-developer`) through `userAccessService.provisionOrganizationMember()`. That role must pass `RoleDomain.isAutoProvisionable`
-(allow-list: read grants plus `AUTO_PROVISION_ALLOWED_ORGANIZATION_GRANTS`, never admin rights), checked on save and again on every sign-up, so a role
-edited later to gain admin rights blocks automatic sign-up instead of handing them out. Personal Google accounts are never auto-signed-up, as the domain is checked against
-the Workspace `hd` claim, not the email domain. It links the Google `sub` to the user found by verified email (stored in `user.authProviders[]`), and a pending
-invitation is accepted on first Google sign-in. Users can be disabled via `user.disabled` to block access without deletion.
+Google SSO is cluster-wide and configured only through environment variables
+(`GOOGLE_SSO_CLIENT_ID`, `GOOGLE_SSO_CLIENT_SECRET`, optional `GOOGLE_SSO_ALLOWED_DOMAINS` and
+`GOOGLE_SSO_AUTO_PROVISION`), read on every request by `readGoogleSsoConfig()` from
+`src/modules/auth/infrastructure/config/google-sso.config.ts` into a `GoogleSsoConfig` domain
+object; nothing is persisted in GitDB. When both credentials are set and the config is valid, `/auth/login`
+shows "Continue with Google" next to the password form, and each organization's
+`/org/<org>/settings/global` shows Google SSO as enabled (read-only status, credentials never exposed).
+A misconfigured provider (missing credential, invalid domain, inconsistent auto-provision settings)
+silently counts as disabled and logs the reason; the UI never breaks. `ssoService` in `$modules/auth`
+runs Authorization Code + PKCE through `/auth/sso/google/start` and `/auth/sso/google/callback`
+(both allow unauthenticated access in `hooks.server.ts`), verifies the ID token against Google's
+JWKS via `GoogleOidcClient`, and signs in any existing, non-disabled user found by Google `sub` or
+verified email, linking the `sub` in `user.authProviders[]` and accepting pending invitations on
+first sign-in. Allowed domains are checked against the Workspace `hd` claim, not the email suffix.
+With `GOOGLE_SSO_AUTO_PROVISION=true` (requires at least one allowed domain), an unknown Workspace
+account of an allowed domain gets an active `cluster-user` account with no organization membership
+through `userAccessService.provisionClusterUser()`; organizations still have to invite it.
+`user.disabled` is currently enforced only by Google sign-in.
 
 Self-service registration (`/auth/registration`) lets a visitor create a plain `cluster-user`
 account with no organization membership. It is gated by a cluster-wide toggle managed at
@@ -53,7 +54,7 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - Vitest, ESLint, and Prettier
 - Playwright for RBAC end-to-end tests (`e2e/`)
 
-Environment variables: `GITDB_REPOSITORY_URL`, `GITDB_ENCRYPTION_KEY`, `GITDB_SYNC_POLL_SECONDS`. Google OAuth credentials are configured per organization in the UI (stored encrypted in the database), not as global environment variables.
+Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the `GOOGLE_SSO_*` variables described above.
 
 Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 

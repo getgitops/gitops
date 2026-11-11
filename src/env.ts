@@ -24,4 +24,8 @@ export const variables = defineEnvVars({
   NOTIFICATION_SMTP_FROM: optional,
   NOTIFICATION_SMTP_FROM_NAME: optional,
   NOTIFICATION_SMTP_REJECT_UNAUTHORIZED: optional,
+  GOOGLE_SSO_CLIENT_ID: optional,
+  GOOGLE_SSO_CLIENT_SECRET: optional,
+  GOOGLE_SSO_ALLOWED_DOMAINS: optional,
+  GOOGLE_SSO_AUTO_PROVISION: optional,
 });

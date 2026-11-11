@@ -161,39 +161,17 @@ export class UserAccessService {
   }
 
   /**
-   * Grants organization access to an identity already verified by an SSO provider, creating its
-   * account when missing. Callers must have checked the identity against the organization policy.
+   * Creates an active `cluster-user` account, with no organization membership, for an identity
+   * already verified by an SSO provider. Callers must have checked it against the SSO policy.
    */
-  async provisionOrganizationMember(input: {
-    organizationId: string;
-    email: string;
-    roleId: string;
-    /** existing account to grant access to; otherwise it is looked up or created by email */
-    userId?: string | null;
-  }): Promise<UserDomain> {
-    const organizationId = input.organizationId.trim();
-    const email = input.email.trim().toLowerCase();
-    if (!organizationId) throw new Error('Organization is required');
-    if (!email) throw new Error('Email is required');
+  async provisionClusterUser(email: string): Promise<UserDomain> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) throw new Error('Email is required');
 
-    const role = await this.findRoleForScope(input.roleId, 'organization', organizationId);
-    // re-checked on every sign-up: the role may have been edited since it was configured
-    if (!role.isAutoProvisionable) {
-      throw new Error('Role grants administrative permissions');
-    }
-    const existing = input.userId
-      ? await this.userRepository.findById(input.userId)
-      : await this.userRepository.findByEmail(email);
-    if (input.userId && !existing) throw new Error('User not found');
-    const user = existing ?? (await this.createUserFromEmail(email, 'active'));
-
-    await this.createAccess({
-      userId: user.id,
-      roleId: role.id,
-      scope: 'organization',
-      organizationId,
-    });
-    return user;
+    return (
+      (await this.userRepository.findByEmail(normalized)) ??
+      (await this.createUserFromEmail(normalized, 'active'))
+    );
   }
 
   private async createUserFromEmail(email: string, status: UserAccessStatus) {

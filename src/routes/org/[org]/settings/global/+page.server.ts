@@ -1,8 +1,7 @@
-import { error, fail } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { cancanService, ssoService } from '#modules/auth';
-import { organizationService } from '#modules/organization';
 
-export async function load({ parent, locals, url }) {
+export async function load({ parent, locals }) {
   const { organization } = await parent();
 
   if (
@@ -14,75 +13,6 @@ export async function load({ parent, locals, url }) {
     throw error(403, 'Forbidden');
   }
 
-  const canUpdate = await cancanService.canSessionUser(
-    locals.user,
-    'organization:settings:update',
-    {
-      scope: 'organization',
-      organizationId: organization.id,
-    },
-  );
-
-  // automatic sign-up is a standing invitation, so it also needs the right to invite members
-  const canManageAutoProvision =
-    canUpdate &&
-    (await cancanService.canSessionUser(locals.user, 'organization:users:invite', {
-      scope: 'organization',
-      organizationId: organization.id,
-    }));
-
-  return {
-    google: await ssoService.getGoogleSettings(organization.id),
-    autoProvisionRoles: await ssoService.listAutoProvisionRoles(organization.id),
-    canManageAutoProvision,
-    googleRedirectUri: `${url.origin}/auth/sso/google/callback`,
-    loginUrl: `${url.origin}/auth/login?org=${encodeURIComponent(organization.slug)}`,
-    canUpdate,
-  };
+  // Google SSO is configured for the whole cluster (GOOGLE_SSO_* env vars); read-only here
+  return { googleSso: ssoService.getGoogleStatus() };
 }
-
-export const actions = {
-  async saveGoogle({ request, params, locals }) {
-    const organization = await organizationService.tryFindBySlug(params.org);
-    if (!organization) return fail(404, { googleError: 'Organization not found' });
-
-    if (
-      !(await cancanService.canSessionUser(locals.user, 'organization:settings:update', {
-        scope: 'organization',
-        organizationId: organization.id,
-      }))
-    ) {
-      return fail(403, { googleError: 'Forbidden' });
-    }
-
-    const canManageAutoProvision = await cancanService.canSessionUser(
-      locals.user,
-      'organization:users:invite',
-      { scope: 'organization', organizationId: organization.id },
-    );
-
-    const form = await request.formData();
-    try {
-      // without the invite permission the stored auto sign-up policy is kept as is
-      const current = canManageAutoProvision
-        ? null
-        : await ssoService.getGoogleSettings(organization.id);
-      await ssoService.saveGoogleSettings(organization.id, {
-        enabled: form.get('enabled') === 'on',
-        clientId: String(form.get('clientId') ?? ''),
-        clientSecret: String(form.get('clientSecret') ?? ''),
-        allowedDomains: String(form.get('allowedDomains') ?? '').split(/[\s,]+/),
-        autoProvision: current ? current.autoProvision : form.get('autoProvision') === 'on',
-        autoProvisionRoleId: current
-          ? current.autoProvisionRoleId
-          : String(form.get('autoProvisionRoleId') ?? ''),
-      });
-    } catch (err) {
-      return fail(400, {
-        googleError: err instanceof Error ? err.message : 'Failed to save Google settings',
-      });
-    }
-
-    return { googleSaved: true };
-  },
-};

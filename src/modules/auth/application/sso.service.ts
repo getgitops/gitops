@@ -1,20 +1,13 @@
 import crypto from 'crypto';
-import type { AuthProviderDomain } from '../domain/auth-provider.domain';
+import type { GoogleSsoConfig } from '../domain/google-sso-config.domain';
 import type { UserDomain } from '../domain/user.domain';
-import type { UserAccessDomain } from '../domain/user-access.domain';
-import type { AuthProviderRepository } from '../infrastructure/repositories/auth-provider.repository';
-import type { RoleRepository } from '../infrastructure/repositories/role.repository';
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { GoogleOidcClient } from '../infrastructure/oidc/google-oidc.client';
-import type { SecretCipherService } from './secret-cipher.service';
 import type { UserAccessService } from './user-access.service';
 
 const GOOGLE = 'google';
-const SECRET_PURPOSE = 'sso:google:client-secret';
 const FLOW_TTL_MS = 10 * 60 * 1000;
-const DEFAULT_AUTO_PROVISION_ROLE = 'org-developer';
-const DOMAIN_PATTERN = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
 export type SsoErrorCode =
   | 'not_configured'
@@ -35,41 +28,24 @@ export class SsoError extends Error {
   }
 }
 
-export type GoogleSsoSettingsView = {
+/** What organization admins may see of the cluster-wide setup: never the client credentials. */
+export type GoogleSsoStatus = {
   enabled: boolean;
-  clientId: string | null;
-  hasClientSecret: boolean;
   allowedDomains: string[];
   autoProvision: boolean;
-  autoProvisionRoleId: string | null;
-};
-
-export type GoogleSsoSettingsInput = {
-  enabled: boolean;
-  clientId: string;
-  /** empty keeps the stored secret, so the UI never has to receive it back */
-  clientSecret?: string;
-  allowedDomains: string[];
-  autoProvision?: boolean;
-  /** organization role granted to auto-provisioned members; empty picks Org Developer */
-  autoProvisionRoleId?: string | null;
 };
 
 type SsoFlow = {
   state: string;
   nonce: string;
   codeVerifier: string;
-  organizationId: string;
-  organizationSlug: string;
   expiresAt: number;
 };
 
 export class SsoService {
   constructor(
-    private readonly authProviderRepository: Pick<
-      AuthProviderRepository,
-      'findByOrganization' | 'findEnabled' | 'upsert'
-    >,
+    /** returns null when Google sign-in is not configured; throws when misconfigured */
+    private readonly readConfig: () => GoogleSsoConfig | null,
     private readonly userRepository: Pick<
       UserRepository,
       | 'findByAuthProvider'
@@ -79,112 +55,49 @@ export class SsoService {
       | 'touchLastLogin'
     >,
     private readonly userAccessRepository: Pick<UserAccessRepository, 'findByUserId' | 'update'>,
-    private readonly roleRepository: Pick<RoleRepository, 'findAll' | 'findById' | 'findBySlug'>,
-    private readonly memberProvisioner: Pick<UserAccessService, 'provisionOrganizationMember'>,
-    private readonly secretCipher: Pick<SecretCipherService, 'encrypt' | 'decrypt'>,
+    private readonly userProvisioner: Pick<UserAccessService, 'provisionClusterUser'>,
     private readonly googleClient: Pick<GoogleOidcClient, 'buildAuthorizationUrl' | 'exchangeCode'>,
     private readonly signingKey: () => string,
     private readonly now: () => number = () => Date.now(),
   ) {}
 
-  async getGoogleSettings(organizationId: string): Promise<GoogleSsoSettingsView> {
-    const provider = await this.authProviderRepository.findByOrganization(organizationId, GOOGLE);
-    return this.toSettingsView(provider);
+  /** A misconfigured provider counts as disabled, so the login page never breaks because of it. */
+  isGoogleEnabled(): boolean {
+    return this.tryReadConfig() !== null;
   }
 
-  async saveGoogleSettings(
-    organizationId: string,
-    input: GoogleSsoSettingsInput,
-  ): Promise<GoogleSsoSettingsView> {
-    const clientId = input.clientId.trim();
-    const clientSecret = input.clientSecret?.trim() ?? '';
-    const allowedDomains = [
-      ...new Set(input.allowedDomains.map((domain) => domain.trim().toLowerCase()).filter(Boolean)),
-    ];
-
-    const invalidDomain = allowedDomains.find((domain) => !DOMAIN_PATTERN.test(domain));
-    if (invalidDomain) throw new Error(`"${invalidDomain}" is not a valid domain`);
-
-    const existing = await this.authProviderRepository.findByOrganization(organizationId, GOOGLE);
-    if (input.enabled) {
-      if (!clientId) throw new Error('Google Client ID is required to enable Google sign-in');
-      if (!clientSecret && !existing?.clientSecretEncrypted) {
-        throw new Error('Google Client Secret is required to enable Google sign-in');
-      }
-    }
-
-    const autoProvision = input.autoProvision ?? false;
-    if (autoProvision && allowedDomains.length === 0) {
-      throw new Error('Automatic sign-up requires at least one allowed Workspace domain');
-    }
-    const autoProvisionRoleId = autoProvision
-      ? await this.resolveAutoProvisionRoleId(organizationId, input.autoProvisionRoleId)
-      : null;
-
-    const updated = await this.authProviderRepository.upsert(organizationId, GOOGLE, {
-      enabled: input.enabled,
-      clientId: clientId || null,
-      allowedDomains,
-      autoProvision,
-      autoProvisionRoleId,
-      ...(clientSecret
-        ? { clientSecretEncrypted: this.secretCipher.encrypt(clientSecret, SECRET_PURPOSE) }
-        : {}),
-    });
-    return this.toSettingsView(updated);
+  getGoogleStatus(): GoogleSsoStatus {
+    const config = this.tryReadConfig();
+    return {
+      enabled: config !== null,
+      allowedDomains: config ? [...config.allowedDomains] : [],
+      autoProvision: config?.autoProvision ?? false,
+    };
   }
 
-  /** Organization roles automatic sign-up may grant, i.e. without administrative permissions. */
-  async listAutoProvisionRoles(
-    organizationId: string,
-  ): Promise<Array<{ id: string; name: string; slug: string }>> {
-    const roles = await this.roleRepository.findAll('organization', organizationId);
-    return roles
-      .filter((role) => role.organizationId === organizationId && role.isAutoProvisionable)
-      .map((role) => ({ id: role.id, name: role.name, slug: role.slug }));
-  }
-
-  async isGoogleEnabled(organizationId: string): Promise<boolean> {
-    const provider = await this.authProviderRepository.findByOrganization(organizationId, GOOGLE);
-    return provider?.isUsable ?? false;
-  }
-
-  async findSoleGoogleOrganizationId(): Promise<string | null> {
-    const usable = (await this.authProviderRepository.findEnabled(GOOGLE)).filter(
-      (provider) => provider.isUsable,
-    );
-    return usable.length === 1 ? usable[0].organizationId : null;
-  }
-
-  async startGoogleSignIn(input: {
-    organization: { id: string; slug: string };
-    redirectUri: string;
-  }): Promise<{ authorizationUrl: string; flowCookie: string }> {
-    const provider = await this.requireUsableProvider(input.organization.id);
+  startGoogleSignIn(input: { redirectUri: string }): {
+    authorizationUrl: string;
+    flowCookie: string;
+  } {
+    const config = this.requireConfig();
 
     const flow: SsoFlow = {
       state: this.randomToken(),
       nonce: this.randomToken(),
       codeVerifier: this.randomToken(),
-      organizationId: input.organization.id,
-      organizationSlug: input.organization.slug,
       expiresAt: this.now() + FLOW_TTL_MS,
     };
 
     const authorizationUrl = this.googleClient.buildAuthorizationUrl({
-      clientId: provider.clientId!,
+      clientId: config.clientId,
       redirectUri: input.redirectUri,
       state: flow.state,
       nonce: flow.nonce,
       codeChallenge: crypto.createHash('sha256').update(flow.codeVerifier).digest('base64url'),
-      hostedDomain: provider.allowedDomains.length === 1 ? provider.allowedDomains[0] : undefined,
+      hostedDomain: config.allowedDomains.length === 1 ? config.allowedDomains[0] : undefined,
     });
 
     return { authorizationUrl, flowCookie: this.signFlow(flow) };
-  }
-
-  peekFlowOrganization(flowCookie: string | undefined): string | null {
-    return this.readFlow(flowCookie)?.organizationSlug ?? null;
   }
 
   async completeGoogleSignIn(input: {
@@ -192,20 +105,20 @@ export class SsoService {
     state: string;
     code: string;
     redirectUri: string;
-  }): Promise<{ userId: string; organizationSlug: string }> {
+  }): Promise<{ userId: string }> {
     const flow = this.readFlow(input.flowCookie);
     if (!flow || !input.state || !this.safeEqual(flow.state, input.state)) {
       throw new SsoError('invalid_state', 'The sign-in request expired or was tampered with');
     }
     if (!input.code) throw new SsoError('provider_error', 'Google did not return a code');
 
-    const provider = await this.requireUsableProvider(flow.organizationId);
+    const config = this.requireConfig();
 
     let claims;
     try {
       claims = await this.googleClient.exchangeCode({
-        clientId: provider.clientId!,
-        clientSecret: this.secretCipher.decrypt(provider.clientSecretEncrypted!, SECRET_PURPOSE),
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
         code: input.code,
         codeVerifier: flow.codeVerifier,
         redirectUri: input.redirectUri,
@@ -224,7 +137,7 @@ export class SsoService {
     if (!email || !claims.email_verified) {
       throw new SsoError('email_not_verified', 'Google account email is not verified');
     }
-    if (!provider.allowsHostedDomain(claims.hd)) {
+    if (!config.allowsHostedDomain(claims.hd)) {
       throw new SsoError('domain_not_allowed', 'Google account domain is not allowed');
     }
 
@@ -233,66 +146,45 @@ export class SsoService {
       (await this.userRepository.findByEmail(email));
     if (user?.disabled) throw new SsoError('account_disabled', 'Account is disabled');
 
-    let access = user ? await this.userAccessRepository.findByUserId(user.id) : [];
-    if (!access.some((entry) => this.belongsToOrganization(entry, flow.organizationId))) {
-      if (!provider.allowsAutoProvision(claims.hd)) {
-        throw new SsoError('not_invited', 'Account has no access to this organization');
+    if (!user) {
+      if (!config.allowsAutoProvision(claims.hd)) {
+        throw new SsoError('not_invited', 'No account for this Google identity');
       }
-      user = await this.provisionMember(provider, email, user?.id ?? null);
-      access = await this.userAccessRepository.findByUserId(user.id);
+      user = await this.provisionUser(email);
     }
-    if (!user) throw new SsoError('not_invited', 'No invited account for this Google identity');
 
     await this.linkGoogleIdentity(user, claims.sub);
-    if (user.status === 'invited') await this.acceptPendingInvitation(user.id, access);
+    if (user.status === 'invited') await this.acceptPendingInvitation(user.id);
     await this.userRepository.touchLastLogin(user.id);
 
-    return { userId: user.id, organizationSlug: flow.organizationSlug };
+    return { userId: user.id };
   }
 
-  private async requireUsableProvider(organizationId: string): Promise<AuthProviderDomain> {
-    const provider = await this.authProviderRepository.findByOrganization(organizationId, GOOGLE);
-    if (!provider?.isUsable) {
-      throw new SsoError('not_configured', 'Google sign-in is not enabled for this organization');
-    }
-    return provider;
-  }
-
-  private async resolveAutoProvisionRoleId(
-    organizationId: string,
-    roleId: string | null | undefined,
-  ): Promise<string> {
-    const role = roleId?.trim()
-      ? await this.roleRepository.findById(roleId.trim())
-      : await this.roleRepository.findBySlug(
-          DEFAULT_AUTO_PROVISION_ROLE,
-          'organization',
-          organizationId,
-        );
-    if (!role || role.scope !== 'organization' || role.organizationId !== organizationId) {
-      throw new Error('Automatic sign-up role must be a role of this organization');
-    }
-    if (!role.isAutoProvisionable) {
-      throw new Error('Automatic sign-up role cannot grant administrative permissions');
-    }
-    return role.id;
-  }
-
-  private async provisionMember(
-    provider: AuthProviderDomain,
-    email: string,
-    userId: string | null,
-  ): Promise<UserDomain> {
+  private tryReadConfig(): GoogleSsoConfig | null {
     try {
-      return await this.memberProvisioner.provisionOrganizationMember({
-        organizationId: provider.organizationId,
-        email,
-        roleId: provider.autoProvisionRoleId!,
-        userId,
-      });
+      return this.readConfig();
     } catch {
-      // e.g. the configured role was deleted or gained admin permissions afterwards: fail closed
-      throw new SsoError('not_invited', 'Automatic sign-up is misconfigured for this organization');
+      return null;
+    }
+  }
+
+  private requireConfig(): GoogleSsoConfig {
+    let config: GoogleSsoConfig | null;
+    try {
+      config = this.readConfig();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new SsoError('not_configured', `Google sign-in is misconfigured: ${reason}`);
+    }
+    if (!config) throw new SsoError('not_configured', 'Google sign-in is not enabled');
+    return config;
+  }
+
+  private async provisionUser(email: string): Promise<UserDomain> {
+    try {
+      return await this.userProvisioner.provisionClusterUser(email);
+    } catch {
+      throw new SsoError('not_invited', 'Automatic sign-up failed for this Google identity');
     }
   }
 
@@ -304,35 +196,15 @@ export class SsoService {
     ]);
   }
 
-  private async acceptPendingInvitation(userId: string, access: UserAccessDomain[]) {
+  /** Google has verified the invited email, which is what the invitation link proves. */
+  private async acceptPendingInvitation(userId: string): Promise<void> {
     await this.userRepository.activateInvitedUser(userId);
+    const access = await this.userAccessRepository.findByUserId(userId);
     await Promise.all(
       access
         .filter((entry) => entry.status === 'invited')
         .map((entry) => this.userAccessRepository.update(entry.id, { status: 'active' })),
     );
-  }
-
-  private belongsToOrganization(entry: UserAccessDomain, organizationId: string): boolean {
-    if (entry.scope === 'organization') return entry.organizationId === organizationId;
-    if (entry.scope === 'project') {
-      return (
-        entry.organizationId === organizationId ||
-        entry.project?.organization?.id === organizationId
-      );
-    }
-    return false;
-  }
-
-  private toSettingsView(provider: AuthProviderDomain | null): GoogleSsoSettingsView {
-    return {
-      enabled: provider?.enabled ?? false,
-      clientId: provider?.clientId ?? null,
-      hasClientSecret: Boolean(provider?.clientSecretEncrypted),
-      allowedDomains: provider ? [...provider.allowedDomains] : [],
-      autoProvision: provider?.autoProvision ?? false,
-      autoProvisionRoleId: provider?.autoProvisionRoleId ?? null,
-    };
   }
 
   private signFlow(flow: SsoFlow): string {

@@ -47,7 +47,6 @@ export class OrganizationRepository extends Repository {
   }
 
   async deleteById(id: string): Promise<void> {
-    await this.db.delete(OrganizationAuthProviderEntity).where({ organizationId: id });
     await this.db.delete(OrganizationEntity).where({ id });
   }
 }
