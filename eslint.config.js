@@ -31,7 +31,11 @@ export default [
       ...tseslint.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'off',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
   {
@@ -55,6 +59,7 @@ export default [
       'svelte/require-each-key': 'off',
       'svelte/prefer-svelte-reactivity': 'off',
       'no-useless-assignment': 'off',
+      'svelte/no-useless-mustaches': ['error', { ignoreStringEscape: true }],
     },
   },
   prettier,
