@@ -6,5 +6,5 @@
 <RoleDetail
   scope="cluster"
   title={$_('roleDetail.addClusterRole')}
-  cancelHref="/cluster-settings/roles-permissions"
+  cancelHref="/gitops-settings/roles-permissions"
 />

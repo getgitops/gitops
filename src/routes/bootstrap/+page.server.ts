@@ -17,7 +17,7 @@ export const actions = {
   async createAdministrator({ request }) {
     // the wizard is unauthenticated, so this step is only allowed while no admin exists
     if (getBootstrapState().administrator) {
-      return fail(409, { error: 'A cluster administrator already exists.' });
+      return fail(409, { error: 'A GitOps administrator already exists.' });
     }
 
     try {
@@ -54,7 +54,7 @@ export const actions = {
   async createOrganization({ request }) {
     const state = getBootstrapState();
     if (!state.administrator)
-      return fail(409, { error: 'Create the cluster administrator first.' });
+      return fail(409, { error: 'Create the GitOps administrator first.' });
     if (state.organization) return fail(409, { error: 'An organization already exists.' });
 
     try {

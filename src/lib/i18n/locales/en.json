@@ -32,7 +32,7 @@
       "stateIac": "State IaC",
       "projectSettings": "Project Settings",
       "organizationSettings": "Organization Settings",
-      "clusterSettings": "Cluster Settings"
+      "clusterSettings": "GitOps Settings"
     },
     "items": {
       "overview": "Overview",
@@ -109,6 +109,7 @@
     "days": "days",
     "cancel": "Cancel",
     "closeCreateApiKeyModal": "Close create API key modal",
+    "language": "Language",
     "languageDescription": "Select the interface language.",
     "spanish": "Spanish",
     "english": "English",
@@ -194,7 +195,7 @@
     "activating": "Activating...",
     "registrationTitle": "Create your account",
     "registrationSubtitle": "Sign up to start using GitOps.",
-    "registrationDisabled": "Self-service registration is currently disabled. Ask a cluster administrator for an invitation.",
+    "registrationDisabled": "Self-service registration is currently disabled. Ask a GitOps administrator for an invitation.",
     "register": "Create account",
     "registering": "Creating account...",
     "alreadyHaveAccount": "Already have an account?",
@@ -224,13 +225,13 @@
     "ssoErrorGeneric": "Google sign-in failed. Please try again or use your password."
   },
   "bootstrap": {
-    "title": "Cluster setup",
+    "title": "GitOps setup",
     "subtitle": "The GitDB repository is already connected. Complete these steps to finish the installation.",
-    "stepAdministrator": "Create cluster administrator",
+    "stepAdministrator": "Create GitOps administrator",
     "stepOrganization": "Create organization",
-    "createAdministratorFailed": "Failed to create the cluster administrator.",
-    "administratorCardTitle": "1. Create cluster administrator",
-    "administratorCardDescription": "This account gets full access to cluster settings.",
+    "createAdministratorFailed": "Failed to create the GitOps administrator.",
+    "administratorCardTitle": "1. Create GitOps administrator",
+    "administratorCardDescription": "This account gets full access to GitOps settings.",
     "createAdministrator": "Create administrator",
     "createOrganizationFailed": "Failed to create the organization.",
     "organizationCardTitle": "2. Create organization",
@@ -247,19 +248,19 @@
     "startingDescription": "The server is starting up. This page will refresh automatically."
   },
   "clusterSettings": {
-    "title": "Cluster Settings",
+    "title": "GitOps Settings",
     "audit": {
-      "title": "Cluster Audit Log",
-      "description": "History of changes recorded across the cluster's data repository."
+      "title": "GitOps Audit Log",
+      "description": "History of changes recorded across the GitOps data repository."
     },
     "users": {
-      "title": "Cluster Users",
-      "description": "Create users and grant them access to this cluster."
+      "title": "GitOps Users",
+      "description": "Create users and grant them access to GitOps."
     },
     "roles": {
-      "title": "Cluster Roles & Permissions",
-      "description": "Manage roles and granular access policies across the cluster.",
-      "addRole": "Add Cluster Role"
+      "title": "GitOps Roles & Permissions",
+      "description": "Manage roles and granular access policies across GitOps.",
+      "addRole": "Add GitOps Role"
     },
     "database": {
       "title": "Database",
@@ -282,7 +283,7 @@
       "authentication": "Authentication",
       "credentialLoaded": "credential loaded",
       "commitAuthor": "Commit author",
-      "repositoryMissing": "GITDB_REPOSITORY_URL is not set. The cluster cannot start without it.",
+      "repositoryMissing": "GITDB_REPOSITORY_URL is not set. GitOps cannot start without it.",
       "syncPoll": "Sync Poll",
       "everySeconds": "Every",
       "seconds": "seconds",
@@ -290,7 +291,7 @@
     },
     "organizations": {
       "title": "Organizations",
-      "description": "Create, view and manage cluster organizations.",
+      "description": "Create, view and manage GitOps organizations.",
       "searchPlaceholder": "Search by name, slug or description...",
       "nameRequired": "Organization name is required.",
       "created": "Organization created.",
@@ -335,7 +336,7 @@
       "deleteConfirmationEnd": "? This action cannot be undone.",
       "deleting": "Deleting...",
       "copySlugFailed": "Failed to copy slug.",
-      "titleSuffix": "Cluster Settings",
+      "titleSuffix": "GitOps Settings",
       "optionalDescription": "Optional description",
       "closeDeleteModal": "Close delete organization modal",
       "deleteModal": "Delete organization modal",
@@ -347,7 +348,7 @@
       "title": "Registration",
       "description": "Control whether new users can create their own account from the sign-in page.",
       "enableLabel": "Allow self-service registration",
-      "enableDescription": "When enabled, anyone can create a cluster-user account at /auth/registration without an invitation. They start without an organization and can create their own.",
+      "enableDescription": "When enabled, anyone can create a GitOps user account at /auth/registration without an invitation. They start without an organization and can create their own.",
       "updated": "Registration settings updated.",
       "updateFailed": "Failed to update registration settings."
     }
@@ -765,14 +766,11 @@
       "comingSoonDescription": "Key rotation, encryption policy, and scoped secret protection settings are planned for a future release.",
       "saveNotWired": "Global authentication settings are not wired to a server action yet.",
       "localAuthTitle": "Local authentication: always ON",
-      "googleClusterEnabledBadge": "Enabled for the cluster",
+      "googleClusterEnabledBadge": "Enabled for GitOps",
       "googleClusterDisabledBadge": "Not configured",
-      "googleClusterEnabled": "Your cluster has Google sign-in enabled: members of this organization can use \"Continue with Google\" on the login page. It is managed by the cluster administrator; there is nothing to configure here.",
-      "googleClusterDomains": "Allowed Workspace domains: {domains}.",
-      "googleClusterAnyDomain": "Any verified Google account can sign in if it matches an existing user.",
-      "googleClusterAutoProvision": "New Workspace accounts from those domains are signed up automatically as cluster users; they still need to be invited to this organization.",
-      "googleClusterInviteOnly": "Only existing or invited users can sign in with Google.",
-      "googleClusterDisabled": "Google sign-in is not configured for this cluster. A cluster administrator can enable it with the GOOGLE_SSO_* environment variables."
+      "googleClusterEnabledTitle": "Google SSO authentication: enabled",
+      "googleClusterEnabled": "Any invited member can sign in with their Google account.",
+      "googleClusterDisabled": "Google sign-in is not configured for GitOps. A GitOps administrator can enable it with the GOOGLE_SSO_* environment variables."
     },
     "projects": {
       "title": "Projects",
@@ -882,7 +880,7 @@
     "systemRoleDeleteDisabled": "System roles cannot be deleted.",
     "orgRoleDetails": "Organization Role Details",
     "projectRoleDetails": "Project Role Details",
-    "clusterRoleDetails": "Cluster Role Details",
+    "clusterRoleDetails": "GitOps Role Details",
     "roleId": "Role ID",
     "developerPlaceholder": "Developer",
     "newRole": "New role",
@@ -899,7 +897,7 @@
     "fullAccess": "Full Access",
     "custom": "Custom",
     "sectionGroup": "Section group",
-    "addClusterRole": "Add Cluster Role",
+    "addClusterRole": "Add GitOps Role",
     "addOrganizationRole": "Add Organization Role",
     "addProjectRole": "Add Project Role"
   },

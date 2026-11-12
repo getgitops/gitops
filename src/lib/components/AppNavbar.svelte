@@ -75,7 +75,7 @@
           >
             {#if !organizationSlug}
               <p class="px-4 py-3 text-sm text-slate-400">
-                {$_('nav.noOrganizationSelected')} <a href="/cluster-settings/orgs" class="underline"
+                {$_('nav.noOrganizationSelected')} <a href="/gitops-settings/orgs" class="underline"
                   >{$_('nav.chooseOne')}</a
                 >.
               </p>

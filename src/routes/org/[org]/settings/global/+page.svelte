@@ -95,19 +95,8 @@
             <div
               class="mt-3 space-y-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
             >
+              <p class="font-semibold">{$_('orgSettings.global.googleClusterEnabledTitle')}</p>
               <p>{$_('orgSettings.global.googleClusterEnabled')}</p>
-              <p>
-                {data.googleSso.allowedDomains.length > 0
-                  ? $_('orgSettings.global.googleClusterDomains', {
-                      values: { domains: data.googleSso.allowedDomains.join(', ') },
-                    })
-                  : $_('orgSettings.global.googleClusterAnyDomain')}
-              </p>
-              <p>
-                {data.googleSso.autoProvision
-                  ? $_('orgSettings.global.googleClusterAutoProvision')
-                  : $_('orgSettings.global.googleClusterInviteOnly')}
-              </p>
             </div>
           {:else}
             <p class="mt-2 text-xs text-slate-500">

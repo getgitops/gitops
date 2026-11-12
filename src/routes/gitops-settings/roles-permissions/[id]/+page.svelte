@@ -9,5 +9,5 @@
   scope="cluster"
   role={data.role}
   title={`${$_('roleDetail.edit')} ${data.role.name}`}
-  cancelHref="/cluster-settings/roles-permissions"
+  cancelHref="/gitops-settings/roles-permissions"
 />

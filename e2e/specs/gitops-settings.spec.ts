@@ -2,11 +2,11 @@ import { test } from '../fixtures/auth';
 import { expectAllowed, expectDenied } from '../fixtures/expect-access';
 
 const clusterRoutes = [
-  '/cluster-settings/orgs',
-  '/cluster-settings/roles-permissions',
-  '/cluster-settings/access-control',
-  '/cluster-settings/database',
-  '/cluster-settings/audit',
+  '/gitops-settings/orgs',
+  '/gitops-settings/roles-permissions',
+  '/gitops-settings/access-control',
+  '/gitops-settings/database',
+  '/gitops-settings/audit',
 ];
 
 test.describe('cluster settings — cluster admin', () => {

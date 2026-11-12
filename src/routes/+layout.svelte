@@ -84,7 +84,7 @@
   {#if !isBareLayout}
     <Footer
       showSyncStatus={data.canViewGitDbStatus}
-      syncStatusHref={data.canAccessClusterSettings ? '/cluster-settings/database' : null}
+      syncStatusHref={data.canAccessClusterSettings ? '/gitops-settings/database' : null}
     />
   {/if}
 </div>

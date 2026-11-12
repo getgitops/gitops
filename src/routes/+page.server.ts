@@ -10,7 +10,7 @@ export async function load({ locals, parent }) {
   if (allowedOrganizationIds === null) {
     const organization = await organizationService.getDefaultOrganization();
     if (!organization) {
-      throw redirect(302, '/cluster-settings/orgs');
+      throw redirect(302, '/gitops-settings/orgs');
     }
     throw redirect(302, `/org/${organization.slug}/overview`);
   }

@@ -34,7 +34,7 @@ export const actions = {
     }
 
     if (organization.slug !== params.org) {
-      throw redirect(303, `/cluster-settings/orgs/${organization.slug}`);
+      throw redirect(303, `/gitops-settings/orgs/${organization.slug}`);
     }
 
     return { success: true, organization };
@@ -50,6 +50,6 @@ export const actions = {
       return errorResponse(error);
     }
 
-    throw redirect(303, '/cluster-settings/orgs');
+    throw redirect(303, '/gitops-settings/orgs');
   },
 };

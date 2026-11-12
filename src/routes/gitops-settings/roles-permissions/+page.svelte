@@ -9,5 +9,5 @@
   initialRoles={data.roles}
   title={$_('clusterSettings.roles.title')}
   description={$_('clusterSettings.roles.description')}
-  baseHref="/cluster-settings/roles-permissions"
+  baseHref="/gitops-settings/roles-permissions"
 />

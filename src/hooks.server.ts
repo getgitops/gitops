@@ -77,6 +77,13 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
+  // legacy URL: the admin area moved from /cluster-settings to /gitops-settings; keep old
+  // bookmarks working (the new path is still guarded below)
+  if (pathname === '/cluster-settings' || pathname.startsWith('/cluster-settings/')) {
+    const location = pathname.replace('/cluster-settings', '/gitops-settings') + event.url.search;
+    return new Response(null, { status: 308, headers: { location } });
+  }
+
   // sign-in, sign-out, self-registration, password recovery, invitation acceptance and the Google
   // SSO round trip must work without (or with a broken) session; each route re-checks what it needs
   if (
@@ -151,7 +158,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
     ) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
-  } else if (event.url.pathname.startsWith('/cluster-settings')) {
+  } else if (event.url.pathname.startsWith('/gitops-settings')) {
     if (!cancanService.canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }

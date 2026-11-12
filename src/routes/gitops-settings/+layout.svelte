@@ -18,7 +18,7 @@
           </span>
           <div>
             <h2 class="text-2xl font-bold tracking-tight text-white">{$_('clusterSettings.title')}</h2>
-            <p class="mt-2 text-sm text-slate-400">Gestiona la configuración y seguridad de tu clúster.</p>
+            <p class="mt-2 text-sm text-slate-400">Gestiona la configuración y seguridad de GitOps.</p>
           </div>
         </div>
 

@@ -34,6 +34,11 @@ export class UserDomain extends Domain {
     );
   }
 
+  /** True when an external identity of this provider (e.g. a Google `sub`) is linked to the user. */
+  isLinkedTo(provider: string): boolean {
+    return this.authProviders.some((entry) => entry.provider === provider && !!entry.providerId);
+  }
+
   toJson() {
     return {
       id: this.id,
