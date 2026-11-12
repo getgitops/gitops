@@ -13,7 +13,7 @@ export class ProfileService {
       return null;
     }
 
-    return user.toJson();
+    return { ...user.toJson(), googleLinked: user.isLinkedTo('google') };
   }
 
   async updateEmail(userId: string, email: string | null): Promise<void> {

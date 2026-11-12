@@ -34,9 +34,8 @@ export async function load({ locals }) {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
     },
-    gcpConnected: false,
+    gcpConnected: user.googleLinked === true,
     apiKeys,
   };
 }

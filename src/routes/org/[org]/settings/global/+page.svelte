@@ -1,15 +1,10 @@
 <script lang="ts">
-  import {
-    Building2,
-    CheckCircle,
-    KeyRound,
-    LockKeyhole,
-    RefreshCw,
-    Shield,
-  } from '@lucide/svelte';
+  import { Building2, CheckCircle, KeyRound, LockKeyhole, RefreshCw, Shield } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
+  import type { GoogleSsoStatus } from '#modules/auth';
 
-  let googleSsoEnabled = false;
+  export let data: { googleSso: GoogleSsoStatus };
+
   let samlEnabled = false;
 
   let configError = '';
@@ -38,7 +33,9 @@
 
   <section class="space-y-4">
     <div>
-      <h4 class="text-base font-semibold text-slate-900">{$_('orgSettings.global.authentication')}</h4>
+      <h4 class="text-base font-semibold text-slate-900">
+        {$_('orgSettings.global.authentication')}
+      </h4>
       <p class="mt-1 text-sm text-slate-600">
         {$_('orgSettings.global.authenticationDescription')}
       </p>
@@ -48,19 +45,27 @@
       <div class="flex items-start gap-3">
         <Shield class="mt-0.5 h-5 w-5 text-emerald-700" />
         <div>
-          <p class="text-sm font-semibold text-emerald-900">{$_('orgSettings.global.localAuthTitle')}</p>
-          <p class="mt-1 text-sm text-emerald-800">{$_('orgSettings.global.localAuthDescription')}</p>
+          <p class="text-sm font-semibold text-emerald-900">
+            {$_('orgSettings.global.localAuthTitle')}
+          </p>
+          <p class="mt-1 text-sm text-emerald-800">
+            {$_('orgSettings.global.localAuthDescription')}
+          </p>
         </div>
       </div>
     </div>
 
-    <section class="overflow-hidden rounded-md border border-slate-200 bg-white opacity-75">
+    <section
+      class="overflow-hidden rounded-md border bg-white {data.googleSso.enabled
+        ? 'border-emerald-200'
+        : 'border-slate-200 opacity-75'}"
+    >
       <div class="flex items-start gap-3 px-4 py-4">
         <input
           id="google-sso"
           type="checkbox"
           disabled
-          bind:checked={googleSsoEnabled}
+          checked={data.googleSso.enabled}
           class="mt-0.5 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 disabled:cursor-not-allowed"
         />
         <div class="flex-1">
@@ -70,13 +75,34 @@
           >
             <Building2 class="h-4 w-4" />
             GCP Workspace (Google SSO)
-            <span
-              class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800"
-            >
-              {$_('common.comingSoon')}
-            </span>
+            {#if data.googleSso.enabled}
+              <span
+                class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800"
+              >
+                {$_('orgSettings.global.googleClusterEnabledBadge')}
+              </span>
+            {:else}
+              <span
+                class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+              >
+                {$_('orgSettings.global.googleClusterDisabledBadge')}
+              </span>
+            {/if}
           </label>
           <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.googleDescription')}</p>
+
+          {#if data.googleSso.enabled}
+            <div
+              class="mt-3 space-y-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+            >
+              <p class="font-semibold">{$_('orgSettings.global.googleClusterEnabledTitle')}</p>
+              <p>{$_('orgSettings.global.googleClusterEnabled')}</p>
+            </div>
+          {:else}
+            <p class="mt-2 text-xs text-slate-500">
+              {$_('orgSettings.global.googleClusterDisabled')}
+            </p>
+          {/if}
         </div>
       </div>
     </section>
@@ -119,7 +145,8 @@
         class="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
       >
         <span class="inline-flex items-center gap-2">
-          <CheckCircle class="h-4 w-4" /> {$_('orgSettings.global.saved')}
+          <CheckCircle class="h-4 w-4" />
+          {$_('orgSettings.global.saved')}
         </span>
       </div>
     {/if}

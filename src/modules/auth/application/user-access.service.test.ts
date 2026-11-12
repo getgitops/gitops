@@ -251,6 +251,38 @@ describe('UserAccessService', () => {
     expect(userRepository.rows[0].role?.slug).toBe('cluster-user');
   });
 
+  describe('provisionClusterUser', () => {
+    it('creates an active cluster-user account with no organization access', async () => {
+      const created = await service.provisionClusterUser('Ana@Gigigo.com');
+
+      expect(created.status).toBe('active');
+      expect(userRepository.rows[0]).toMatchObject({
+        username: 'ana',
+        email: 'ana@gigigo.com',
+        status: 'active',
+      });
+      expect(userRepository.rows[0].role?.slug).toBe('cluster-user');
+      expect(userAccessRepository.rows).toHaveLength(0);
+      expect(invitationNotifier.sendInvitation).not.toHaveBeenCalled();
+    });
+
+    it('returns the existing account for that email instead of creating another', async () => {
+      userRepository.rows.push(
+        user({ id: 'existing', username: 'ana', email: 'ana@gigigo.com', role: null }),
+      );
+
+      const provisioned = await service.provisionClusterUser('ana@gigigo.com');
+
+      expect(provisioned.id).toBe('existing');
+      expect(userRepository.rows).toHaveLength(1);
+    });
+
+    it('requires an email', async () => {
+      await expect(service.provisionClusterUser('  ')).rejects.toThrow(/Email is required/);
+      expect(userRepository.rows).toHaveLength(0);
+    });
+  });
+
   describe('inviteOrganizationUser', () => {
     function seedOrganizationRole() {
       roleRepository.rows.push(

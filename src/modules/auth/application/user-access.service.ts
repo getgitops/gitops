@@ -129,7 +129,8 @@ export class UserAccessService {
       : await this.findDefaultOrganizationRole(organizationId);
 
     const user =
-      (await this.userRepository.findByEmail(email)) ?? (await this.createInvitedUser(email));
+      (await this.userRepository.findByEmail(email)) ??
+      (await this.createUserFromEmail(email, 'invited'));
 
     // an already active account just gets access, there is nothing to activate
     const status: UserAccessStatus = user.status === 'active' ? 'active' : 'invited';
@@ -159,7 +160,21 @@ export class UserAccessService {
     return this.toRow(access);
   }
 
-  private async createInvitedUser(email: string) {
+  /**
+   * Creates an active `cluster-user` account, with no organization membership, for an identity
+   * already verified by an SSO provider. Callers must have checked it against the SSO policy.
+   */
+  async provisionClusterUser(email: string): Promise<UserDomain> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) throw new Error('Email is required');
+
+    return (
+      (await this.userRepository.findByEmail(normalized)) ??
+      (await this.createUserFromEmail(normalized, 'active'))
+    );
+  }
+
+  private async createUserFromEmail(email: string, status: UserAccessStatus) {
     const clusterUserRole = await this.ensureClusterUserRole();
     const username = await this.buildUsernameFromEmail(email);
 
@@ -167,10 +182,10 @@ export class UserAccessService {
       id: crypto.randomUUID(),
       username,
       email,
-      // placeholder credential: the invited user must set a password before signing in
+      // placeholder credential: the user signs in through an invitation or SSO, or resets it
       passwordHash: this.passwordService.hashPassword(crypto.randomBytes(32).toString('hex')),
       role: this.toRoleView(clusterUserRole),
-      status: 'invited',
+      status,
     });
 
     const user = await this.userRepository.findByUsername(username);

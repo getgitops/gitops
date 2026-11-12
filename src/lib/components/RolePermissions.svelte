@@ -40,7 +40,7 @@
 
   function roleDescription(role: RoleRow): string {
     if (role.description) return role.description;
-    if (role.slug === 'cluster-admin') return 'Acceso completo al clúster y todas las organizaciones.';
+    if (role.slug === 'cluster-admin') return 'Acceso completo a GitOps y a todas las organizaciones.';
     if (role.slug === 'cluster-user') return 'Acceso de lectura y gestión de recursos limitados.';
     return `${role.permissions.length} permisos configurados.`;
   }

@@ -96,7 +96,7 @@
             : [
                 {
                   label: $_('sidebar.items.selectOrganization'),
-                  href: '/cluster-settings/orgs',
+                  href: '/gitops-settings/orgs',
                   icon: Building2,
                 },
               ],
@@ -323,36 +323,36 @@
               {
                 name: $_('sidebar.modules.clusterSettings'),
                 icon: Building2,
-                base: '/cluster-settings',
+                base: '/gitops-settings',
                 items: [
                   {
                     label: $_('sidebar.items.organizations'),
-                    href: '/cluster-settings/orgs',
+                    href: '/gitops-settings/orgs',
                     icon: Building2,
                   },
                   {
                     label: $_('sidebar.items.rolesAndPermissions'),
-                    href: '/cluster-settings/roles-permissions',
+                    href: '/gitops-settings/roles-permissions',
                     icon: Shield,
                   },
                   {
                     label: $_('sidebar.items.accessControl'),
-                    href: '/cluster-settings/access-control',
+                    href: '/gitops-settings/access-control',
                     icon: Users,
                   },
                   {
                     label: $_('sidebar.items.registration'),
-                    href: '/cluster-settings/registration',
+                    href: '/gitops-settings/registration',
                     icon: KeyRound,
                   },
                   {
                     label: $_('sidebar.items.database'),
-                    href: '/cluster-settings/database',
+                    href: '/gitops-settings/database',
                     icon: Database,
                   },
                   {
                     label: $_('sidebar.items.auditLog'),
-                    href: '/cluster-settings/audit',
+                    href: '/gitops-settings/audit',
                     icon: ScrollText,
                   },
                 ],
@@ -429,7 +429,7 @@
     <a
       href={organizationSlug
         ? `/org/${organizationSlug}/settings/storage`
-        : '/cluster-settings/orgs'}
+        : '/gitops-settings/orgs'}
       class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
         ? 'justify-center'
         : 'items-start'}"

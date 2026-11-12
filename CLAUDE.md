@@ -6,12 +6,30 @@ Guidance for working on GitOps, an open source internal developer platform built
 
 GitOps combines identity and access management, organizations and projects, Open Report security
 analysis, and Pulumi State visibility. The Vault route is currently a UI foundation and does not
-yet provide a complete secrets backend. Google SSO and SAML settings are configuration only; no
-external authentication strategy is implemented.
+yet provide a complete secrets backend. SAML settings are configuration only.
 
-Self-service registration (`/auth/registration`) lets a visitor create a plain `cluster-user`
-account with no organization membership. It is gated by a cluster-wide toggle managed at
-`/cluster-settings/registration` (persisted via `clusterSettingsService` in `$modules/config`,
+Google SSO is system-wide and configured only through environment variables
+(`GOOGLE_SSO_CLIENT_ID`, `GOOGLE_SSO_CLIENT_SECRET`, optional `GOOGLE_SSO_ALLOWED_DOMAINS` and
+`GOOGLE_SSO_AUTO_PROVISION`), read on every request by `readGoogleSsoConfig()` from
+`src/modules/auth/infrastructure/config/google-sso.config.ts` into a `GoogleSsoConfig` domain
+object; nothing is persisted in GitDB. When both credentials are set and the config is valid, `/auth/login`
+shows "Continue with Google" next to the password form, and each organization's
+`/org/<org>/settings/global` shows Google SSO as enabled (read-only status, credentials never exposed).
+A misconfigured provider (missing credential, invalid domain, inconsistent auto-provision settings)
+silently counts as disabled and logs the reason; the UI never breaks. `ssoService` in `$modules/auth`
+runs Authorization Code + PKCE through `/auth/sso/google/start` and `/auth/sso/google/callback`
+(both allow unauthenticated access in `hooks.server.ts`), verifies the ID token against Google's
+JWKS via `GoogleOidcClient`, and signs in any existing, non-disabled user found by Google `sub` or
+verified email, linking the `sub` in `user.authProviders[]` and accepting pending invitations on
+first sign-in. Allowed domains are checked against the Workspace `hd` claim, not the email suffix.
+With `GOOGLE_SSO_AUTO_PROVISION=true` (requires at least one allowed domain), an unknown Workspace
+account of an allowed domain gets an active GitOps User (`cluster-user`) account with no organization membership
+through `userAccessService.provisionClusterUser()`; organizations still have to invite it.
+`user.disabled` is currently enforced only by Google sign-in.
+
+Self-service registration (`/auth/registration`) lets a visitor create a plain GitOps User (`cluster-user`)
+account with no organization membership. It is gated by a system-wide toggle managed at
+`/gitops-settings/registration` (persisted via `clusterSettingsService` in `$modules/config`,
 off by default) and re-checked server-side on submit so it can't be bypassed while disabled. Once
 registered and signed in, the user lands on `/org`, where the `cluster:organization:create`
 permission (granted to `cluster-user` by default) surfaces a "New Organization" action that
@@ -35,6 +53,10 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - GitDB (`@getgitops/gitdb`) as the only persistence layer
 - Vitest, ESLint, and Prettier
 - Playwright for RBAC end-to-end tests (`e2e/`)
+
+Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the `GOOGLE_SSO_*` variables described above.
+
+Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 
 ```bash
 bun install
@@ -144,13 +166,13 @@ This ensures the UI only displays navigation items for sections the user has per
 Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
 Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
-- **Cluster Admin** (`vault:all`, `openreport:all`, `stateiac:all`)
-- **Cluster User** (no inherent permissions; used as base role for cluster-level access)
-- **Organization Admin** (all org-level permissions: projects, users, roles, settings, backups, server-keys, audit)
-- **Organization Developer** (read/create/update projects only)
-- **Project Admin** (all project-level permissions: project metadata, users, roles, server-keys, audit; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history)
-- **Project Developer** (read/create/update project resources; no deletion or admin; granular module access)
-- **Project Viewer** (read-only: project metadata, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history)
+- **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
+- **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
+- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit
+- **Organization Developer** — read/create/update projects only
+- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
+- **Project Developer** — read/create/update project resources; no deletion or admin; granular module access
+- **Project Viewer** — read-only: project metadata, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 
 Module resources have granular sub-permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. These allow fine-grained access control within each module.
 
@@ -164,7 +186,7 @@ Two helpers distinguish organization visibility from management: `canManageOrgan
 while `canViewOrganization()` also includes users whose only access is to a project under that organization
 (they see the org overview, but cannot perform org-scope actions).
 
-When creating an organization (via bootstrap or cluster settings), `roleService.createDefaultOrganizationRoles()` is
+When creating an organization (via bootstrap or `/gitops-settings`), `roleService.createDefaultOrganizationRoles()` is
 automatically invoked. When creating a project, `roleService.createDefaultProjectRoles()` is automatically invoked. Both
 operations initialize their respective default roles. Keep authorization tests beside changes to permission behavior.
 Machine-to-machine requests authenticate with `Authorization: Bearer gvs_...`; `hooks.server.ts`

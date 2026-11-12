@@ -65,13 +65,13 @@ function requireSeedSlug(slug: string | null, entity: string): string {
 
 export async function seedAll(): Promise<SeedOutput> {
   const clusterAdminRole = await roleService.createRole({
-    name: 'Cluster Admin',
+    name: 'GitOps Admin',
     slug: 'cluster-admin',
     scope: 'cluster',
     permissions: CLUSTER_ADMIN_PERMISSIONS,
   });
   const clusterUserRole = await roleService.createRole({
-    name: 'Cluster User',
+    name: 'GitOps User',
     slug: 'cluster-user',
     scope: 'cluster',
     permissions: [],
