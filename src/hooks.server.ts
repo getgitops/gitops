@@ -58,8 +58,22 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  // readiness gating happens at the infrastructure level: Cloud Run's startup probe
-  // polls /health and only routes traffic once the server reports ready
+  // the bootstrap state is only meaningful once startup has finished: before that it reads as
+  // "pending" and every request would be sent to (and allowed into) the unauthenticated wizard.
+  // Vite dev loads this module on the first request, and in production nothing guarantees an
+  // infrastructure probe holds traffic back, so the guard waits here instead of trusting either.
+  try {
+    await serverReady;
+  } catch {
+    const message = 'Server failed to start';
+    return isApiRequest
+      ? new Response(JSON.stringify({ error: message }), {
+          status: 503,
+          headers: { 'content-type': 'application/json' },
+        })
+      : new Response(message, { status: 503, headers: { 'content-type': 'text/plain' } });
+  }
+
   if (pathname.startsWith('/bootstrap')) {
     if (isBootstrapCompleted()) {
       return new Response(null, { status: 302, headers: { location: '/' } });

@@ -214,3 +214,11 @@ permission-first and normalize errors consistently.
 Before finishing a change, run the relevant checks. Do not silently fix unrelated bugs or rewrite
 generated files. Update `README.md`, `CONTRIBUTING.md`, and this file when architecture or public
 commands change.
+
+## Known behavior
+
+**Server startup and readiness:** The auth guard in `hooks.server.ts` waits for `serverReady` before
+processing any request. If startup fails, all requests receive a 503 Service Unavailable response
+(JSON for API calls, plain text for others). This applies in both development (where Vite loads
+the module on the first request) and production (where no infrastructure probe guarantees traffic
+will be held back during startup). The bootstrap state is only meaningful after startup completes.
