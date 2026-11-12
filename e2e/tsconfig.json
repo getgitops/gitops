@@ -8,7 +8,7 @@
       "#lib/*": ["../src/lib/*"],
       "$modules": ["../src/modules"],
       "#modules/*": ["../src/modules/*"],
-      "$env/dynamic/private": ["../test/env-dynamic-private.ts"]
+      "$app/env/private": ["./env-private.ts"]
     }
   }
 }
