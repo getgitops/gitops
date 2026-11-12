@@ -77,6 +77,7 @@ function createClient(authorName: string, authorEmail: string): CachedGitDb {
   const config = requireRepositoryConfig();
   const { authUsername, authToken } = resolveAuthCredentials(config);
   const db: GitDB = gitDb(config.repositoryUrl, {
+    branch: config.branch,
     gitUserName: authorName,
     gitUserEmail: authorEmail,
     syncPollSeconds: config.syncPollSeconds,
