@@ -111,3 +111,11 @@ Usar los patrones existentes (`*.domain.ts`, `*.service.ts`, `*.repository.ts`, 
 inyeccion de dependencias y fakes en memoria. Los handlers API validan permisos primero y
 normalizan errores. Ejecutar `bun run check`, `bun run lint`, `bun run test` y
 `bun run format:check` antes de terminar cambios relevantes.
+
+## Comportamiento conocido
+
+**Startup y readiness del servidor:** El auth guard en `hooks.server.ts` espera a que `serverReady`
+complete antes de procesar cualquier request. Si el startup falla, todos los requests reciben
+503 Service Unavailable (JSON para API calls, texto plano para otros). Aplica tanto en dev
+(Vite carga el módulo en la primera request) como en producción. La bootstrap state solo es
+válida después de que startup termina.
