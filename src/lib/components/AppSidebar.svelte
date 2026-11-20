@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createPageStore } from '#lib/page-store';
   import {
+    Activity,
     BarChart3,
     Building2,
     ChevronDown,
@@ -91,6 +92,11 @@
                   label: $_('sidebar.items.cves'),
                   href: `/org/${organizationSlug}/cves`,
                   icon: ShieldAlert,
+                },
+                {
+                  label: $_('sidebar.items.events'),
+                  href: `/org/${organizationSlug}/events`,
+                  icon: Activity,
                 },
               ]
             : [

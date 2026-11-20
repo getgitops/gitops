@@ -13,7 +13,13 @@ export type RequestActor = {
   apiKeyProjectId?: string | null;
 };
 
-const storage = new AsyncLocalStorage<RequestActor>();
+// one store per process: long-lived singletons (the event bus on `globalThis`) keep a reference
+// to `getCurrentActor`, so a second store created when Vite re-evaluates this module in dev would
+// leave them reading an empty context (every event would look like a system event)
+const STORAGE_KEY = Symbol.for('gitops.request-context');
+const storage: AsyncLocalStorage<RequestActor> = ((
+  globalThis as typeof globalThis & { [STORAGE_KEY]?: AsyncLocalStorage<RequestActor> }
+)[STORAGE_KEY] ??= new AsyncLocalStorage<RequestActor>());
 
 /**
  * Runs `fn` with `actor` available to anything that reads the request context during its

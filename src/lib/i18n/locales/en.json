@@ -55,7 +55,8 @@
       "organizations": "Organizations",
       "database": "Database",
       "auditLog": "Audit Log",
-      "registration": "Registration"
+      "registration": "Registration",
+      "events": "Events"
     }
   },
   "footer": {
@@ -382,6 +383,39 @@
       "title": "Organization CVEs",
       "infoMessage": "This list aggregates CVEs from all organization projects using the latest completed analysis for each service.",
       "emptyMessage": "No CVEs have been detected in this organization yet."
+    },
+    "events": {
+      "title": "Events",
+      "description": "What happened in the organization and its projects. Mark each event as reviewed once you have dealt with it.",
+      "retentionNotice": "Events are kept in memory for {retention}: they are lost when the server restarts.",
+      "retentionDays": "{count} days",
+      "retentionHours": "{count} hours",
+      "retentionMinutes": "{count} minutes",
+      "pendingCount": "{count} pending review",
+      "filterModule": "Module",
+      "filterStatus": "Status",
+      "allModules": "All modules",
+      "statusAll": "All",
+      "statusPending": "Pending",
+      "statusAcked": "Reviewed",
+      "applyFilters": "Filter",
+      "emptyTitle": "No events",
+      "emptyDescription": "Analyses, vault changes, access changes and other organization activity will show up here.",
+      "actorSystem": "System",
+      "actorApiKey": "API key {name}",
+      "actorApiKeyUnknown": "API key",
+      "inProject": "in {name}",
+      "details": "Show details",
+      "ack": "Mark as reviewed",
+      "ackedBy": "Reviewed by {name} · {date}",
+      "ackFailed": "The event could not be marked as reviewed.",
+      "modules": {
+        "code_report": "Code Report",
+        "vault": "Vault",
+        "projects": "Projects",
+        "organization": "Organization",
+        "access": "Access"
+      }
     }
   },
   "project": {

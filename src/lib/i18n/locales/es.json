@@ -55,7 +55,8 @@
       "organizations": "Organizaciones",
       "database": "Base de datos",
       "auditLog": "Registro de auditoría",
-      "registration": "Registro"
+      "registration": "Registro",
+      "events": "Eventos"
     }
   },
   "footer": {
@@ -382,6 +383,39 @@
       "title": "CVEs de la organización",
       "infoMessage": "Este listado agrupa los CVEs de todos los proyectos de la organización usando el último análisis completado de cada servicio.",
       "emptyMessage": "Todavía no se han detectado CVEs en esta organización."
+    },
+    "events": {
+      "title": "Eventos",
+      "description": "Lo que ha ocurrido en la organización y en sus proyectos. Marca cada evento como revisado cuando lo hayas atendido.",
+      "retentionNotice": "Los eventos se guardan en memoria durante {retention}: se pierden al reiniciar el servidor.",
+      "retentionDays": "{count} días",
+      "retentionHours": "{count} horas",
+      "retentionMinutes": "{count} minutos",
+      "pendingCount": "{count} pendientes de revisar",
+      "filterModule": "Módulo",
+      "filterStatus": "Estado",
+      "allModules": "Todos los módulos",
+      "statusAll": "Todos",
+      "statusPending": "Pendientes",
+      "statusAcked": "Revisados",
+      "applyFilters": "Filtrar",
+      "emptyTitle": "No hay eventos",
+      "emptyDescription": "Aquí aparecerán los análisis, cambios en el vault, accesos y demás actividad de la organización.",
+      "actorSystem": "Sistema",
+      "actorApiKey": "API key {name}",
+      "actorApiKeyUnknown": "API key",
+      "inProject": "en {name}",
+      "details": "Ver detalles",
+      "ack": "Marcar como revisado",
+      "ackedBy": "Revisado por {name} · {date}",
+      "ackFailed": "No se ha podido marcar el evento como revisado.",
+      "modules": {
+        "code_report": "Code Report",
+        "vault": "Vault",
+        "projects": "Proyectos",
+        "organization": "Organización",
+        "access": "Accesos"
+      }
     }
   },
   "project": {

@@ -146,6 +146,10 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   `#lib/server/events/testing`.
 - Payloads **never** contain secrets (vault values, invitation/reset tokens or URLs, hashes, API
   keys), and alert recipients are always filtered with `cancanService`.
+- `eventLog` (`#lib/server/events`) keeps recent events in memory for `/org/<org>/events`, where
+  users see the events they are allowed to read (each definition's `readPermission`, checked in
+  the event's project or organization) and acknowledge them. Retention: `GITOPS_EVENTS_EXPIRATION`
+  (default `7d`). It is per process and cleared on restart.
 
 ## Authorization
 
