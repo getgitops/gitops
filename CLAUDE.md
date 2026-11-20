@@ -119,6 +119,26 @@ Bitbucket, and GitLab; in production, ensure SSH authentication credentials are 
 SvelteKit's CSRF Origin check depends on this value instead of deriving it from the incoming Host
 header, preventing bypasses when running behind a proxy that rewrites Host headers.
 
+## Domain events
+
+Services announce what happened on an in-process event bus in `#lib/server/events`; the design is
+in `docs/adr/0001-event-bus-and-alerts.md`.
+
+- Names: `<module>.<resource>.<action>`, snake_case, past participle
+  (`code_report.analysis.completed`, `vault.secret.created`, `access.granted`). Declare each type
+  and its payload in `DomainEventMap` (`src/lib/server/events/types.ts`).
+- Publish only **after** the GitDB write succeeded, with the right `scope`
+  (`organizationId` / `projectId`). `publish()` returns immediately; handlers run asynchronously,
+  in order per subscriber, and a failing handler is only logged.
+- Delivery is at-most-once and per process; events are not persisted.
+- The actor comes from the request context (`userId` / `apiKeyId` set in `hooks.server.ts`),
+  falling back to `system`.
+- Inject `EventBus` through the service constructor from the module's `index.ts`; only composition
+  roots import the `eventBus` singleton. In unit tests use `RecordingEventBus` from
+  `#lib/server/events/testing`.
+- Payloads **never** contain secrets (vault values, invitation/reset tokens or URLs, hashes, API
+  keys), and alert recipients are always filtered with `cancanService`.
+
 ## Authorization
 
 Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`
