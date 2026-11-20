@@ -130,3 +130,14 @@ Usar los patrones existentes (`*.domain.ts`, `*.service.ts`, `*.repository.ts`, 
 inyeccion de dependencias y fakes en memoria. Los handlers API validan permisos primero y
 normalizan errores. Ejecutar `bun run check`, `bun run lint`, `bun run test` y
 `bun run format:check` antes de terminar cambios relevantes.
+
+## Comportamiento conocido
+
+**Startup y readiness del servidor:** El auth guard en `hooks.server.ts` verifica readiness via
+`getServerReadyState()` antes de procesar cualquier request. Durante startup, los navegadores
+reciben una página de landing "GitOps is starting" que se recarga automáticamente, mientras que
+API requests reciben 503 con header `retry-after: 3`. Si startup falla, ambos reciben 503
+(página HTML para navegadores, JSON con "Server failed to start" para APIs). El endpoint `/health`
+(usado por e2e e infraestructura) devuelve 200 solo tras completar startup. Aplica tanto en dev
+(Vite carga en la primera request) como en producción. La bootstrap state es válida solo después
+que startup termina.

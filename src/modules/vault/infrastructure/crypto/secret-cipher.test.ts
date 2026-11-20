@@ -38,7 +38,7 @@ describe('vault secret cipher', () => {
   });
 
   it('rejects a tampered ciphertext', () => {
-    const [version, iv, tag, payload] = encryptSecretValue('secret-1', 'prod', 'value').split(':');
+    const [version, iv, tag] = encryptSecretValue('secret-1', 'prod', 'value').split(':');
     const tampered = [version, iv, tag, Buffer.from('hacked').toString('base64')].join(':');
 
     expect(() => decryptSecretValue('secret-1', 'prod', tampered)).toThrow(/descifrar/);
