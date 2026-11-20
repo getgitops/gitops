@@ -68,6 +68,11 @@
     "slack": "Slack",
     "gitdbSyncStatus": "GitDB sync status"
   },
+  "whatsNew": {
+    "title": "What's new in version {version}",
+    "viewChangelog": "View changelog",
+    "close": "Dismiss what's new"
+  },
   "profile": {
     "title": "Profile",
     "subtitle": "Manage your identity, password and API access from one place.",

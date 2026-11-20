@@ -68,6 +68,11 @@
     "slack": "Slack",
     "gitdbSyncStatus": "Estado de sincronización GitDB"
   },
+  "whatsNew": {
+    "title": "Novedades de la versión {version}",
+    "viewChangelog": "Ver changelog",
+    "close": "Cerrar novedades"
+  },
   "profile": {
     "title": "Perfil",
     "subtitle": "Gestiona tu identidad, contraseña y acceso API desde un solo lugar.",
