@@ -1,4 +1,13 @@
-import { bool, defineRelations, entity, integer, json, text, timestamp, uuid } from '@getgitops/gitdb';
+import {
+  bool,
+  defineRelations,
+  entity,
+  integer,
+  json,
+  text,
+  timestamp,
+  uuid,
+} from '@getgitops/gitdb';
 
 export const UserEntity = entity('users', {
   id: uuid().primaryKey(),
@@ -260,6 +269,35 @@ export const VaultSettingsEntity = entity('vault_settings', {
   encryptionProvider: text()
     .notNull()
     .$defaultFn(() => 'gitops_kms'),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+// alert on one event type (#79): `projectId` is null for organization alerts, which cover every
+// project of the organization; `conditions` filter on catalog fields (`#lib/events/catalog`)
+export const AlertEntity = entity('alerts', {
+  id: uuid().primaryKey(),
+  name: text().notNull(),
+  description: text(),
+  enabled: bool().notNull().default(true),
+  scope: text().notNull(),
+  organizationId: uuid().notNull(),
+  projectId: uuid().$defaultFn(() => null),
+  eventType: text().notNull(),
+  match: text().notNull().default('all'),
+  conditions: json()
+    .notNull()
+    .$defaultFn(() => []),
+  recipients: json().notNull(),
+  channels: json()
+    .notNull()
+    .$defaultFn(() => ['mail']),
+  throttleMinutes: integer().notNull().default(0),
+  createdByUserId: uuid().notNull(),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

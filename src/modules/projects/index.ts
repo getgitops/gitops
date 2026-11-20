@@ -1,7 +1,8 @@
 import { ProjectService } from './application/project.service';
 import { ProjectRepository } from './infrastructure/repositories/project.repostitory';
 import { organizationService } from '../organization';
+import { eventBus } from '#lib/server/events';
 
 const projectRepository = new ProjectRepository();
 
-export const projectService = new ProjectService(projectRepository, organizationService);
+export const projectService = new ProjectService(projectRepository, organizationService, eventBus);

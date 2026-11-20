@@ -1,6 +1,8 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { ProjectService } from './project.service';
 import { ProjectDomain } from '../domain/project.domain';
+import { OrganizationDomain } from '../../organization/domain/organization.domain';
+import { RecordingEventBus } from '#lib/server/events/testing';
 
 const DEFAULT_ORGANIZATION_ID = 'org-1';
 
@@ -64,7 +66,11 @@ class FakeProjectRepository {
     if (changes.status !== undefined) project.status = changes.status as 'active' | 'inactive';
     if (changes.modules !== undefined) project.modules = changes.modules;
     if (changes.organizationId !== undefined) {
-      project.organization = { id: changes.organizationId, name: 'Org', slug: 'org' } as any;
+      project.organization = new OrganizationDomain({
+        id: changes.organizationId,
+        name: 'Org',
+        slug: 'org',
+      });
     }
   }
 
@@ -255,5 +261,94 @@ describe('ProjectService', () => {
       const projects = await service.listProjects();
       expect(projects.find((p) => p.id === created.id)).toBeUndefined();
     });
+  });
+});
+
+describe('ProjectService events', () => {
+  let repository: FakeProjectRepository;
+  let events: RecordingEventBus;
+  let service: ProjectService;
+
+  beforeEach(() => {
+    repository = new FakeProjectRepository();
+    events = new RecordingEventBus();
+    service = new ProjectService(repository as any, new FakeOrganizationLookup(), events);
+  });
+
+  it('publishes project.created scoped to its organization', async () => {
+    const project = await service.createProject({
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      name: 'Shop',
+    });
+
+    expect(events.types()).toEqual(['project.created']);
+    const [event] = events.ofType('project.created');
+    expect(event.payload).toEqual({ projectId: project.id, name: 'Shop', slug: 'shop' });
+    expect(event.scope).toEqual({ organizationId: DEFAULT_ORGANIZATION_ID, projectId: project.id });
+  });
+
+  it('publishes project.updated with only the fields that changed', async () => {
+    const project = await service.createProject({
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      name: 'Shop',
+    });
+    events.clear();
+
+    await service.updateProject(project.id, {
+      name: 'Shop',
+      description: 'Online store',
+      status: 'inactive',
+      modules: { vault: true },
+    });
+
+    expect(events.ofType('project.updated').map((event) => event.payload)).toEqual([
+      {
+        projectId: project.id,
+        name: 'Shop',
+        slug: 'shop',
+        changedFields: ['description', 'status', 'modules'],
+      },
+    ]);
+  });
+
+  it('reports an organization move and scopes the event to the new organization', async () => {
+    const project = await service.createProject({
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      name: 'Shop',
+    });
+    events.clear();
+
+    await service.updateProject(project.id, { organizationId: 'org-2' });
+
+    const [event] = events.ofType('project.updated');
+    expect(event.payload.changedFields).toEqual(['organization']);
+    expect(event.scope.organizationId).toBe('org-2');
+  });
+
+  it('publishes project.deleted', async () => {
+    const project = await service.createProject({
+      organizationId: DEFAULT_ORGANIZATION_ID,
+      name: 'Shop',
+    });
+    events.clear();
+
+    await service.deleteProject(project.id);
+
+    expect(events.ofType('project.deleted').map((event) => event.payload)).toEqual([
+      { projectId: project.id, name: 'Shop', slug: 'shop' },
+    ]);
+  });
+
+  it('publishes nothing when the operation is rejected', async () => {
+    await service.createProject({ organizationId: DEFAULT_ORGANIZATION_ID, name: 'Shop' });
+    events.clear();
+
+    await expect(
+      service.createProject({ organizationId: DEFAULT_ORGANIZATION_ID, name: 'Shop' }),
+    ).rejects.toThrow();
+    await expect(service.updateProject('missing', { name: 'X' })).rejects.toThrow();
+    await expect(service.deleteProject('missing')).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
   });
 });

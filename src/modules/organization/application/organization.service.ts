@@ -1,5 +1,10 @@
 import crypto from 'crypto';
 import { OrganizationRepository } from '../infrastructure/repositories/organization.repository';
+import type { EventBus } from '#lib/server/events';
+import type { OrganizationChangedField } from '#lib/events/domain-events';
+import { createLogger } from '#lib/server/logger';
+
+const log = createLogger('organization');
 
 export type Organization = {
   id: string;
@@ -11,7 +16,10 @@ export type Organization = {
 };
 
 export class OrganizationService {
-  constructor(private readonly repository: OrganizationRepository) {}
+  constructor(
+    private readonly repository: OrganizationRepository,
+    private readonly events?: Pick<EventBus, 'publish'>,
+  ) {}
 
   async listOrganizations() {
     const organizations = await this.repository.findAll();
@@ -87,6 +95,7 @@ export class OrganizationService {
       throw new Error('Organization not found');
     }
 
+    const before = { ...organization.toJson() };
     const patch: { name?: string; slug?: string; description?: string } = {};
 
     if (changes.name !== undefined) {
@@ -121,7 +130,22 @@ export class OrganizationService {
       throw new Error('Failed to update organization');
     }
 
-    return updated.toJson();
+    const after = updated.toJson();
+    if (this.events) {
+      try {
+        const changedFields = (['name', 'slug', 'description'] as const).filter(
+          (field) => (before[field] ?? '') !== (after[field] ?? ''),
+        ) satisfies OrganizationChangedField[];
+        this.events.publish(
+          'organization.updated',
+          { organizationId: after.id, name: after.name, slug: after.slug, changedFields },
+          { scope: { organizationId: after.id, projectId: null } },
+        );
+      } catch (error) {
+        log.error({ err: error, organizationId: id }, 'failed to publish organization event');
+      }
+    }
+    return after;
   }
 
   async deleteOrganization(id: string) {

@@ -3,6 +3,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
+import { registerAlertEngine } from '#modules/alerts';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
 import { markServerFailed, markServerReady } from '#lib/server/server-ready';
@@ -15,6 +16,8 @@ const startupLog = createLogger('startup');
 const serverReady = (async () => {
   await startGitDb();
   await ensureAuthReady();
+  // once per process (HMR-safe): system notifications and alerts on every published event
+  registerAlertEngine();
   await refreshBootstrapState();
   markServerReady();
 })();
@@ -118,7 +121,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
     event.locals.apiKey = apiKey;
 
     return runWithActor(
-      { name: `apikey:${apiKey.name}`, email: `apikey+${apiKey.id}@gitops.local` },
+      {
+        name: `apikey:${apiKey.name}`,
+        email: `apikey+${apiKey.id}@gitops.local`,
+        apiKeyId: apiKey.id,
+        apiKeyProjectId: apiKey.projectId,
+      },
       () => resolve(event),
     );
   }
@@ -167,6 +175,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
   const actor = {
     name: currentUser.username,
     email: currentUser.email || `${currentUser.username}@gitops.local`,
+    userId: currentUser.id,
   };
   return runWithActor(actor, () => resolve(event));
 };

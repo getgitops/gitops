@@ -1,7 +1,10 @@
 import path from 'path';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // compiles `.svelte` files so components can be rendered in tests (`svelte/server`)
+  plugins: [svelte({ configFile: false })],
   resolve: {
     alias: {
       $lib: path.resolve(import.meta.dirname, 'src/lib'),

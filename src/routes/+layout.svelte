@@ -5,6 +5,7 @@
   import AppNavbar from '#lib/components/AppNavbar.svelte';
   import AppSidebar from '#lib/components/AppSidebar.svelte';
   import Footer from '#lib/components/Footer.svelte';
+  import WhatsNewBanner from '#lib/components/WhatsNewBanner.svelte';
   import { setupI18n } from '#lib/i18n';
 
   export let data: any;
@@ -39,11 +40,14 @@
       organizationSlug={data.organization?.slug ?? null}
       projectSlug={data.currentProjectSlug ?? ''}
     />
+    <WhatsNewBanner />
 
     <div
       class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 md:block md:px-0"
     >
-      <aside class="app-shell-sidebar w-full md:fixed md:left-0 md:top-[84px] md:z-20 md:h-[calc(100vh-84px)] md:overflow-y-auto md:border-r md:border-[#142236] md:bg-[#020813] md:px-6 md:py-7">
+      <aside
+        class="app-shell-sidebar w-full md:fixed md:left-0 md:top-[84px] md:z-20 md:h-[calc(100vh-84px)] md:overflow-y-auto md:border-r md:border-[#142236] md:bg-[#020813] md:px-6 md:py-7"
+      >
         <AppSidebar
           pathname={$page?.url?.pathname}
           isConfigured={data.isConfigured}
@@ -60,11 +64,14 @@
           canReadOrgBackups={data.canReadOrgBackups}
           canReadOrgServerKeys={data.canReadOrgServerKeys}
           canReadOrgAudit={data.canReadOrgAudit}
+          canReadOrgEvents={data.canReadOrgEvents}
+          canReadOrganizationAlerts={data.canReadOrganizationAlerts}
           canReadProjectInfo={data.canReadProjectInfo}
           canReadProjectUsers={data.canReadProjectUsers}
           canReadProjectRoles={data.canReadProjectRoles}
           canReadProjectServerKeys={data.canReadProjectServerKeys}
           canReadProjectAudit={data.canReadProjectAudit}
+          canReadProjectAlerts={data.canReadProjectAlerts}
           canReadProjectVault={data.canReadProjectVault}
           canReadProjectCodeReport={data.canReadProjectCodeReport}
           canReadProjectStateIac={data.canReadProjectStateIac}

@@ -2,6 +2,11 @@ import crypto from 'crypto';
 import type { ApiKeyView, AuthenticatedApiKey, SessionRole } from '../domain/entities';
 import type { RoleDomain } from '../domain/role.domain';
 import { ApiKeyRepository } from '../infrastructure/repositories/apikey.repository';
+import { publishAfterWrite, type EventPublisher } from '#lib/server/events/publish';
+import { resolveProjectScope } from '#lib/server/events/scope';
+import { createLogger } from '#lib/server/logger';
+
+const log = createLogger('api-keys');
 
 const TOKEN_PREFIX = 'gvs_';
 const PREFIX_LENGTH = 10;
@@ -28,6 +33,7 @@ export class ApiKeysService {
     private readonly apiKeyRepository: ApiKeyRepository,
     private readonly roleRepository?: RoleLookup,
     private readonly projectLookup?: ProjectLookup,
+    private readonly events?: EventPublisher,
   ) {}
 
   async listActiveApiKeys(userId: string): Promise<ApiKeyView[]> {
@@ -134,6 +140,7 @@ export class ApiKeysService {
     }
 
     await this.apiKeyRepository.revoke(userId, keyId);
+    await this.publishKeyEvent('api_key.revoked', existing);
   }
 
   async revokeProjectApiKey(projectId: string, keyId: string): Promise<void> {
@@ -144,6 +151,27 @@ export class ApiKeysService {
     }
 
     await this.apiKeyRepository.revokeAny(keyId);
+    await this.publishKeyEvent('api_key.revoked', existing);
+  }
+
+  /** The key and its hash never leave this service: events only carry the public prefix. */
+  private async publishKeyEvent(
+    type: 'api_key.created' | 'api_key.revoked',
+    key: Pick<ApiKeyView, 'id' | 'name' | 'keyPrefix' | 'projectId' | 'userId'>,
+  ): Promise<void> {
+    await publishAfterWrite(
+      this.events,
+      log,
+      type,
+      {
+        apiKeyId: key.id,
+        name: key.name,
+        keyPrefix: key.keyPrefix,
+        projectId: key.projectId,
+        userId: key.userId,
+      },
+      async () => (key.projectId ? resolveProjectScope(key.projectId, this.projectLookup) : {}),
+    );
   }
 
   async regenerateApiKey(
@@ -227,6 +255,14 @@ export class ApiKeysService {
       keyPrefix,
       keyHash,
       expiresAt: input.expiresAt,
+    });
+
+    await this.publishKeyEvent('api_key.created', {
+      id,
+      name,
+      keyPrefix,
+      projectId: input.projectId,
+      userId: input.userId,
     });
 
     return {

@@ -97,5 +97,6 @@ export function getGitDb(): CachedGitDb {
   }
 
   const actor = getCurrentActor();
-  return actor ? instance.as(actor) : instance;
+  // only the commit identity reaches GitDB; ids in the request context are for domain events
+  return actor ? instance.as({ name: actor.name, email: actor.email }) : instance;
 }
