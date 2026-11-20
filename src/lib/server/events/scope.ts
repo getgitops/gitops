@@ -2,7 +2,7 @@ import type { EventScope } from './types';
 
 /** Project lookup used to add the organization to a project-scoped event. */
 export type ProjectScopeLookup = {
-  getProject(id: string): Promise<{ organization?: { id: string } | null }>;
+  getProject(id: string): Promise<{ organization?: { id: string } | null } | null>;
 };
 
 /**

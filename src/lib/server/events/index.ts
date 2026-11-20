@@ -4,6 +4,7 @@ export { InProcessEventBus, actorFromRequest } from './event-bus';
 export type { EventBus, InProcessEventBusOptions } from './event-bus';
 export type * from './types';
 export { resolveProjectScope, type ProjectScopeLookup } from './scope';
+export { publishAfterWrite, type EventPublisher } from './publish';
 
 const GLOBAL_KEY = Symbol.for('gitops.events.bus');
 

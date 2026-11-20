@@ -1056,6 +1056,11 @@
         "name": "Nombre",
         "slug": "Slug",
         "description": "Descripción"
+      },
+      "accessScope": {
+        "cluster": "GitOps",
+        "organization": "Organización",
+        "project": "Proyecto"
       }
     },
     "vault": {
@@ -1152,6 +1157,84 @@
         "description": "Se han modificado los datos de la organización.",
         "fields": {
           "changedFields": "Campos modificados"
+        }
+      }
+    },
+    "access": {
+      "granted": {
+        "label": "Acceso concedido",
+        "description": "Se ha dado acceso a un usuario con un rol.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      },
+      "updated": {
+        "label": "Acceso modificado",
+        "description": "Ha cambiado el rol o el estado del acceso de un usuario.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      },
+      "revoked": {
+        "label": "Acceso retirado",
+        "description": "Se ha retirado el acceso de un usuario.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      }
+    },
+    "user": {
+      "invited": {
+        "label": "Usuario invitado",
+        "description": "Se ha invitado a un usuario a la organización.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol"
+        }
+      }
+    },
+    "invitation": {
+      "accepted": {
+        "label": "Invitación aceptada",
+        "description": "Un usuario ha aceptado su invitación.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      }
+    },
+    "role": {
+      "updated": {
+        "label": "Rol modificado",
+        "description": "Han cambiado el nombre o los permisos de un rol.",
+        "fields": {
+          "roleId": "Rol",
+          "addedPermissions": "Permisos añadidos",
+          "removedPermissions": "Permisos retirados"
+        }
+      }
+    },
+    "api_key": {
+      "created": {
+        "label": "API key creada",
+        "description": "Se ha creado una API key.",
+        "fields": {
+          "name": "Nombre"
+        }
+      },
+      "revoked": {
+        "label": "API key revocada",
+        "description": "Se ha revocado una API key.",
+        "fields": {
+          "apiKeyId": "API key",
+          "name": "Nombre"
         }
       }
     }

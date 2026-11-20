@@ -135,7 +135,9 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (enforced by a test).
 - Publish only **after** the GitDB write succeeded, with the right `scope`
   (`organizationId` / `projectId`). `publish()` returns immediately; handlers run asynchronously,
-  in order per subscriber, and a failing handler is only logged.
+  in order per subscriber, and a failing handler is only logged. Use `publishAfterWrite`
+  (`#lib/server/events/publish`) so resolving the scope or publishing can never fail a write that
+  already succeeded; `resolveProjectScope` adds the organization to project events.
 - Delivery is at-most-once and per process; events are not persisted.
 - The actor comes from the request context (`userId` / `apiKeyId` set in `hooks.server.ts`),
   falling back to `system`.

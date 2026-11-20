@@ -19,6 +19,9 @@ import { GoogleOidcClient } from './infrastructure/oidc/google-oidc.client';
 import { InvitationNotifier } from './infrastructure/notifications/invitation.notifier';
 import { PasswordResetNotifier } from './infrastructure/notifications/password-reset.notifier';
 import { projectService } from '../projects';
+import { eventBus } from '#lib/server/events';
+
+const accessEvents = { events: eventBus, projects: projectService };
 
 const userRepository = new UserRepository();
 const roleRepository = new RoleRepository();
@@ -29,7 +32,12 @@ const passwordResetNotifier = new PasswordResetNotifier();
 
 export const passwordService = new PasswordService();
 const sessionService = new SessionService(passwordService);
-export const apiKeysService = new ApiKeysService(apiKeyRepository, roleRepository, projectService);
+export const apiKeysService = new ApiKeysService(
+  apiKeyRepository,
+  roleRepository,
+  projectService,
+  eventBus,
+);
 
 export const authService = new AuthService(
   userRepository,
@@ -39,11 +47,18 @@ export const authService = new AuthService(
 );
 export const userService = new UserService(userRepository, roleRepository, passwordService);
 export const profileService = new ProfileService(userRepository, passwordService);
-export const roleService = new RoleService(roleRepository, userRepository, userAccessRepository);
+export const roleService = new RoleService(
+  roleRepository,
+  userRepository,
+  userAccessRepository,
+  accessEvents,
+);
 export const invitationService = new InvitationService(
   userRepository,
   userAccessRepository,
   passwordService,
+  undefined,
+  accessEvents,
 );
 export const passwordResetService = new PasswordResetService(
   userRepository,
@@ -57,6 +72,7 @@ export const userAccessService = new UserAccessService(
   passwordService,
   invitationNotifier,
   invitationService,
+  accessEvents,
 );
 export const ssoService = new SsoService(
   readGoogleSsoConfig,

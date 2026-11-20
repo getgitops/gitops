@@ -1056,6 +1056,11 @@
         "name": "Name",
         "slug": "Slug",
         "description": "Description"
+      },
+      "accessScope": {
+        "cluster": "GitOps",
+        "organization": "Organization",
+        "project": "Project"
       }
     },
     "vault": {
@@ -1152,6 +1157,84 @@
         "description": "The organization details were modified.",
         "fields": {
           "changedFields": "Changed fields"
+        }
+      }
+    },
+    "access": {
+      "granted": {
+        "label": "Access granted",
+        "description": "A user was given access with a role.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      },
+      "updated": {
+        "label": "Access changed",
+        "description": "The role or status of a user access changed.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      },
+      "revoked": {
+        "label": "Access revoked",
+        "description": "A user access was removed.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      }
+    },
+    "user": {
+      "invited": {
+        "label": "User invited",
+        "description": "A user was invited to the organization.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role"
+        }
+      }
+    },
+    "invitation": {
+      "accepted": {
+        "label": "Invitation accepted",
+        "description": "A user accepted their invitation.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      }
+    },
+    "role": {
+      "updated": {
+        "label": "Role updated",
+        "description": "The name or permissions of a role changed.",
+        "fields": {
+          "roleId": "Role",
+          "addedPermissions": "Added permissions",
+          "removedPermissions": "Removed permissions"
+        }
+      }
+    },
+    "api_key": {
+      "created": {
+        "label": "API key created",
+        "description": "An API key was created.",
+        "fields": {
+          "name": "Name"
+        }
+      },
+      "revoked": {
+        "label": "API key revoked",
+        "description": "An API key was revoked.",
+        "fields": {
+          "apiKeyId": "API key",
+          "name": "Name"
         }
       }
     }

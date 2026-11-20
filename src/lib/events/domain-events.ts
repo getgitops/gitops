@@ -121,6 +121,57 @@ export type OrganizationUpdatedPayload = {
   changedFields: OrganizationChangedField[];
 };
 
+export type AccessScope = 'cluster' | 'organization' | 'project';
+
+export type AccessStatus = 'active' | 'invited';
+
+/** A role assignment: a cluster account role, or a membership in an organization or project. */
+export type AccessPayload = {
+  /** The user-access entry id (the user id for cluster-level access). */
+  accessId: string;
+  userId: string;
+  roleId: string | null;
+  scope: AccessScope;
+  status: AccessStatus;
+};
+
+export type AccessUpdatedPayload = AccessPayload & {
+  previousRoleId: string | null;
+  previousStatus: AccessStatus;
+};
+
+/** Never carries the invitation token, its URL or the invitee's email. */
+export type UserInvitedPayload = {
+  userId: string;
+  roleId: string;
+  organizationId: string;
+};
+
+export type InvitationAcceptedPayload = {
+  userId: string;
+  accessId: string;
+  roleId: string | null;
+  scope: AccessScope;
+};
+
+export type RoleUpdatedPayload = {
+  roleId: string;
+  name: string;
+  scope: AccessScope;
+  nameChanged: boolean;
+  addedPermissions: string[];
+  removedPermissions: string[];
+};
+
+/** Never carries the key or its hash: `keyPrefix` is the public, non-secret identifier. */
+export type ApiKeyPayload = {
+  apiKeyId: string;
+  name: string;
+  keyPrefix: string;
+  projectId: string | null;
+  userId: string | null;
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
@@ -137,6 +188,14 @@ export interface DomainEventMap {
   'project.updated': ProjectUpdatedPayload;
   'project.deleted': ProjectPayload;
   'organization.updated': OrganizationUpdatedPayload;
+  'access.granted': AccessPayload;
+  'access.updated': AccessUpdatedPayload;
+  'access.revoked': AccessPayload;
+  'user.invited': UserInvitedPayload;
+  'invitation.accepted': InvitationAcceptedPayload;
+  'role.updated': RoleUpdatedPayload;
+  'api_key.created': ApiKeyPayload;
+  'api_key.revoked': ApiKeyPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;

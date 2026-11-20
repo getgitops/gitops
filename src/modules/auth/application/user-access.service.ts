@@ -7,6 +7,13 @@ import type { RoleRepository } from '../infrastructure/repositories/role.reposit
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { PasswordService } from './password.service';
+import { publishAfterWrite, type EventPublisher } from '#lib/server/events/publish';
+import { resolveProjectScope, type ProjectScopeLookup } from '#lib/server/events/scope';
+import type { EventScope } from '#lib/server/events';
+import type { AccessPayload } from '#lib/events/domain-events';
+import { createLogger } from '#lib/server/logger';
+
+const log = createLogger('user-access');
 
 type UserAccessRow = {
   id: string;
@@ -21,6 +28,11 @@ type UserAccessRow = {
   status: UserAccessStatus;
   createdAt: string;
 };
+
+type AccessEntry = Pick<
+  UserAccessDomain,
+  'id' | 'userId' | 'roleId' | 'scope' | 'organizationId' | 'projectId' | 'status'
+> & { user?: UserAccessDomain['user'] };
 
 export type InvitationNotifierPort = {
   sendInvitation(input: {
@@ -38,7 +50,15 @@ export type InvitationTokenIssuerPort = {
   issueToken(userId: string): Promise<{ token: string; expiresAt: string }>;
 };
 
+export type AccessEventsOptions = {
+  events?: EventPublisher;
+  projects?: ProjectScopeLookup;
+};
+
 export class UserAccessService {
+  private readonly events?: EventPublisher;
+  private readonly projects?: ProjectScopeLookup;
+
   constructor(
     private readonly userRepository: Pick<
       UserRepository,
@@ -59,7 +79,11 @@ export class UserAccessService {
     private readonly passwordService: Pick<PasswordService, 'hashPassword'>,
     private readonly invitationNotifier: InvitationNotifierPort,
     private readonly invitationTokens: InvitationTokenIssuerPort,
-  ) {}
+    options: AccessEventsOptions = {},
+  ) {
+    this.events = options.events;
+    this.projects = options.projects;
+  }
 
   async listUsers(scope: RoleScope, scopeId?: string): Promise<UserAccessRow[]> {
     this.validateScope(scope, scopeId);
@@ -155,6 +179,14 @@ export class UserAccessService {
         expiresAt: invitation.expiresAt,
         invitedBy: input.invitedBy ?? null,
       });
+
+      await publishAfterWrite(
+        this.events,
+        log,
+        'user.invited',
+        { userId: user.id, roleId: role.id, organizationId },
+        { organizationId, projectId: null },
+      );
     }
 
     return this.toRow(access);
@@ -273,6 +305,7 @@ export class UserAccessService {
     status: string;
   }): Promise<UserAccessRow> {
     const access = await this.findAccessInScope(input.accessId, input.scope, input.scopeId);
+    const before = this.snapshot(access);
     if (input.scope === 'cluster') {
       const role = await this.findRoleForScope(input.roleId, 'cluster', '');
       const status = this.sanitizeStatus(input.status);
@@ -282,6 +315,7 @@ export class UserAccessService {
       ]);
       const updated = await this.userRepository.findById(access.id);
       if (!updated) throw new Error('Failed to update user access');
+      await this.publishAccessUpdated(before, role.id, status);
       return this.toClusterRow(updated);
     }
 
@@ -292,6 +326,7 @@ export class UserAccessService {
 
     const updated = await this.userAccessRepository.findById(access.id);
     if (!updated) throw new Error('Failed to update user access');
+    await this.publishAccessUpdated(before, role.id, status);
     return this.toRow(updated);
   }
 
@@ -306,10 +341,79 @@ export class UserAccessService {
       const userAccess = await this.userAccessRepository.findByUserId(access.userId);
       await Promise.all(userAccess.map((entry) => this.userAccessRepository.deleteById(entry.id)));
       await this.userRepository.deleteById(userId);
+
+      // removing the account revokes every membership it had, plus the account itself
+      for (const entry of userAccess) await this.publishAccess('access.revoked', entry);
+      await this.publishAccess(
+        'access.revoked',
+        input.scope === 'cluster'
+          ? access
+          : {
+              id: userId,
+              userId,
+              roleId: access.user?.role?.id ?? '',
+              scope: 'cluster',
+              organizationId: null,
+              projectId: null,
+              status: access.user?.status ?? 'active',
+            },
+      );
       return;
     }
 
     await this.userAccessRepository.deleteById(access.id);
+    await this.publishAccess('access.revoked', access);
+  }
+
+  private async publishAccess(
+    type: 'access.granted' | 'access.revoked',
+    entry: AccessEntry,
+  ): Promise<void> {
+    await publishAfterWrite(this.events, log, type, this.accessPayload(entry), () =>
+      this.accessScope(entry),
+    );
+  }
+
+  private async publishAccessUpdated(
+    before: AccessEntry,
+    roleId: string,
+    status: UserAccessStatus,
+  ): Promise<void> {
+    await publishAfterWrite(
+      this.events,
+      log,
+      'access.updated',
+      {
+        ...this.accessPayload({ ...before, roleId, status }),
+        previousRoleId: before.roleId || null,
+        previousStatus: before.status === 'invited' ? 'invited' : 'active',
+      },
+      () => this.accessScope(before),
+    );
+  }
+
+  // copy: the repository may mutate the stored entry in place on update
+  private snapshot(entry: AccessEntry): AccessEntry {
+    const { id, userId, roleId, scope, organizationId, projectId, status } = entry;
+    return { id, userId, roleId, scope, organizationId, projectId, status };
+  }
+
+  private accessPayload(entry: AccessEntry): AccessPayload {
+    return {
+      accessId: entry.id,
+      userId: entry.userId,
+      roleId: entry.roleId || null,
+      scope: entry.scope,
+      status: entry.status === 'invited' ? 'invited' : 'active',
+    };
+  }
+
+  private async accessScope(entry: AccessEntry): Promise<EventScope> {
+    if (entry.scope === 'project') return resolveProjectScope(entry.projectId, this.projects);
+    if (entry.scope === 'organization') {
+      return { organizationId: entry.organizationId ?? null, projectId: null };
+    }
+    return {};
   }
 
   async resendInvitation(input: {
@@ -377,6 +481,7 @@ export class UserAccessService {
 
     const created = await this.userAccessRepository.findOne(lookup);
     if (!created) throw new Error('Failed to create user access');
+    await this.publishAccess('access.granted', created);
     return created;
   }
 
