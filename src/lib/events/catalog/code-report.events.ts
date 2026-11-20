@@ -4,6 +4,7 @@ import {
 } from '#lib/code-report/security-policy';
 import { OPERATORS, enumOptions, eventText, fieldLabel } from './fields';
 import type { EventDefinitions } from './types';
+import { projectPath } from './links';
 
 /** Tools that report analyses: scanners plus the manual upload and the CI/CD API defaults. */
 export const CODE_REPORT_TOOLS = [
@@ -75,6 +76,15 @@ export const codeReportEvents: EventDefinitions<
   | typeof SERVICE_DELETED
 > = {
   [COMPLETED]: {
+    mailTemplate: 'alert-code-report-analysis',
+    link: (context) => projectPath(context, `/code-report/history/${context.payload.analysisId}`),
+    mailSummary: ({ summary }) =>
+      summary.total === 0
+        ? { key: 'alerts.email.summary.noVulnerabilities' }
+        : {
+            key: 'alerts.email.summary.vulnerabilities',
+            values: { critical: summary.critical, high: summary.high, total: summary.total },
+          },
     ...eventText(COMPLETED),
     module: 'code_report',
     scope: 'project',
@@ -106,6 +116,9 @@ export const codeReportEvents: EventDefinitions<
     ],
   },
   [FAILED]: {
+    mailTemplate: 'alert-code-report-analysis',
+    link: (context) => projectPath(context, `/code-report/history/${context.payload.analysisId}`),
+    mailSummary: ({ tool }) => ({ key: 'alerts.email.summary.analysisFailed', values: { tool } }),
     ...eventText(FAILED),
     module: 'code_report',
     scope: 'project',
@@ -114,6 +127,11 @@ export const codeReportEvents: EventDefinitions<
     fields: [serviceField(FAILED), toolField(FAILED), branchField(FAILED)],
   },
   [POLICY_VIOLATED]: {
+    link: (context) => projectPath(context, `/code-report/history/${context.payload.analysisId}`),
+    mailSummary: ({ policyName, violations }) => ({
+      key: 'alerts.email.summary.policyViolated',
+      values: { policy: policyName, count: violations },
+    }),
     ...eventText(POLICY_VIOLATED),
     module: 'code_report',
     scope: 'project',
@@ -145,6 +163,7 @@ export const codeReportEvents: EventDefinitions<
     ],
   },
   [SERVICE_CREATED]: {
+    link: (context) => projectPath(context, '/code-report/services'),
     ...eventText(SERVICE_CREATED),
     module: 'code_report',
     scope: 'project',
@@ -160,6 +179,7 @@ export const codeReportEvents: EventDefinitions<
     ],
   },
   [SERVICE_DELETED]: {
+    link: (context) => projectPath(context, '/code-report/services'),
     ...eventText(SERVICE_DELETED),
     module: 'code_report',
     scope: 'project',

@@ -63,6 +63,12 @@ export class FakeAlertDirectory implements AlertDirectory {
       names.organization = this.names[ids.organizationId];
     if (ids.projectId && this.names[ids.projectId]) names.project = this.names[ids.projectId];
     if (ids.roleId && this.names[ids.roleId]) names.role = this.names[ids.roleId];
+    if (ids.organizationId && this.names[`${ids.organizationId}:slug`]) {
+      names.organizationSlug = this.names[`${ids.organizationId}:slug`];
+    }
+    if (ids.projectId && this.names[`${ids.projectId}:slug`]) {
+      names.projectSlug = this.names[`${ids.projectId}:slug`];
+    }
     return names;
   }
 }

@@ -1,5 +1,11 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { alertDirectory, alertService, type AlertLocation, type AlertRow } from '#modules/alerts';
+import {
+  alertDirectory,
+  alertService,
+  isMailConfigured,
+  type AlertLocation,
+  type AlertRow,
+} from '#modules/alerts';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import {
@@ -133,6 +139,7 @@ export async function loadAlertList(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    mailConfigured: isMailConfigured(),
     canCreate: allowed.canCreate,
     canUpdate: allowed.canUpdate,
     canDelete: allowed.canDelete,
@@ -211,6 +218,7 @@ export async function loadAlertEditor(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    mailConfigured: isMailConfigured(),
     canSave: alert ? allowed.canUpdate : allowed.canCreate,
     canDelete: Boolean(alert) && allowed.canDelete,
   };

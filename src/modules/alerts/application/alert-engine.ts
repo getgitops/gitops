@@ -14,13 +14,15 @@ import { eventContext, type AlertDirectory, type ResolvedNames } from './types';
 
 export type AlertEmail = {
   recipient: Recipient;
-  alert: Pick<AlertDomain, 'id' | 'name' | 'description'>;
+  alert: Pick<AlertDomain, 'id' | 'name' | 'description' | 'scope'>;
   event: AnyDomainEvent;
   definition: EventDefinition;
   /** Matching events skipped by the throttle since the previous email. */
   suppressed: number;
   /** Display names of the ids the event references (services, projects, users…). */
   names: ReadonlyMap<string, string>;
+  /** Names and slugs of where the event happened, for the texts and the links. */
+  where: ResolvedNames;
 };
 
 export type SystemEmail = {
@@ -86,7 +88,13 @@ export class AlertEngine {
 
   async handle(event: AnyDomainEvent): Promise<void> {
     if (!isEventType(event.type)) return;
-    if (this.options.deliveryEnabled && !this.options.deliveryEnabled()) return;
+    if (this.options.deliveryEnabled && !this.options.deliveryEnabled()) {
+      this.options.logger.debug(
+        { eventType: event.type, eventId: event.id },
+        '[alerts] email is not configured, event skipped',
+      );
+      return;
+    }
     const definition = getEventDefinition(event.type) as EventDefinition;
 
     // system notifications first: they don't depend on anyone configuring an alert
@@ -176,6 +184,12 @@ export class AlertEngine {
     const names = await this.referenceNames(alert, definition).catch(
       () => new Map<string, string>(),
     );
+    const where: ResolvedNames = await this.options.directory
+      .resolveNames({
+        organizationId: event.scope.organizationId,
+        projectId: event.scope.projectId,
+      })
+      .catch(() => ({}));
 
     let sent = 0;
     // one email per recipient: addresses are never shared, and a failure only affects one person
@@ -188,6 +202,7 @@ export class AlertEngine {
           definition,
           suppressed: decision.suppressed,
           names,
+          where,
         });
         sent += 1;
       } catch (error) {

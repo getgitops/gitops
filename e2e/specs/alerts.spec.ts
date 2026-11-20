@@ -25,6 +25,8 @@ test.describe('project alerts', () => {
     await loginAs('projectAdmin');
     await expectAllowed(page, alertsUrl);
     await expect(page.getByText('Todavía no hay alertas')).toBeVisible();
+    // e2e runs without SMTP: the page says alerts won't be sent
+    await expect(page.getByTestId('mail-disabled')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Crear alerta' }).first()).toHaveAttribute(
       'href',
       `${alertsUrl}/new`,

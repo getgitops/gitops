@@ -1,5 +1,6 @@
 import { OPERATORS, enumOptions, eventText, fieldLabel } from './fields';
 import type { EventDefinitions } from './types';
+import { organizationPath, projectPath } from './links';
 
 export const ACCESS_SCOPES = ['cluster', 'organization', 'project'] as const;
 
@@ -65,6 +66,9 @@ export const accessEvents: EventDefinitions<
   AccessEvent | InvitationEvent | typeof ROLE_UPDATED | typeof KEY_CREATED | typeof KEY_REVOKED
 > = {
   [GRANTED]: {
+    link: (context) =>
+      projectPath(context, '/settings/access-control') ??
+      organizationPath(context, '/settings/access-control'),
     ...eventText(GRANTED),
     module: 'access',
     scope: 'organization',
@@ -73,6 +77,9 @@ export const accessEvents: EventDefinitions<
     fields: accessFields(GRANTED),
   },
   [UPDATED]: {
+    link: (context) =>
+      projectPath(context, '/settings/access-control') ??
+      organizationPath(context, '/settings/access-control'),
     ...eventText(UPDATED),
     module: 'access',
     scope: 'organization',
@@ -81,6 +88,9 @@ export const accessEvents: EventDefinitions<
     fields: accessFields(UPDATED),
   },
   [REVOKED]: {
+    link: (context) =>
+      projectPath(context, '/settings/access-control') ??
+      organizationPath(context, '/settings/access-control'),
     ...eventText(REVOKED),
     module: 'access',
     scope: 'organization',
@@ -89,6 +99,9 @@ export const accessEvents: EventDefinitions<
     fields: accessFields(REVOKED),
   },
   [INVITED]: {
+    link: (context) =>
+      projectPath(context, '/settings/access-control') ??
+      organizationPath(context, '/settings/access-control'),
     ...eventText(INVITED),
     module: 'access',
     scope: 'organization',
@@ -97,6 +110,9 @@ export const accessEvents: EventDefinitions<
     fields: [userField(INVITED), roleField(INVITED)],
   },
   [ACCEPTED]: {
+    link: (context) =>
+      projectPath(context, '/settings/access-control') ??
+      organizationPath(context, '/settings/access-control'),
     ...eventText(ACCEPTED),
     module: 'access',
     scope: 'organization',
@@ -105,6 +121,9 @@ export const accessEvents: EventDefinitions<
     fields: [userField(ACCEPTED), roleField(ACCEPTED), scopeField(ACCEPTED)],
   },
   [ROLE_UPDATED]: {
+    link: (context) =>
+      projectPath(context, '/settings/roles-permissions') ??
+      organizationPath(context, '/settings/roles-permissions'),
     ...eventText(ROLE_UPDATED),
     module: 'access',
     scope: 'organization',
@@ -117,6 +136,7 @@ export const accessEvents: EventDefinitions<
     ],
   },
   [KEY_CREATED]: {
+    link: (context) => projectPath(context, '/settings/server-access-keys'),
     ...eventText(KEY_CREATED),
     module: 'access',
     scope: 'project',
@@ -132,6 +152,7 @@ export const accessEvents: EventDefinitions<
     ],
   },
   [KEY_REVOKED]: {
+    link: (context) => projectPath(context, '/settings/server-access-keys'),
     ...eventText(KEY_REVOKED),
     module: 'access',
     scope: 'project',

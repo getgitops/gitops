@@ -38,9 +38,19 @@ function failure(error: unknown): AlertResult<never> {
   throw error;
 }
 
+// loaders and JSON responses can't carry functions: keep only data
 function serializable(definition: EventDefinition, location: AlertLocation): CatalogEntry {
+  const {
+    link: _link,
+    mailSummary: _mailSummary,
+    mailTemplate: _mailTemplate,
+    ...data
+  } = definition;
+  void _link;
+  void _mailSummary;
+  void _mailTemplate;
   return {
-    ...definition,
+    ...data,
     fields: listAlertFields(definition, location.scope).map((field) => {
       const { derive, ...rest } = field;
       return derive ? { ...rest, derived: true } : rest;

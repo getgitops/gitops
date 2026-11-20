@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { BellRing, Pencil, Plus, Trash2 } from '@lucide/svelte';
+  import { BellRing, MailWarning, Pencil, Plus, Trash2 } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
   import { summarizeConditions, summarizeRecipients } from '#lib/alerts/summary';
   import type { AlertListData, AlertRow } from '#lib/alerts/types';
@@ -57,6 +57,17 @@
       </a>
     {/if}
   </section>
+
+  {#if !data.mailConfigured}
+    <p
+      class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+      role="status"
+      data-testid="mail-disabled"
+    >
+      <MailWarning class="mt-0.5 h-4 w-4 shrink-0" />
+      {$_('alerts.mailDisabled')}
+    </p>
+  {/if}
 
   {#if error}
     <p

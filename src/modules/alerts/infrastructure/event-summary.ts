@@ -49,6 +49,10 @@ export function describeEventFields(
       );
       continue;
     }
+    if (field.type === 'date' && typeof value === 'string' && !Number.isNaN(Date.parse(value))) {
+      lines.push({ label: field.label, value: new Date(value).toUTCString() });
+      continue;
+    }
     const items = Array.isArray(value) ? value : [value];
     lines.push({
       label: field.label,

@@ -1,5 +1,10 @@
 import { eventBus } from '#lib/server/events';
-import { isSmtpConfigured } from '#lib/server/infra/notifications';
+import {
+  isSmtpConfigured,
+  mailQueue,
+  readPublicOrigin,
+  registerMailShutdown,
+} from '#lib/server/infra/notifications';
 import { createLogger } from '#lib/server/logger';
 import { cancanService, roleService, userAccessService, apiKeysService } from '../auth';
 import { codeReportSecurityPolicyService, codeReportService } from '../code-report';
@@ -45,17 +50,11 @@ const engineSlot = ((globalThis as GlobalWithEngine)[ENGINE_KEY] ??= {
     repository: alertRepository,
     directory: alertDirectory,
     recipients: recipientResolver,
-    notifier: new AlertMailNotifier(),
+    notifier: new AlertMailNotifier(mailQueue),
     throttle: new AlertThrottle(),
     logger: log,
     // without SMTP there is nobody to tell: skip the work instead of logging a failure per event
-    deliveryEnabled: () => {
-      try {
-        return isSmtpConfigured();
-      } catch {
-        return false;
-      }
-    },
+    deliveryEnabled: () => isMailConfigured(),
   }),
   attached: false,
 });
@@ -70,8 +69,26 @@ export const alertService = new AlertService(alertRepository, alertDirectory, {
 export function registerAlertEngine(): void {
   if (engineSlot.attached) return;
   alertEngine.attach(eventBus);
+  registerMailShutdown();
   engineSlot.attached = true;
   log.info('[alerts] engine registered');
+
+  // said once at startup; skipped events are only logged in debug
+  if (!isMailConfigured()) {
+    log.warn('[alerts] NOTIFICATION_SMTP_* is not configured: alerts and notices will not be sent');
+  }
+  if (!readPublicOrigin()) {
+    log.warn('[alerts] ORIGIN is not set: emails will be sent without links');
+  }
+}
+
+/** Whether emails can be sent; a broken SMTP configuration counts as not configured. */
+export function isMailConfigured(): boolean {
+  try {
+    return isSmtpConfigured();
+  } catch {
+    return false;
+  }
 }
 
 export { buildSampleEvent } from './domain/sample-event';

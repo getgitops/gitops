@@ -1,4 +1,9 @@
-import { MailNotification, notify, renderTemplate } from '#lib/server/infra/notifications';
+import {
+  MailNotification,
+  PRODUCT_NAME,
+  notify,
+  renderEmail,
+} from '#lib/server/infra/notifications';
 
 export type PasswordResetNotificationInput = {
   email: string;
@@ -7,18 +12,23 @@ export type PasswordResetNotificationInput = {
   expiresAt: string;
 };
 
-const PRODUCT_NAME = 'GitOps';
-
 export class PasswordResetNotifier {
   async sendPasswordReset(input: PasswordResetNotificationInput): Promise<void> {
     const subject = `Reset your ${PRODUCT_NAME} password`;
-    const content = await renderTemplate('password-reset', {
-      subject,
-      productName: PRODUCT_NAME,
-      recipientName: input.username,
-      resetUrl: input.resetUrl,
-      expiresAt: new Date(input.expiresAt).toUTCString(),
-    });
+    // sent directly, not through the bus or the queue: the link carries the reset token
+    const content = await renderEmail(
+      'password-reset',
+      {
+        recipientName: input.username,
+        resetUrl: input.resetUrl,
+        expiresAt: new Date(input.expiresAt).toUTCString(),
+      },
+      {
+        subject,
+        footer:
+          'If you were not expecting this email you can safely ignore it — your password will not change.',
+      },
+    );
 
     await notify(
       new MailNotification({

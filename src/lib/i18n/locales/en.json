@@ -1279,12 +1279,11 @@
   },
   "alerts": {
     "email": {
-      "alertSubject": "[GitOps] {alert}: {event}",
-      "alertIntro": "The alert “{alert}” was triggered by this event.",
-      "event": "Event",
+      "alertSubject": "[GitOps] {alert}: {summary}",
+      "alertIntro": "“{event}” happened in {where} and matches this alert.",
       "occurredAt": "Date",
       "suppressed": "{count} more matching events were skipped during the previous window.",
-      "footer": "You receive this email because you are a recipient of this alert and can view this event.",
+      "footer": "You receive this email because of the alert “{alert}” in {where}.",
       "systemFooter": "GitOps sends this notice automatically and it cannot be turned off.",
       "system": {
         "projectTarget": "the project {project} ({organization})",
@@ -1302,8 +1301,31 @@
         },
         "api_key_created": {
           "subject": "A personal API key was created",
-          "body": "The personal API key “{name}” ({prefix}…) was created on your account. If it wasn’t you, revoke it from your profile."
-        }
+          "body": "The personal API key “{name}” ({prefix}…) was created on your account.",
+          "warning": "If it wasn’t you, revoke the API key and change your password as soon as possible."
+        },
+        "openProfile": "Open my profile"
+      },
+      "manageAlert": "Manage the alert",
+      "viewInApp": "View in GitOps",
+      "project": "Project",
+      "greeting": "Hi {name},",
+      "service": "Service",
+      "tool": "Tool",
+      "branch": "Branch",
+      "commit": "Commit",
+      "severity": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "policiesViolated": "{count} security policies were violated ({blocking} blocking).",
+      "summary": {
+        "vulnerabilities": "{critical} critical, {high} high ({total} in total)",
+        "noVulnerabilities": "no vulnerabilities",
+        "analysisFailed": "{tool} analysis failed",
+        "policyViolated": "“{policy}” violated ({count})"
       }
     },
     "operators": {
@@ -1425,6 +1447,7 @@
       "noRecipients": "It would not be sent to anyone.",
       "denied": "{count} recipients would not get it because they cannot view this event.",
       "nothingSent": "This is a test: no email was sent."
-    }
+    },
+    "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent."
   }
 }

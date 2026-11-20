@@ -1,5 +1,6 @@
 import { OPERATORS, enumOptions, eventText, fieldLabel } from './fields';
 import type { EventDefinitions } from './types';
+import { organizationPath } from './links';
 
 export const PROJECT_CHANGED_FIELDS = [
   'name',
@@ -39,6 +40,7 @@ function projectField<K extends typeof UPDATED | typeof DELETED>(type: K) {
 // projects are watched from their organization: an org admin alerts on its projects
 export const projectEvents: EventDefinitions<typeof CREATED | typeof UPDATED | typeof DELETED> = {
   [CREATED]: {
+    link: (context) => organizationPath(context, `/projects/${context.payload.slug}/overview`),
     ...eventText(CREATED),
     module: 'projects',
     scope: 'organization',
@@ -47,6 +49,7 @@ export const projectEvents: EventDefinitions<typeof CREATED | typeof UPDATED | t
     fields: [nameField(CREATED)],
   },
   [UPDATED]: {
+    link: (context) => organizationPath(context, `/projects/${context.payload.slug}/overview`),
     ...eventText(UPDATED),
     module: 'projects',
     scope: 'organization',
@@ -65,6 +68,7 @@ export const projectEvents: EventDefinitions<typeof CREATED | typeof UPDATED | t
     ],
   },
   [DELETED]: {
+    link: (context) => organizationPath(context, '/settings/projects'),
     ...eventText(DELETED),
     module: 'projects',
     scope: 'organization',

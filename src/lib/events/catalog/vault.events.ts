@@ -1,5 +1,6 @@
 import { OPERATORS, enumOptions, eventText, fieldLabel } from './fields';
 import type { EventDefinitions } from './types';
+import { projectPath } from './links';
 
 export const VAULT_SECRET_CHANGED_FIELDS = ['key', 'description', 'folder', 'values'] as const;
 
@@ -50,6 +51,7 @@ function environmentFields<K extends EnvironmentEvent>(type: K) {
 
 export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | EnvironmentEvent> = {
   [SECRET_CREATED]: {
+    link: (context) => projectPath(context, '/vault'),
     ...eventText(SECRET_CREATED),
     module: 'vault',
     scope: 'project',
@@ -58,6 +60,7 @@ export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | E
     fields: secretFields(SECRET_CREATED),
   },
   [SECRET_UPDATED]: {
+    link: (context) => projectPath(context, '/vault'),
     ...eventText(SECRET_UPDATED),
     module: 'vault',
     scope: 'project',
@@ -75,6 +78,7 @@ export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | E
     ],
   },
   [SECRET_DELETED]: {
+    link: (context) => projectPath(context, '/vault'),
     ...eventText(SECRET_DELETED),
     module: 'vault',
     scope: 'project',
@@ -83,6 +87,7 @@ export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | E
     fields: secretFields(SECRET_DELETED),
   },
   [ENV_IMPORTED]: {
+    link: (context) => projectPath(context, '/vault'),
     ...eventText(ENV_IMPORTED),
     module: 'vault',
     scope: 'project',
@@ -117,6 +122,7 @@ export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | E
     ],
   },
   [ENVIRONMENT_CREATED]: {
+    link: (context) => projectPath(context, '/vault'),
     ...eventText(ENVIRONMENT_CREATED),
     module: 'vault',
     scope: 'project',
@@ -125,6 +131,7 @@ export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | E
     fields: environmentFields(ENVIRONMENT_CREATED),
   },
   [ENVIRONMENT_DELETED]: {
+    link: (context) => projectPath(context, '/vault'),
     ...eventText(ENVIRONMENT_DELETED),
     module: 'vault',
     scope: 'project',

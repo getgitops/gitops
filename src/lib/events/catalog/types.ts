@@ -70,6 +70,16 @@ type FieldCommon = {
 export type EventFieldDefinition<P = unknown> = FieldCommon &
   ({ key: PayloadPath<P>; derive?: undefined } | { key: string; derive: (payload: P) => unknown });
 
+/** What `link` receives: the payload plus the slugs of where the event happened. */
+export type EventLinkContext<P = unknown> = {
+  payload: P;
+  organizationSlug: string | null;
+  projectSlug: string | null;
+};
+
+/** An i18n key with its values, e.g. `alerts.email.summary.vulnerabilities` + counts. */
+export type EventMessage = { key: string; values?: Record<string, unknown> };
+
 export type EventDefinition<K extends EventType = EventType> = {
   type: K;
   module: EventModule;
@@ -83,6 +93,13 @@ export type EventDefinition<K extends EventType = EventType> = {
   fields: readonly EventFieldDefinition<DomainEventMap[K]>[];
   /** `false`: internal use or system notifications only, not offered in the alert builder. */
   alertable: boolean;
+  /** Email template for alerts on this event (`src/notifications/email/<name>.html`); the generic
+   * `alert` template otherwise. */
+  mailTemplate?: string;
+  /** App path of the resource the event is about (`/org/<org>/…`), made absolute with `ORIGIN`. */
+  link?: (context: EventLinkContext<DomainEventMap[K]>) => string | null;
+  /** Short summary for the email subject (`3 critical, 5 high`); the event label otherwise. */
+  mailSummary?: (payload: DomainEventMap[K]) => EventMessage;
 };
 
 /** Definitions for a subset of events (one module's file). */

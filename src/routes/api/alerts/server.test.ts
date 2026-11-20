@@ -322,6 +322,9 @@ describe('/api/events/catalog', () => {
     expect(completed?.fields.find((field) => field.key === 'hasVulnerabilities')).toMatchObject({
       derived: true,
     });
+    // server-only parts of the definition never reach the client
+    expect(completed).not.toHaveProperty('mailTemplate');
+    expect(completed).not.toHaveProperty('link');
     // a project alert has no project field to filter on
     expect(completed?.fields.some((field) => field.key === 'projectId')).toBe(false);
   });

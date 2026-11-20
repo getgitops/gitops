@@ -49,6 +49,15 @@ function buildEnv(): Record<string, string | undefined> {
     GITDB_USERNAME: '',
     GITDB_TOKEN: '',
     GITDB_PASSWORD: '',
+    // never reach a real SMTP from a developer's `.env`: the suite runs with email disabled
+    NOTIFICATION_SMTP_HOST: '',
+    NOTIFICATION_SMTP_PORT: '',
+    NOTIFICATION_SMTP_SECURE: '',
+    NOTIFICATION_SMTP_USER: '',
+    NOTIFICATION_SMTP_PASSWORD: '',
+    NOTIFICATION_SMTP_FROM: '',
+    NOTIFICATION_SMTP_FROM_NAME: '',
+    NOTIFICATION_SMTP_REJECT_UNAUTHORIZED: '',
     PORT: String(E2E_PORT),
   };
 }

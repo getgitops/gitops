@@ -10,7 +10,12 @@ export type CatalogField = Omit<EventDefinition['fields'][number], 'derive'> & {
   derived?: boolean;
 };
 
-export type CatalogEntry = Omit<EventDefinition, 'fields'> & { fields: CatalogField[] };
+export type CatalogEntry = Omit<
+  EventDefinition,
+  'fields' | 'link' | 'mailSummary' | 'mailTemplate'
+> & {
+  fields: CatalogField[];
+};
 
 export type AlertOption = { id: string; label: string };
 
@@ -40,6 +45,8 @@ type Shared = {
   referenceOptions: Record<string, AlertOption[]>;
   users: AlertOption[];
   roles: AlertOption[];
+  /** `false` when SMTP is not configured: alerts are saved but nothing is sent. */
+  mailConfigured: boolean;
 };
 
 export type AlertListData = Shared & {

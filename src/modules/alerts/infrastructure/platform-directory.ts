@@ -9,7 +9,7 @@ import type {
 } from '../application/types';
 import type { AlertLocation } from '../domain/alert.domain';
 
-type Named = { id: string; name: string };
+type Named = { id: string; name: string; slug?: string | null };
 
 type AccessRow = {
   userId: string;
@@ -175,11 +175,17 @@ export class PlatformDirectory implements AlertDirectory {
       const organization = await this.deps.organizations
         .getOrganization(ids.organizationId)
         .catch(() => null);
-      if (organization) names.organization = organization.name;
+      if (organization) {
+        names.organization = organization.name;
+        if (organization.slug) names.organizationSlug = organization.slug;
+      }
     }
     if (ids.projectId) {
       const project = await this.deps.projects.getProject(ids.projectId).catch(() => null);
-      if (project) names.project = project.name;
+      if (project) {
+        names.project = project.name;
+        if (project.slug) names.projectSlug = project.slug;
+      }
     }
     if (ids.roleId && (ids.projectId || ids.organizationId)) {
       const roles = await this.deps.roles

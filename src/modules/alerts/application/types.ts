@@ -51,7 +51,13 @@ export type NameIds = {
   roleId?: string | null;
 };
 
-export type ResolvedNames = { organization?: string; project?: string; role?: string };
+export type ResolvedNames = {
+  organization?: string;
+  organizationSlug?: string;
+  project?: string;
+  projectSlug?: string;
+  role?: string;
+};
 
 /** Who creates or edits an alert; `canRead` checks a grant in a context for that actor. */
 export type AlertActor = {

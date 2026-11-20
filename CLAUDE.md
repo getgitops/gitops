@@ -176,8 +176,26 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   throttle (`throttleMinutes`) suppresses repeats and the next email reports how many were skipped.
 - Recipients = selected users ∪ members with the selected roles, minus disabled users and users
   without an email, then **filtered with `cancanService.can(userId, readPermission, event scope)`**
-  (most-specific-wins applies). One email per recipient (`AlertMailNotifier`, texts under
-  `alerts.email.*`, base locale); a failed email only affects that recipient.
+  (most-specific-wins applies). One email per recipient (`AlertMailNotifier`); a failed email
+  only affects that recipient. An organization alert and a project alert on the same event fire
+  independently.
+- Email (`#lib/server/infra/notifications`): every email is wrapped by `renderEmail()` in
+  `src/notifications/email/_layout.html` (header, content, footer with the reason and a manage
+  link). Alerts use `alert.html` (field table built from the catalog) unless the definition sets
+  `mailTemplate` (`alert-code-report-analysis.html`); `link(context)` gives the app path of the
+  resource and `mailSummary(payload)` the subject summary (`[GitOps] <alert>: <summary>`). System
+  notices use `system-access-changed.html` / `system-security-notice.html`. Escape every user or
+  event value with `{{ }}`; `{{{ }}}` only for HTML built internally with `renderTemplateString`.
+  Texts are `alerts.email.*`, in the recipient's locale or English. Links are absolute with
+  `ORIGIN` (`absoluteUrl()`), omitted without it. These functions never reach the client: the
+  catalog endpoint strips them.
+- Sending: alert and system emails go through `mailQueue` (concurrency 3, `withRetry` 4 attempts
+  1 s → 4 s → 16 s with jitter, only for `isRetryableMailError`: network errors and 4xx replies).
+  Definitive failures are logged by `createLogger('mail')` with the alert, the event and a
+  recipient hash, never the content or the address. `registerMailShutdown()` drains it on
+  `sveltekit:shutdown` (10 s). Invitations and password resets call `notify()` directly: their
+  tokens must not travel through the bus or the queue. Without SMTP (`isMailConfigured()`), the
+  engine skips events (debug log), warns once at startup and the alert pages show a banner.
 - HTTP: `#lib/server/alerts` (`access.ts` for permissions/location/actor, `operations.ts` shared by
   the API and form actions). Routes: `GET /api/events/catalog`, `GET|POST /api/alerts`,
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`

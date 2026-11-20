@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
-  import { ArrowLeft, FlaskConical, Info, Save, Trash2 } from '@lucide/svelte';
+  import { ArrowLeft, FlaskConical, Info, MailWarning, Save, Trash2 } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
   import type {
     AlertEditorData,
@@ -114,6 +114,17 @@
       </p>
     {/if}
   </div>
+
+  {#if !data.mailConfigured}
+    <p
+      class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+      role="status"
+      data-testid="mail-disabled"
+    >
+      <MailWarning class="mt-0.5 h-4 w-4 shrink-0" />
+      {$_('alerts.mailDisabled')}
+    </p>
+  {/if}
 
   <!-- step 1: event -->
   <section class="space-y-4" aria-labelledby="step-event">

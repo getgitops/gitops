@@ -2,7 +2,11 @@ import type { PermissionGrant } from '#lib/permissions';
 import type { AlertLocation, AlertRecipients } from '../domain/alert.domain';
 import type { AlertDirectory, PermissionContext, ScopeMember, UserPermissionCheck } from './types';
 
-export type Recipient = Pick<ScopeMember, 'userId' | 'username'> & { email: string };
+/** `locale` is the recipient's language when the platform knows it (emails default to English). */
+export type Recipient = Pick<ScopeMember, 'userId' | 'username'> & {
+  email: string;
+  locale?: string;
+};
 
 export type ResolvedRecipients = {
   recipients: Recipient[];

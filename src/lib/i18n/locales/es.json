@@ -1279,12 +1279,11 @@
   },
   "alerts": {
     "email": {
-      "alertSubject": "[GitOps] {alert}: {event}",
-      "alertIntro": "La alerta «{alert}» se ha disparado con este evento.",
-      "event": "Evento",
+      "alertSubject": "[GitOps] {alert}: {summary}",
+      "alertIntro": "Ha ocurrido «{event}» en {where} y cumple las condiciones de esta alerta.",
       "occurredAt": "Fecha",
       "suppressed": "Además, se omitieron {count} eventos que coincidían con la alerta durante la ventana anterior.",
-      "footer": "Recibes este email porque eres destinatario de esta alerta y tienes permiso para ver este evento.",
+      "footer": "Recibes este email por la alerta «{alert}» en {where}.",
       "systemFooter": "Este aviso lo envía GitOps automáticamente y no se puede desactivar.",
       "system": {
         "projectTarget": "el proyecto {project} ({organization})",
@@ -1302,8 +1301,31 @@
         },
         "api_key_created": {
           "subject": "Se ha creado una API key personal",
-          "body": "Se ha creado la API key personal «{name}» ({prefix}…) en tu cuenta. Si no has sido tú, revócala desde tu perfil."
-        }
+          "body": "Se ha creado la API key personal «{name}» ({prefix}…) en tu cuenta.",
+          "warning": "Si no has sido tú, revoca la API key y cambia tu contraseña cuanto antes."
+        },
+        "openProfile": "Abrir mi perfil"
+      },
+      "manageAlert": "Gestionar la alerta",
+      "viewInApp": "Ver en GitOps",
+      "project": "Proyecto",
+      "greeting": "Hola, {name}:",
+      "service": "Servicio",
+      "tool": "Herramienta",
+      "branch": "Rama",
+      "commit": "Commit",
+      "severity": {
+        "critical": "Críticas",
+        "high": "Altas",
+        "medium": "Medias",
+        "low": "Bajas"
+      },
+      "policiesViolated": "Se han incumplido {count} políticas de seguridad ({blocking} bloqueantes).",
+      "summary": {
+        "vulnerabilities": "{critical} críticas, {high} altas ({total} en total)",
+        "noVulnerabilities": "sin vulnerabilidades",
+        "analysisFailed": "falló el análisis de {tool}",
+        "policyViolated": "«{policy}» incumplida ({count})"
       }
     },
     "operators": {
@@ -1425,6 +1447,7 @@
       "noRecipients": "No se enviaría a nadie.",
       "denied": "{count} destinatarios no lo recibirían porque no pueden ver este evento.",
       "nothingSent": "Es una prueba: no se ha enviado ningún email."
-    }
+    },
+    "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán."
   }
 }

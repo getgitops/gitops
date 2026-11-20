@@ -14,6 +14,7 @@ export const GITDB_SYNC_MODE = process.env.GITDB_SYNC_MODE;
 export const GITDB_DATA_PATH = process.env.GITDB_DATA_PATH;
 export const GITDB_ENCRYPTION_KEY = process.env.GITDB_ENCRYPTION_KEY;
 export const VAULT_ENCRYPTION_KEY = process.env.VAULT_ENCRYPTION_KEY;
+export const ORIGIN = process.env.ORIGIN;
 export const NOTIFICATION_SMTP_HOST = process.env.NOTIFICATION_SMTP_HOST;
 export const NOTIFICATION_SMTP_PORT = process.env.NOTIFICATION_SMTP_PORT;
 export const NOTIFICATION_SMTP_SECURE = process.env.NOTIFICATION_SMTP_SECURE;
