@@ -61,11 +61,13 @@
           canReadOrgServerKeys={data.canReadOrgServerKeys}
           canReadOrgAudit={data.canReadOrgAudit}
           canReadOrgEvents={data.canReadOrgEvents}
+          canReadOrganizationAlerts={data.canReadOrganizationAlerts}
           canReadProjectInfo={data.canReadProjectInfo}
           canReadProjectUsers={data.canReadProjectUsers}
           canReadProjectRoles={data.canReadProjectRoles}
           canReadProjectServerKeys={data.canReadProjectServerKeys}
           canReadProjectAudit={data.canReadProjectAudit}
+          canReadProjectAlerts={data.canReadProjectAlerts}
           canReadProjectVault={data.canReadProjectVault}
           canReadProjectCodeReport={data.canReadProjectCodeReport}
           canReadProjectStateIac={data.canReadProjectStateIac}

@@ -16,6 +16,8 @@ operational data versioned and auditable in Git.
 - Cluster-wide Google sign-in (OpenID Connect) alongside local email and password login.
 - Security reporting for vulnerabilities, SBOMs, secrets, licenses, and services.
 - Pulumi state, history, and lock visibility for S3 and Google Cloud Storage backends.
+- Email alerts on platform events (security analyses, vault, projects, access), with filters
+  built from an event catalog.
 - Git-backed, auditable application data through GitDB.
 
 ## Get started
@@ -118,6 +120,48 @@ membership; organizations still have to invite it. Personal Google accounts are 
 automatically, because the domain is checked against the Workspace `hd` claim, not the email
 address. If the variables are inconsistent (only one credential set, an invalid domain, or
 automatic sign-up without domains), the Google button is hidden and the reason is logged.
+
+### Alerts
+
+Organizations and projects can get an email when something happens. Alerts live in **Settings →
+Alerts** of the organization (they cover all of its projects) or of a project. Each alert watches
+one event, filters it on the event's fields and emails users or roles. Emails need the
+`NOTIFICATION_SMTP_*` variables; without SMTP, alerts are kept but nothing is sent.
+
+Guided example: *tell the security team when an analysis of the `api-gateway` service has critical
+vulnerabilities*.
+
+1. Open the project's **Settings → Alerts** and click **Create alert**.
+2. Event: **Analysis completed** (`code_report.analysis.completed`).
+3. Conditions, matching **all**: **Service** *is* `api-gateway`, and **Critical vulnerabilities**
+   *greater than* `0`.
+4. Recipients: the **Project Admin** role. Throttle: one email every **30** minutes at most.
+5. **Test alert** shows whether an example event matches and who would get the email, without
+   sending anything. Then **Create alert**.
+
+The same alert through the API (`gvs_` project keys only manage alerts of their own project):
+
+```bash
+curl -X POST "$ORIGIN/api/alerts" \
+  -H "Authorization: Bearer $GITOPS_API_KEY" -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "<project id>",
+    "name": "Critical vulnerabilities in api-gateway",
+    "eventType": "code_report.analysis.completed",
+    "match": "all",
+    "conditions": [
+      { "field": "serviceId", "operator": "eq", "value": "<service id>" },
+      { "field": "summary.critical", "operator": "gt", "value": 0 }
+    ],
+    "recipients": { "roleIds": ["<project-admin role id>"] },
+    "throttleMinutes": 30
+  }'
+```
+
+`GET /api/events/catalog?scope=project&projectId=<id>` lists the events you may alert on and their
+fields. Only recipients allowed to view the event get the email, and you can only create alerts on
+events you can view yourself. Some notifications are always on: users are told when their access to
+an organization or project changes and when a personal API key is created on their account.
 
 ## Development
 

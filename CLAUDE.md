@@ -183,6 +183,14 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
   (dry runs: never send, never touch the throttle). Project API keys only reach their project.
 
+- UI: `/org/<org>/settings/alerts` and `/org/<org>/projects/<slug>/settings/alerts` (list, `new`,
+  `[id]`), thin routes over `#lib/server/alerts/page.ts` (loaders and form actions `draft`, `save`,
+  `test`, `toggle`, `delete`; everything works without JavaScript). Components live in
+  `#lib/components/alerts/`: `ConditionBuilder` renders fields, operators and inputs only from the
+  `CatalogEntry` it receives (tested with `svelte/server` in `ConditionBuilder.test.ts`; Vitest
+  compiles `.svelte` through `vitest.config.ts`). Project pages also list the inherited
+  organization alerts, read-only. Error codes map to `alerts.errors.<code>`.
+
 Making an event alertable:
 
 1. Declare the payload in `DomainEventMap` and publish it with `publishAfterWrite` and the right
@@ -190,7 +198,7 @@ Making an event alertable:
 2. Add its `EventDefinition` with `alertable: true`, the correct `scope` and `readPermission`, and
    the fields people will filter on (`reference` fields need a case in `PlatformDirectory`).
 3. Add the `events.<type>.*` translations in `es.json` and `en.json`.
-4. Nothing else: the catalog endpoint, the validation and the engine pick it up.
+4. Nothing else: the catalog endpoint, the validation, the engine and the UI pick it up.
 
 ## Authorization
 

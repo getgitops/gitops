@@ -13,6 +13,7 @@ const settingsRoutes = [
   `${base}/settings/roles-permissions`,
   `${base}/settings/server-access-keys`,
   `${base}/settings/audit`,
+  `${base}/settings/alerts`,
 ];
 
 test('project admin sees every project settings resource', async ({ page, loginAs }) => {

@@ -17,7 +17,10 @@ import {
   type AlertLocation,
   type AlertRow,
 } from '#modules/alerts';
+import type { CatalogEntry } from '#lib/alerts/types';
 import { actorFor, callerCan, canManageAlerts, contextOf, type AlertLocals } from './access';
+
+export type { CatalogEntry };
 
 /** Outcome of an alert operation, mapped to JSON by the API and to `fail()` by form actions. */
 export type AlertResult<T> =
@@ -34,11 +37,6 @@ function failure(error: unknown): AlertResult<never> {
   if (error instanceof AlertNotFoundError) return notFound;
   throw error;
 }
-
-/** Alertable event definitions as plain data (no `derive` functions). */
-export type CatalogEntry = Omit<EventDefinition, 'fields'> & {
-  fields: Array<Omit<EventDefinition['fields'][number], 'derive'> & { derived?: boolean }>;
-};
 
 function serializable(definition: EventDefinition, location: AlertLocation): CatalogEntry {
   return {
