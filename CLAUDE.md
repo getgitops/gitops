@@ -126,7 +126,13 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
 
 - Names: `<module>.<resource>.<action>`, snake_case, past participle
   (`code_report.analysis.completed`, `vault.secret.created`, `access.granted`). Declare each type
-  and its payload in `DomainEventMap` (`src/lib/server/events/types.ts`).
+  and its payload in `DomainEventMap` (`src/lib/events/domain-events.ts`, shared with the client).
+- Every event needs an `EventDefinition` in the catalog (`src/lib/events/catalog/`, one
+  `<module>.events.ts` per module): scope, `readPermission`, `alertable` and its filterable fields.
+  `EVENT_CATALOG` is exhaustive and field keys without `derive` are checked against the payload at
+  compile time. Labels are i18n keys (`events.<type>.label`, `.description`,
+  `.fields.<key>`, `events.options.<group>.<value>`) and must exist in `es.json` and `en.json`
+  (enforced by a test).
 - Publish only **after** the GitDB write succeeded, with the right `scope`
   (`organizationId` / `projectId`). `publish()` returns immediately; handlers run asynchronously,
   in order per subscriber, and a failing handler is only logged.

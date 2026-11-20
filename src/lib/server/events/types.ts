@@ -1,3 +1,5 @@
+import type { DomainEventMap } from '#lib/events/domain-events';
+
 /**
  * Domain event types. See `docs/adr/0001-event-bus-and-alerts.md` for the design and rules.
  *
@@ -18,14 +20,10 @@ export type EventScope = {
 };
 
 /**
- * Event type → payload. Each module adds its events here (declaration merging is not used: add
- * the entries directly so the whole catalog stays in one place).
- *
- * Payloads must never contain secrets: no vault values, invitation or reset tokens, hashes or
- * API keys.
+ * Event type → payload. Declared in `#lib/events/domain-events` so the alert builder UI can share
+ * it without importing server code.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- filled in by #78
-export interface DomainEventMap {}
+export type { DomainEventMap };
 
 /** Event names of an event map. */
 export type EventTypeOf<M extends object> = Extract<keyof M, string>;

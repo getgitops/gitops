@@ -948,5 +948,95 @@
     "defaultRootLabel": "Projects",
     "select": "Select",
     "notAvailable": "N/A"
+  },
+  "events": {
+    "code_report": {
+      "analysis": {
+        "completed": {
+          "label": "Analysis completed",
+          "description": "A scan tool finished analyzing a service.",
+          "fields": {
+            "serviceId": "Service",
+            "tool": "Tool",
+            "gitInfo": {
+              "branch": "Branch"
+            },
+            "summary": {
+              "critical": "Critical vulnerabilities",
+              "high": "High vulnerabilities",
+              "medium": "Medium vulnerabilities",
+              "low": "Low vulnerabilities",
+              "total": "Total vulnerabilities"
+            },
+            "hasVulnerabilities": "Has vulnerabilities",
+            "policiesViolated": "Violates security policies"
+          }
+        },
+        "failed": {
+          "label": "Analysis failed",
+          "description": "A scan tool could not complete the analysis of a service.",
+          "fields": {
+            "serviceId": "Service",
+            "tool": "Tool",
+            "gitInfo": {
+              "branch": "Branch"
+            }
+          }
+        }
+      },
+      "policy": {
+        "violated": {
+          "label": "Security policy violated",
+          "description": "A completed analysis violates a project security policy.",
+          "fields": {
+            "serviceId": "Service",
+            "policyId": "Policy",
+            "policyType": "Policy type",
+            "enforcement": "Enforcement"
+          }
+        }
+      },
+      "service": {
+        "created": {
+          "label": "Service created",
+          "description": "A Code Report service was created.",
+          "fields": {
+            "name": "Name"
+          }
+        },
+        "deleted": {
+          "label": "Service deleted",
+          "description": "A Code Report service was deleted.",
+          "fields": {
+            "serviceId": "Service",
+            "name": "Name"
+          }
+        }
+      }
+    },
+    "options": {
+      "tool": {
+        "trivy": "Trivy",
+        "grype": "Grype",
+        "semgrep": "Semgrep",
+        "gitleaks": "Gitleaks",
+        "trufflehog": "TruffleHog",
+        "sbom": "SBOM",
+        "syft": "Syft",
+        "coverage": "Coverage",
+        "manual-upload": "Manual upload",
+        "api": "API"
+      },
+      "policyType": {
+        "vulnerabilities": "Vulnerabilities",
+        "license": "Licenses",
+        "code_coverage": "Code coverage",
+        "secrets": "Secrets"
+      },
+      "enforcement": {
+        "warn": "Warning",
+        "block": "Blocking"
+      }
+    }
   }
 }

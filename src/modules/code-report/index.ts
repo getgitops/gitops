@@ -6,6 +6,7 @@ import { CodeReportServiceRepository } from './infrastructure/repositories/code-
 import { CodeReportAnalysisRepository } from './infrastructure/repositories/code-report-analysis.repository';
 import { CodeReportSecurityPolicyRepository } from './infrastructure/repositories/code-report-security-policy.repository';
 import { projectService } from '../projects';
+import { eventBus } from '#lib/server/events';
 
 const codeReportServiceRepository = new CodeReportServiceRepository();
 const codeReportAnalysisRepository = new CodeReportAnalysisRepository();
@@ -18,11 +19,13 @@ export const codeReportAnalysisService = new CodeReportAnalysisService(
   codeReportAnalysisRepository,
   codeReportServiceRepository,
   codeReportSecurityPolicyService,
+  { events: eventBus, projects: projectService },
 );
 export const codeReportService = new CodeReportService(
   codeReportServiceRepository,
   projectService,
   codeReportAnalysisService,
+  eventBus,
 );
 export const codeReportCveService = new CodeReportCveService(
   codeReportService,

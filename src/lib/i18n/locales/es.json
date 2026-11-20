@@ -948,5 +948,95 @@
     "defaultRootLabel": "Proyectos",
     "select": "Seleccionar",
     "notAvailable": "N/D"
+  },
+  "events": {
+    "code_report": {
+      "analysis": {
+        "completed": {
+          "label": "Análisis completado",
+          "description": "Una herramienta de análisis ha terminado de analizar un servicio.",
+          "fields": {
+            "serviceId": "Servicio",
+            "tool": "Herramienta",
+            "gitInfo": {
+              "branch": "Rama"
+            },
+            "summary": {
+              "critical": "Vulnerabilidades críticas",
+              "high": "Vulnerabilidades altas",
+              "medium": "Vulnerabilidades medias",
+              "low": "Vulnerabilidades bajas",
+              "total": "Total de vulnerabilidades"
+            },
+            "hasVulnerabilities": "Tiene vulnerabilidades",
+            "policiesViolated": "Incumple políticas de seguridad"
+          }
+        },
+        "failed": {
+          "label": "Análisis fallido",
+          "description": "Una herramienta de análisis no ha podido completar el análisis de un servicio.",
+          "fields": {
+            "serviceId": "Servicio",
+            "tool": "Herramienta",
+            "gitInfo": {
+              "branch": "Rama"
+            }
+          }
+        }
+      },
+      "policy": {
+        "violated": {
+          "label": "Política de seguridad incumplida",
+          "description": "Un análisis completado incumple una política de seguridad del proyecto.",
+          "fields": {
+            "serviceId": "Servicio",
+            "policyId": "Política",
+            "policyType": "Tipo de política",
+            "enforcement": "Aplicación"
+          }
+        }
+      },
+      "service": {
+        "created": {
+          "label": "Servicio creado",
+          "description": "Se ha creado un servicio en Code Report.",
+          "fields": {
+            "name": "Nombre"
+          }
+        },
+        "deleted": {
+          "label": "Servicio eliminado",
+          "description": "Se ha eliminado un servicio de Code Report.",
+          "fields": {
+            "serviceId": "Servicio",
+            "name": "Nombre"
+          }
+        }
+      }
+    },
+    "options": {
+      "tool": {
+        "trivy": "Trivy",
+        "grype": "Grype",
+        "semgrep": "Semgrep",
+        "gitleaks": "Gitleaks",
+        "trufflehog": "TruffleHog",
+        "sbom": "SBOM",
+        "syft": "Syft",
+        "coverage": "Cobertura",
+        "manual-upload": "Subida manual",
+        "api": "API"
+      },
+      "policyType": {
+        "vulnerabilities": "Vulnerabilidades",
+        "license": "Licencias",
+        "code_coverage": "Cobertura de código",
+        "secrets": "Secretos"
+      },
+      "enforcement": {
+        "warn": "Aviso",
+        "block": "Bloqueante"
+      }
+    }
   }
 }
