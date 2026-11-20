@@ -1271,6 +1271,39 @@
           "name": "Name"
         }
       }
+    },
+    "scopeFields": {
+      "projectId": "Project"
+    }
+  },
+  "alerts": {
+    "email": {
+      "alertSubject": "[GitOps] {alert}: {event}",
+      "alertIntro": "The alert “{alert}” was triggered by this event.",
+      "event": "Event",
+      "occurredAt": "Date",
+      "suppressed": "{count} more matching events were skipped during the previous window.",
+      "footer": "You receive this email because you are a recipient of this alert and can view this event.",
+      "systemFooter": "GitOps sends this notice automatically and it cannot be turned off.",
+      "system": {
+        "projectTarget": "the project {project} ({organization})",
+        "access_granted": {
+          "subject": "You now have access to {target}",
+          "body": "You have been given access to {target} with the role {role}."
+        },
+        "access_updated": {
+          "subject": "Your role in {target} has changed",
+          "body": "Your role in {target} is now {role}."
+        },
+        "access_revoked": {
+          "subject": "You no longer have access to {target}",
+          "body": "You no longer have access to {target}."
+        },
+        "api_key_created": {
+          "subject": "A personal API key was created",
+          "body": "The personal API key “{name}” ({prefix}…) was created on your account. If it wasn’t you, revoke it from your profile."
+        }
+      }
     }
   }
 }

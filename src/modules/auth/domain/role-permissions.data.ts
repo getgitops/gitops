@@ -17,6 +17,7 @@ export const ORGANIZATION_ADMIN_PERMISSIONS = [
   'organization:server-keys:all',
   'organization:audit:all',
   'organization:events:all',
+  'organization:alerts:all',
 ];
 
 export const ORGANIZATION_DEVELOPER_PERMISSIONS = [
@@ -31,6 +32,7 @@ export const PROJECT_ADMIN_PERMISSIONS = [
   'project:roles:all',
   'project:server-keys:all',
   'project:audit:all',
+  'project:alerts:all',
   'project:vault:secrets:all',
   'project:vault:environments:all',
   'project:vault:settings:all',
@@ -44,6 +46,7 @@ export const PROJECT_ADMIN_PERMISSIONS = [
 
 export const PROJECT_DEVELOPER_PERMISSIONS = [
   'project:project:read',
+  'project:alerts:read',
   'project:vault:secrets:read',
   'project:vault:secrets:create',
   'project:vault:secrets:update',
@@ -80,6 +83,7 @@ export const PROJECT_VIEWER_PERMISSIONS = [
   'project:roles:read',
   'project:server-keys:read',
   'project:audit:read',
+  'project:alerts:read',
   'project:vault:secrets:read',
   'project:vault:secrets:export',
   'project:vault:environments:read',

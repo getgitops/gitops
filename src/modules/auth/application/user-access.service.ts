@@ -20,6 +20,7 @@ type UserAccessRow = {
   userId: string;
   username: string;
   email: string | null;
+  disabled: boolean;
   role: ReturnType<NonNullable<UserAccessDomain['role']>['toJson']> | null;
   organizations: Array<{ id: string; name: string; slug: string; role: string | null }>;
   scope: RoleScope;
@@ -581,6 +582,7 @@ export class UserAccessService {
       userId: entry.userId,
       username: entry.user?.username ?? 'Unknown user',
       email: entry.user?.email ?? null,
+      disabled: entry.user?.disabled ?? false,
       role: entry.role ? entry.role.toJson() : null,
       organizations: [],
       scope: entry.scope,
@@ -614,6 +616,7 @@ export class UserAccessService {
       userId: user.id,
       username: user.username,
       email: user.email,
+      disabled: user.disabled,
       role: user.role ? user.role.toJson() : null,
       organizations: access
         .filter((entry) => entry.userId === user.id && entry.organization)

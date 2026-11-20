@@ -19,6 +19,12 @@ export { VAULT_SECRET_CHANGED_FIELDS } from './vault.events';
 export { PROJECT_CHANGED_FIELDS } from './projects.events';
 export { ORGANIZATION_CHANGED_FIELDS } from './organization.events';
 export { ACCESS_SCOPES } from './access.events';
+export {
+  PROJECT_SCOPE_FIELD,
+  isScopeField,
+  listAlertFields,
+  type AlertableEventInput,
+} from './alert-fields';
 
 /**
  * Builds the catalog. The parameter type makes it exhaustive (every `DomainEventMap` entry needs a
