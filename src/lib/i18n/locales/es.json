@@ -1042,6 +1042,20 @@
         "description": "Descripción",
         "folder": "Carpeta",
         "values": "Valores"
+      },
+      "projectChangedField": {
+        "name": "Nombre",
+        "slug": "Slug",
+        "description": "Descripción",
+        "status": "Estado",
+        "modules": "Módulos",
+        "organization": "Organización",
+        "settings": "Ajustes"
+      },
+      "organizationChangedField": {
+        "name": "Nombre",
+        "slug": "Slug",
+        "description": "Descripción"
       }
     },
     "vault": {
@@ -1103,6 +1117,41 @@
             "environmentId": "Entorno",
             "name": "Nombre"
           }
+        }
+      }
+    },
+    "project": {
+      "created": {
+        "label": "Proyecto creado",
+        "description": "Se ha creado un proyecto en la organización.",
+        "fields": {
+          "name": "Nombre"
+        }
+      },
+      "updated": {
+        "label": "Proyecto actualizado",
+        "description": "Se ha modificado un proyecto de la organización.",
+        "fields": {
+          "projectId": "Proyecto",
+          "name": "Nombre",
+          "changedFields": "Campos modificados"
+        }
+      },
+      "deleted": {
+        "label": "Proyecto eliminado",
+        "description": "Se ha eliminado un proyecto de la organización.",
+        "fields": {
+          "projectId": "Proyecto",
+          "name": "Nombre"
+        }
+      }
+    },
+    "organization": {
+      "updated": {
+        "label": "Organización actualizada",
+        "description": "Se han modificado los datos de la organización.",
+        "fields": {
+          "changedFields": "Campos modificados"
         }
       }
     }

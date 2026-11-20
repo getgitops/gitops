@@ -1,6 +1,8 @@
 import type { DomainEventMap, EventType } from '../domain-events';
 import { codeReportEvents } from './code-report.events';
 import { vaultEvents } from './vault.events';
+import { projectEvents } from './projects.events';
+import { organizationEvents } from './organization.events';
 import type {
   EventCatalog,
   EventDefinition,
@@ -13,6 +15,8 @@ export type * from './types';
 export { OPERATORS } from './fields';
 export { CODE_REPORT_TOOLS } from './code-report.events';
 export { VAULT_SECRET_CHANGED_FIELDS } from './vault.events';
+export { PROJECT_CHANGED_FIELDS } from './projects.events';
+export { ORGANIZATION_CHANGED_FIELDS } from './organization.events';
 
 /**
  * Builds the catalog. The parameter type makes it exhaustive (every `DomainEventMap` entry needs a
@@ -35,6 +39,8 @@ export function defineEventCatalog<const C extends EventCatalog>(catalog: C): C 
 export const EVENT_CATALOG: EventCatalog = defineEventCatalog({
   ...codeReportEvents,
   ...vaultEvents,
+  ...projectEvents,
+  ...organizationEvents,
 });
 
 export function isEventType(value: string): value is EventType {

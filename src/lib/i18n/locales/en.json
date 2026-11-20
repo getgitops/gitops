@@ -1042,6 +1042,20 @@
         "description": "Description",
         "folder": "Folder",
         "values": "Values"
+      },
+      "projectChangedField": {
+        "name": "Name",
+        "slug": "Slug",
+        "description": "Description",
+        "status": "Status",
+        "modules": "Modules",
+        "organization": "Organization",
+        "settings": "Settings"
+      },
+      "organizationChangedField": {
+        "name": "Name",
+        "slug": "Slug",
+        "description": "Description"
       }
     },
     "vault": {
@@ -1103,6 +1117,41 @@
             "environmentId": "Environment",
             "name": "Name"
           }
+        }
+      }
+    },
+    "project": {
+      "created": {
+        "label": "Project created",
+        "description": "A project was created in the organization.",
+        "fields": {
+          "name": "Name"
+        }
+      },
+      "updated": {
+        "label": "Project updated",
+        "description": "A project of the organization was modified.",
+        "fields": {
+          "projectId": "Project",
+          "name": "Name",
+          "changedFields": "Changed fields"
+        }
+      },
+      "deleted": {
+        "label": "Project deleted",
+        "description": "A project was deleted from the organization.",
+        "fields": {
+          "projectId": "Project",
+          "name": "Name"
+        }
+      }
+    },
+    "organization": {
+      "updated": {
+        "label": "Organization updated",
+        "description": "The organization details were modified.",
+        "fields": {
+          "changedFields": "Changed fields"
         }
       }
     }

@@ -6,6 +6,11 @@ import {
   type ProjectModules,
   type ProjectSettings,
 } from '../domain/project.domain';
+import type { EventBus } from '#lib/server/events';
+import type { DomainEventMap, ProjectChangedField } from '#lib/events/domain-events';
+import { createLogger } from '#lib/server/logger';
+
+const log = createLogger('projects');
 
 export type ProjectStatusValue = 'active' | 'inactive';
 
@@ -17,6 +22,7 @@ export class ProjectService {
   constructor(
     private readonly repository: ProjectRepository,
     private readonly organizationLookup: OrganizationLookup,
+    private readonly events?: Pick<EventBus, 'publish'>,
   ) {}
 
   async listProjects() {
@@ -96,7 +102,13 @@ export class ProjectService {
       throw new Error('Failed to create project');
     }
 
-    return created.toJson();
+    const json = created.toJson();
+    this.publish('project.created', json, () => ({
+      projectId: json.id,
+      name: json.name,
+      slug: json.slug ?? slug,
+    }));
+    return json;
   }
 
   async updateProject(
@@ -115,6 +127,10 @@ export class ProjectService {
     if (!project) {
       throw new Error('Project not found');
     }
+    // deep copy: the stored row may be the same object the repository mutates on update
+    const before = JSON.parse(JSON.stringify(project.toJson())) as ReturnType<
+      typeof project.toJson
+    >;
 
     const patch: {
       name?: string;
@@ -179,7 +195,14 @@ export class ProjectService {
       throw new Error('Failed to update project');
     }
 
-    return updated.toJson();
+    const after = updated.toJson();
+    this.publish('project.updated', after, () => ({
+      projectId: after.id,
+      name: after.name,
+      slug: after.slug ?? '',
+      changedFields: this.changedFields(before, after),
+    }));
+    return after;
   }
 
   async deleteProject(id: string) {
@@ -189,6 +212,45 @@ export class ProjectService {
     }
 
     await this.repository.deleteById(id);
+
+    const json = project.toJson();
+    this.publish('project.deleted', json, () => ({
+      projectId: json.id,
+      name: json.name,
+      slug: json.slug ?? '',
+    }));
+  }
+
+  // events never break the write that already succeeded: failures are only logged
+  private publish<K extends 'project.created' | 'project.updated' | 'project.deleted'>(
+    type: K,
+    project: { id: string; organization?: { id: string } | null },
+    buildPayload: () => DomainEventMap[K],
+  ) {
+    if (!this.events) return;
+    try {
+      this.events.publish(type, buildPayload(), {
+        scope: { organizationId: project.organization?.id ?? null, projectId: project.id },
+      });
+    } catch (error) {
+      log.error({ err: error, eventType: type, projectId: project.id }, 'failed to publish event');
+    }
+  }
+
+  private changedFields(
+    before: { [key: string]: unknown; organization?: { id: string } | null },
+    after: { [key: string]: unknown; organization?: { id: string } | null },
+  ): ProjectChangedField[] {
+    const same = (left: unknown, right: unknown) =>
+      JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+    const fields: ProjectChangedField[] = [];
+    for (const field of ['name', 'slug', 'description', 'status', 'modules', 'settings'] as const) {
+      if (!same(before[field], after[field])) fields.push(field);
+    }
+    if ((before.organization?.id ?? null) !== (after.organization?.id ?? null)) {
+      fields.push('organization');
+    }
+    return fields;
   }
 
   private normalizeSlug(value: string): string {

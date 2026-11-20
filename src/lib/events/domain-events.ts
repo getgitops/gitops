@@ -99,6 +99,28 @@ export type VaultEnvironmentPayload = {
   slug: string;
 };
 
+export type ProjectChangedField =
+  'name' | 'slug' | 'description' | 'status' | 'modules' | 'organization' | 'settings';
+
+export type ProjectPayload = {
+  projectId: string;
+  name: string;
+  slug: string;
+};
+
+export type ProjectUpdatedPayload = ProjectPayload & {
+  changedFields: ProjectChangedField[];
+};
+
+export type OrganizationChangedField = 'name' | 'slug' | 'description';
+
+export type OrganizationUpdatedPayload = {
+  organizationId: string;
+  name: string;
+  slug: string;
+  changedFields: OrganizationChangedField[];
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
@@ -111,6 +133,10 @@ export interface DomainEventMap {
   'vault.env.imported': VaultEnvImportedPayload;
   'vault.environment.created': VaultEnvironmentPayload;
   'vault.environment.deleted': VaultEnvironmentPayload;
+  'project.created': ProjectPayload;
+  'project.updated': ProjectUpdatedPayload;
+  'project.deleted': ProjectPayload;
+  'organization.updated': OrganizationUpdatedPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;
