@@ -9,6 +9,7 @@
     orgSlug: string;
     events: EventView[];
     filters: { module: string | null; status: EventStatusFilter };
+    canAck: boolean;
     modules: readonly string[];
     retentionMs: number;
   };
@@ -67,10 +68,10 @@
   <title>{$_('org.events.title')} - GitOps</title>
 </svelte:head>
 
-<div class="mx-auto w-full max-w-7xl space-y-6">
+<div class="space-y-6">
   <section class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h2 class="text-2xl font-semibold text-slate-900">{$_('org.events.title')}</h2>
+      <h3 class="text-xl font-semibold text-slate-900">{$_('org.events.title')}</h3>
       <p class="mt-2 text-sm text-slate-600">{$_('org.events.description')}</p>
       <p class="mt-1 text-xs text-slate-500">
         {$_('org.events.retentionNotice', { values: { retention } })}
@@ -187,7 +188,7 @@
                   })}
                 </span>
               </div>
-            {:else}
+            {:else if data.canAck}
               <form method="POST" action="?/ack" use:enhance={ackEvent(event.id)}>
                 <input type="hidden" name="eventId" value={event.id} />
                 <button

@@ -58,7 +58,7 @@ Each type and its payload is declared in `DomainEventMap` (`src/lib/server/event
 
 - **Alerts** are configuration and are stored in **GitDB** (auditable, consistent with the rest of
   the platform).
-- **Events are not persisted in GitDB.** For the organization events page (`/org/<org>/events`),
+- **Events are not persisted in GitDB.** For the organization events page (`/org/<org>/settings/events`),
   an in-memory log (`eventLog`, `InMemoryEventLog`) subscribes to the bus and keeps recent events
   together with a shared acknowledgement (who and when). Retention is configured with
   `GITOPS_EVENTS_EXPIRATION` (`30d`, `12h`, `45m`, a bare number is seconds; default `7d`), capped

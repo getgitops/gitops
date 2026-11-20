@@ -12,6 +12,7 @@ const settingsRoutes = [
   `/org/${org}/settings/system-backup`,
   `/org/${org}/settings/server-access-keys`,
   `/org/${org}/settings/audit`,
+  `/org/${org}/settings/events`,
 ];
 
 test.describe('organization settings — org admin', () => {

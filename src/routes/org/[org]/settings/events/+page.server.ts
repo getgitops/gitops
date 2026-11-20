@@ -21,11 +21,11 @@ import {
 
 const PAGE_SIZE = 200;
 
-async function requireViewer(locals: Locals, organizationId: string) {
-  if (!locals.user || !(await cancanService.canViewOrganization(locals.user, organizationId))) {
-    throw error(403, 'Forbidden');
-  }
-  return locals.user;
+function canEvents(locals: Locals, organizationId: string, action: 'read' | 'update') {
+  return cancanService.canSessionUser(locals.user, `organization:events:${action}`, {
+    scope: 'organization',
+    organizationId,
+  });
 }
 
 function visibilityFor(locals: Locals, organizationId: string) {
@@ -36,7 +36,10 @@ function visibilityFor(locals: Locals, organizationId: string) {
 
 export async function load({ parent, locals, url }) {
   const { organization } = await parent();
-  await requireViewer(locals, organization.id);
+  if (!(await canEvents(locals, organization.id, 'read'))) {
+    throw error(403, 'Forbidden');
+  }
+  const canAck = await canEvents(locals, organization.id, 'update');
 
   const module = parseModuleFilter(url.searchParams.get('module'));
   const status = parseStatusFilter(url.searchParams.get('status'));
@@ -85,6 +88,7 @@ export async function load({ parent, locals, url }) {
     orgSlug: organization.slug,
     events: visible.map((entry) => toEventView(entry, lookups)).filter((e): e is EventView => !!e),
     filters: { module, status },
+    canAck,
     modules: EVENT_MODULES,
     retentionMs: readEventsExpirationMs(),
   };
@@ -95,8 +99,10 @@ export const actions = {
     const organization = await organizationService.tryFindBySlug(params.org);
     if (!organization) return fail(404, { error: 'Organization not found' });
 
-    const user = await requireViewer(locals, organization.id).catch(() => null);
-    if (!user) return fail(403, { error: 'Forbidden' });
+    const user = locals.user;
+    if (!user || !(await canEvents(locals, organization.id, 'update'))) {
+      return fail(403, { error: 'Forbidden' });
+    }
 
     const form = await request.formData();
     const eventId = String(form.get('eventId') ?? '');

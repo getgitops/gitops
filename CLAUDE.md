@@ -146,10 +146,13 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   `#lib/server/events/testing`.
 - Payloads **never** contain secrets (vault values, invitation/reset tokens or URLs, hashes, API
   keys), and alert recipients are always filtered with `cancanService`.
-- `eventLog` (`#lib/server/events`) keeps recent events in memory for `/org/<org>/events`, where
-  users see the events they are allowed to read (each definition's `readPermission`, checked in
-  the event's project or organization) and acknowledge them. Retention: `GITOPS_EVENTS_EXPIRATION`
-  (default `7d`). It is per process and cleared on restart.
+- `eventLog` (`#lib/server/events`) keeps recent events in memory for
+  `/org/<org>/settings/events`, where users with `organization:events:read` see the events they
+  are allowed to read (each definition's `readPermission`, checked in the event's project or
+  organization) and, with `organization:events:update`, acknowledge them. Only the default
+  Organization Admin role gets `organization:events:all`; existing roles are not migrated (enable
+  it from the role editor). Retention: `GITOPS_EVENTS_EXPIRATION` (default `7d`). It is per
+  process and cleared on restart.
 
 ## Authorization
 
@@ -191,7 +194,7 @@ return { roles, canCreate };
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
 - **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
@@ -200,7 +203,7 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
-- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit
+- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events
 - **Organization Developer** — read/create/update projects only
 - **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 - **Project Developer** — read/create/update project resources; no deletion or admin; granular module access

@@ -2,7 +2,7 @@ import { test, expect, getSeed } from '../fixtures/auth';
 import { expectAllowed, expectDenied } from '../fixtures/expect-access';
 
 const seed = getSeed();
-const eventsUrl = `/org/${seed.primaryOrgSlug}/events`;
+const eventsUrl = `/org/${seed.primaryOrgSlug}/settings/events`;
 
 // a CI run through the machine-to-machine API: the analysis completes and publishes
 // code_report.analysis.completed, which the in-memory event log keeps for the page
@@ -56,6 +56,11 @@ test.describe('organization events page', () => {
 
   test('users outside the organization cannot open it', async ({ page, loginAs }) => {
     await loginAs('orgOutsider');
+    await expectDenied(page, eventsUrl);
+  });
+
+  test('org roles without organization:events:read cannot open it', async ({ page, loginAs }) => {
+    await loginAs('orgDeveloper');
     await expectDenied(page, eventsUrl);
   });
 });
