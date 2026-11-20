@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiKeysService } from './apikeys.service';
+import { RecordingEventBus } from '#lib/server/events/testing';
 import type { ApiKeyView } from '../domain/entities';
 
 function apiKey(overrides: Partial<ApiKeyView> = {}): ApiKeyView {
@@ -289,5 +290,92 @@ describe('ApiKeysService', () => {
 
     await expect(service.regenerateApiKey('user-1', 'key-1')).rejects.toThrow('API key is revoked');
     expect(repository.updateKeyMaterial).not.toHaveBeenCalled();
+  });
+});
+
+describe('ApiKeysService events', () => {
+  const projectLookup = {
+    getProject: async () => ({ id: 'project-1', organization: { id: 'org-1' } }),
+  };
+
+  it('publishes api_key.created for a project key with the prefix but never the key', async () => {
+    const repository = createRepositoryMock();
+    const events = new RecordingEventBus();
+    const service = new ApiKeysService(
+      repository,
+      createRoleRepositoryMock(),
+      projectLookup,
+      events,
+    );
+
+    const { token, key } = await service.createProjectApiKey({
+      projectId: 'project-1',
+      roleId: 'role-1',
+      name: 'CI pipeline',
+      expiresAt: null,
+      createdByUserId: 'user-1',
+    });
+
+    expect(events.types()).toEqual(['api_key.created']);
+    const [event] = events.ofType('api_key.created');
+    expect(event.payload).toEqual({
+      apiKeyId: key.id,
+      name: 'CI pipeline',
+      keyPrefix: token.slice(0, 10),
+      projectId: 'project-1',
+      userId: null,
+    });
+    expect(event.scope).toEqual({ organizationId: 'org-1', projectId: 'project-1' });
+
+    const serialized = JSON.stringify(events.events);
+    expect(serialized).not.toContain(token);
+    expect(serialized).not.toContain(repository.create.mock.calls[0][0].keyHash);
+  });
+
+  it('publishes api_key.created for a personal key without a project scope', async () => {
+    const events = new RecordingEventBus();
+    const service = new ApiKeysService(createRepositoryMock(), undefined, undefined, events);
+
+    await service.createApiKey('user-1', 'Laptop', null);
+
+    expect(events.ofType('api_key.created')[0]).toMatchObject({
+      payload: { name: 'Laptop', projectId: null, userId: 'user-1' },
+      scope: {},
+    });
+  });
+
+  it('publishes api_key.revoked for personal and project keys', async () => {
+    const repository = createRepositoryMock();
+    repository.findById.mockImplementation(async () => apiKey());
+    repository.findByIdAny.mockImplementation(async () =>
+      apiKey({ id: 'key-2', name: 'CI', userId: null, projectId: 'project-1' }),
+    );
+    const events = new RecordingEventBus();
+    const service = new ApiKeysService(repository, undefined, projectLookup, events);
+
+    await service.revokeApiKey('user-1', 'key-1');
+    await service.revokeProjectApiKey('project-1', 'key-2');
+
+    expect(events.ofType('api_key.revoked').map((event) => event.payload.apiKeyId)).toEqual([
+      'key-1',
+      'key-2',
+    ]);
+    expect(events.ofType('api_key.revoked')[1].scope.projectId).toBe('project-1');
+  });
+
+  it('publishes nothing when creation or revocation is rejected', async () => {
+    const repository = createRepositoryMock();
+    repository.findById.mockImplementation(async () => apiKey({ revokedAt: '2026-01-01' }));
+    repository.create.mockImplementation(async () => {
+      throw new Error('GitDB write failed');
+    });
+    const events = new RecordingEventBus();
+    const service = new ApiKeysService(repository, undefined, undefined, events);
+
+    await expect(service.createApiKey('user-1', '  ', null)).rejects.toThrow();
+    await expect(service.createApiKey('user-1', 'Laptop', null)).rejects.toThrow();
+    await expect(service.revokeApiKey('user-1', 'key-1')).rejects.toThrow(/already revoked/);
+
+    expect(events.events).toEqual([]);
   });
 });

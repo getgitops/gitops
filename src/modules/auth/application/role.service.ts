@@ -11,6 +11,12 @@ import {
   PROJECT_DEVELOPER_PERMISSIONS,
   PROJECT_VIEWER_PERMISSIONS,
 } from '../domain/role-permissions.data';
+import { publishAfterWrite } from '#lib/server/events/publish';
+import { resolveProjectScope } from '#lib/server/events/scope';
+import { createLogger } from '#lib/server/logger';
+import type { AccessEventsOptions } from './user-access.service';
+
+const log = createLogger('roles');
 
 export class RoleService {
   constructor(
@@ -20,6 +26,7 @@ export class RoleService {
     >,
     private readonly userRepository: Pick<UserRepository, 'countByRoleId'>,
     private readonly userAccessRepository: Pick<UserAccessRepository, 'countByRoleId'>,
+    private readonly eventOptions: AccessEventsOptions = {},
   ) {}
 
   async listRoles(scope: RoleScope = 'cluster', scopeId?: string): Promise<any[]> {
@@ -141,6 +148,7 @@ export class RoleService {
       throw new Error('Role not found');
     }
 
+    const previous = { name: role.name, permissions: [...(role.permissions ?? [])] };
     const patch: { name?: string; permissions?: string[] } = {};
 
     if (changes.name !== undefined) {
@@ -161,6 +169,31 @@ export class RoleService {
     if (!updated) {
       throw new Error('Failed to update role');
     }
+
+    const before = new Set(previous.permissions);
+    const after = new Set(updated.permissions ?? []);
+    await publishAfterWrite(
+      this.eventOptions.events,
+      log,
+      'role.updated',
+      {
+        roleId: updated.id,
+        name: updated.name,
+        scope: updated.scope,
+        nameChanged: previous.name !== updated.name,
+        addedPermissions: [...after].filter((permission) => !before.has(permission)),
+        removedPermissions: [...before].filter((permission) => !after.has(permission)),
+      },
+      async () => {
+        if (updated.scope === 'project') {
+          return resolveProjectScope(updated.projectId, this.eventOptions.projects);
+        }
+        if (updated.scope === 'organization') {
+          return { organizationId: updated.organizationId ?? null, projectId: null };
+        }
+        return {};
+      },
+    );
 
     return updated.toJson();
   }

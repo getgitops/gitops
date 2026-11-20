@@ -58,6 +58,7 @@ export async function load({ locals, url }) {
     canReadOrgBackups,
     canReadOrgServerKeys,
     canReadOrgAudit,
+    canReadOrgEvents,
   ] = await Promise.all([
     orgSectionPermission('organization:projects:read'),
     orgSectionPermission('organization:users:read'),
@@ -66,6 +67,7 @@ export async function load({ locals, url }) {
     orgSectionPermission('organization:backups:read'),
     orgSectionPermission('organization:server-keys:read'),
     orgSectionPermission('organization:audit:read'),
+    orgSectionPermission('organization:events:read'),
   ]);
 
   const currentProjectSlug = url.pathname.match(/\/projects\/([^/]+)/)?.[1] ?? null;
@@ -167,6 +169,7 @@ export async function load({ locals, url }) {
     canReadOrgBackups,
     canReadOrgServerKeys,
     canReadOrgAudit,
+    canReadOrgEvents,
     canReadProjectInfo,
     canReadProjectUsers,
     canReadProjectRoles,

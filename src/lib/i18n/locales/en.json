@@ -55,7 +55,8 @@
       "organizations": "Organizations",
       "database": "Database",
       "auditLog": "Audit Log",
-      "registration": "Registration"
+      "registration": "Registration",
+      "events": "Events"
     }
   },
   "footer": {
@@ -382,6 +383,39 @@
       "title": "Organization CVEs",
       "infoMessage": "This list aggregates CVEs from all organization projects using the latest completed analysis for each service.",
       "emptyMessage": "No CVEs have been detected in this organization yet."
+    },
+    "events": {
+      "title": "Events",
+      "description": "What happened in the organization and its projects. Mark each event as reviewed once you have dealt with it.",
+      "retentionNotice": "Events are kept in memory for {retention}: they are lost when the server restarts.",
+      "retentionDays": "{count} days",
+      "retentionHours": "{count} hours",
+      "retentionMinutes": "{count} minutes",
+      "pendingCount": "{count} pending review",
+      "filterModule": "Module",
+      "filterStatus": "Status",
+      "allModules": "All modules",
+      "statusAll": "All",
+      "statusPending": "Pending",
+      "statusAcked": "Reviewed",
+      "applyFilters": "Filter",
+      "emptyTitle": "No events",
+      "emptyDescription": "Analyses, vault changes, access changes and other organization activity will show up here.",
+      "actorSystem": "System",
+      "actorApiKey": "API key {name}",
+      "actorApiKeyUnknown": "API key",
+      "inProject": "in {name}",
+      "details": "Show details",
+      "ack": "Mark as reviewed",
+      "ackedBy": "Reviewed by {name} · {date}",
+      "ackFailed": "The event could not be marked as reviewed.",
+      "modules": {
+        "code_report": "Code Report",
+        "vault": "Vault",
+        "projects": "Projects",
+        "organization": "Organization",
+        "access": "Access"
+      }
     }
   },
   "project": {
@@ -948,5 +982,295 @@
     "defaultRootLabel": "Projects",
     "select": "Select",
     "notAvailable": "N/A"
+  },
+  "events": {
+    "code_report": {
+      "analysis": {
+        "completed": {
+          "label": "Analysis completed",
+          "description": "A scan tool finished analyzing a service.",
+          "fields": {
+            "serviceId": "Service",
+            "tool": "Tool",
+            "gitInfo": {
+              "branch": "Branch"
+            },
+            "summary": {
+              "critical": "Critical vulnerabilities",
+              "high": "High vulnerabilities",
+              "medium": "Medium vulnerabilities",
+              "low": "Low vulnerabilities",
+              "total": "Total vulnerabilities"
+            },
+            "hasVulnerabilities": "Has vulnerabilities",
+            "policiesViolated": "Violates security policies"
+          }
+        },
+        "failed": {
+          "label": "Analysis failed",
+          "description": "A scan tool could not complete the analysis of a service.",
+          "fields": {
+            "serviceId": "Service",
+            "tool": "Tool",
+            "gitInfo": {
+              "branch": "Branch"
+            }
+          }
+        }
+      },
+      "policy": {
+        "violated": {
+          "label": "Security policy violated",
+          "description": "A completed analysis violates a project security policy.",
+          "fields": {
+            "serviceId": "Service",
+            "policyId": "Policy",
+            "policyType": "Policy type",
+            "enforcement": "Enforcement"
+          }
+        }
+      },
+      "service": {
+        "created": {
+          "label": "Service created",
+          "description": "A Code Report service was created.",
+          "fields": {
+            "name": "Name"
+          }
+        },
+        "deleted": {
+          "label": "Service deleted",
+          "description": "A Code Report service was deleted.",
+          "fields": {
+            "serviceId": "Service",
+            "name": "Name"
+          }
+        }
+      }
+    },
+    "options": {
+      "tool": {
+        "trivy": "Trivy",
+        "grype": "Grype",
+        "semgrep": "Semgrep",
+        "gitleaks": "Gitleaks",
+        "trufflehog": "TruffleHog",
+        "sbom": "SBOM",
+        "syft": "Syft",
+        "coverage": "Coverage",
+        "manual-upload": "Manual upload",
+        "api": "API"
+      },
+      "policyType": {
+        "vulnerabilities": "Vulnerabilities",
+        "license": "Licenses",
+        "code_coverage": "Code coverage",
+        "secrets": "Secrets"
+      },
+      "enforcement": {
+        "warn": "Warning",
+        "block": "Blocking"
+      },
+      "secretChangedField": {
+        "key": "Key",
+        "description": "Description",
+        "folder": "Folder",
+        "values": "Values"
+      },
+      "projectChangedField": {
+        "name": "Name",
+        "slug": "Slug",
+        "description": "Description",
+        "status": "Status",
+        "modules": "Modules",
+        "organization": "Organization",
+        "settings": "Settings"
+      },
+      "organizationChangedField": {
+        "name": "Name",
+        "slug": "Slug",
+        "description": "Description"
+      },
+      "accessScope": {
+        "cluster": "GitOps",
+        "organization": "Organization",
+        "project": "Project"
+      }
+    },
+    "vault": {
+      "secret": {
+        "created": {
+          "label": "Secret created",
+          "description": "A secret was created in the project vault.",
+          "fields": {
+            "key": "Secret key",
+            "environmentIds": "Environments",
+            "folderPath": "Folder"
+          }
+        },
+        "updated": {
+          "label": "Secret updated",
+          "description": "A secret of the project vault was modified.",
+          "fields": {
+            "key": "Secret key",
+            "environmentIds": "Environments",
+            "folderPath": "Folder",
+            "changedFields": "Changed fields"
+          }
+        },
+        "deleted": {
+          "label": "Secret deleted",
+          "description": "A secret was deleted from the project vault.",
+          "fields": {
+            "key": "Secret key",
+            "environmentIds": "Environments",
+            "folderPath": "Folder"
+          }
+        }
+      },
+      "env": {
+        "imported": {
+          "label": ".env file imported",
+          "description": "Secrets were imported from a .env file.",
+          "fields": {
+            "environmentId": "Environment",
+            "folderPath": "Folder",
+            "created": "Secrets created",
+            "updated": "Secrets updated"
+          }
+        }
+      },
+      "environment": {
+        "created": {
+          "label": "Environment created",
+          "description": "An environment was created in the project vault.",
+          "fields": {
+            "environmentId": "Environment",
+            "name": "Name"
+          }
+        },
+        "deleted": {
+          "label": "Environment deleted",
+          "description": "An environment was deleted from the project vault.",
+          "fields": {
+            "environmentId": "Environment",
+            "name": "Name"
+          }
+        }
+      }
+    },
+    "project": {
+      "created": {
+        "label": "Project created",
+        "description": "A project was created in the organization.",
+        "fields": {
+          "name": "Name"
+        }
+      },
+      "updated": {
+        "label": "Project updated",
+        "description": "A project of the organization was modified.",
+        "fields": {
+          "projectId": "Project",
+          "name": "Name",
+          "changedFields": "Changed fields"
+        }
+      },
+      "deleted": {
+        "label": "Project deleted",
+        "description": "A project was deleted from the organization.",
+        "fields": {
+          "projectId": "Project",
+          "name": "Name"
+        }
+      }
+    },
+    "organization": {
+      "updated": {
+        "label": "Organization updated",
+        "description": "The organization details were modified.",
+        "fields": {
+          "changedFields": "Changed fields"
+        }
+      }
+    },
+    "access": {
+      "granted": {
+        "label": "Access granted",
+        "description": "A user was given access with a role.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      },
+      "updated": {
+        "label": "Access changed",
+        "description": "The role or status of a user access changed.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      },
+      "revoked": {
+        "label": "Access revoked",
+        "description": "A user access was removed.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      }
+    },
+    "user": {
+      "invited": {
+        "label": "User invited",
+        "description": "A user was invited to the organization.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role"
+        }
+      }
+    },
+    "invitation": {
+      "accepted": {
+        "label": "Invitation accepted",
+        "description": "A user accepted their invitation.",
+        "fields": {
+          "userId": "User",
+          "roleId": "Role",
+          "scope": "Scope"
+        }
+      }
+    },
+    "role": {
+      "updated": {
+        "label": "Role updated",
+        "description": "The name or permissions of a role changed.",
+        "fields": {
+          "roleId": "Role",
+          "addedPermissions": "Added permissions",
+          "removedPermissions": "Removed permissions"
+        }
+      }
+    },
+    "api_key": {
+      "created": {
+        "label": "API key created",
+        "description": "An API key was created.",
+        "fields": {
+          "name": "Name"
+        }
+      },
+      "revoked": {
+        "label": "API key revoked",
+        "description": "An API key was revoked.",
+        "fields": {
+          "apiKeyId": "API key",
+          "name": "Name"
+        }
+      }
+    }
   }
 }

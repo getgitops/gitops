@@ -59,6 +59,11 @@ const permissions = {
           resource: 'audit',
           permissions: grantsFor('organization', 'audit'),
         },
+        // events page (/org/<org>/settings/events): read to see it, update to acknowledge events
+        events: {
+          resource: 'events',
+          permissions: grantsFor('organization', 'events'),
+        },
       },
     },
     project: {

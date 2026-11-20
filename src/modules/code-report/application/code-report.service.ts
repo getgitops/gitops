@@ -2,6 +2,10 @@ import crypto from 'crypto';
 import { CodeReportServiceRepository } from '../infrastructure/repositories/code-report-service.repository';
 import { ProjectService } from '../../projects/application/project.service';
 import { DEFAULT_RISK_WEIGHTS, type RiskWeights } from '../domain/risk-weights.data';
+import { createLogger } from '#lib/server/logger';
+import { resolveProjectScope, type CodeReportEventPublisher } from './code-report-events';
+
+const log = createLogger('code-report');
 
 export type VulnerabilityTotals = {
   critical: number;
@@ -19,6 +23,7 @@ export class CodeReportService {
     private readonly repository: CodeReportServiceRepository,
     private readonly projectService: ProjectService,
     private readonly analysisCleanup?: AnalysisCleanup,
+    private readonly events?: CodeReportEventPublisher,
   ) {}
 
   async listByProject(projectId: string) {
@@ -122,6 +127,12 @@ export class CodeReportService {
       throw new Error('Failed to create service');
     }
 
+    this.events?.publish(
+      'code_report.service.created',
+      { serviceId: created.id, name: created.name, slug: created.slug },
+      { scope: { organizationId: project.organization?.id ?? null, projectId } },
+    );
+
     return created.toJson();
   }
 
@@ -176,6 +187,19 @@ export class CodeReportService {
     }
     await this.analysisCleanup?.deleteAllByService(id);
     await this.repository.deleteById(id);
+
+    if (this.events) {
+      try {
+        const scope = await resolveProjectScope(service.projectId, this.projectService);
+        this.events.publish(
+          'code_report.service.deleted',
+          { serviceId: service.id, name: service.name, slug: service.slug },
+          { scope },
+        );
+      } catch (error) {
+        log.error({ err: error, serviceId: id }, 'failed to publish service deleted event');
+      }
+    }
   }
 
   private normalizeTags(tags?: string[]): string[] {

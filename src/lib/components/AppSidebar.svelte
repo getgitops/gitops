@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createPageStore } from '#lib/page-store';
   import {
+    Activity,
     BarChart3,
     Building2,
     ChevronDown,
@@ -46,6 +47,7 @@
   export let canReadOrgBackups = false;
   export let canReadOrgServerKeys = false;
   export let canReadOrgAudit = false;
+  export let canReadOrgEvents = false;
   export let canReadProjectInfo = false;
   export let canReadProjectUsers = false;
   export let canReadProjectRoles = false;
@@ -301,6 +303,12 @@
                   href: `/org/${organizationSlug}/settings/audit`,
                   icon: ScrollText,
                   visible: canReadOrgAudit,
+                },
+                {
+                  label: $_('sidebar.items.events'),
+                  href: `/org/${organizationSlug}/settings/events`,
+                  icon: Activity,
+                  visible: canReadOrgEvents,
                 },
               ]
                 .filter((item) => item.visible)

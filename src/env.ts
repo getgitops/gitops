@@ -28,4 +28,5 @@ export const variables = defineEnvVars({
   GOOGLE_SSO_CLIENT_SECRET: optional,
   GOOGLE_SSO_ALLOWED_DOMAINS: optional,
   GOOGLE_SSO_AUTO_PROVISION: optional,
+  GITOPS_EVENTS_EXPIRATION: optional,
 });

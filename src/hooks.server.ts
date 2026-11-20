@@ -118,7 +118,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
     event.locals.apiKey = apiKey;
 
     return runWithActor(
-      { name: `apikey:${apiKey.name}`, email: `apikey+${apiKey.id}@gitops.local` },
+      {
+        name: `apikey:${apiKey.name}`,
+        email: `apikey+${apiKey.id}@gitops.local`,
+        apiKeyId: apiKey.id,
+        apiKeyProjectId: apiKey.projectId,
+      },
       () => resolve(event),
     );
   }
@@ -167,6 +172,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
   const actor = {
     name: currentUser.username,
     email: currentUser.email || `${currentUser.username}@gitops.local`,
+    userId: currentUser.id,
   };
   return runWithActor(actor, () => resolve(event));
 };

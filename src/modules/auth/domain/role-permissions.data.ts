@@ -16,6 +16,7 @@ export const ORGANIZATION_ADMIN_PERMISSIONS = [
   'organization:backups:all',
   'organization:server-keys:all',
   'organization:audit:all',
+  'organization:events:all',
 ];
 
 export const ORGANIZATION_DEVELOPER_PERMISSIONS = [

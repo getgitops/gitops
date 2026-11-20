@@ -119,6 +119,41 @@ Bitbucket, and GitLab; in production, ensure SSH authentication credentials are 
 SvelteKit's CSRF Origin check depends on this value instead of deriving it from the incoming Host
 header, preventing bypasses when running behind a proxy that rewrites Host headers.
 
+## Domain events
+
+Services announce what happened on an in-process event bus in `#lib/server/events`; the design is
+in `docs/adr/0001-event-bus-and-alerts.md`.
+
+- Names: `<module>.<resource>.<action>`, snake_case, past participle
+  (`code_report.analysis.completed`, `vault.secret.created`, `access.granted`). Declare each type
+  and its payload in `DomainEventMap` (`src/lib/events/domain-events.ts`, shared with the client).
+- Every event needs an `EventDefinition` in the catalog (`src/lib/events/catalog/`, one
+  `<module>.events.ts` per module): scope, `readPermission`, `alertable` and its filterable fields.
+  `EVENT_CATALOG` is exhaustive and field keys without `derive` are checked against the payload at
+  compile time. Labels are i18n keys (`events.<type>.label`, `.description`,
+  `.fields.<key>`, `events.options.<group>.<value>`) and must exist in `es.json` and `en.json`
+  (enforced by a test).
+- Publish only **after** the GitDB write succeeded, with the right `scope`
+  (`organizationId` / `projectId`). `publish()` returns immediately; handlers run asynchronously,
+  in order per subscriber, and a failing handler is only logged. Use `publishAfterWrite`
+  (`#lib/server/events/publish`) so resolving the scope or publishing can never fail a write that
+  already succeeded; `resolveProjectScope` adds the organization to project events.
+- Delivery is at-most-once and per process; events are not persisted.
+- The actor comes from the request context (`userId` / `apiKeyId` set in `hooks.server.ts`),
+  falling back to `system`.
+- Inject `EventBus` through the service constructor from the module's `index.ts`; only composition
+  roots import the `eventBus` singleton. In unit tests use `RecordingEventBus` from
+  `#lib/server/events/testing`.
+- Payloads **never** contain secrets (vault values, invitation/reset tokens or URLs, hashes, API
+  keys), and alert recipients are always filtered with `cancanService`.
+- `eventLog` (`#lib/server/events`) keeps recent events in memory for
+  `/org/<org>/settings/events`, where users with `organization:events:read` see the events they
+  are allowed to read (each definition's `readPermission`, checked in the event's project or
+  organization) and, with `organization:events:update`, acknowledge them. Only the default
+  Organization Admin role gets `organization:events:all`; existing roles are not migrated (enable
+  it from the role editor). Retention: `GITOPS_EVENTS_EXPIRATION` (default `7d`). It is per
+  process and cleared on restart.
+
 ## Authorization
 
 Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`
@@ -159,7 +194,7 @@ return { roles, canCreate };
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
 - **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
@@ -168,7 +203,7 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
-- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit
+- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events
 - **Organization Developer** — read/create/update projects only
 - **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 - **Project Developer** — read/create/update project resources; no deletion or admin; granular module access

@@ -1,6 +1,16 @@
 import crypto from 'crypto';
 import { VaultRepository } from '../infrastructure/repositories/vault.repository';
 import type { VaultEncryptionProvider, VaultSecretValues } from '../domain/vault.domain';
+import type { EventBus } from '#lib/server/events';
+import { resolveProjectScope, type ProjectScopeLookup } from '#lib/server/events/scope';
+import type {
+  DomainEventMap,
+  VaultSecretChangedField,
+  VaultSecretPayload,
+} from '#lib/events/domain-events';
+import { createLogger } from '#lib/server/logger';
+
+const log = createLogger('vault');
 
 const DEFAULT_ENVIRONMENTS = [
   { slug: 'dev', name: 'Development' },
@@ -19,8 +29,32 @@ export type VaultSecretInput = {
   values?: VaultSecretValues;
 };
 
+type VaultEventType = Extract<keyof DomainEventMap, `vault.${string}`>;
+
+type VaultEventsOptions = {
+  events?: Pick<EventBus, 'publish'>;
+  projects?: ProjectScopeLookup;
+};
+
+type SecretSnapshot = {
+  id: string;
+  key: string;
+  folderId?: string | null;
+  description?: string | null;
+  values?: VaultSecretValues;
+};
+
 export class VaultService {
-  constructor(private readonly repository: VaultRepository) {}
+  private readonly events?: Pick<EventBus, 'publish'>;
+  private readonly projects?: ProjectScopeLookup;
+
+  constructor(
+    private readonly repository: VaultRepository,
+    options: VaultEventsOptions = {},
+  ) {
+    this.events = options.events;
+    this.projects = options.projects;
+  }
 
   async getProjectVault(projectId: string) {
     await this.ensureDefaultEnvironments(projectId);
@@ -67,6 +101,11 @@ export class VaultService {
       description: input.description?.trim() || undefined,
       order: nextOrder,
     });
+    await this.emit(projectId, 'vault.environment.created', {
+      environmentId: id,
+      name,
+      slug,
+    });
     return this.repository.findEnvironmentById(id);
   }
 
@@ -102,6 +141,11 @@ export class VaultService {
     if (environments.length <= 1) throw new Error('Debe existir al menos un entorno');
 
     await this.repository.deleteEnvironment(environment.id);
+    await this.emit(projectId, 'vault.environment.deleted', {
+      environmentId: environment.id,
+      name: environment.name,
+      slug: environment.slug,
+    });
   }
 
   async moveEnvironment(projectId: string, id: string, direction: 'up' | 'down') {
@@ -286,13 +330,23 @@ export class VaultService {
         continue;
       }
 
-      await this.createSecret(projectId, {
+      // one vault.env.imported event for the whole file instead of one per secret
+      await this.insertSecret(projectId, {
         folderId,
         key: normalizedKey,
         values: { [environmentSlug]: value },
       });
       created += 1;
     }
+
+    await this.emit(projectId, 'vault.env.imported', {
+      environmentId: environment.id,
+      environmentSlug,
+      folderId: folderId ?? null,
+      folderPath: await this.folderPath(folderId),
+      created,
+      updated,
+    });
 
     return { created, updated };
   }
@@ -350,6 +404,16 @@ export class VaultService {
   }
 
   async createSecret(projectId: string, input: VaultSecretInput) {
+    const secret = await this.insertSecret(projectId, input);
+    await this.emit(
+      projectId,
+      'vault.secret.created',
+      await this.secretPayload(projectId, secret, Object.keys(secret.values ?? {})),
+    );
+    return secret;
+  }
+
+  private async insertSecret(projectId: string, input: VaultSecretInput) {
     await this.requireOptionalProjectFolder(projectId, input.folderId);
     const capitalize = (await this.getSettings(projectId)).capitalizeSecrets;
     const key = this.normalizeSecretKey(input.key, capitalize);
@@ -373,13 +437,30 @@ export class VaultService {
     await this.requireOptionalProjectFolder(projectId, input.folderId);
     const capitalize = (await this.getSettings(projectId)).capitalizeSecrets;
 
+    // copy: the stored row may be the same object the repository mutates on update
+    const current = secret.toJson() as SecretSnapshot;
+    const before: SecretSnapshot = { ...current, values: { ...current.values } };
+
     await this.repository.updateSecret(id, {
       folderId: input.folderId || null,
       key: this.normalizeSecretKey(input.key, capitalize),
       description: input.description?.trim(),
       values: this.normalizeValues(input.values),
     });
-    return (await this.repository.findSecretById(id))!.toJson();
+    const after = (await this.repository.findSecretById(id))!.toJson();
+
+    const changedValues = this.changedEnvironmentSlugs(before.values, after.values);
+    const changedFields: VaultSecretChangedField[] = [];
+    if (before.key !== after.key) changedFields.push('key');
+    if ((before.description ?? '') !== (after.description ?? '')) changedFields.push('description');
+    if ((before.folderId ?? null) !== (after.folderId ?? null)) changedFields.push('folder');
+    if (changedValues.length > 0) changedFields.push('values');
+
+    await this.emit(projectId, 'vault.secret.updated', {
+      ...(await this.secretPayload(projectId, after, changedValues)),
+      changedFields,
+    });
+    return after;
   }
 
   async deleteSecret(projectId: string, id: string) {
@@ -387,6 +468,62 @@ export class VaultService {
     if (!secret || secret.projectId !== projectId) throw new Error('Secret not found');
 
     await this.repository.deleteSecret(id);
+    const snapshot = secret.toJson() as SecretSnapshot;
+    await this.emit(
+      projectId,
+      'vault.secret.deleted',
+      await this.secretPayload(projectId, snapshot, Object.keys(snapshot.values ?? {})),
+    );
+  }
+
+  // events never break the write that already succeeded: failures are only logged
+  private async emit<K extends VaultEventType>(
+    projectId: string,
+    type: K,
+    payload: DomainEventMap[K],
+  ) {
+    if (!this.events) return;
+    try {
+      const scope = await resolveProjectScope(projectId, this.projects);
+      this.events.publish(type, payload, { scope });
+    } catch (error) {
+      log.error({ err: error, eventType: type, projectId }, 'failed to publish vault event');
+    }
+  }
+
+  /** Secret metadata for events: never the values, only the environments involved. */
+  private async secretPayload(
+    projectId: string,
+    secret: SecretSnapshot,
+    environmentSlugs: string[],
+  ): Promise<VaultSecretPayload> {
+    const environments = await this.repository.listEnvironments(projectId).catch(() => []);
+    const slugs = new Set(environmentSlugs);
+    return {
+      secretId: secret.id,
+      key: secret.key,
+      folderId: secret.folderId ?? null,
+      folderPath: await this.folderPath(secret.folderId),
+      // in the vault's environment order, so payloads are deterministic
+      environmentIds: environments
+        .sort((a, b) => a.order - b.order)
+        .filter((environment) => slugs.has(environment.slug))
+        .map((environment) => environment.id),
+    };
+  }
+
+  private async folderPath(folderId: string | null | undefined): Promise<string> {
+    if (!folderId) return '/';
+    const folder = await this.repository.findFolderById(folderId).catch(() => null);
+    return folder?.path ?? '/';
+  }
+
+  private changedEnvironmentSlugs(
+    before: VaultSecretValues | undefined,
+    after: VaultSecretValues | undefined,
+  ): string[] {
+    const slugs = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+    return [...slugs].filter((slug) => before?.[slug] !== after?.[slug]);
   }
 
   async findSecretByKey(projectId: string, folderId: string | null, key: string) {
@@ -413,7 +550,7 @@ export class VaultService {
     return this.updateSecret(projectId, secret.id, {
       folderId,
       key,
-      description: description !== undefined ? description : secret.description ?? undefined,
+      description: description !== undefined ? description : (secret.description ?? undefined),
       values: { ...secret.values, [environment]: value },
     });
   }

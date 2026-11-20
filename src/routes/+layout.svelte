@@ -60,6 +60,7 @@
           canReadOrgBackups={data.canReadOrgBackups}
           canReadOrgServerKeys={data.canReadOrgServerKeys}
           canReadOrgAudit={data.canReadOrgAudit}
+          canReadOrgEvents={data.canReadOrgEvents}
           canReadProjectInfo={data.canReadProjectInfo}
           canReadProjectUsers={data.canReadProjectUsers}
           canReadProjectRoles={data.canReadProjectRoles}

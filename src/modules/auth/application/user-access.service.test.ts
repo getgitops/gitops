@@ -7,6 +7,7 @@ import {
 import { RoleDomain } from '../domain/role.domain';
 import { UserAccessDomain } from '../domain/user-access.domain';
 import { UserDomain } from '../domain/user.domain';
+import { RecordingEventBus } from '#lib/server/events/testing';
 
 function role(input: {
   id: string;
@@ -76,6 +77,19 @@ class FakeUserRepository {
 
   async deleteById(id: string) {
     this.rows = this.rows.filter((entry) => entry.id !== id);
+  }
+
+  roleRepository?: FakeRoleRepository;
+
+  async updateRoleId(id: string, roleId: string) {
+    const row = this.rows.find((entry) => entry.id === id);
+    const nextRole = await this.roleRepository?.findById(roleId);
+    if (row && nextRole) row.role = nextRole;
+  }
+
+  async updateStatus(id: string, status: 'active' | 'invited') {
+    const row = this.rows.find((entry) => entry.id === id);
+    if (row) row.status = status;
   }
 
   async createUser(input: {
@@ -655,5 +669,218 @@ describe('UserAccessService', () => {
         roleId: 'project-admin-id',
       }),
     ).rejects.toThrow(/does not belong/);
+  });
+});
+
+describe('UserAccessService events', () => {
+  let userRepository: FakeUserRepository;
+  let roleRepository: FakeRoleRepository;
+  let userAccessRepository: FakeUserAccessRepository;
+  let events: RecordingEventBus;
+  let service: UserAccessService;
+
+  beforeEach(() => {
+    userRepository = new FakeUserRepository();
+    roleRepository = new FakeRoleRepository();
+    userAccessRepository = new FakeUserAccessRepository();
+    userAccessRepository.userRepository = userRepository;
+    userAccessRepository.roleRepository = roleRepository;
+    userRepository.roleRepository = roleRepository;
+    events = new RecordingEventBus();
+    service = new UserAccessService(
+      userRepository as any,
+      roleRepository as any,
+      userAccessRepository as any,
+      { hashPassword: (password: string) => `hashed:${password}` },
+      { sendInvitation: vi.fn(async () => {}) },
+      { issueToken: vi.fn(async () => ({ token: 'raw-token', expiresAt: '2024-01-08' })) },
+      { events, projects: { getProject: async () => ({ organization: { id: 'gitops' } }) } },
+    );
+    roleRepository.rows.push(
+      role({ id: 'cluster-user-id', slug: 'cluster-user' }),
+      role({ id: 'cluster-admin-id', slug: 'cluster-admin' }),
+      role({
+        id: 'org-dev',
+        slug: 'org-developer',
+        scope: 'organization',
+        organizationId: 'gitops',
+      }),
+      role({ id: 'org-admin', slug: 'org-admin', scope: 'organization', organizationId: 'gitops' }),
+      role({ id: 'project-dev', slug: 'project-dev', scope: 'project', projectId: 'shop' }),
+    );
+    userRepository.rows.push(
+      user({ id: 'ana', username: 'ana', email: 'ana@example.com', role: roleRepository.rows[0] }),
+    );
+  });
+
+  it('publishes access.granted for organization and project assignments', async () => {
+    const orgAccess = await service.assignOrganizationUser({
+      organizationId: 'gitops',
+      userId: 'ana',
+      roleId: 'org-dev',
+    });
+    const projectAccess = await service.assignProjectUser({
+      projectId: 'shop',
+      userId: 'ana',
+      roleId: 'project-dev',
+    });
+
+    expect(events.ofType('access.granted').map((event) => [event.payload, event.scope])).toEqual([
+      [
+        {
+          accessId: orgAccess.id,
+          userId: 'ana',
+          roleId: 'org-dev',
+          scope: 'organization',
+          status: 'active',
+        },
+        { organizationId: 'gitops', projectId: null },
+      ],
+      [
+        {
+          accessId: projectAccess.id,
+          userId: 'ana',
+          roleId: 'project-dev',
+          scope: 'project',
+          status: 'active',
+        },
+        { organizationId: 'gitops', projectId: 'shop' },
+      ],
+    ]);
+  });
+
+  it('publishes access.granted and user.invited for an invitation, without token or URL', async () => {
+    await service.inviteOrganizationUser({
+      organizationId: 'gitops',
+      organizationName: 'GitOps',
+      email: 'new@example.com',
+      inviteUrl: 'https://gitops.example.com/auth/invitation',
+    });
+
+    expect(events.types()).toEqual(['access.granted', 'user.invited']);
+    const invited = userRepository.rows.find((row) => row.email === 'new@example.com')!;
+    expect(events.ofType('user.invited')[0].payload).toEqual({
+      userId: invited.id,
+      roleId: 'org-dev',
+      organizationId: 'gitops',
+    });
+    const serialized = JSON.stringify(events.events);
+    expect(serialized).not.toContain('raw-token');
+    expect(serialized).not.toContain('auth/invitation');
+    expect(serialized).not.toContain('new@example.com');
+  });
+
+  it('publishes access.updated with the previous role and status', async () => {
+    const access = await service.assignOrganizationUser({
+      organizationId: 'gitops',
+      userId: 'ana',
+      roleId: 'org-dev',
+    });
+    events.clear();
+
+    await service.updateAccess({
+      accessId: access.id,
+      scope: 'organization',
+      scopeId: 'gitops',
+      roleId: 'org-admin',
+      status: 'active',
+    });
+
+    expect(events.ofType('access.updated')[0].payload).toEqual({
+      accessId: access.id,
+      userId: 'ana',
+      roleId: 'org-admin',
+      scope: 'organization',
+      status: 'active',
+      previousRoleId: 'org-dev',
+      previousStatus: 'active',
+    });
+  });
+
+  it('publishes access.updated for a cluster role change', async () => {
+    await service.updateAccess({
+      accessId: 'ana',
+      scope: 'cluster',
+      roleId: 'cluster-admin-id',
+      status: 'active',
+    });
+
+    const [event] = events.ofType('access.updated');
+    expect(event.payload).toMatchObject({
+      accessId: 'ana',
+      userId: 'ana',
+      scope: 'cluster',
+      roleId: 'cluster-admin-id',
+      previousRoleId: 'cluster-user-id',
+    });
+    expect(event.scope).toEqual({});
+  });
+
+  it('publishes access.revoked for a project membership', async () => {
+    const access = await service.assignProjectUser({
+      projectId: 'shop',
+      userId: 'ana',
+      roleId: 'project-dev',
+    });
+    events.clear();
+
+    await service.removeAccess({ accessId: access.id, scope: 'project', scopeId: 'shop' });
+
+    expect(events.ofType('access.revoked').map((event) => event.payload.accessId)).toEqual([
+      access.id,
+    ]);
+  });
+
+  it('revokes every membership and the account when removing an organization user', async () => {
+    const orgAccess = await service.assignOrganizationUser({
+      organizationId: 'gitops',
+      userId: 'ana',
+      roleId: 'org-dev',
+    });
+    const projectAccess = await service.assignProjectUser({
+      projectId: 'shop',
+      userId: 'ana',
+      roleId: 'project-dev',
+    });
+    events.clear();
+
+    await service.removeAccess({
+      accessId: orgAccess.id,
+      scope: 'organization',
+      scopeId: 'gitops',
+    });
+
+    expect(
+      events.ofType('access.revoked').map((event) => [event.payload.accessId, event.payload.scope]),
+    ).toEqual([
+      [orgAccess.id, 'organization'],
+      [projectAccess.id, 'project'],
+      ['ana', 'cluster'],
+    ]);
+  });
+
+  it('publishes nothing when the operation is rejected', async () => {
+    await service.assignOrganizationUser({
+      organizationId: 'gitops',
+      userId: 'ana',
+      roleId: 'org-dev',
+    });
+    events.clear();
+
+    await expect(
+      service.assignOrganizationUser({
+        organizationId: 'gitops',
+        userId: 'ana',
+        roleId: 'org-dev',
+      }),
+    ).rejects.toThrow(/already has access/);
+    await expect(
+      service.assignProjectUser({ projectId: 'shop', userId: 'ana', roleId: 'org-dev' }),
+    ).rejects.toThrow();
+    await expect(
+      service.removeAccess({ accessId: 'missing', scope: 'project', scopeId: 'shop' }),
+    ).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
   });
 });
