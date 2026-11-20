@@ -5,7 +5,7 @@ import { getSeed } from '../fixtures/auth';
 const seed = getSeed();
 const org = seed.primaryOrgSlug;
 const settingsRoutes = [
-  `/org/${org}/settings/projects`,
+  `/org/${org}/projects`,
   `/org/${org}/settings/access-control`,
   `/org/${org}/settings/roles-permissions`,
   `/org/${org}/settings/global`,
@@ -28,7 +28,7 @@ test.describe('organization settings — org admin', () => {
 test.describe('organization settings — org developer', () => {
   test('sees only projects, denied everywhere else', async ({ page, loginAs }) => {
     await loginAs('orgDeveloper');
-    await expectAllowed(page, `/org/${org}/settings/projects`);
+    await expectAllowed(page, `/org/${org}/projects`);
     for (const route of settingsRoutes.filter((r) => !r.endsWith('/projects'))) {
       await expectDenied(page, route);
     }
@@ -80,7 +80,7 @@ test.describe('organization roles — "new role" form requires organization:role
 test.describe('organization projects — real create mutation', () => {
   test('org admin can create a project and see it in the list', async ({ page, loginAs }) => {
     await loginAs('orgAdmin');
-    const response = await page.request.post(`/org/${org}/settings/projects?/createProject`, {
+    const response = await page.request.post(`/org/${org}/projects?/createProject`, {
       form: {
         organizationId: seed.primaryOrgId,
         name: 'E2E Mutation Project',
@@ -91,13 +91,13 @@ test.describe('organization projects — real create mutation', () => {
     const body = await response.json();
     expect(body.type).not.toBe('failure');
 
-    await page.goto(`/org/${org}/settings/projects`);
+    await page.goto(`/org/${org}/projects`);
     await expect(page.getByText('E2E Mutation Project')).toBeVisible();
   });
 
   test('a read-only org role gets a 403 on the same POST', async ({ page, loginAs }) => {
     await loginAs('orgProjectsReadOnly');
-    const response = await page.request.post(`/org/${org}/settings/projects?/createProject`, {
+    const response = await page.request.post(`/org/${org}/projects?/createProject`, {
       form: {
         organizationId: seed.primaryOrgId,
         name: 'Should Not Be Created',

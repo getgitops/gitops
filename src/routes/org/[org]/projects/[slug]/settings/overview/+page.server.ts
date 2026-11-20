@@ -115,6 +115,6 @@ export const actions = {
       return errorResponse(error);
     }
 
-    throw redirect(303, `/org/${params.org}/settings/projects`);
+    throw redirect(303, `/org/${params.org}/projects`);
   },
 };

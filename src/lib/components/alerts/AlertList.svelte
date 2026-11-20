@@ -100,7 +100,7 @@
       {/if}
     </div>
   {:else}
-    {@render table(data.alerts, false)}
+    {@render cards(data.alerts, false)}
   {/if}
 
   {#if data.scope === 'project' && data.inherited.length > 0}
@@ -109,60 +109,58 @@
         <h4 class="text-base font-semibold text-slate-900">{$_('alerts.list.inheritedTitle')}</h4>
         <p class="text-xs text-slate-500">{$_('alerts.list.inheritedDescription')}</p>
       </div>
-      {@render table(data.inherited, true)}
+      {@render cards(data.inherited, true)}
     </section>
   {/if}
 </div>
 
-{#snippet table(alerts: AlertRow[], readonly: boolean)}
-  <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-    <table
-      class="min-w-full divide-y divide-slate-100 text-sm"
-      data-testid={readonly ? 'inherited-alerts' : 'alerts'}
-    >
-      <thead
-        class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-      >
-        <tr>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.name')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.event')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.conditions')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.recipients')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.status')}</th>
-          {#if !readonly && (data.canUpdate || data.canDelete)}
-            <th scope="col" class="px-4 py-3"
-              ><span class="sr-only">{$_('alerts.list.actions')}</span></th
-            >
-          {/if}
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {#each alerts as alert (alert.id)}
-          <tr data-testid="alert-row">
-            <td class="px-4 py-3 font-medium text-slate-900">
+{#snippet cards(alerts: AlertRow[], readonly: boolean)}
+  <div class="alert-cards-grid" data-testid={readonly ? 'inherited-alerts' : 'alerts'}>
+    {#each alerts as alert (alert.id)}
+      <article class="alert-card" data-testid="alert-row">
+        <header>
+          <div class="alert-card-title">
+            <span class="alert-card-icon"><BellRing class="h-5 w-5" /></span>
+            <div>
               {#if !readonly && data.canUpdate}
-                <a class="hover:underline" href="{data.basePath}/{alert.id}">{alert.name}</a>
+                <a href="{data.basePath}/{alert.id}">{alert.name}</a>
               {:else}
-                {alert.name}
+                <h4>{alert.name}</h4>
               {/if}
-              {#if alert.throttleMinutes > 0}
-                <p class="text-xs font-normal text-slate-500">
-                  {$_('alerts.list.throttle', { values: { minutes: alert.throttleMinutes } })}
-                </p>
-              {/if}
-            </td>
-            <td class="px-4 py-3">
-              <p class="text-slate-900">{eventLabel(alert)}</p>
-              <p class="text-xs text-slate-500">{moduleLabel(alert)}</p>
-            </td>
-            <td class="max-w-sm px-4 py-3 text-slate-700" data-testid="alert-summary"
-              >{conditionsOf(alert)}</td
-            >
-            <td class="px-4 py-3 text-slate-700">
-              {summarizeRecipients(alert.recipients, data.users, data.roles, t)}
-            </td>
-            <td class="px-4 py-3">
-              {#if !readonly && data.canUpdate}
+              <p>{moduleLabel(alert)}</p>
+            </div>
+          </div>
+          <span class:disabled={!alert.enabled} class="alert-status">
+            <i></i>{alert.enabled ? $_('alerts.list.enabled') : $_('alerts.list.disabled')}
+          </span>
+        </header>
+
+        <div class="alert-card-content">
+          <div>
+            <span>{$_('alerts.list.event')}</span>
+            <strong>{eventLabel(alert)}</strong>
+          </div>
+          <div data-testid="alert-summary">
+            <span>{$_('alerts.list.conditions')}</span>
+            <p>{conditionsOf(alert)}</p>
+          </div>
+          <div>
+            <span>{$_('alerts.list.recipients')}</span>
+            <p>{summarizeRecipients(alert.recipients, data.users, data.roles, t)}</p>
+          </div>
+        </div>
+
+        <footer>
+          <span>
+            {#if alert.throttleMinutes > 0}
+              {$_('alerts.list.throttle', { values: { minutes: alert.throttleMinutes } })}
+            {:else}
+              Notificación inmediata
+            {/if}
+          </span>
+          {#if !readonly}
+            <div class="alert-card-actions">
+              {#if data.canUpdate}
                 <form method="POST" action="?/toggle" use:enhance>
                   <input type="hidden" name="alertId" value={alert.id} />
                   <input type="hidden" name="enabled" value={alert.enabled ? 'false' : 'true'} />
@@ -171,68 +169,225 @@
                     role="switch"
                     aria-checked={alert.enabled}
                     aria-label={$_('alerts.list.toggle', { values: { name: alert.name } })}
-                    class="inline-flex items-center gap-2 text-xs font-medium"
+                    class="alert-toggle"
+                    class:active={alert.enabled}
                   >
-                    <span
-                      class="relative inline-flex h-5 w-9 rounded-full transition {alert.enabled
-                        ? 'bg-emerald-500'
-                        : 'bg-slate-300'}"
-                    >
-                      <span
-                        class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition {alert.enabled
-                          ? 'left-4'
-                          : 'left-0.5'}"
-                      ></span>
-                    </span>
-                    {alert.enabled ? $_('alerts.list.enabled') : $_('alerts.list.disabled')}
+                    <span></span>
                   </button>
                 </form>
-              {:else}
-                <span
-                  class="text-xs font-medium {alert.enabled
-                    ? 'text-emerald-700'
-                    : 'text-slate-500'}"
-                >
-                  {alert.enabled ? $_('alerts.list.enabled') : $_('alerts.list.disabled')}
-                </span>
+                <a href="{data.basePath}/{alert.id}" title={$_('alerts.list.edit')}>
+                  <Pencil class="h-4 w-4" />
+                </a>
               {/if}
-            </td>
-            {#if !readonly && (data.canUpdate || data.canDelete)}
-              <td class="px-4 py-3">
-                <div class="flex justify-end gap-2">
-                  {#if data.canUpdate}
-                    <a
-                      href="{data.basePath}/{alert.id}"
-                      class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-300"
-                    >
-                      <Pencil class="h-3.5 w-3.5" />
-                      {$_('alerts.list.edit')}
-                    </a>
-                  {/if}
-                  {#if data.canDelete}
-                    <form
-                      method="POST"
-                      action="?/delete"
-                      use:enhance={({ cancel }) => {
-                        if (!confirm($_('alerts.list.confirmDelete'))) cancel();
-                      }}
-                    >
-                      <input type="hidden" name="alertId" value={alert.id} />
-                      <button
-                        type="submit"
-                        class="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 class="h-3.5 w-3.5" />
-                        {$_('alerts.list.delete')}
-                      </button>
-                    </form>
-                  {/if}
-                </div>
-              </td>
-            {/if}
-          </tr>
-        {/each}
-      </tbody>
-    </table>
+              {#if data.canDelete}
+                <form
+                  method="POST"
+                  action="?/delete"
+                  use:enhance={({ cancel }) => {
+                    if (!confirm($_('alerts.list.confirmDelete'))) cancel();
+                  }}
+                >
+                  <input type="hidden" name="alertId" value={alert.id} />
+                  <button type="submit" class="delete-alert" title={$_('alerts.list.delete')}>
+                    <Trash2 class="h-4 w-4" />
+                  </button>
+                </form>
+              {/if}
+            </div>
+          {/if}
+        </footer>
+      </article>
+    {/each}
   </div>
 {/snippet}
+
+<style>
+  .alert-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .alert-card {
+    display: flex;
+    min-height: 310px;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.085);
+    border-radius: 12px;
+    background: rgb(255 255 255 / 0.025);
+  }
+
+  .alert-card header,
+  .alert-card footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+  }
+
+  .alert-card header {
+    border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  }
+
+  .alert-card-title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .alert-card-icon {
+    display: flex;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(249 93 17 / 0.22);
+    border-radius: 10px;
+    background: rgb(249 93 17 / 0.08);
+    color: #ff8a4c;
+  }
+
+  .alert-card-title a,
+  .alert-card-title h4 {
+    display: block;
+    overflow: hidden;
+    color: #ece8ee;
+    font-size: 16px;
+    font-weight: 580;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .alert-card-title p {
+    margin-top: 3px;
+    color: #706a74;
+    font-size: 12px;
+  }
+
+  .alert-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #6ed6a9;
+    font-size: 12px;
+  }
+
+  .alert-status i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #52ce9a;
+  }
+
+  .alert-status.disabled {
+    color: #77717a;
+  }
+
+  .alert-status.disabled i {
+    background: #77717a;
+  }
+
+  .alert-card-content {
+    display: grid;
+    flex: 1;
+    grid-template-columns: 1fr 1fr;
+    gap: 17px;
+    padding: 18px;
+  }
+
+  .alert-card-content > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .alert-card-content span {
+    display: block;
+    color: #6e6872;
+    font-size: 12px;
+    font-weight: 550;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .alert-card-content strong,
+  .alert-card-content p {
+    display: block;
+    margin-top: 7px;
+    color: #bab4bd;
+    font-size: 14px;
+    font-weight: 450;
+    line-height: 1.5;
+  }
+
+  .alert-card footer {
+    border-top: 1px solid rgb(255 255 255 / 0.07);
+    color: #6f6973;
+    font-size: 12px;
+  }
+
+  .alert-card-actions,
+  .alert-card-actions form {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .alert-card-actions a,
+  .alert-card-actions > form > button:not(.alert-toggle) {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 7px;
+    color: #938d96;
+  }
+
+  .alert-card-actions a:hover {
+    border-color: rgb(249 93 17 / 0.24);
+    color: #ff955b;
+  }
+
+  .alert-card-actions .delete-alert:hover {
+    border-color: rgb(239 68 68 / 0.28);
+    color: #f87171;
+  }
+
+  .alert-toggle {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: #3b3940;
+    transition: background 0.15s ease;
+  }
+
+  .alert-toggle span {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #f3f0f3;
+    transition: transform 0.15s ease;
+  }
+
+  .alert-toggle.active {
+    background: #f95d11;
+  }
+
+  .alert-toggle.active span {
+    transform: translateX(14px);
+  }
+
+  @media (max-width: 850px) {
+    .alert-cards-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

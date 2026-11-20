@@ -10,9 +10,9 @@ test('org developer only has a sidebar link into "Proyectos", nothing else', asy
   loginAs,
 }) => {
   await loginAs('orgDeveloper');
-  await page.goto(`/org/${org}/settings/projects`);
+  await page.goto(`/org/${org}/projects`);
   const sidebar = page.locator('aside').first();
-  await expect(sidebar.locator(`a[href="/org/${org}/settings/projects"]`)).toBeVisible();
+  await expect(sidebar.locator(`a[href="/org/${org}/projects"]`)).toBeVisible();
   await expect(sidebar.locator(`a[href="/org/${org}/settings/global"]`)).toHaveCount(0);
   await expect(sidebar.locator(`a[href="/org/${org}/settings/access-control"]`)).toHaveCount(0);
   await expect(sidebar.locator(`a[href="/org/${org}/settings/audit"]`)).toHaveCount(0);
@@ -23,7 +23,7 @@ test('org admin has sidebar links into every organization settings resource', as
   loginAs,
 }) => {
   await loginAs('orgAdmin');
-  await page.goto(`/org/${org}/settings/projects`);
+  await page.goto(`/org/${org}/projects`);
   const sidebar = page.locator('aside').first();
   for (const path of [
     'projects',

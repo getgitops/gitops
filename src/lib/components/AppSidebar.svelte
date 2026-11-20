@@ -42,13 +42,8 @@
   export let canAdministerOrganization = false;
   export let canReadOrgProjects = false;
   export let canReadOrgUsers = false;
-  export let canReadOrgRoles = false;
   export let canReadOrgGlobal = false;
-  export let canReadOrgBackups = false;
-  export let canReadOrgServerKeys = false;
   export let canReadOrgAudit = false;
-  export let canReadOrgEvents = false;
-  export let canReadOrganizationAlerts = false;
   export let canReadProjectVault = false;
   export let canReadProjectCodeReport = false;
   export let canReadProjectStateIac = false;
@@ -76,13 +71,13 @@
   $: organizationLinks = [
     {
       label: 'Projects',
-      href: `${orgBase}/settings/projects`,
+      href: `${orgBase}/projects`,
       icon: Folder,
-      active: currentPath.includes('/settings/projects'),
+      active: currentPath === `${orgBase}/projects`,
       visible: canReadOrgProjects,
     },
     {
-      label: 'Members',
+      label: 'Access Control',
       href: `${orgBase}/settings/access-control`,
       icon: Users,
       active: currentPath.includes('/settings/access-control'),
@@ -99,7 +94,7 @@
       label: 'Settings',
       href: `${orgBase}/settings/global`,
       icon: Settings,
-      active: currentPath.includes('/settings/') && !currentPath.includes('/settings/projects'),
+      active: currentPath.startsWith(`${orgBase}/settings/`),
       visible: canReadOrgGlobal,
     },
   ].filter((item) => item.visible !== false);
@@ -131,39 +126,6 @@
       visible:
         !currentProjectSlug ||
         (canReadProjectStateIac && productProject?.modules?.stateiac === true),
-    },
-  ];
-
-  $: settingsLinks = [
-    {
-      label: 'Global',
-      href: `${orgBase}/settings/global`,
-      visible: canReadOrgGlobal,
-    },
-    {
-      label: 'Roles & permissions',
-      href: `${orgBase}/settings/roles-permissions`,
-      visible: canReadOrgRoles,
-    },
-    {
-      label: 'System & backup',
-      href: `${orgBase}/settings/system-backup`,
-      visible: canReadOrgBackups,
-    },
-    {
-      label: 'Server access keys',
-      href: `${orgBase}/settings/server-access-keys`,
-      visible: canReadOrgServerKeys,
-    },
-    {
-      label: 'Events',
-      href: `${orgBase}/settings/events`,
-      visible: canReadOrgEvents,
-    },
-    {
-      label: 'Alerts',
-      href: `${orgBase}/settings/alerts`,
-      visible: canReadOrganizationAlerts,
     },
   ];
 
@@ -291,15 +253,6 @@
             <svelte:component this={item.icon} class="h-4 w-4" />
             {#if !collapsed}<span>{item.label}</span>{/if}
           </a>
-        {/each}
-      </div>
-    {/if}
-
-    {#if canAdministerOrganization && currentPath.includes('/settings/') && !collapsed}
-      <p class="sidebar-section-label settings-label">Organization settings</p>
-      <div class="sidebar-settings-links">
-        {#each settingsLinks.filter((item) => item.visible) as item}
-          <a href={item.href} class:active={currentPath.startsWith(item.href)}>{item.label}</a>
         {/each}
       </div>
     {/if}

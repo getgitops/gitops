@@ -8,13 +8,13 @@
     CircleDot,
     GitBranch,
     KeyRound,
-    Plus,
     Rocket,
     Settings,
     ShieldCheck,
     TriangleAlert,
   } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
+  import OrganizationNavigation from '#lib/components/OrganizationNavigation.svelte';
 
   type ProjectRow = {
     id: string;
@@ -37,6 +37,7 @@
   export let data: {
     projects: ProjectRow[];
     organization?: { slug?: string | null; name?: string | null };
+    canReadOrgGlobal?: boolean;
   };
 
   const projectDefaults = [
@@ -1220,22 +1221,15 @@
       }
     </style>
     <div class="page-actions">
-      <a href={`/org/${orgSlug}/settings/projects`} class="button-primary">
-        <Plus class="h-4 w-4" /> New Project
-      </a>
-      <a href={`/org/${orgSlug}/settings/global`} class="button-secondary">
-        <Settings class="h-4 w-4" /> Settings
-      </a>
+      {#if data.canReadOrgGlobal}
+        <a href={`/org/${orgSlug}/settings/global`} class="button-secondary">
+          <Settings class="h-4 w-4" /> Settings
+        </a>
+      {/if}
     </div>
   </header>
 
-  <nav class="overview-tabs" aria-label="Organization sections">
-    <a href={`/org/${orgSlug}/overview`} class="active">Overview</a>
-    <a href={`/org/${orgSlug}/settings/projects`}>Projects</a>
-    <a href={`/org/${orgSlug}/settings/access-control`}>Members</a>
-    <a href={`/org/${orgSlug}/settings/global`}>Integrations</a>
-    <a href={`/org/${orgSlug}/settings/global`}>Settings</a>
-  </nav>
+  <OrganizationNavigation organizationSlug={orgSlug} active="overview" />
 
   <section class="metric-grid" aria-label="Organization metrics">
     <article class="metric-card">
@@ -1276,7 +1270,7 @@
         <div>
           <h2>Active Projects</h2>
         </div>
-        <a href={`/org/${orgSlug}/settings/projects`}>
+        <a href={`/org/${orgSlug}/projects`}>
           View all <ArrowRight class="h-3 w-3" />
         </a>
       </header>

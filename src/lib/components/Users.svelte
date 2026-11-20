@@ -414,16 +414,16 @@
                       </button>
                       {#if openRoleMenuId === user.id}
                         <div
-                          class="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+                          class="role-dropdown absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border shadow-lg"
                         >
                           {#each roles as role (role.id)}
                             <button
                               type="button"
                               on:click={() => selectRole(user, role)}
-                              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50 {user
+                              class="role-dropdown-item flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition {user
                                 .role?.id === role.id
-                                ? 'font-medium text-slate-950'
-                                : 'text-slate-600'}"
+                                ? 'font-medium active'
+                                : ''}"
                             >
                               <span class="truncate">{role.name}</span>
                               {#if user.role?.id === role.id}
@@ -435,7 +435,9 @@
                       {/if}
                     </div>
                   {:else}
-                    <span class="truncate">{user.role?.name ?? $_('usersComponent.selectRole')}</span>
+                    <span class="truncate"
+                      >{user.role?.name ?? $_('usersComponent.selectRole')}</span
+                    >
                   {/if}
                 </td>
                 <td class="px-4 py-3 text-slate-600">

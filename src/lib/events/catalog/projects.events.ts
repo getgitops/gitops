@@ -68,7 +68,7 @@ export const projectEvents: EventDefinitions<typeof CREATED | typeof UPDATED | t
     ],
   },
   [DELETED]: {
-    link: (context) => organizationPath(context, '/settings/projects'),
+    link: (context) => organizationPath(context, '/projects'),
     ...eventText(DELETED),
     module: 'projects',
     scope: 'organization',

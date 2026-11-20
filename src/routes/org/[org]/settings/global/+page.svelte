@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Building2, CheckCircle, KeyRound, LockKeyhole, RefreshCw, Shield } from '@lucide/svelte';
+  import { Building2, CheckCircle, KeyRound, RefreshCw, Shield } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
   import type { GoogleSsoStatus } from '#modules/auth';
 
@@ -25,13 +25,13 @@
   <title>{$_('orgSettings.global.title')} - {$_('orgSettings.title')}</title>
 </svelte:head>
 
-<div class="space-y-8">
-  <section>
-    <h3 class="text-xl font-semibold text-slate-900">{$_('orgSettings.global.title')}</h3>
-    <p class="mt-2 text-sm text-slate-600">{$_('orgSettings.global.description')}</p>
+<div class="global-settings">
+  <section class="settings-section-heading">
+    <h2>{$_('orgSettings.global.title')}</h2>
+    <p>{$_('orgSettings.global.description')}</p>
   </section>
 
-  <section class="space-y-4">
+  <section class="auth-section">
     <div>
       <h4 class="text-base font-semibold text-slate-900">
         {$_('orgSettings.global.authentication')}
@@ -41,7 +41,7 @@
       </p>
     </div>
 
-    <div class="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+    <div class="auth-active-card">
       <div class="flex items-start gap-3">
         <Shield class="mt-0.5 h-5 w-5 text-emerald-700" />
         <div>
@@ -56,7 +56,7 @@
     </div>
 
     <section
-      class="overflow-hidden rounded-md border bg-white {data.googleSso.enabled
+      class="auth-provider-card {data.googleSso.enabled
         ? 'border-emerald-200'
         : 'border-slate-200 opacity-75'}"
     >
@@ -107,7 +107,7 @@
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-md border border-slate-200 bg-white opacity-75">
+    <section class="auth-provider-card disabled">
       <div class="flex items-start gap-3 px-4 py-4">
         <input
           id="saml-enabled"
@@ -161,27 +161,77 @@
       {isSaving ? $_('orgSettings.global.saving') : $_('orgSettings.global.save')}
     </button>
   </section>
-
-  <section class="space-y-4">
-    <div>
-      <h4 class="text-base font-semibold text-slate-900">{$_('orgSettings.global.encryption')}</h4>
-      <p class="mt-1 text-sm text-slate-600">{$_('orgSettings.global.encryptionDescription')}</p>
-    </div>
-
-    <div class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-14">
-      <div class="flex flex-col items-center justify-center gap-3 text-center">
-        <div
-          class="flex h-12 w-12 items-center justify-center rounded-md bg-white text-slate-500 shadow-sm ring-1 ring-slate-200"
-        >
-          <LockKeyhole class="h-6 w-6" />
-        </div>
-        <div>
-          <p class="text-sm font-semibold text-slate-900">{$_('orgSettings.global.comingSoon')}</p>
-          <p class="mt-1 max-w-md text-sm text-slate-500">
-            {$_('orgSettings.global.comingSoonDescription')}
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
 </div>
+
+<style>
+  .global-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .settings-section-heading h2 {
+    color: #ece8ee;
+    font-size: 21px;
+    font-weight: 580;
+  }
+
+  .settings-section-heading p {
+    margin-top: 6px;
+    color: #7f7983;
+    font-size: 15px;
+  }
+
+  .auth-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .global-settings :global(h4) {
+    color: #ded9df;
+    font-size: 16px;
+  }
+
+  .global-settings :global(h4 + p) {
+    margin-top: 4px;
+    color: #7f7983;
+    font-size: 14px;
+  }
+
+  .auth-active-card,
+  .auth-provider-card {
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.085);
+    border-radius: 10px;
+    background: rgb(255 255 255 / 0.025);
+  }
+
+  .auth-active-card {
+    padding: 16px;
+    border-color: rgb(52 211 153 / 0.18);
+    background: rgb(52 211 153 / 0.045);
+  }
+
+  .auth-provider-card.disabled {
+    opacity: 0.72;
+  }
+
+  .global-settings :global(.auth-provider-card > div:first-child) {
+    padding: 18px !important;
+  }
+
+  .global-settings :global(input[type='checkbox']) {
+    width: 16px;
+    height: 16px;
+    accent-color: #f95d11;
+  }
+
+  .global-settings :global(.btn-primary) {
+    align-self: flex-start;
+    min-height: 40px;
+    margin-top: 4px;
+    border-color: #f95d11;
+    background: #f95d11;
+  }
+</style>

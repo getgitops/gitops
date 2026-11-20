@@ -53,13 +53,8 @@
         canAdministerOrganization={data.canAdministerOrganization}
         canReadOrgProjects={data.canReadOrgProjects}
         canReadOrgUsers={data.canReadOrgUsers}
-        canReadOrgRoles={data.canReadOrgRoles}
         canReadOrgGlobal={data.canReadOrgGlobal}
-        canReadOrgBackups={data.canReadOrgBackups}
-        canReadOrgServerKeys={data.canReadOrgServerKeys}
         canReadOrgAudit={data.canReadOrgAudit}
-        canReadOrgEvents={data.canReadOrgEvents}
-        canReadOrganizationAlerts={data.canReadOrganizationAlerts}
         canReadProjectVault={data.canReadProjectVault}
         canReadProjectCodeReport={data.canReadProjectCodeReport}
         canReadProjectStateIac={data.canReadProjectStateIac}

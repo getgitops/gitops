@@ -19,9 +19,13 @@ export async function load({ params, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  const [projects, canCreate, canDelete] = await Promise.all([
+  const [projects, canCreate, canUpdate, canDelete] = await Promise.all([
     projectService.listProjectsByOrganization(organization.id),
     cancanService.canSessionUser(locals.user, 'organization:projects:create', {
+      scope: 'organization',
+      organizationId: organization.id,
+    }),
+    cancanService.canSessionUser(locals.user, 'organization:projects:update', {
       scope: 'organization',
       organizationId: organization.id,
     }),
@@ -30,7 +34,7 @@ export async function load({ params, locals }) {
       organizationId: organization.id,
     }),
   ]);
-  return { organization, projects, canCreate, canDelete };
+  return { organization, projects, canCreate, canUpdate, canDelete };
 }
 
 export const actions = {
@@ -54,11 +58,38 @@ export const actions = {
         name: String(form.get('name') ?? ''),
         slug: String(form.get('slug') ?? '') || undefined,
         description: String(form.get('description') ?? '') || undefined,
-        status: String(form.get('status') ?? ''),
+        status: 'active',
       });
       await roleService.createDefaultProjectRoles(project.id);
 
       return { success: true, project };
+    } catch (error: unknown) {
+      return errorResponse(error);
+    }
+  },
+
+  async updateProject({ request, locals }) {
+    try {
+      const form = await request.formData();
+      const id = String(form.get('id') ?? '');
+      const project = await projectService.getProject(id);
+      const canUpdate = await cancanService.canSessionUser(
+        locals.user,
+        'organization:projects:update',
+        {
+          scope: 'organization',
+          organizationId: project.organization?.id ?? '',
+        },
+      );
+
+      if (!canUpdate) return fail(403, { error: 'Forbidden' });
+
+      const updated = await projectService.updateProject(id, {
+        name: String(form.get('name') ?? ''),
+        description: String(form.get('description') ?? ''),
+        status: String(form.get('status') ?? 'active'),
+      });
+      return { success: true, project: updated };
     } catch (error: unknown) {
       return errorResponse(error);
     }
