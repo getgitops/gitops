@@ -1036,6 +1036,74 @@
       "enforcement": {
         "warn": "Aviso",
         "block": "Bloqueante"
+      },
+      "secretChangedField": {
+        "key": "Key",
+        "description": "Descripción",
+        "folder": "Carpeta",
+        "values": "Valores"
+      }
+    },
+    "vault": {
+      "secret": {
+        "created": {
+          "label": "Secreto creado",
+          "description": "Se ha creado un secreto en el vault del proyecto.",
+          "fields": {
+            "key": "Key del secreto",
+            "environmentIds": "Entornos",
+            "folderPath": "Carpeta"
+          }
+        },
+        "updated": {
+          "label": "Secreto actualizado",
+          "description": "Se ha modificado un secreto del vault del proyecto.",
+          "fields": {
+            "key": "Key del secreto",
+            "environmentIds": "Entornos",
+            "folderPath": "Carpeta",
+            "changedFields": "Campos modificados"
+          }
+        },
+        "deleted": {
+          "label": "Secreto eliminado",
+          "description": "Se ha eliminado un secreto del vault del proyecto.",
+          "fields": {
+            "key": "Key del secreto",
+            "environmentIds": "Entornos",
+            "folderPath": "Carpeta"
+          }
+        }
+      },
+      "env": {
+        "imported": {
+          "label": "Fichero .env importado",
+          "description": "Se han importado secretos desde un fichero .env.",
+          "fields": {
+            "environmentId": "Entorno",
+            "folderPath": "Carpeta",
+            "created": "Secretos creados",
+            "updated": "Secretos actualizados"
+          }
+        }
+      },
+      "environment": {
+        "created": {
+          "label": "Entorno creado",
+          "description": "Se ha creado un entorno en el vault del proyecto.",
+          "fields": {
+            "environmentId": "Entorno",
+            "name": "Nombre"
+          }
+        },
+        "deleted": {
+          "label": "Entorno eliminado",
+          "description": "Se ha eliminado un entorno del vault del proyecto.",
+          "fields": {
+            "environmentId": "Entorno",
+            "name": "Nombre"
+          }
+        }
       }
     }
   }

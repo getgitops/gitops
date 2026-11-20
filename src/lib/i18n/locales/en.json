@@ -1036,6 +1036,74 @@
       "enforcement": {
         "warn": "Warning",
         "block": "Blocking"
+      },
+      "secretChangedField": {
+        "key": "Key",
+        "description": "Description",
+        "folder": "Folder",
+        "values": "Values"
+      }
+    },
+    "vault": {
+      "secret": {
+        "created": {
+          "label": "Secret created",
+          "description": "A secret was created in the project vault.",
+          "fields": {
+            "key": "Secret key",
+            "environmentIds": "Environments",
+            "folderPath": "Folder"
+          }
+        },
+        "updated": {
+          "label": "Secret updated",
+          "description": "A secret of the project vault was modified.",
+          "fields": {
+            "key": "Secret key",
+            "environmentIds": "Environments",
+            "folderPath": "Folder",
+            "changedFields": "Changed fields"
+          }
+        },
+        "deleted": {
+          "label": "Secret deleted",
+          "description": "A secret was deleted from the project vault.",
+          "fields": {
+            "key": "Secret key",
+            "environmentIds": "Environments",
+            "folderPath": "Folder"
+          }
+        }
+      },
+      "env": {
+        "imported": {
+          "label": ".env file imported",
+          "description": "Secrets were imported from a .env file.",
+          "fields": {
+            "environmentId": "Environment",
+            "folderPath": "Folder",
+            "created": "Secrets created",
+            "updated": "Secrets updated"
+          }
+        }
+      },
+      "environment": {
+        "created": {
+          "label": "Environment created",
+          "description": "An environment was created in the project vault.",
+          "fields": {
+            "environmentId": "Environment",
+            "name": "Name"
+          }
+        },
+        "deleted": {
+          "label": "Environment deleted",
+          "description": "An environment was deleted from the project vault.",
+          "fields": {
+            "environmentId": "Environment",
+            "name": "Name"
+          }
+        }
       }
     }
   }

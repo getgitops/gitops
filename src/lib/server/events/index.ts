@@ -3,6 +3,7 @@ import { InProcessEventBus, type EventBus } from './event-bus';
 export { InProcessEventBus, actorFromRequest } from './event-bus';
 export type { EventBus, InProcessEventBusOptions } from './event-bus';
 export type * from './types';
+export { resolveProjectScope, type ProjectScopeLookup } from './scope';
 
 const GLOBAL_KEY = Symbol.for('gitops.events.bus');
 

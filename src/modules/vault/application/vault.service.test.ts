@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { RecordingEventBus } from '#lib/server/events/testing';
 import { VaultService } from './vault.service';
 
 type Json = Record<string, unknown>;
@@ -18,6 +19,29 @@ class FakeVaultRepository {
       (environment) => environment.projectId === projectId && environment.slug === slug,
     );
     return found ? jsonRow(found) : null;
+  }
+
+  failWrites = false;
+
+  async listEnvironments(projectId: string) {
+    return this.environments
+      .filter((environment) => environment.projectId === projectId)
+      .map((environment) => ({ ...jsonRow(environment), order: Number(environment.order ?? 0) }));
+  }
+
+  async findEnvironmentById(id: string) {
+    const found = this.environments.find((environment) => environment.id === id);
+    return found ? jsonRow(found) : null;
+  }
+
+  async createEnvironment(input: Json) {
+    if (this.failWrites) throw new Error('GitDB write failed');
+    this.environments.push(input);
+  }
+
+  async deleteEnvironment(id: string) {
+    if (this.failWrites) throw new Error('GitDB write failed');
+    this.environments = this.environments.filter((environment) => environment.id !== id);
   }
 
   async listFolders(projectId: string) {
@@ -56,15 +80,18 @@ class FakeVaultRepository {
   }
 
   async createSecret(input: Json) {
+    if (this.failWrites) throw new Error('GitDB write failed');
     this.secrets.push({ ...input, folderId: input.folderId ?? null });
   }
 
   async updateSecret(id: string, changes: Json) {
+    if (this.failWrites) throw new Error('GitDB write failed');
     const secret = this.secrets.find((candidate) => candidate.id === id);
     if (secret) Object.assign(secret, changes);
   }
 
   async deleteSecret(id: string) {
+    if (this.failWrites) throw new Error('GitDB write failed');
     this.secrets = this.secrets.filter((secret) => secret.id !== id);
   }
 
@@ -155,9 +182,9 @@ describe('VaultService secrets', () => {
 
   it('rejects creating a secret in a folder from another project', async () => {
     repository.folders.push({ id: 'folder-1', projectId: 'other', path: '/x' });
-    await expect(
-      service.createSecret('p1', { folderId: 'folder-1', key: 'X' }),
-    ).rejects.toThrow('Folder not found');
+    await expect(service.createSecret('p1', { folderId: 'folder-1', key: 'X' })).rejects.toThrow(
+      'Folder not found',
+    );
   });
 
   it('finds a secret by key', async () => {
@@ -181,9 +208,9 @@ describe('VaultService secrets', () => {
 
   it('throws when updating a secret from another project', async () => {
     await repository.createSecret({ id: 's1', projectId: 'other', folderId: null, key: 'X' });
-    await expect(
-      service.updateSecret('p1', 's1', { key: 'X', values: {} }),
-    ).rejects.toThrow('Secret not found');
+    await expect(service.updateSecret('p1', 's1', { key: 'X', values: {} })).rejects.toThrow(
+      'Secret not found',
+    );
   });
 
   it('deletes a secret', async () => {
@@ -212,7 +239,11 @@ describe('VaultService secrets', () => {
   });
 
   it('overrides the description when provided to setSecretValue', async () => {
-    await service.createSecret('p1', { key: 'zone', description: 'Region', values: { prod: 'eu' } });
+    await service.createSecret('p1', {
+      key: 'zone',
+      description: 'Region',
+      values: { prod: 'eu' },
+    });
     const updated = await service.setSecretValue('p1', null, 'zone', 'prod', 'us', 'New region');
     expect(updated.description).toBe('New region');
   });
@@ -221,5 +252,163 @@ describe('VaultService secrets', () => {
     await expect(service.setSecretValue('p1', null, 'missing', 'prod', 'us')).rejects.toThrow(
       'Secret not found',
     );
+  });
+});
+
+describe('VaultService events', () => {
+  const SECRET_VALUE = 'super-secret-value-123';
+  let repository: FakeVaultRepository;
+  let events: RecordingEventBus;
+  let service: VaultService;
+
+  beforeEach(() => {
+    repository = new FakeVaultRepository();
+    events = new RecordingEventBus();
+    service = new VaultService(repository as never, {
+      events,
+      projects: { getProject: async () => ({ organization: { id: 'org-1' } }) },
+    });
+    repository.environments.push(
+      { id: 'env-dev', projectId: 'p1', slug: 'dev', name: 'Development', order: 0 },
+      { id: 'env-prod', projectId: 'p1', slug: 'prod', name: 'Production', order: 1 },
+    );
+    repository.folders.push({ id: 'folder-1', projectId: 'p1', path: '/database' });
+  });
+
+  it('publishes secret.created with environments and folder, scoped to the project', async () => {
+    const secret = await service.createSecret('p1', {
+      folderId: 'folder-1',
+      key: 'db password',
+      values: { prod: SECRET_VALUE },
+    });
+
+    expect(events.types()).toEqual(['vault.secret.created']);
+    const [event] = events.ofType('vault.secret.created');
+    expect(event.scope).toEqual({ organizationId: 'org-1', projectId: 'p1' });
+    expect(event.payload).toEqual({
+      secretId: secret.id,
+      key: 'DB_PASSWORD',
+      folderId: 'folder-1',
+      folderPath: '/database',
+      environmentIds: ['env-prod'],
+    });
+  });
+
+  it('publishes secret.updated with only the changed environments and fields', async () => {
+    const secret = await service.createSecret('p1', {
+      key: 'zone',
+      values: { dev: 'eu', prod: 'eu' },
+    });
+    events.clear();
+
+    await service.updateSecret('p1', secret.id, { key: 'zone', values: { dev: 'eu', prod: 'us' } });
+
+    expect(events.ofType('vault.secret.updated').map((event) => event.payload)).toEqual([
+      {
+        secretId: secret.id,
+        key: 'ZONE',
+        folderId: null,
+        folderPath: '/',
+        environmentIds: ['env-prod'],
+        changedFields: ['values'],
+      },
+    ]);
+  });
+
+  it('publishes secret.updated from setSecretValue and secret.deleted from deleteSecretByKey', async () => {
+    await service.createSecret('p1', { key: 'zone', values: { prod: 'eu' } });
+    events.clear();
+
+    await service.setSecretValue('p1', null, 'zone', 'dev', SECRET_VALUE);
+    await service.deleteSecretByKey('p1', null, 'zone');
+
+    expect(events.types()).toEqual(['vault.secret.updated', 'vault.secret.deleted']);
+    expect(events.ofType('vault.secret.updated')[0].payload.environmentIds).toEqual(['env-dev']);
+    expect(events.ofType('vault.secret.deleted')[0].payload).toMatchObject({
+      key: 'ZONE',
+      environmentIds: ['env-dev', 'env-prod'],
+    });
+  });
+
+  it('publishes a single env.imported event for an import', async () => {
+    await service.createSecret('p1', { key: 'EXISTING', values: { dev: 'old' } });
+    events.clear();
+
+    await service.importEnvFile(
+      'p1',
+      'dev',
+      null,
+      `EXISTING=new\nNEW_ONE=${SECRET_VALUE}\nOTHER=x`,
+    );
+
+    expect(events.types()).toEqual(['vault.env.imported']);
+    expect(events.ofType('vault.env.imported')[0].payload).toEqual({
+      environmentId: 'env-dev',
+      environmentSlug: 'dev',
+      folderId: null,
+      folderPath: '/',
+      created: 2,
+      updated: 1,
+    });
+  });
+
+  it('publishes environment.created and environment.deleted', async () => {
+    await service.createEnvironment('p1', { name: 'Stage' });
+    const stage = repository.environments.find((environment) => environment.slug === 'stage')!;
+    await service.deleteEnvironment('p1', String(stage.id));
+
+    expect(events.types()).toEqual(['vault.environment.created', 'vault.environment.deleted']);
+    expect(events.ofType('vault.environment.created')[0].payload).toEqual({
+      environmentId: stage.id,
+      name: 'Stage',
+      slug: 'stage',
+    });
+    expect(events.ofType('vault.environment.deleted')[0].payload.environmentId).toBe(stage.id);
+  });
+
+  it('publishes nothing when the operation is rejected', async () => {
+    await expect(service.updateSecret('p1', 'missing', { key: 'X' })).rejects.toThrow();
+    await expect(service.deleteSecret('p1', 'missing')).rejects.toThrow();
+    await expect(service.createEnvironment('p1', { name: 'dev' })).rejects.toThrow();
+    await expect(service.importEnvFile('p1', 'missing', null, 'A=1')).rejects.toThrow();
+    await expect(service.importEnvFile('p1', 'dev', null, '# nothing')).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
+  });
+
+  it('publishes nothing when the GitDB write fails', async () => {
+    const secret = await service.createSecret('p1', { key: 'zone', values: { prod: 'eu' } });
+    events.clear();
+    repository.failWrites = true;
+
+    await expect(service.createSecret('p1', { key: 'other' })).rejects.toThrow();
+    await expect(
+      service.updateSecret('p1', secret.id, { key: 'zone', values: { prod: 'us' } }),
+    ).rejects.toThrow();
+    await expect(service.deleteSecret('p1', secret.id)).rejects.toThrow();
+    await expect(service.createEnvironment('p1', { name: 'Stage' })).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
+  });
+
+  it('never includes secret values in any vault event', async () => {
+    const secret = await service.createSecret('p1', {
+      key: 'token',
+      values: { prod: SECRET_VALUE },
+    });
+    await service.updateSecret('p1', secret.id, {
+      key: 'token',
+      values: { prod: `${SECRET_VALUE}-rotated`, dev: SECRET_VALUE },
+    });
+    await service.importEnvFile('p1', 'prod', null, `IMPORTED=${SECRET_VALUE}`);
+    await service.deleteSecret('p1', secret.id);
+
+    expect(events.types()).toEqual([
+      'vault.secret.created',
+      'vault.secret.updated',
+      'vault.env.imported',
+      'vault.secret.deleted',
+    ]);
+    expect(JSON.stringify(events.events)).not.toContain(SECRET_VALUE);
   });
 });

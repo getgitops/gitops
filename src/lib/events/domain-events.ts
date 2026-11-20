@@ -67,12 +67,50 @@ export type CodeReportServicePayload = {
   slug: string;
 };
 
+export type VaultSecretChangedField = 'key' | 'description' | 'folder' | 'values';
+
+/** Never carries secret values: only which environments hold (or changed) a value. */
+export type VaultSecretPayload = {
+  secretId: string;
+  key: string;
+  folderId: string | null;
+  /** `/` for the vault root. */
+  folderPath: string;
+  /** Environments with a value (created/deleted) or whose value changed (updated). */
+  environmentIds: string[];
+};
+
+export type VaultSecretUpdatedPayload = VaultSecretPayload & {
+  changedFields: VaultSecretChangedField[];
+};
+
+export type VaultEnvImportedPayload = {
+  environmentId: string;
+  environmentSlug: string;
+  folderId: string | null;
+  folderPath: string;
+  created: number;
+  updated: number;
+};
+
+export type VaultEnvironmentPayload = {
+  environmentId: string;
+  name: string;
+  slug: string;
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
   'code_report.policy.violated': CodeReportPolicyViolatedPayload;
   'code_report.service.created': CodeReportServicePayload;
   'code_report.service.deleted': CodeReportServicePayload;
+  'vault.secret.created': VaultSecretPayload;
+  'vault.secret.updated': VaultSecretUpdatedPayload;
+  'vault.secret.deleted': VaultSecretPayload;
+  'vault.env.imported': VaultEnvImportedPayload;
+  'vault.environment.created': VaultEnvironmentPayload;
+  'vault.environment.deleted': VaultEnvironmentPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;
