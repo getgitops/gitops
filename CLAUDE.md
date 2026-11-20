@@ -100,8 +100,8 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 `*.data.ts`) for configuration constants: role permissions, default project settings, risk weights,
 and tool policy mappings.
 
-Current modules include `auth`, `config`, `organization`, `projects`, `storage`, and
-`code-report`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
+Current modules include `auth`, `config`, `organization`, `projects`, `storage`,
+`code-report`, `vault`, `audit`, and `alerts`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
 their `index.ts`, not internal layers.
 
 GitDB is the single source of truth. Users, roles, API keys, organizations, projects, storage
@@ -154,6 +154,70 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   it from the role editor). Retention: `GITOPS_EVENTS_EXPIRATION` (default `7d`). It is per
   process and cleared on restart.
 
+## Alerts
+
+`$modules/alerts` turns domain events into emails.
+
+- `AlertEntity` (GitDB `alerts`): an alert watches one `eventType` from an organization
+  (`scope: 'organization'`, covers every project of it) or a project. `conditions`
+  (`{ field, operator, value }`) use the catalog fields, combined with `match: 'all' | 'any'`; an
+  empty list always matches. Organization alerts on project events also get a `projectId` field
+  (`listAlertFields`, value taken from the event scope).
+- `AlertService` validates every write against the catalog and the location and throws
+  `AlertValidationError` with field-level codes (`conditions.0.operator: 'invalid_operator'`):
+  alertable event compatible with the scope, operators of the field, typed values, references and
+  recipients (users, roles) inside the location, and **anti-escalation** (the author must hold the
+  event's `readPermission`).
+- `AlertEngine` subscribes to `'*'` once per process (`registerAlertEngine()` in `hooks.server.ts`,
+  HMR-safe). Per event: fixed system notifications first (`system-notifications.data.ts`: access
+  granted/updated/revoked to the affected user, new personal API keys to their owner, never to the
+  actor, invitations skipped), then the enabled alerts of that type (cached 60 s, invalidated by
+  the service) whose location covers the event and whose conditions match. A per-alert in-memory
+  throttle (`throttleMinutes`) suppresses repeats and the next email reports how many were skipped.
+- Recipients = selected users ∪ members with the selected roles, minus disabled users and users
+  without an email, then **filtered with `cancanService.can(userId, readPermission, event scope)`**
+  (most-specific-wins applies). One email per recipient (`AlertMailNotifier`); a failed email
+  only affects that recipient. An organization alert and a project alert on the same event fire
+  independently.
+- Email (`#lib/server/infra/notifications`): every email is wrapped by `renderEmail()` in
+  `src/notifications/email/_layout.html` (header, content, footer with the reason and a manage
+  link). Alerts use `alert.html` (field table built from the catalog) unless the definition sets
+  `mailTemplate` (`alert-code-report-analysis.html`); `link(context)` gives the app path of the
+  resource and `mailSummary(payload)` the subject summary (`[GitOps] <alert>: <summary>`). System
+  notices use `system-access-changed.html` / `system-security-notice.html`. Escape every user or
+  event value with `{{ }}`; `{{{ }}}` only for HTML built internally with `renderTemplateString`.
+  Texts are `alerts.email.*`, in the recipient's locale or English. Links are absolute with
+  `ORIGIN` (`absoluteUrl()`), omitted without it. These functions never reach the client: the
+  catalog endpoint strips them.
+- Sending: alert and system emails go through `mailQueue` (concurrency 3, `withRetry` 4 attempts
+  1 s → 4 s → 16 s with jitter, only for `isRetryableMailError`: network errors and 4xx replies).
+  Definitive failures are logged by `createLogger('mail')` with the alert, the event and a
+  recipient hash, never the content or the address. `registerMailShutdown()` drains it on
+  `sveltekit:shutdown` (10 s). Invitations and password resets call `notify()` directly: their
+  tokens must not travel through the bus or the queue. Without SMTP (`isMailConfigured()`), the
+  engine skips events (debug log), warns once at startup and the alert pages show a banner.
+- HTTP: `#lib/server/alerts` (`access.ts` for permissions/location/actor, `operations.ts` shared by
+  the API and form actions). Routes: `GET /api/events/catalog`, `GET|POST /api/alerts`,
+  `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
+  (dry runs: never send, never touch the throttle). Project API keys only reach their project.
+
+- UI: `/org/<org>/settings/alerts` and `/org/<org>/projects/<slug>/settings/alerts` (list, `new`,
+  `[id]`), thin routes over `#lib/server/alerts/page.ts` (loaders and form actions `draft`, `save`,
+  `test`, `toggle`, `delete`; everything works without JavaScript). Components live in
+  `#lib/components/alerts/`: `ConditionBuilder` renders fields, operators and inputs only from the
+  `CatalogEntry` it receives (tested with `svelte/server` in `ConditionBuilder.test.ts`; Vitest
+  compiles `.svelte` through `vitest.config.ts`). Project pages also list the inherited
+  organization alerts, read-only. Error codes map to `alerts.errors.<code>`.
+
+Making an event alertable:
+
+1. Declare the payload in `DomainEventMap` and publish it with `publishAfterWrite` and the right
+   scope.
+2. Add its `EventDefinition` with `alertable: true`, the correct `scope` and `readPermission`, and
+   the fields people will filter on (`reference` fields need a case in `PlatformDirectory`).
+3. Add the `events.<type>.*` translations in `es.json` and `en.json`.
+4. Nothing else: the catalog endpoint, the validation, the engine and the UI pick it up.
+
 ## Authorization
 
 Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`
@@ -193,8 +257,8 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
-- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`
+- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
@@ -203,11 +267,11 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
-- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events
+- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts
 - **Organization Developer** — read/create/update projects only
-- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
-- **Project Developer** — read/create/update project resources; no deletion or admin; granular module access
-- **Project Viewer** — read-only: project metadata, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
+- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit, alerts; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
+- **Project Developer** — read/create/update project resources; no deletion or admin; granular module access; reads alerts
+- **Project Viewer** — read-only: project metadata, alerts, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 
 Module resources have granular sub-permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. These allow fine-grained access control within each module.
 

@@ -3,6 +3,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
+import { registerAlertEngine } from '#modules/alerts';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
 import { markServerFailed, markServerReady } from '#lib/server/server-ready';
@@ -15,6 +16,8 @@ const startupLog = createLogger('startup');
 const serverReady = (async () => {
   await startGitDb();
   await ensureAuthReady();
+  // once per process (HMR-safe): system notifications and alerts on every published event
+  registerAlertEngine();
   await refreshBootstrapState();
   markServerReady();
 })();

@@ -2,6 +2,7 @@
   import { createPageStore } from '#lib/page-store';
   import {
     Activity,
+    BellRing,
     BarChart3,
     Building2,
     ChevronDown,
@@ -48,11 +49,13 @@
   export let canReadOrgServerKeys = false;
   export let canReadOrgAudit = false;
   export let canReadOrgEvents = false;
+  export let canReadOrganizationAlerts = false;
   export let canReadProjectInfo = false;
   export let canReadProjectUsers = false;
   export let canReadProjectRoles = false;
   export let canReadProjectServerKeys = false;
   export let canReadProjectAudit = false;
+  export let canReadProjectAlerts = false;
   export let canReadProjectVault = false;
   export let canReadProjectCodeReport = false;
   export let canReadProjectStateIac = false;
@@ -230,6 +233,12 @@
               visible: canReadProjectAudit,
             },
             {
+              label: $_('sidebar.items.alerts'),
+              href: `${projectBase}/settings/alerts`,
+              icon: BellRing,
+              visible: canReadProjectAlerts,
+            },
+            {
               label: $_('sidebar.items.serverKeys'),
               href: `${projectBase}/settings/server-access-keys`,
               icon: Shield,
@@ -309,6 +318,12 @@
                   href: `/org/${organizationSlug}/settings/events`,
                   icon: Activity,
                   visible: canReadOrgEvents,
+                },
+                {
+                  label: $_('sidebar.items.alerts'),
+                  href: `/org/${organizationSlug}/settings/alerts`,
+                  icon: BellRing,
+                  visible: canReadOrganizationAlerts,
                 },
               ]
                 .filter((item) => item.visible)

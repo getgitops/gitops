@@ -1,5 +1,6 @@
 import { OPERATORS, enumOptions, eventText, fieldLabel } from './fields';
 import type { EventDefinitions } from './types';
+import { organizationPath } from './links';
 
 export const ORGANIZATION_CHANGED_FIELDS = ['name', 'slug', 'description'] as const;
 
@@ -7,6 +8,7 @@ const UPDATED = 'organization.updated';
 
 export const organizationEvents: EventDefinitions<typeof UPDATED> = {
   [UPDATED]: {
+    link: (context) => organizationPath(context, '/settings/global'),
     ...eventText(UPDATED),
     module: 'organization',
     scope: 'organization',

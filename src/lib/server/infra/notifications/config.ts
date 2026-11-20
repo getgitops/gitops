@@ -73,3 +73,26 @@ export function isSmtpConfigured(): boolean {
 export function formatSender(config: SmtpConfig): string {
   return config.fromName ? `${config.fromName} <${config.from}>` : config.from;
 }
+
+/**
+ * Public origin used for absolute links in emails (`ORIGIN`, e.g. `https://gitops.example.com`),
+ * without a trailing slash. `null` when unset or not an http(s) URL: emails then go without links.
+ */
+export function readPublicOrigin(): string | null {
+  const raw = value('ORIGIN');
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+/** `origin + path`, or `null` without a usable origin or path. */
+export function absoluteUrl(path: string | null | undefined): string | null {
+  const origin = readPublicOrigin();
+  if (!origin || !path || !path.startsWith('/')) return null;
+  return `${origin}${path}`;
+}

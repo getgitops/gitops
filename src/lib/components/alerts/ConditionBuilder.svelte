@@ -1,0 +1,288 @@
+<script lang="ts">
+  import { Plus, Trash2 } from '@lucide/svelte';
+  import { _ } from '#lib/i18n';
+  import type { Operator } from '#lib/events/catalog';
+  import { LIST_OPERATORS, VALUELESS_OPERATORS } from '#lib/alerts/summary';
+  import type { AlertOption, CatalogEntry, CatalogField, DraftCondition } from '#lib/alerts/types';
+  import OptionPicker from './OptionPicker.svelte';
+
+  /**
+   * Builds `conditions[]` from an event definition only: fields, operators, input types and
+   * options all come from the catalog, so a new catalog field shows up here unchanged.
+   *
+   * Every row is a set of named inputs (`conditions.<i>.field|operator|value`), so the form also
+   * works without JavaScript; the add/remove buttons then post to `?/draft`.
+   */
+  type Props = {
+    definition: CatalogEntry | undefined;
+    conditions: DraftCondition[];
+    match: 'all' | 'any';
+    referenceOptions: Record<string, AlertOption[]>;
+    errors?: Record<string, string>;
+    disabled?: boolean;
+  };
+
+  let {
+    definition,
+    conditions = $bindable(),
+    match = $bindable(),
+    referenceOptions,
+    errors = {},
+    disabled = false,
+  }: Props = $props();
+
+  let fields = $derived(definition?.fields ?? []);
+
+  function fieldOf(key: string): CatalogField | undefined {
+    return fields.find((field) => field.key === key);
+  }
+
+  function isList(operator: string) {
+    return LIST_OPERATORS.includes(operator as Operator);
+  }
+
+  function needsValue(operator: string) {
+    return operator !== '' && !VALUELESS_OPERATORS.includes(operator as Operator);
+  }
+
+  function selectField(index: number, key: string) {
+    const field = fieldOf(key);
+    conditions[index] = { field: key, operator: field?.operators[0] ?? '', value: '' };
+  }
+
+  function selectOperator(index: number, operator: Operator) {
+    const current = conditions[index];
+    const list = isList(operator);
+    const values = Array.isArray(current.value)
+      ? current.value
+      : current.value === ''
+        ? []
+        : [String(current.value)];
+    conditions[index] = {
+      ...current,
+      operator,
+      value: !needsValue(operator) ? '' : list ? values : (values[0] ?? ''),
+    };
+  }
+
+  function setValue(index: number, value: DraftCondition['value']) {
+    conditions[index] = { ...conditions[index], value };
+  }
+
+  function add(event: MouseEvent) {
+    event.preventDefault();
+    const first = fields[0];
+    conditions = [
+      ...conditions,
+      { field: first?.key ?? '', operator: first?.operators[0] ?? '', value: '' },
+    ];
+  }
+
+  function remove(event: MouseEvent, index: number) {
+    event.preventDefault();
+    conditions = conditions.filter((_condition, position) => position !== index);
+  }
+
+  function errorId(index: number, part: string) {
+    return errors[`conditions.${index}.${part}`] ? `condition-${index}-${part}-error` : undefined;
+  }
+
+  function valueList(value: DraftCondition['value']): string[] {
+    return Array.isArray(value) ? value.map(String) : value === '' ? [] : [String(value)];
+  }
+
+  function dateValue(value: DraftCondition['value']) {
+    const text = String(value ?? '');
+    return text.length >= 10 ? text.slice(0, 10) : text;
+  }
+</script>
+
+<div class="space-y-3" data-testid="condition-builder">
+  <fieldset class="flex flex-wrap items-center gap-3 text-sm text-slate-700" {disabled}>
+    <legend class="mb-1 text-sm font-medium text-slate-900">{$_('alerts.editor.matchLabel')}</legend
+    >
+    <label class="inline-flex items-center gap-2">
+      <input type="radio" name="match" value="all" bind:group={match} />
+      {$_('alerts.editor.matchAll')}
+    </label>
+    <label class="inline-flex items-center gap-2">
+      <input type="radio" name="match" value="any" bind:group={match} />
+      {$_('alerts.editor.matchAny')}
+    </label>
+  </fieldset>
+
+  {#if conditions.length === 0}
+    <p class="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+      {$_('alerts.editor.noConditions')}
+    </p>
+  {/if}
+
+  <ol class="space-y-3">
+    {#each conditions as condition, index (index)}
+      {@const field = fieldOf(condition.field)}
+      <li
+        class="grid gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]"
+        data-testid="condition-row"
+      >
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-slate-600" for="condition-{index}-field">
+            {$_('alerts.editor.field')}
+          </label>
+          <select
+            id="condition-{index}-field"
+            name="conditions.{index}.field"
+            class="field-input rounded-md border px-2 py-1.5 text-sm"
+            value={condition.field}
+            aria-invalid={Boolean(errors[`conditions.${index}.field`]) || undefined}
+            aria-describedby={errorId(index, 'field')}
+            {disabled}
+            onchange={(event) => selectField(index, event.currentTarget.value)}
+          >
+            {#if !field}
+              <option value={condition.field} disabled>{condition.field || '—'}</option>
+            {/if}
+            {#each fields as option (option.key)}
+              <option value={option.key}>{$_(option.label)}</option>
+            {/each}
+          </select>
+          {#if errors[`conditions.${index}.field`]}
+            <p id="condition-{index}-field-error" class="text-xs text-red-600" role="alert">
+              {$_(`alerts.errors.${errors[`conditions.${index}.field`]}`)}
+            </p>
+          {/if}
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-slate-600" for="condition-{index}-operator">
+            {$_('alerts.editor.operator')}
+          </label>
+          <select
+            id="condition-{index}-operator"
+            name="conditions.{index}.operator"
+            class="field-input rounded-md border px-2 py-1.5 text-sm"
+            value={condition.operator}
+            aria-invalid={Boolean(errors[`conditions.${index}.operator`]) || undefined}
+            aria-describedby={errorId(index, 'operator')}
+            {disabled}
+            onchange={(event) => selectOperator(index, event.currentTarget.value as Operator)}
+          >
+            {#each field?.operators ?? [] as operator (operator)}
+              <option value={operator}>{$_(`alerts.operators.${operator}`)}</option>
+            {/each}
+          </select>
+          {#if errors[`conditions.${index}.operator`]}
+            <p id="condition-{index}-operator-error" class="text-xs text-red-600" role="alert">
+              {$_(`alerts.errors.${errors[`conditions.${index}.operator`]}`)}
+            </p>
+          {/if}
+        </div>
+
+        <div class="flex min-w-0 flex-col gap-1">
+          <span class="text-xs font-medium text-slate-600" id="condition-{index}-value-label">
+            {$_('alerts.editor.value')}
+          </span>
+          <input
+            type="hidden"
+            name="conditions.{index}.multiple"
+            value={isList(condition.operator) ? 'true' : 'false'}
+          />
+          {#if !field || !needsValue(condition.operator)}
+            <p class="py-1.5 text-xs text-slate-400" data-input="none">—</p>
+          {:else if field.type === 'enum' || field.type === 'reference'}
+            <OptionPicker
+              id="condition-{index}-value"
+              name="conditions.{index}.value"
+              label={$_(field.label)}
+              multiple={isList(condition.operator)}
+              options={field.type === 'enum'
+                ? (field.options ?? []).map((option) => ({
+                    id: option.value,
+                    label: $_(option.label),
+                  }))
+                : (referenceOptions[field.reference ?? ''] ?? [])}
+              selected={valueList(condition.value)}
+              invalid={Boolean(errors[`conditions.${index}.value`])}
+              describedBy={errorId(index, 'value')}
+              onchange={(selected) =>
+                setValue(index, isList(condition.operator) ? selected : (selected[0] ?? ''))}
+            />
+          {:else if field.type === 'number'}
+            <input
+              type="number"
+              step="any"
+              name="conditions.{index}.value"
+              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              aria-labelledby="condition-{index}-value-label"
+              aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
+              aria-describedby={errorId(index, 'value')}
+              value={condition.value}
+              {disabled}
+              oninput={(event) => setValue(index, event.currentTarget.value)}
+            />
+          {:else if field.type === 'date'}
+            <input
+              type="date"
+              name="conditions.{index}.value"
+              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              aria-labelledby="condition-{index}-value-label"
+              aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
+              aria-describedby={errorId(index, 'value')}
+              value={dateValue(condition.value)}
+              {disabled}
+              oninput={(event) => setValue(index, event.currentTarget.value)}
+            />
+          {:else}
+            <input
+              type="text"
+              name="conditions.{index}.value"
+              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              aria-labelledby="condition-{index}-value-label"
+              aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
+              aria-describedby={errorId(index, 'value')}
+              value={condition.value}
+              {disabled}
+              oninput={(event) => setValue(index, event.currentTarget.value)}
+            />
+          {/if}
+          {#if errors[`conditions.${index}.value`]}
+            <p id="condition-{index}-value-error" class="text-xs text-red-600" role="alert">
+              {$_(`alerts.errors.${errors[`conditions.${index}.value`]}`)}
+            </p>
+          {/if}
+        </div>
+
+        <div class="flex items-end">
+          <button
+            type="submit"
+            formaction="?/draft"
+            name="intent"
+            value="remove_condition:{index}"
+            class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:border-red-200 hover:text-red-600"
+            aria-label={$_('alerts.editor.removeCondition', { values: { index: index + 1 } })}
+            {disabled}
+            onclick={(event) => remove(event, index)}
+          >
+            <Trash2 class="h-4 w-4" />
+          </button>
+        </div>
+      </li>
+    {/each}
+  </ol>
+
+  {#if errors.conditions}
+    <p class="text-xs text-red-600" role="alert">{$_(`alerts.errors.${errors.conditions}`)}</p>
+  {/if}
+
+  <button
+    type="submit"
+    formaction="?/draft"
+    name="intent"
+    value="add_condition"
+    class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:border-slate-300 hover:text-slate-900 disabled:opacity-50"
+    disabled={disabled || fields.length === 0}
+    onclick={add}
+  >
+    <Plus class="h-4 w-4" />
+    {$_('alerts.editor.addCondition')}
+  </button>
+</div>

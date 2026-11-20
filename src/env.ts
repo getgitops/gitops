@@ -16,6 +16,7 @@ export const variables = defineEnvVars({
   GITDB_DATA_PATH: optional,
   GITDB_ENCRYPTION_KEY: optional,
   VAULT_ENCRYPTION_KEY: optional,
+  ORIGIN: optional,
   NOTIFICATION_SMTP_HOST: optional,
   NOTIFICATION_SMTP_PORT: optional,
   NOTIFICATION_SMTP_SECURE: optional,
