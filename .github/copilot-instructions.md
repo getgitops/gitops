@@ -114,8 +114,11 @@ normalizan errores. Ejecutar `bun run check`, `bun run lint`, `bun run test` y
 
 ## Comportamiento conocido
 
-**Startup y readiness del servidor:** El auth guard en `hooks.server.ts` espera a que `serverReady`
-complete antes de procesar cualquier request. Si el startup falla, todos los requests reciben
-503 Service Unavailable (JSON para API calls, texto plano para otros). Aplica tanto en dev
-(Vite carga el módulo en la primera request) como en producción. La bootstrap state solo es
-válida después de que startup termina.
+**Startup y readiness del servidor:** El auth guard en `hooks.server.ts` verifica readiness via
+`getServerReadyState()` antes de procesar cualquier request. Durante startup, los navegadores
+reciben una página de landing "GitOps is starting" que se recarga automáticamente, mientras que
+API requests reciben 503 con header `retry-after: 3`. Si startup falla, ambos reciben 503
+(página HTML para navegadores, JSON con "Server failed to start" para APIs). El endpoint `/health`
+(usado por e2e e infraestructura) devuelve 200 solo tras completar startup. Aplica tanto en dev
+(Vite carga en la primera request) como en producción. La bootstrap state es válida solo después
+que startup termina.

@@ -195,8 +195,12 @@ commands change.
 
 ## Known behavior
 
-**Server startup and readiness:** The auth guard in `hooks.server.ts` waits for `serverReady` before
-processing any request. If startup fails, all requests receive a 503 Service Unavailable response
-(JSON for API calls, plain text for others). This applies in both development (where Vite loads
-the module on the first request) and production (where no infrastructure probe guarantees traffic
-will be held back during startup). The bootstrap state is only meaningful after startup completes.
+**Server startup and readiness:** The auth guard in `hooks.server.ts` checks readiness via
+`getServerReadyState()` before processing any request. During startup, browsers receive a
+self-reloading "GitOps is starting" landing page, while API requests get a 503 response with
+`retry-after: 3` header. If startup fails, both receive 503 Service Unavailable (HTML landing
+page for browsers, JSON for APIs with "Server failed to start" message). The `/health` endpoint
+(used by e2e and infrastructure probes) returns 200 only after startup completes. This applies
+in both development (where Vite loads the module on the first request) and production (where no
+infrastructure probe guarantees traffic is held back during startup). The bootstrap state is only
+meaningful after startup completes.

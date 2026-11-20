@@ -5,7 +5,12 @@ import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
-import { markServerFailed, markServerReady } from '#lib/server/server-ready';
+import {
+  getServerReadyState,
+  markServerFailed,
+  markServerReady,
+} from '#lib/server/server-ready';
+import { renderStartingPage } from '#lib/server/starting-page';
 import { runWithActor } from '#lib/server/request-context';
 import {
   createLogger,
@@ -66,17 +71,26 @@ const authGuard: Handle = async ({ event, resolve }) => {
   // the bootstrap state is only meaningful once startup has finished: before that it reads as
   // "pending" and every request would be sent to (and allowed into) the unauthenticated wizard.
   // Vite dev loads this module on the first request, and in production nothing guarantees an
-  // infrastructure probe holds traffic back, so the guard waits here instead of trusting either.
-  try {
-    await serverReady;
-  } catch {
-    const message = 'Server failed to start';
-    return isApiRequest
-      ? new Response(JSON.stringify({ error: message }), {
+  // infrastructure probe holds traffic back, so nothing past this point runs until startup is
+  // done: pages get a "GitOps is starting" landing that reloads itself, APIs get a 503.
+  const readiness = getServerReadyState();
+  if (readiness.status !== 'ready') {
+    const state = readiness.status === 'error' ? 'failed' : 'starting';
+    if (isApiRequest) {
+      return new Response(
+        JSON.stringify({
+          error: state === 'failed' ? 'Server failed to start' : 'Server is starting',
+        }),
+        {
           status: 503,
-          headers: { 'content-type': 'application/json' },
-        })
-      : new Response(message, { status: 503, headers: { 'content-type': 'text/plain' } });
+          headers: {
+            'content-type': 'application/json',
+            ...(state === 'starting' ? { 'retry-after': '3' } : {}),
+          },
+        },
+      );
+    }
+    return renderStartingPage(state, event.request.headers.get('accept-language'));
   }
 
   if (pathname.startsWith('/bootstrap')) {
