@@ -10,6 +10,8 @@ export async function load({ locals, url }) {
       isConfigured: false,
       user: null,
       organization: null,
+      organizations: [],
+      canCreateOrganization: false,
       projects: [],
       currentProjectSlug: null,
     };
@@ -32,6 +34,17 @@ export async function load({ locals, url }) {
     : await organizationService.getDefaultOrganization();
 
   const canAccessClusterSettings = cancanService.canAccessAdminArea(locals.user);
+  const allOrganizations = await organizationService.listOrganizations();
+  const allowedOrganizationIds = await cancanService.organizationIdsForUser(locals.user);
+  const organizations =
+    allowedOrganizationIds === null
+      ? allOrganizations
+      : allOrganizations.filter((item) => allowedOrganizationIds.includes(item.id));
+  const canCreateOrganization = await cancanService.canSessionUser(
+    locals.user,
+    'cluster:organization:create',
+    { scope: 'cluster' },
+  );
   const canManageOrganization = organization
     ? await cancanService.canManageOrganization(locals.user, organization.id)
     : false;
@@ -161,8 +174,11 @@ export async function load({ locals, url }) {
     // activeBackendId,
     user: locals.user,
     organization,
+    organizations,
+    canCreateOrganization,
     projects,
     canAccessClusterSettings,
+    canAdministerOrganization,
     canViewGitDbStatus: canAccessClusterSettings || canAdministerOrganization,
     canManageOrganization,
     canManageProject,

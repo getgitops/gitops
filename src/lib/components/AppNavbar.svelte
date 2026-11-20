@@ -1,178 +1,270 @@
 <script lang="ts">
-  import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
+  import { onMount } from 'svelte';
+  import {
+    Bell,
+    Check,
+    ChevronDown,
+    CircleCheck,
+    FolderKanban,
+    Search,
+    ShieldAlert,
+    TriangleAlert,
+    X,
+  } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
 
-  type NavbarUser = { username: string; role: { name: string } | string | null };
-
-  export let user: NavbarUser | null = null;
   export let projects: { id: string; name: string; slug: string }[] = [];
   export let organizationSlug: string | null = 'gitops';
   export let projectSlug = '';
+  export let compact = false;
 
-  let showUserDropdown = false;
   let showProjectDropdown = false;
-
-  let userMenuRef: HTMLDivElement | undefined;
+  let showNotifications = false;
   let projectMenuRef: HTMLDivElement | undefined;
+  let notificationsButtonRef: HTMLButtonElement | undefined;
 
-  function toggleUserDropdown() {
-    showUserDropdown = !showUserDropdown;
-  }
+  type NotificationItem = {
+    id: string;
+    type: 'critical' | 'success' | 'info';
+    title: string;
+    detail: string;
+    context: string;
+    time: string;
+    unread: boolean;
+    href?: string;
+  };
 
-  function closeUserDropdown() {
-    showUserDropdown = false;
-  }
+  let notifications: NotificationItem[] = [
+    {
+      id: 'mock-service-x-critical',
+      type: 'critical',
+      title: 'Vulnerabilidades críticas en Servicio X',
+      detail:
+        'Se han detectado 3 vulnerabilidades críticas en las últimas dependencias analizadas.',
+      context: 'Servicio X · Code Report',
+      time: 'Hace 4 min',
+      unread: true,
+      href: projectSlug
+        ? `/org/${organizationSlug}/projects/${projectSlug}/code-report/dashboard`
+        : undefined,
+    },
+    {
+      id: 'mock-scan-complete',
+      type: 'success',
+      title: 'Análisis de seguridad completado',
+      detail: 'El último escaneo ha finalizado correctamente.',
+      context: 'Code Report · main',
+      time: 'Hace 22 min',
+      unread: true,
+    },
+    {
+      id: 'mock-sync-complete',
+      type: 'info',
+      title: 'GitDB sincronizado',
+      detail: 'Los cambios más recientes ya están disponibles.',
+      context: 'Sistema',
+      time: 'Hace 1 h',
+      unread: false,
+    },
+  ];
 
-  function toggleProjectDropdown() {
-    showProjectDropdown = !showProjectDropdown;
-  }
-
-  function closeProjectDropdown() {
-    showProjectDropdown = false;
-  }
-
-  // header uses backdrop-blur, which traps fixed-position overlays inside it, so a viewport-wide
-  // backdrop can't be used to detect outside clicks — listen on the window instead.
+  $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
+  $: unreadCount = notifications.filter((notification) => notification.unread).length;
   function handleWindowClick(event: MouseEvent) {
     const target = event.target as Node;
-
-    if (showUserDropdown && userMenuRef && !userMenuRef.contains(target)) {
-      showUserDropdown = false;
-    }
 
     if (showProjectDropdown && projectMenuRef && !projectMenuRef.contains(target)) {
       showProjectDropdown = false;
     }
+
+    if (
+      showNotifications &&
+      notificationsButtonRef &&
+      !notificationsButtonRef.contains(target) &&
+      target instanceof Element &&
+      !target.closest('.notifications-popover')
+    ) {
+      showNotifications = false;
+    }
   }
 
-  $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
-  $: roleName = typeof user?.role === 'string' ? user.role : user?.role?.name;
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
+
+  function markAllAsRead() {
+    notifications = notifications.map((notification) => ({ ...notification, unread: false }));
+  }
+
+  function markAsRead(id: string) {
+    notifications = notifications.map((notification) =>
+      notification.id === id ? { ...notification, unread: false } : notification,
+    );
+  }
+
+  function handleNotificationKey(event: KeyboardEvent, id: string) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      markAsRead(id);
+    }
+  }
+
+  function receiveNotification(event: Event) {
+    const payload = (event as CustomEvent<NotificationItem>).detail;
+    if (!payload?.id || !payload?.title) return;
+
+    notifications = [{ ...payload, unread: payload.unread ?? true }, ...notifications].slice(0, 12);
+  }
+
+  onMount(() => {
+    window.addEventListener('gitops:notification', receiveNotification);
+    return () => window.removeEventListener('gitops:notification', receiveNotification);
+  });
 </script>
 
 <svelte:window on:click={handleWindowClick} />
 
-<header class="sticky top-0 z-30 border-b border-[#142236] bg-[#020813]/95 backdrop-blur-xl">
-  <div class="mx-auto flex h-[84px] w-full items-center gap-6 px-6 sm:px-8">
-    <a href="/" class="flex items-center">
-      <img src="/gitops_logo_white.png" alt="GitOps" class="h-8 w-auto" />
-    </a>
+<header class="app-topbar">
+  <a href="/" class="app-brand" class:compact aria-label="GitOps home">
+    <span class="brand-mark" aria-hidden="true">
+      <span></span>
+    </span>
+    {#if !compact}
+      <span class="brand-name">Get<span>GitOps</span></span>
+    {/if}
+  </a>
 
-    {#if user}
-      <div class="relative hidden md:block" bind:this={projectMenuRef}>
+  <div class="topbar-content">
+    {#if currentProject}
+      <div class="relative" bind:this={projectMenuRef}>
         <button
           type="button"
-          on:click={toggleProjectDropdown}
-          class="btn-secondary flex max-w-56 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-100"
+          class="topbar-context"
+          on:click={() => (showProjectDropdown = !showProjectDropdown)}
+          aria-expanded={showProjectDropdown}
         >
-          <FolderKanban class="h-4 w-4 shrink-0 text-slate-400" />
-          <span class="truncate">{currentProject ? currentProject.name : $_('nav.selectProject')}</span>
-          <ChevronDown class="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <span class="context-avatar">
+            <FolderKanban class="h-4 w-4" />
+          </span>
+          <span class="topbar-project-label">
+            <small>Project</small>
+            <strong>{currentProject.name}</strong>
+          </span>
+          <ChevronDown class="h-3.5 w-3.5 text-[#777b86]" />
         </button>
 
         {#if showProjectDropdown}
-          <div
-            class="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-[#1b2b42] bg-[#081526] shadow-2xl shadow-black/30"
-          >
-            {#if !organizationSlug}
-              <p class="px-4 py-3 text-sm text-slate-400">
-                {$_('nav.noOrganizationSelected')} <a href="/gitops-settings/orgs" class="underline"
-                  >{$_('nav.chooseOne')}</a
-                >.
-              </p>
-            {:else if projects.length === 0}
-              <p class="px-4 py-3 text-sm text-slate-400">{$_('nav.noActiveProjects')}</p>
-            {:else}
-              <div class="max-h-72 overflow-y-auto py-1">
-                {#each projects as project (project.id)}
-                  <a
-                    href={`/org/${organizationSlug}/projects/${project.slug}/overview`}
-                    on:click={closeProjectDropdown}
-                    class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#102139] {currentProject?.id ===
-                    project.id
-                      ? 'text-white'
-                      : 'text-slate-300'}"
-                  >
-                    <FolderKanban class="h-3.5 w-3.5 shrink-0" />
-                    <span class="truncate">{project.name}</span>
-                  </a>
-                {/each}
-              </div>
-            {/if}
-
-            {#if organizationSlug}
+          <div class="topbar-menu left-0">
+            {#each projects as project (project.id)}
               <a
-                href={`/org/${organizationSlug}/overview`}
-                on:click={closeProjectDropdown}
-                class="block border-t border-[#142236] bg-[#071323] px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-[#102139]"
+                href={`/org/${organizationSlug}/projects/${project.slug}/overview`}
+                class:active={project.id === currentProject.id}
+                on:click={() => (showProjectDropdown = false)}
               >
-                {$_('nav.viewAllProjects')}
+                {project.name}
               </a>
-            {/if}
+            {/each}
           </div>
         {/if}
       </div>
+    {:else}
+      <div aria-hidden="true"></div>
     {/if}
 
-    <div class="ml-auto flex items-center gap-3 sm:gap-4">
-      <a
-        href="https://getgitops.com/docs"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="hidden rounded-lg border border-[#1b2b42] bg-[#071323]/70 px-3.5 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-[#294467] hover:text-white md:inline-flex"
+    <label class="topbar-search">
+      <Search class="h-3.5 w-3.5" />
+      <input type="search" placeholder="Search..." aria-label="Search" />
+      <kbd>⌘K</kbd>
+    </label>
+
+    <div class="topbar-actions">
+      <button
+        class="notification-button"
+        class:active={showNotifications}
+        type="button"
+        aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+        aria-expanded={showNotifications}
+        on:click={() => (showNotifications = !showNotifications)}
+        bind:this={notificationsButtonRef}
       >
-        {$_('nav.howTo')}
-      </a>
-
-      {#if user}
-        <div class="relative ml-1" bind:this={userMenuRef}>
-          <button
-            on:click={toggleUserDropdown}
-            class="btn-secondary flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-left"
-          >
-            <div
-              class="flex h-9 w-9 items-center justify-center rounded-full bg-[#202945] text-xs font-bold uppercase text-white ring-1 ring-white/10"
-            >
-              {user.username.slice(0, 2)}
-            </div>
-            <ChevronDown class="h-3.5 w-3.5 text-slate-400" />
-          </button>
-
-          {#if showUserDropdown}
-            <div
-              class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#1b2b42] bg-[#081526] shadow-2xl shadow-black/30"
-            >
-              <div class="border-b border-[#142236] bg-[#071323] px-4 py-3">
-                <p class="truncate text-sm font-semibold text-white">{user.username}</p>
-                <p class="truncate text-xs text-slate-400 capitalize">{roleName} {$_('nav.account')}</p>
-              </div>
-              <a
-                href="/profile"
-                on:click={closeUserDropdown}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-[#102139]"
-              >
-                <UserRound class="h-4 w-4" />
-                {$_('nav.profile')}
-              </a>
-              <a
-                href="/org"
-                on:click={closeUserDropdown}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-[#102139]"
-              >
-                <Building2 class="h-4 w-4" />
-                {$_('nav.changeOrganization')}
-              </a>
-              <a
-                href="/auth/logout"
-                on:click={closeUserDropdown}
-                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10"
-              >
-                <LogOut class="h-4 w-4" />
-                {$_('nav.signOut')}
-              </a>
-            </div>
-          {/if}
-        </div>
-      {/if}
+        <Bell class="h-4 w-4" />
+        {#if unreadCount > 0}<span></span>{/if}
+      </button>
     </div>
   </div>
 </header>
+
+{#if showNotifications}
+  <section class="notifications-popover" aria-label="Notifications" use:portal>
+    <header>
+      <div>
+        <h2>Notificaciones</h2>
+        <p>{unreadCount > 0 ? `${unreadCount} sin leer` : 'Todo al día'}</p>
+      </div>
+      <div class="notifications-header-actions">
+        {#if unreadCount > 0}
+          <button type="button" on:click={markAllAsRead}>
+            <Check class="h-4 w-4" />
+            Marcar todo
+          </button>
+        {/if}
+        <button
+          type="button"
+          class="notification-close"
+          aria-label="Cerrar notificaciones"
+          on:click={() => (showNotifications = false)}
+        >
+          <X class="h-4 w-4" />
+        </button>
+      </div>
+    </header>
+
+    <div class="notifications-list">
+      {#each notifications as notification (notification.id)}
+        <svelte:element
+          this={notification.href ? 'a' : 'article'}
+          href={notification.href}
+          class="notification-item"
+          class:unread={notification.unread}
+          role={notification.href ? 'link' : 'button'}
+          tabindex="0"
+          on:click={() => markAsRead(notification.id)}
+          on:keydown={(event: KeyboardEvent) => handleNotificationKey(event, notification.id)}
+        >
+          <span class={`notification-icon ${notification.type}`}>
+            {#if notification.type === 'critical'}
+              <ShieldAlert class="h-5 w-5" />
+            {:else if notification.type === 'success'}
+              <CircleCheck class="h-5 w-5" />
+            {:else}
+              <TriangleAlert class="h-5 w-5" />
+            {/if}
+          </span>
+          <span class="notification-content">
+            <span class="notification-title">
+              <strong>{notification.title}</strong>
+              {#if notification.unread}<i></i>{/if}
+            </span>
+            <span class="notification-detail">{notification.detail}</span>
+            <span class="notification-meta">
+              <span>{notification.context}</span>
+              <span>·</span>
+              <time>{notification.time}</time>
+            </span>
+          </span>
+        </svelte:element>
+      {/each}
+    </div>
+
+    <footer>
+      <a
+        href={organizationSlug ? `/org/${organizationSlug}/settings/alerts` : '/org'}
+        on:click={() => (showNotifications = false)}
+      >
+        Gestionar alertas
+      </a>
+      <span>El contenido marcado se sincroniza cuando llegue desde SSE</span>
+    </footer>
+  </section>
+{/if}

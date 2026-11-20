@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
@@ -35,6 +36,12 @@
   function closeCreateModal() {
     createModalOpen = false;
   }
+
+  onMount(() => {
+    if (data.canCreateOrganization && new URLSearchParams(window.location.search).has('create')) {
+      openCreateModal();
+    }
+  });
 
   const createOrganization: SubmitFunction = ({ cancel }) => {
     createError = '';
@@ -81,7 +88,8 @@
         on:click={openCreateModal}
         class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
       >
-        <Plus class="h-4 w-4" />{$_('clusterSettings.organizations.new')}</button>
+        <Plus class="h-4 w-4" />{$_('clusterSettings.organizations.new')}</button
+      >
     {/if}
   </div>
 
@@ -144,7 +152,9 @@
       aria-label={$_('clusterSettings.organizations.createModal')}
     >
       <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizations.createModalTitle')}</h5>
+        <h5 class="text-sm font-semibold text-slate-900">
+          {$_('clusterSettings.organizations.createModalTitle')}
+        </h5>
       </div>
 
       <form method="POST" action="?/createOrganization" use:enhance={createOrganization}>
@@ -156,7 +166,9 @@
           {/if}
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-name">{$_('common.name')}</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-name"
+              >{$_('common.name')}</label
+            >
             <input
               id="new-org-name"
               name="name"
@@ -168,7 +180,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-slug">{$_('common.slug')}</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-slug"
+              >{$_('common.slug')}</label
+            >
             <input
               id="new-org-slug"
               name="slug"
@@ -180,15 +194,16 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-description">{$_('common.description')}</label>
+            <label class="block text-sm font-medium text-slate-700" for="new-org-description"
+              >{$_('common.description')}</label
+            >
             <textarea
               id="new-org-description"
               name="description"
               bind:value={newDescription}
               rows="3"
               class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder={$_('clusterSettings.organizations.descriptionPlaceholder')}
-            ></textarea>
+              placeholder={$_('clusterSettings.organizations.descriptionPlaceholder')}></textarea>
           </div>
         </div>
 
@@ -213,4 +228,3 @@
     </div>
   </div>
 {/if}
-
