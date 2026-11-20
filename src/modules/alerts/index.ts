@@ -1,4 +1,5 @@
 import { eventBus } from '#lib/server/events';
+import { isSmtpConfigured } from '#lib/server/infra/notifications';
 import { createLogger } from '#lib/server/logger';
 import { cancanService, roleService, userAccessService, apiKeysService } from '../auth';
 import { codeReportSecurityPolicyService, codeReportService } from '../code-report';
@@ -47,6 +48,14 @@ const engineSlot = ((globalThis as GlobalWithEngine)[ENGINE_KEY] ??= {
     notifier: new AlertMailNotifier(),
     throttle: new AlertThrottle(),
     logger: log,
+    // without SMTP there is nobody to tell: skip the work instead of logging a failure per event
+    deliveryEnabled: () => {
+      try {
+        return isSmtpConfigured();
+      } catch {
+        return false;
+      }
+    },
   }),
   attached: false,
 });

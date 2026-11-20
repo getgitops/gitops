@@ -45,6 +45,8 @@ export type AlertEngineOptions = {
   /** How long alerts of one event type stay cached; GitDB sync changes show up after this. */
   cacheTtlMs?: number;
   now?: () => number;
+  /** `false` when no email can be sent (SMTP not configured): events are then ignored. */
+  deliveryEnabled?: () => boolean;
 };
 
 export type AlertDryRun = {
@@ -84,6 +86,7 @@ export class AlertEngine {
 
   async handle(event: AnyDomainEvent): Promise<void> {
     if (!isEventType(event.type)) return;
+    if (this.options.deliveryEnabled && !this.options.deliveryEnabled()) return;
     const definition = getEventDefinition(event.type) as EventDefinition;
 
     // system notifications first: they don't depend on anyone configuring an alert

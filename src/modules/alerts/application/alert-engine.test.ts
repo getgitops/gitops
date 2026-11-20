@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnyDomainEvent } from '#lib/server/events';
 import { InProcessEventBus } from '#lib/server/events';
 import type { CodeReportAnalysisCompletedPayload } from '#lib/events/domain-events';
@@ -339,6 +339,28 @@ describe('AlertEngine', () => {
     clock += 61_000;
     await engine.handle(completed());
     expect(list).toHaveBeenCalledTimes(3);
+  });
+
+  it('does nothing while email delivery is disabled', async () => {
+    let enabled = false;
+    engine = new AlertEngine({
+      repository,
+      directory,
+      recipients: new RecipientResolver(directory, async () => true),
+      notifier,
+      logger: logger as never,
+      deliveryEnabled: () => enabled,
+    });
+    const list = vi.spyOn(repository, 'listEnabledByEventType');
+    repository.rows = [alertRow()];
+
+    await engine.handle(completed());
+    expect(list).not.toHaveBeenCalled();
+    expect(notifier.alerts).toHaveLength(0);
+
+    enabled = true;
+    await engine.handle(completed());
+    expect(notifier.alerts.length).toBeGreaterThan(0);
   });
 
   it('runs from the bus without failing the publisher', async () => {
