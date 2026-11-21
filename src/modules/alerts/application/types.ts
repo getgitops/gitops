@@ -27,7 +27,7 @@ export type ScopeMember = {
 export type ScopeRole = { id: string; name: string };
 
 /** Entity selectable in a `reference` condition. */
-export type ReferenceOption = { id: string; label: string };
+export type ReferenceOption = { id: string; label: string; description?: string };
 
 /** Read-only view of the platform the alerts module needs; wired in `index.ts`. */
 export interface AlertDirectory {

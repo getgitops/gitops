@@ -12,14 +12,7 @@
   >
 </svelte:head>
 
-<div class="space-y-6">
-  <div>
-    <h3 class="text-xl font-semibold text-slate-900">
-      {data.alertId ? $_('alerts.editor.editTitle') : $_('alerts.editor.newTitle')}
-    </h3>
-    <p class="mt-2 text-sm text-slate-600">{$_('alerts.editor.subtitle')}</p>
-  </div>
-  {#key data.alertId}
-    <AlertEditor {data} {form} />
-  {/key}
-</div>
+<!-- the editor renders its own header (back link, title and name) -->
+{#key data.alertId}
+  <AlertEditor {data} {form} />
+{/key}

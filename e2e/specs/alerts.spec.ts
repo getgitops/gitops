@@ -35,7 +35,7 @@ test.describe('project alerts', () => {
 
     // step 1: event
     await page.getByLabel('Nombre', { exact: true }).fill(GUIDED_NAME);
-    await page.getByLabel('Evento', { exact: true }).selectOption({ label: 'Análisis completado' });
+    await page.getByRole('radio', { name: 'Análisis completado', exact: true }).check();
 
     // step 2: Servicio es <seeded service> · Vulnerabilidades críticas mayor que 0
     const builder = page.getByTestId('condition-builder');
@@ -78,7 +78,7 @@ test.describe('project alerts', () => {
   test('server validation errors show next to their field', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     await openEditor(page, `${alertsUrl}/new`);
-    await page.getByLabel('Evento', { exact: true }).selectOption({ label: 'Análisis completado' });
+    await page.getByRole('radio', { name: 'Análisis completado', exact: true }).check();
     await page.getByRole('button', { name: 'Crear alerta' }).click();
 
     await expect(page.getByText('Este campo es obligatorio.').first()).toBeVisible();
@@ -151,7 +151,7 @@ test.describe('organization alerts', () => {
     await expectAllowed(page, orgAlertsUrl);
     await openEditor(page, `${orgAlertsUrl}/new`);
     await page.getByLabel('Nombre', { exact: true }).fill('Todos los análisis fallidos');
-    await page.getByLabel('Evento', { exact: true }).selectOption({ label: 'Análisis fallido' });
+    await page.getByRole('radio', { name: 'Análisis fallido', exact: true }).check();
     await page.getByRole('checkbox', { name: 'Org Admin' }).check();
     await page.getByRole('button', { name: 'Crear alerta' }).click();
     await expect(
@@ -175,7 +175,7 @@ test.describe('without JavaScript', () => {
     await page.goto(`${alertsUrl}/new`);
 
     await page.getByLabel('Nombre', { exact: true }).fill('Sin JS');
-    await page.getByLabel('Evento', { exact: true }).selectOption({ label: 'Análisis completado' });
+    await page.getByRole('radio', { name: 'Análisis completado', exact: true }).check();
     await page.getByRole('button', { name: 'Usar este evento' }).click();
 
     // ?/draft re-renders the form with one condition row for the chosen event

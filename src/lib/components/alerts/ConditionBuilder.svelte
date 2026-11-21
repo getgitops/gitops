@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Plus, Trash2 } from '@lucide/svelte';
+  import { Plus, X } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
   import type { Operator } from '#lib/events/catalog';
   import { LIST_OPERATORS, VALUELESS_OPERATORS } from '#lib/alerts/summary';
@@ -97,41 +97,47 @@
   }
 </script>
 
-<div class="space-y-3" data-testid="condition-builder">
-  <fieldset class="flex flex-wrap items-center gap-3 text-sm text-slate-700" {disabled}>
-    <legend class="mb-1 text-sm font-medium text-slate-900">{$_('alerts.editor.matchLabel')}</legend
-    >
-    <label class="inline-flex items-center gap-2">
-      <input type="radio" name="match" value="all" bind:group={match} />
-      {$_('alerts.editor.matchAll')}
-    </label>
-    <label class="inline-flex items-center gap-2">
-      <input type="radio" name="match" value="any" bind:group={match} />
-      {$_('alerts.editor.matchAny')}
-    </label>
-  </fieldset>
+<div class="builder" data-testid="condition-builder">
+  <div class="builder-head">
+    <fieldset class="segmented" {disabled}>
+      <legend class="sr-only">{$_('alerts.editor.matchLabel')}</legend>
+      <span class="segmented-label" aria-hidden="true">{$_('alerts.editor.matchLabel')}</span>
+      <label class:active={match === 'all'}>
+        <input type="radio" name="match" value="all" bind:group={match} />
+        {$_('alerts.editor.matchAll')}
+      </label>
+      <label class:active={match === 'any'}>
+        <input type="radio" name="match" value="any" bind:group={match} />
+        {$_('alerts.editor.matchAny')}
+      </label>
+    </fieldset>
+  </div>
 
   {#if conditions.length === 0}
-    <p class="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
-      {$_('alerts.editor.noConditions')}
-    </p>
+    <p class="empty">{$_('alerts.editor.noConditions')}</p>
   {/if}
 
-  <ol class="space-y-3">
+  <ol class="rows">
     {#each conditions as condition, index (index)}
       {@const field = fieldOf(condition.field)}
+      {#if index > 0}
+        <li class="connector" aria-hidden="true">
+          <span>{$_(match === 'any' ? 'alerts.summary.or' : 'alerts.summary.and')}</span>
+        </li>
+      {/if}
       <li
-        class="grid gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]"
+        class="row"
+        class:has-error={Object.keys(errors).some((key) => key.startsWith(`conditions.${index}.`))}
         data-testid="condition-row"
       >
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-slate-600" for="condition-{index}-field">
-            {$_('alerts.editor.field')}
-          </label>
+        <span class="row-index" aria-hidden="true">{index + 1}</span>
+
+        <div class="cell">
+          <label class="sr-only" for="condition-{index}-field">{$_('alerts.editor.field')}</label>
           <select
             id="condition-{index}-field"
             name="conditions.{index}.field"
-            class="field-input rounded-md border px-2 py-1.5 text-sm"
+            class="control select"
             value={condition.field}
             aria-invalid={Boolean(errors[`conditions.${index}.field`]) || undefined}
             aria-describedby={errorId(index, 'field')}
@@ -145,21 +151,16 @@
               <option value={option.key}>{$_(option.label)}</option>
             {/each}
           </select>
-          {#if errors[`conditions.${index}.field`]}
-            <p id="condition-{index}-field-error" class="text-xs text-red-600" role="alert">
-              {$_(`alerts.errors.${errors[`conditions.${index}.field`]}`)}
-            </p>
-          {/if}
         </div>
 
-        <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-slate-600" for="condition-{index}-operator">
-            {$_('alerts.editor.operator')}
-          </label>
+        <div class="cell operator">
+          <label class="sr-only" for="condition-{index}-operator"
+            >{$_('alerts.editor.operator')}</label
+          >
           <select
             id="condition-{index}-operator"
             name="conditions.{index}.operator"
-            class="field-input rounded-md border px-2 py-1.5 text-sm"
+            class="control select"
             value={condition.operator}
             aria-invalid={Boolean(errors[`conditions.${index}.operator`]) || undefined}
             aria-describedby={errorId(index, 'operator')}
@@ -170,24 +171,18 @@
               <option value={operator}>{$_(`alerts.operators.${operator}`)}</option>
             {/each}
           </select>
-          {#if errors[`conditions.${index}.operator`]}
-            <p id="condition-{index}-operator-error" class="text-xs text-red-600" role="alert">
-              {$_(`alerts.errors.${errors[`conditions.${index}.operator`]}`)}
-            </p>
-          {/if}
         </div>
 
-        <div class="flex min-w-0 flex-col gap-1">
-          <span class="text-xs font-medium text-slate-600" id="condition-{index}-value-label">
-            {$_('alerts.editor.value')}
-          </span>
+        <div class="cell value">
+          <span class="sr-only" id="condition-{index}-value-label">{$_('alerts.editor.value')}</span
+          >
           <input
             type="hidden"
             name="conditions.{index}.multiple"
             value={isList(condition.operator) ? 'true' : 'false'}
           />
           {#if !field || !needsValue(condition.operator)}
-            <p class="py-1.5 text-xs text-slate-400" data-input="none">—</p>
+            <p class="no-value" data-input="none">{$_('alerts.editor.noValueNeeded')}</p>
           {:else if field.type === 'enum' || field.type === 'reference'}
             <OptionPicker
               id="condition-{index}-value"
@@ -211,7 +206,8 @@
               type="number"
               step="any"
               name="conditions.{index}.value"
-              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              class="control"
+              placeholder="0"
               aria-labelledby="condition-{index}-value-label"
               aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
               aria-describedby={errorId(index, 'value')}
@@ -223,7 +219,7 @@
             <input
               type="date"
               name="conditions.{index}.value"
-              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              class="control"
               aria-labelledby="condition-{index}-value-label"
               aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
               aria-describedby={errorId(index, 'value')}
@@ -235,7 +231,8 @@
             <input
               type="text"
               name="conditions.{index}.value"
-              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              class="control"
+              placeholder={$_('alerts.editor.valuePlaceholder')}
               aria-labelledby="condition-{index}-value-label"
               aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
               aria-describedby={errorId(index, 'value')}
@@ -244,33 +241,35 @@
               oninput={(event) => setValue(index, event.currentTarget.value)}
             />
           {/if}
-          {#if errors[`conditions.${index}.value`]}
-            <p id="condition-{index}-value-error" class="text-xs text-red-600" role="alert">
-              {$_(`alerts.errors.${errors[`conditions.${index}.value`]}`)}
-            </p>
-          {/if}
         </div>
 
-        <div class="flex items-end">
-          <button
-            type="submit"
-            formaction="?/draft"
-            name="intent"
-            value="remove_condition:{index}"
-            class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:border-red-200 hover:text-red-600"
-            aria-label={$_('alerts.editor.removeCondition', { values: { index: index + 1 } })}
-            {disabled}
-            onclick={(event) => remove(event, index)}
-          >
-            <Trash2 class="h-4 w-4" />
-          </button>
-        </div>
+        <button
+          type="submit"
+          formaction="?/draft"
+          name="intent"
+          value="remove_condition:{index}"
+          class="remove"
+          aria-label={$_('alerts.editor.removeCondition', { values: { index: index + 1 } })}
+          title={$_('alerts.editor.removeCondition', { values: { index: index + 1 } })}
+          {disabled}
+          onclick={(event) => remove(event, index)}
+        >
+          <X class="h-4 w-4" />
+        </button>
+
+        {#each ['field', 'operator', 'value'] as part (part)}
+          {#if errors[`conditions.${index}.${part}`]}
+            <p id="condition-{index}-{part}-error" class="row-error" role="alert">
+              {$_(`alerts.errors.${errors[`conditions.${index}.${part}`]}`)}
+            </p>
+          {/if}
+        {/each}
       </li>
     {/each}
   </ol>
 
   {#if errors.conditions}
-    <p class="text-xs text-red-600" role="alert">{$_(`alerts.errors.${errors.conditions}`)}</p>
+    <p class="row-error" role="alert">{$_(`alerts.errors.${errors.conditions}`)}</p>
   {/if}
 
   <button
@@ -278,7 +277,7 @@
     formaction="?/draft"
     name="intent"
     value="add_condition"
-    class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:border-slate-300 hover:text-slate-900 disabled:opacity-50"
+    class="add"
     disabled={disabled || fields.length === 0}
     onclick={add}
   >
@@ -286,3 +285,261 @@
     {$_('alerts.editor.addCondition')}
   </button>
 </div>
+
+<style>
+  .builder {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .builder-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Segmented control for all / any */
+  .segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 9px;
+    background: rgb(255 255 255 / 0.02);
+  }
+
+  .segmented-label {
+    padding: 0 8px 0 6px;
+    color: #77737a;
+    font-size: 12px;
+  }
+
+  .segmented label {
+    position: relative;
+    display: inline-flex;
+    height: 26px;
+    align-items: center;
+    padding: 0 10px;
+    border-radius: 6px;
+    color: #9d98a0;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all 120ms ease;
+  }
+
+  .segmented label:hover {
+    color: #ece8ee;
+  }
+
+  .segmented label.active {
+    background: rgb(255 255 255 / 0.09);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    color: #ece8ee;
+  }
+
+  .segmented input {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .segmented label:has(input:focus-visible) {
+    outline: 2px solid rgb(249 93 17 / 0.5);
+  }
+
+  .empty {
+    padding: 14px;
+    border: 1px dashed rgb(255 255 255 / 0.1);
+    border-radius: 9px;
+    color: #8a858d;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.3fr) 32px;
+    align-items: start;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid rgb(255 255 255 / 0.07);
+    border-radius: 10px;
+    background: rgb(255 255 255 / 0.02);
+  }
+
+  .row.has-error {
+    border-color: rgb(248 113 113 / 0.35);
+  }
+
+  @media (max-width: 760px) {
+    .row {
+      grid-template-columns: 22px minmax(0, 1fr) 32px;
+    }
+
+    .row .operator,
+    .row .value {
+      grid-column: 2 / 3;
+    }
+  }
+
+  .row-index {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    margin-top: 7px;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 0.05);
+    color: #8a858d;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .connector {
+    display: flex;
+    height: 26px;
+    align-items: center;
+    padding-left: 20px;
+  }
+
+  .connector span {
+    padding: 1px 8px;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 999px;
+    background: #141417;
+    color: #9d98a0;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .cell {
+    min-width: 0;
+  }
+
+  .control {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid rgb(255 255 255 / 0.09);
+    border-radius: 8px;
+    background: rgb(255 255 255 / 0.025);
+    color: #ece8ee;
+    font-size: 13px;
+    outline: none;
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .control:focus {
+    border-color: rgb(249 93 17 / 0.42);
+    box-shadow: 0 0 0 3px rgb(249 93 17 / 0.1);
+  }
+
+  .control[aria-invalid='true'] {
+    border-color: rgb(248 113 113 / 0.5);
+  }
+
+  .control::placeholder {
+    color: #6d6870;
+  }
+
+  .select {
+    padding-right: 28px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a858d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+
+  .select option {
+    background: #1b1b1f;
+  }
+
+  .no-value {
+    display: flex;
+    height: 36px;
+    align-items: center;
+    color: #6d6870;
+    font-size: 12.5px;
+  }
+
+  .remove {
+    display: grid;
+    width: 32px;
+    height: 36px;
+    place-items: center;
+    border-radius: 8px;
+    color: #6d6870;
+    transition: all 120ms ease;
+  }
+
+  .remove:hover {
+    background: rgb(248 113 113 / 0.1);
+    color: #f87171;
+  }
+
+  .row-error {
+    grid-column: 2 / -1;
+    color: #f87171;
+    font-size: 12px;
+  }
+
+  .add {
+    display: inline-flex;
+    height: 34px;
+    align-items: center;
+    align-self: flex-start;
+    gap: 6px;
+    padding: 0 12px;
+    border: 1px dashed rgb(255 255 255 / 0.14);
+    border-radius: 8px;
+    color: #c9c4cc;
+    font-size: 13px;
+    transition: all 120ms ease;
+  }
+
+  .add:hover:not(:disabled) {
+    border-color: rgb(249 93 17 / 0.5);
+    border-style: solid;
+    color: #ff9a66;
+  }
+
+  .add:disabled {
+    opacity: 0.45;
+  }
+
+  /* app.css paints every input, select and textarea navy with !important: these win on specificity */
+  .builder .control {
+    border-color: rgb(255 255 255 / 0.09) !important;
+    background-color: rgb(255 255 255 / 0.025) !important;
+    color: #ece8ee !important;
+  }
+
+  .builder .control:focus {
+    border-color: rgb(249 93 17 / 0.42) !important;
+  }
+
+  .builder .control[aria-invalid='true'] {
+    border-color: rgb(248 113 113 / 0.5) !important;
+  }
+
+  .builder .control::placeholder {
+    color: #6d6870 !important;
+  }
+</style>

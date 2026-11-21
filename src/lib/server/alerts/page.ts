@@ -71,7 +71,11 @@ async function referenceOptions(
   return Object.fromEntries(
     entries.map(([reference, options]) => [
       reference,
-      options.map((option) => ({ id: option.id, label: option.label })),
+      options.map((option) => ({
+        id: option.id,
+        label: option.label,
+        ...(option.description ? { description: option.description } : {}),
+      })),
     ]),
   );
 }
@@ -84,7 +88,12 @@ async function recipientOptions(location: AlertLocation) {
   return {
     users: members
       .filter((member) => !member.disabled)
-      .map((member) => ({ id: member.userId, label: member.username }))
+      // users have no separate full name: the username is the name, the email goes underneath
+      .map((member) => ({
+        id: member.userId,
+        label: member.username,
+        ...(member.email ? { description: member.email } : {}),
+      }))
       .sort((a, b) => a.label.localeCompare(b.label)),
     roles: roles.map((role) => ({ id: role.id, label: role.name })),
   };

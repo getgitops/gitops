@@ -136,6 +136,7 @@ export class PlatformDirectory implements AlertDirectory {
         return (await this.listMembers(location)).map((member) => ({
           id: member.userId,
           label: member.username,
+          ...(member.email ? { description: member.email } : {}),
         }));
       case 'role': {
         const organizationRoles = await this.listRoles({

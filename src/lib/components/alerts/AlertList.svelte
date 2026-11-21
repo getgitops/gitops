@@ -140,9 +140,9 @@
             <span>{$_('alerts.list.event')}</span>
             <strong>{eventLabel(alert)}</strong>
           </div>
-          <div data-testid="alert-summary">
+          <div>
             <span>{$_('alerts.list.conditions')}</span>
-            <p>{conditionsOf(alert)}</p>
+            <p data-testid="alert-summary">{conditionsOf(alert)}</p>
           </div>
           <div>
             <span>{$_('alerts.list.recipients')}</span>

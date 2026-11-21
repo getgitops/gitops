@@ -17,7 +17,8 @@ export type CatalogEntry = Omit<
   fields: CatalogField[];
 };
 
-export type AlertOption = { id: string; label: string };
+/** `description` is a second line under the label (a user's email) */
+export type AlertOption = { id: string; label: string; description?: string };
 
 export type DraftCondition = {
   field: string;
