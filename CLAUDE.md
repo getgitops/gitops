@@ -313,3 +313,15 @@ permission-first and normalize errors consistently.
 Before finishing a change, run the relevant checks. Do not silently fix unrelated bugs or rewrite
 generated files. Update `README.md`, `CONTRIBUTING.md`, and this file when architecture or public
 commands change.
+
+## Known behavior
+
+**Server startup and readiness:** The auth guard in `hooks.server.ts` checks readiness via
+`getServerReadyState()` before processing any request. During startup, browsers receive a
+self-reloading "GitOps is starting" landing page, while API requests get a 503 response with
+`retry-after: 3` header. If startup fails, both receive 503 Service Unavailable (HTML landing
+page for browsers, JSON for APIs with "Server failed to start" message). The `/health` endpoint
+(used by e2e and infrastructure probes) returns 200 only after startup completes. This applies
+in both development (where Vite loads the module on the first request) and production (where no
+infrastructure probe guarantees traffic is held back during startup). The bootstrap state is only
+meaningful after startup completes.

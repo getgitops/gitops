@@ -68,9 +68,10 @@ async function waitForServer(url: string, timeoutMs: number) {
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, { redirect: 'manual' });
-      // any HTTP response (even a redirect to /bootstrap) means the process
-      // is up; we only need "port is listening and hooks.server.ts responded".
-      if (response.status > 0) return;
+      // /health only answers 200 once startup (GitDB clone, auth, bootstrap detection) has
+      // finished; until then every page gets the 503 "GitOps is starting" landing
+      if (response.ok) return;
+      lastError = `HTTP ${response.status}`;
     } catch (error) {
       lastError = error;
     }
@@ -115,7 +116,7 @@ export default async function globalSetup() {
     serverExited = true;
   });
 
-  await waitForServer(`${E2E_BASE_URL}/auth/login`, 60_000);
+  await waitForServer(`${E2E_BASE_URL}/health`, 120_000);
   if (serverExited) {
     throw new Error('Dev server exited before becoming ready');
   }

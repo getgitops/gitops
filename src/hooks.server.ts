@@ -6,7 +6,12 @@ import { projectService } from '#modules/projects';
 import { registerAlertEngine } from '#modules/alerts';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
-import { markServerFailed, markServerReady } from '#lib/server/server-ready';
+import {
+  getServerReadyState,
+  markServerFailed,
+  markServerReady,
+} from '#lib/server/server-ready';
+import { renderStartingPage } from '#lib/server/starting-page';
 import { runWithActor } from '#lib/server/request-context';
 import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
@@ -61,8 +66,31 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  // readiness gating happens at the infrastructure level: Cloud Run's startup probe
-  // polls /health and only routes traffic once the server reports ready
+  // the bootstrap state is only meaningful once startup has finished: before that it reads as
+  // "pending" and every request would be sent to (and allowed into) the unauthenticated wizard.
+  // Vite dev loads this module on the first request, and in production nothing guarantees an
+  // infrastructure probe holds traffic back, so nothing past this point runs until startup is
+  // done: pages get a "GitOps is starting" landing that reloads itself, APIs get a 503.
+  const readiness = getServerReadyState();
+  if (readiness.status !== 'ready') {
+    const state = readiness.status === 'error' ? 'failed' : 'starting';
+    if (isApiRequest) {
+      return new Response(
+        JSON.stringify({
+          error: state === 'failed' ? 'Server failed to start' : 'Server is starting',
+        }),
+        {
+          status: 503,
+          headers: {
+            'content-type': 'application/json',
+            ...(state === 'starting' ? { 'retry-after': '3' } : {}),
+          },
+        },
+      );
+    }
+    return renderStartingPage(state, event.request.headers.get('accept-language'));
+  }
+
   if (pathname.startsWith('/bootstrap')) {
     if (isBootstrapCompleted()) {
       return new Response(null, { status: 302, headers: { location: '/' } });
