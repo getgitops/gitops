@@ -2,6 +2,12 @@ import crypto from 'crypto';
 import type { UserAccessRepository } from '../infrastructure/repositories/user-access.repository';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 import type { PasswordService } from './password.service';
+import { publishAfterWrite } from '#lib/server/events/publish';
+import { resolveProjectScope } from '#lib/server/events/scope';
+import { createLogger } from '#lib/server/logger';
+import type { AccessEventsOptions } from './user-access.service';
+
+const log = createLogger('invitation');
 
 export type InvitationView = {
   userId: string;
@@ -21,6 +27,7 @@ export class InvitationService {
     private readonly userAccessRepository: Pick<UserAccessRepository, 'findByUserId' | 'update'>,
     private readonly passwordService: Pick<PasswordService, 'hashPassword'>,
     private readonly ttlDays: number = DEFAULT_TTL_DAYS,
+    private readonly eventOptions: AccessEventsOptions = {},
   ) {}
 
   /** Issues a new token, stores only its hash, and returns the raw token for the invite link. */
@@ -50,11 +57,24 @@ export class InvitationService {
     );
 
     const access = await this.userAccessRepository.findByUserId(user.id);
+    const accepted = access.filter((entry) => entry.status === 'invited');
     await Promise.all(
-      access
-        .filter((entry) => entry.status === 'invited')
-        .map((entry) => this.userAccessRepository.update(entry.id, { status: 'active' })),
+      accepted.map((entry) => this.userAccessRepository.update(entry.id, { status: 'active' })),
     );
+
+    // one event per activated membership, so each organization/project sees its own
+    for (const entry of accepted) {
+      await publishAfterWrite(
+        this.eventOptions.events,
+        log,
+        'invitation.accepted',
+        { userId: user.id, accessId: entry.id, roleId: entry.roleId || null, scope: entry.scope },
+        async () =>
+          entry.scope === 'project'
+            ? resolveProjectScope(entry.projectId, this.eventOptions.projects)
+            : { organizationId: entry.organizationId ?? null, projectId: null },
+      );
+    }
 
     return { userId: user.id, username: user.username, email: user.email };
   }

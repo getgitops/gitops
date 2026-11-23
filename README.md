@@ -13,8 +13,11 @@ operational data versioned and auditable in Git.
 
 - Identity and access management for users, organizations, projects, roles, permissions,
   invitations, sessions, and API keys.
+- Cluster-wide Google sign-in (OpenID Connect) alongside local email and password login.
 - Security reporting for vulnerabilities, SBOMs, secrets, licenses, and services.
 - Pulumi state, history, and lock visibility for S3 and Google Cloud Storage backends.
+- Email alerts on platform events (security analyses, vault, projects, access), with filters
+  built from an event catalog.
 - Git-backed, auditable application data through GitDB.
 
 ## Get started
@@ -79,6 +82,112 @@ docker compose up --build
 ```
 
 The container is available at `http://localhost:3000` and stores persistent data in `./data`.
+The image ships `git` without an SSH client, so point `GITDB_REPOSITORY_URL` at an HTTPS remote
+and authenticate with `GITDB_TOKEN` (or `GITDB_USERNAME`/`GITDB_PASSWORD`); with an SSH
+(`git@...`) remote the container can commit locally but cannot push.
+
+### Google sign-in
+
+Google sign-in is configured once for the whole cluster, through environment variables:
+
+1. In Google Cloud Console, open **APIs & Services → Credentials** and create an **OAuth client ID**
+   of type **Web application** (configure the consent screen as *Internal* for Workspace-only
+   access).
+2. Under **Authorized redirect URIs** (not *JavaScript origins*), add
+   `https://<your-host>/auth/sso/google/callback`. For local use add the URI of the port you run
+   on, which must match exactly: `http://localhost:5173/auth/sso/google/callback` for
+   `bun run dev`, `http://localhost:3000/auth/sso/google/callback` for Docker.
+3. Set the variables and restart GitOps:
+
+   ```bash
+   GOOGLE_SSO_CLIENT_ID=123456789-abc.apps.googleusercontent.com
+   GOOGLE_SSO_CLIENT_SECRET=...
+   # optional: comma-separated Google Workspace domains allowed to sign in
+   GOOGLE_SSO_ALLOWED_DOMAINS=example.com
+   # optional: sign up unknown Workspace accounts of the allowed domains automatically
+   GOOGLE_SSO_AUTO_PROVISION=false
+   ```
+
+The login page then shows **Continue with Google**, and every organization's **Settings → Global**
+shows Google SSO as enabled for the cluster. Leave `GOOGLE_SSO_ALLOWED_DOMAINS` empty to accept
+personal `@gmail.com` accounts, which carry no Workspace domain. With an *External* consent screen
+in testing mode, only the accounts listed as test users can sign in.
+
+By default only existing or invited users can sign in with Google. With
+`GOOGLE_SSO_AUTO_PROVISION=true` (requires at least one allowed domain), the first Google sign-in of
+an unknown `@example.com` Workspace account creates a plain GitOps User (`cluster-user`) with no organization
+membership; organizations still have to invite it. Personal Google accounts are never signed up
+automatically, because the domain is checked against the Workspace `hd` claim, not the email
+address. If the variables are inconsistent (only one credential set, an invalid domain, or
+automatic sign-up without domains), the Google button is hidden and the reason is logged.
+
+### Alerts
+
+Organizations and projects can get an email when something happens. Alerts live in **Settings →
+Alerts** of the organization (they cover all of its projects) or of a project. Each alert watches
+one event, filters it on the event's fields and emails users or roles. The same event can fire an
+organization alert and a project alert; each one sends its own email.
+
+Guided example: *tell the security team when an analysis of the `api-gateway` service has critical
+vulnerabilities*.
+
+1. Open the project's **Settings → Alerts** and click **Create alert**.
+2. Event: **Analysis completed** (`code_report.analysis.completed`).
+3. Conditions, matching **all**: **Service** *is* `api-gateway`, and **Critical vulnerabilities**
+   *greater than* `0`.
+4. Recipients: the **Project Admin** role. Throttle: one email every **30** minutes at most.
+5. **Test alert** shows whether an example event matches and who would get the email, without
+   sending anything. Then **Create alert**.
+
+The same alert through the API (`gvs_` project keys only manage alerts of their own project):
+
+```bash
+curl -X POST "$ORIGIN/api/alerts" \
+  -H "Authorization: Bearer $GITOPS_API_KEY" -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "<project id>",
+    "name": "Critical vulnerabilities in api-gateway",
+    "eventType": "code_report.analysis.completed",
+    "match": "all",
+    "conditions": [
+      { "field": "serviceId", "operator": "eq", "value": "<service id>" },
+      { "field": "summary.critical", "operator": "gt", "value": 0 }
+    ],
+    "recipients": { "roleIds": ["<project-admin role id>"] },
+    "throttleMinutes": 30
+  }'
+```
+
+`GET /api/events/catalog?scope=project&projectId=<id>` lists the events you may alert on and their
+fields. Only recipients allowed to view the event get the email, and you can only create alerts on
+events you can view yourself. Some notifications are always on: users are told when their access to
+an organization or project changes and when a personal API key is created on their account.
+
+### Email
+
+Invitations, password resets, alerts and access notices are sent by SMTP:
+
+| Variable | Default | |
+|---|---|---|
+| `NOTIFICATION_SMTP_HOST` | — | Required to send email |
+| `NOTIFICATION_SMTP_FROM` | — | Required, sender address |
+| `NOTIFICATION_SMTP_FROM_NAME` | — | Sender display name |
+| `NOTIFICATION_SMTP_PORT` | `587` | `465` turns TLS on by default |
+| `NOTIFICATION_SMTP_SECURE` | port-based | Force TLS on or off |
+| `NOTIFICATION_SMTP_USER` / `NOTIFICATION_SMTP_PASSWORD` | — | Set both or neither |
+| `NOTIFICATION_SMTP_REJECT_UNAUTHORIZED` | `true` | `false` only for self-signed test servers |
+| `ORIGIN` | — | Public URL; links in emails are absolute. Without it emails have no links |
+
+Without SMTP nothing breaks: alerts are kept, the alert pages show a warning and the server logs
+it once at startup. Alert and notice emails go through an in-process queue (3 at a time) that
+retries network errors and temporary SMTP replies (4 attempts: 1 s, 4 s, 16 s) and is drained for
+up to 10 s on shutdown; invitations and password resets are sent directly because their links carry
+tokens. Emails are in the recipient's language when known, English otherwise.
+
+To try them locally, start [Mailpit](https://mailpit.axllent.org/) with
+`docker compose --profile mail up mailpit`, set `NOTIFICATION_SMTP_HOST=localhost`,
+`NOTIFICATION_SMTP_PORT=1025` and `NOTIFICATION_SMTP_FROM=gitops@localhost`, and open
+http://localhost:8025.
 
 ## Development
 
@@ -106,3 +215,5 @@ pull request.
 ## License
 
 GitOps is released under the [Elastic License 2.0](license.md).
+
+

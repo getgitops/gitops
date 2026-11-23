@@ -77,6 +77,7 @@ function createClient(authorName: string, authorEmail: string): CachedGitDb {
   const config = requireRepositoryConfig();
   const { authUsername, authToken } = resolveAuthCredentials(config);
   const db: GitDB = gitDb(config.repositoryUrl, {
+    branch: config.branch,
     gitUserName: authorName,
     gitUserEmail: authorEmail,
     syncPollSeconds: config.syncPollSeconds,
@@ -96,5 +97,6 @@ export function getGitDb(): CachedGitDb {
   }
 
   const actor = getCurrentActor();
-  return actor ? instance.as(actor) : instance;
+  // only the commit identity reaches GitDB; ids in the request context are for domain events
+  return actor ? instance.as({ name: actor.name, email: actor.email }) : instance;
 }

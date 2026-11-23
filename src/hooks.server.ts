@@ -3,6 +3,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
+import { registerAlertEngine } from '#modules/alerts';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
 import {
@@ -12,12 +13,7 @@ import {
 } from '#lib/server/server-ready';
 import { renderStartingPage } from '#lib/server/starting-page';
 import { runWithActor } from '#lib/server/request-context';
-import {
-  createLogger,
-  createRequestLogger,
-  logHttpRequest,
-  logger,
-} from '#lib/server/logger';
+import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
 const startupLog = createLogger('startup');
 
@@ -25,6 +21,8 @@ const startupLog = createLogger('startup');
 const serverReady = (async () => {
   await startGitDb();
   await ensureAuthReady();
+  // once per process (HMR-safe): system notifications and alerts on every published event
+  registerAlertEngine();
   await refreshBootstrapState();
   markServerReady();
 })();
@@ -110,10 +108,19 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 302, headers: { location: '/bootstrap' } });
   }
 
-  // sign-in, sign-out, self-registration, password recovery and invitation acceptance must work
-  // without (or with a broken) session; each route re-checks whatever it needs server-side
+  // legacy URL: the admin area moved from /cluster-settings to /gitops-settings; keep old
+  // bookmarks working (the new path is still guarded below)
+  if (pathname === '/cluster-settings' || pathname.startsWith('/cluster-settings/')) {
+    const location = pathname.replace('/cluster-settings', '/gitops-settings') + event.url.search;
+    return new Response(null, { status: 308, headers: { location } });
+  }
+
+  // sign-in, sign-out, self-registration, password recovery, invitation acceptance and the Google
+  // SSO round trip must work without (or with a broken) session; each route re-checks what it needs
   if (
     pathname === '/auth/login' ||
+    pathname === '/auth/sso/google/start' ||
+    pathname === '/auth/sso/google/callback' ||
     pathname === '/auth/logout' ||
     pathname === '/auth/invitation' ||
     pathname === '/auth/registration' ||
@@ -142,7 +149,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
     event.locals.apiKey = apiKey;
 
     return runWithActor(
-      { name: `apikey:${apiKey.name}`, email: `apikey+${apiKey.id}@gitops.local` },
+      {
+        name: `apikey:${apiKey.name}`,
+        email: `apikey+${apiKey.id}@gitops.local`,
+        apiKeyId: apiKey.id,
+        apiKeyProjectId: apiKey.projectId,
+      },
       () => resolve(event),
     );
   }
@@ -182,7 +194,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
     ) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
-  } else if (event.url.pathname.startsWith('/cluster-settings')) {
+  } else if (event.url.pathname.startsWith('/gitops-settings')) {
     if (!cancanService.canAccessAdminArea(currentUser)) {
       return new Response(null, { status: 302, headers: { location: '/' } });
     }
@@ -191,6 +203,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
   const actor = {
     name: currentUser.username,
     email: currentUser.email || `${currentUser.username}@gitops.local`,
+    userId: currentUser.id,
   };
   return runWithActor(actor, () => resolve(event));
 };

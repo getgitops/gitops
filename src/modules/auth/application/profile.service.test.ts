@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfileService } from './profile.service';
+import { UserDomain } from '../domain/user.domain';
 import type { PasswordService } from './password.service';
 import type { UserRepository } from '../infrastructure/repositories/user.repository';
 
@@ -51,6 +52,7 @@ describe('ProfileService', () => {
         role: { id: 'role-1', name: 'Developer' },
         createdAt: '2026-08-18T00:00:00.000Z',
       }),
+      isLinkedTo: vi.fn().mockReturnValue(false),
     };
 
     userRepository.findById.mockResolvedValue(user);
@@ -61,10 +63,49 @@ describe('ProfileService', () => {
       email: 'alice@example.com',
       role: { id: 'role-1', name: 'Developer' },
       createdAt: '2026-08-18T00:00:00.000Z',
+      googleLinked: false,
     });
+    expect(user.isLinkedTo).toHaveBeenCalledWith('google');
 
     expect(userRepository.findById).toHaveBeenCalledWith('user-1');
     expect(user.toJson).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a linked Google identity', async () => {
+    const userRepository = createUserRepositoryMock();
+    const service = new ProfileService(userRepository, createPasswordServiceMock());
+
+    userRepository.findById.mockResolvedValue(
+      new UserDomain({
+        id: 'user-1',
+        username: 'alice',
+        authProviders: [
+          { provider: 'local', providerId: null },
+          { provider: 'google', providerId: 'google-sub-1' },
+        ],
+      }),
+    );
+
+    await expect(service.getAuthenticatedUserProfile('user-1')).resolves.toMatchObject({
+      googleLinked: true,
+    });
+  });
+
+  it('reports no Google link for a password-only user', async () => {
+    const userRepository = createUserRepositoryMock();
+    const service = new ProfileService(userRepository, createPasswordServiceMock());
+
+    userRepository.findById.mockResolvedValue(
+      new UserDomain({
+        id: 'user-1',
+        username: 'alice',
+        authProviders: [{ provider: 'local', providerId: null }],
+      }),
+    );
+
+    await expect(service.getAuthenticatedUserProfile('user-1')).resolves.toMatchObject({
+      googleLinked: false,
+    });
   });
 
   it('returns null when the user profile does not exist', async () => {

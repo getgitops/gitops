@@ -262,7 +262,7 @@
                     <a
                       href={data.organization
                         ? `/org/${data.organization.slug}/projects/${project.slug}/settings/overview`
-                        : '/cluster-settings/orgs'}
+                        : '/gitops-settings/orgs'}
                       class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
                       title={$_('orgSettings.projects.viewProject')}
                     >

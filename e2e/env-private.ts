@@ -1,8 +1,7 @@
-// Stand-in for SvelteKit's `$app/env/private` when app modules are imported outside Vite (the
-// Playwright global setup seeds GitDB in-process). Vitest has its own mock in test/env-private.ts.
-// Values are read when this module is first imported, which global-setup.ts does only after it
-// has written the throwaway E2E configuration into process.env.
-// Keep the list in sync with the variables declared in src/env.ts.
+// Stand-in for SvelteKit's `$app/env/private` when Playwright's global setup imports app modules
+// in-process (GitDB start + seed). Imported after global-setup assigns process.env, so these
+// snapshots see the throwaway E2E configuration. Keep in sync with `src/env.ts`.
+
 export const GITDB_REPOSITORY_URL = process.env.GITDB_REPOSITORY_URL;
 export const GITDB_BRANCH = process.env.GITDB_BRANCH;
 export const GITDB_TOKEN = process.env.GITDB_TOKEN;
@@ -15,6 +14,7 @@ export const GITDB_SYNC_MODE = process.env.GITDB_SYNC_MODE;
 export const GITDB_DATA_PATH = process.env.GITDB_DATA_PATH;
 export const GITDB_ENCRYPTION_KEY = process.env.GITDB_ENCRYPTION_KEY;
 export const VAULT_ENCRYPTION_KEY = process.env.VAULT_ENCRYPTION_KEY;
+export const ORIGIN = process.env.ORIGIN;
 export const NOTIFICATION_SMTP_HOST = process.env.NOTIFICATION_SMTP_HOST;
 export const NOTIFICATION_SMTP_PORT = process.env.NOTIFICATION_SMTP_PORT;
 export const NOTIFICATION_SMTP_SECURE = process.env.NOTIFICATION_SMTP_SECURE;
@@ -24,3 +24,8 @@ export const NOTIFICATION_SMTP_FROM = process.env.NOTIFICATION_SMTP_FROM;
 export const NOTIFICATION_SMTP_FROM_NAME = process.env.NOTIFICATION_SMTP_FROM_NAME;
 export const NOTIFICATION_SMTP_REJECT_UNAUTHORIZED =
   process.env.NOTIFICATION_SMTP_REJECT_UNAUTHORIZED;
+export const GOOGLE_SSO_CLIENT_ID = process.env.GOOGLE_SSO_CLIENT_ID;
+export const GOOGLE_SSO_CLIENT_SECRET = process.env.GOOGLE_SSO_CLIENT_SECRET;
+export const GOOGLE_SSO_ALLOWED_DOMAINS = process.env.GOOGLE_SSO_ALLOWED_DOMAINS;
+export const GOOGLE_SSO_AUTO_PROVISION = process.env.GOOGLE_SSO_AUTO_PROVISION;
+export const GITOPS_EVENTS_EXPIRATION = process.env.GITOPS_EVENTS_EXPIRATION;

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { createPageStore } from '#lib/page-store';
   import {
+    Activity,
+    BellRing,
     BarChart3,
     Building2,
     ChevronDown,
@@ -46,11 +48,14 @@
   export let canReadOrgBackups = false;
   export let canReadOrgServerKeys = false;
   export let canReadOrgAudit = false;
+  export let canReadOrgEvents = false;
+  export let canReadOrganizationAlerts = false;
   export let canReadProjectInfo = false;
   export let canReadProjectUsers = false;
   export let canReadProjectRoles = false;
   export let canReadProjectServerKeys = false;
   export let canReadProjectAudit = false;
+  export let canReadProjectAlerts = false;
   export let canReadProjectVault = false;
   export let canReadProjectCodeReport = false;
   export let canReadProjectStateIac = false;
@@ -96,7 +101,7 @@
             : [
                 {
                   label: $_('sidebar.items.selectOrganization'),
-                  href: '/cluster-settings/orgs',
+                  href: '/gitops-settings/orgs',
                   icon: Building2,
                 },
               ],
@@ -228,6 +233,12 @@
               visible: canReadProjectAudit,
             },
             {
+              label: $_('sidebar.items.alerts'),
+              href: `${projectBase}/settings/alerts`,
+              icon: BellRing,
+              visible: canReadProjectAlerts,
+            },
+            {
               label: $_('sidebar.items.serverKeys'),
               href: `${projectBase}/settings/server-access-keys`,
               icon: Shield,
@@ -302,6 +313,18 @@
                   icon: ScrollText,
                   visible: canReadOrgAudit,
                 },
+                {
+                  label: $_('sidebar.items.events'),
+                  href: `/org/${organizationSlug}/settings/events`,
+                  icon: Activity,
+                  visible: canReadOrgEvents,
+                },
+                {
+                  label: $_('sidebar.items.alerts'),
+                  href: `/org/${organizationSlug}/settings/alerts`,
+                  icon: BellRing,
+                  visible: canReadOrganizationAlerts,
+                },
               ]
                 .filter((item) => item.visible)
                 .map(({ visible, ...item }) => item);
@@ -323,36 +346,36 @@
               {
                 name: $_('sidebar.modules.clusterSettings'),
                 icon: Building2,
-                base: '/cluster-settings',
+                base: '/gitops-settings',
                 items: [
                   {
                     label: $_('sidebar.items.organizations'),
-                    href: '/cluster-settings/orgs',
+                    href: '/gitops-settings/orgs',
                     icon: Building2,
                   },
                   {
                     label: $_('sidebar.items.rolesAndPermissions'),
-                    href: '/cluster-settings/roles-permissions',
+                    href: '/gitops-settings/roles-permissions',
                     icon: Shield,
                   },
                   {
                     label: $_('sidebar.items.accessControl'),
-                    href: '/cluster-settings/access-control',
+                    href: '/gitops-settings/access-control',
                     icon: Users,
                   },
                   {
                     label: $_('sidebar.items.registration'),
-                    href: '/cluster-settings/registration',
+                    href: '/gitops-settings/registration',
                     icon: KeyRound,
                   },
                   {
                     label: $_('sidebar.items.database'),
-                    href: '/cluster-settings/database',
+                    href: '/gitops-settings/database',
                     icon: Database,
                   },
                   {
                     label: $_('sidebar.items.auditLog'),
-                    href: '/cluster-settings/audit',
+                    href: '/gitops-settings/audit',
                     icon: ScrollText,
                   },
                 ],
@@ -429,7 +452,7 @@
     <a
       href={organizationSlug
         ? `/org/${organizationSlug}/settings/storage`
-        : '/cluster-settings/orgs'}
+        : '/gitops-settings/orgs'}
       class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
         ? 'justify-center'
         : 'items-start'}"

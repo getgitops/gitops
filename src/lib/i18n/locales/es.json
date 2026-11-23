@@ -32,7 +32,7 @@
       "stateIac": "State IaC",
       "projectSettings": "Ajustes de proyecto",
       "organizationSettings": "Configuración",
-      "clusterSettings": "Ajustes del clúster"
+      "clusterSettings": "Ajustes de GitOps"
     },
     "items": {
       "overview": "Vista general",
@@ -55,7 +55,9 @@
       "organizations": "Organizaciones",
       "database": "Base de datos",
       "auditLog": "Registro de auditoría",
-      "registration": "Registro"
+      "registration": "Registro",
+      "events": "Eventos",
+      "alerts": "Alertas"
     }
   },
   "footer": {
@@ -65,6 +67,11 @@
     "docs": "Docs",
     "slack": "Slack",
     "gitdbSyncStatus": "Estado de sincronización GitDB"
+  },
+  "whatsNew": {
+    "title": "Novedades de la versión {version}",
+    "viewChangelog": "Ver changelog",
+    "close": "Cerrar novedades"
   },
   "profile": {
     "title": "Perfil",
@@ -109,6 +116,7 @@
     "days": "días",
     "cancel": "Cancelar",
     "closeCreateApiKeyModal": "Cerrar modal de creación de clave API",
+    "language": "Idioma",
     "languageDescription": "Selecciona el idioma de la interfaz.",
     "spanish": "Español",
     "english": "Inglés",
@@ -194,7 +202,7 @@
     "activating": "Activando...",
     "registrationTitle": "Crea tu cuenta",
     "registrationSubtitle": "Regístrate para empezar a usar GitOps.",
-    "registrationDisabled": "El registro por autoservicio está deshabilitado actualmente. Pide una invitación a un administrador del clúster.",
+    "registrationDisabled": "El registro por autoservicio está deshabilitado actualmente. Pide una invitación a un administrador de GitOps.",
     "register": "Crear cuenta",
     "registering": "Creando cuenta...",
     "alreadyHaveAccount": "¿Ya tienes una cuenta?",
@@ -212,16 +220,25 @@
     "newPassword": "Nueva contraseña",
     "resetPassword": "Restablecer contraseña",
     "resetting": "Restableciendo...",
-    "passwordResetSuccess": "Tu contraseña se ha restablecido. Inicia sesión con tu nueva contraseña."
+    "passwordResetSuccess": "Tu contraseña se ha restablecido. Inicia sesión con tu nueva contraseña.",
+    "ssoContinueWithGoogle": "Continuar con Google",
+    "ssoDivider": "o",
+    "ssoErrorCancelled": "Se canceló el inicio de sesión con Google.",
+    "ssoErrorNotConfigured": "El inicio de sesión con Google no está activado.",
+    "ssoErrorInvalidState": "La solicitud de inicio de sesión ha caducado. Inténtalo de nuevo.",
+    "ssoErrorEmailNotVerified": "El email de tu cuenta de Google no está verificado.",
+    "ssoErrorDomainNotAllowed": "El dominio de esta cuenta de Google no está permitido.",
+    "ssoErrorNotInvited": "No hay ninguna cuenta para esta identidad de Google. Pide una invitación a un administrador.",
+    "ssoErrorGeneric": "Falló el inicio de sesión con Google. Inténtalo de nuevo o usa tu contraseña."
   },
   "bootstrap": {
-    "title": "Configuración del clúster",
+    "title": "Configuración de GitOps",
     "subtitle": "El repositorio de GitDB ya está conectado. Completa estos pasos para terminar la instalación.",
-    "stepAdministrator": "Crear administrador del clúster",
+    "stepAdministrator": "Crear administrador de GitOps",
     "stepOrganization": "Crear organización",
-    "createAdministratorFailed": "No se pudo crear el administrador del clúster.",
-    "administratorCardTitle": "1. Crear administrador del clúster",
-    "administratorCardDescription": "Esta cuenta tendrá acceso completo a la configuración del clúster.",
+    "createAdministratorFailed": "No se pudo crear el administrador de GitOps.",
+    "administratorCardTitle": "1. Crear administrador de GitOps",
+    "administratorCardDescription": "Esta cuenta tendrá acceso completo a la configuración de GitOps.",
     "createAdministrator": "Crear administrador",
     "createOrganizationFailed": "No se pudo crear la organización.",
     "organizationCardTitle": "2. Crear organización",
@@ -238,19 +255,19 @@
     "startingDescription": "El servidor se está iniciando. Esta página se actualizará automáticamente."
   },
   "clusterSettings": {
-    "title": "Ajustes del clúster",
+    "title": "Ajustes de GitOps",
     "audit": {
-      "title": "Registro de auditoría del clúster",
-      "description": "Historial de cambios registrados en el repositorio de datos del clúster."
+      "title": "Registro de auditoría de GitOps",
+      "description": "Historial de cambios registrados en el repositorio de datos de GitOps."
     },
     "users": {
-      "title": "Usuarios del clúster",
-      "description": "Crea usuarios y dales acceso a este clúster."
+      "title": "Usuarios de GitOps",
+      "description": "Crea usuarios y dales acceso a GitOps."
     },
     "roles": {
-      "title": "Roles y permisos del clúster",
-      "description": "Gestiona roles y políticas de acceso granulares en todo el clúster.",
-      "addRole": "Añadir rol del clúster"
+      "title": "Roles y permisos de GitOps",
+      "description": "Gestiona roles y políticas de acceso granulares en todo GitOps.",
+      "addRole": "Añadir rol de GitOps"
     },
     "database": {
       "title": "Base de datos",
@@ -273,7 +290,7 @@
       "authentication": "Autenticación",
       "credentialLoaded": "credencial cargada",
       "commitAuthor": "Autor del commit",
-      "repositoryMissing": "GITDB_REPOSITORY_URL no está configurado. El clúster no puede arrancar sin él.",
+      "repositoryMissing": "GITDB_REPOSITORY_URL no está configurado. GitOps no puede arrancar sin él.",
       "syncPoll": "Intervalo de sincronización",
       "everySeconds": "Cada",
       "seconds": "segundos",
@@ -281,7 +298,7 @@
     },
     "organizations": {
       "title": "Organizaciones",
-      "description": "Crear, ver y gestionar organizaciones del clúster.",
+      "description": "Crear, ver y gestionar organizaciones de GitOps.",
       "searchPlaceholder": "Buscar por nombre, slug o descripción...",
       "nameRequired": "El nombre de la organización es obligatorio.",
       "created": "Organización creada.",
@@ -326,7 +343,7 @@
       "deleteConfirmationEnd": "? Esta acción no se puede deshacer.",
       "deleting": "Eliminando...",
       "copySlugFailed": "No se pudo copiar el slug.",
-      "titleSuffix": "Ajustes del clúster",
+      "titleSuffix": "Ajustes de GitOps",
       "optionalDescription": "Descripción opcional",
       "closeDeleteModal": "Cerrar modal de eliminar organización",
       "deleteModal": "Modal de eliminar organización",
@@ -338,7 +355,7 @@
       "title": "Registro",
       "description": "Controla si los nuevos usuarios pueden crear su propia cuenta desde la página de inicio de sesión.",
       "enableLabel": "Permitir registro por autoservicio",
-      "enableDescription": "Al habilitarlo, cualquiera puede crear una cuenta de usuario del clúster en /auth/registration sin invitación. Empiezan sin organización y pueden crear la suya propia.",
+      "enableDescription": "Al habilitarlo, cualquiera puede crear una cuenta de usuario de GitOps en /auth/registration sin invitación. Empiezan sin organización y pueden crear la suya propia.",
       "updated": "Configuración de registro actualizada.",
       "updateFailed": "No se pudo actualizar la configuración de registro."
     }
@@ -372,6 +389,39 @@
       "title": "CVEs de la organización",
       "infoMessage": "Este listado agrupa los CVEs de todos los proyectos de la organización usando el último análisis completado de cada servicio.",
       "emptyMessage": "Todavía no se han detectado CVEs en esta organización."
+    },
+    "events": {
+      "title": "Eventos",
+      "description": "Lo que ha ocurrido en la organización y en sus proyectos. Marca cada evento como revisado cuando lo hayas atendido.",
+      "retentionNotice": "Los eventos se guardan en memoria durante {retention}: se pierden al reiniciar el servidor.",
+      "retentionDays": "{count} días",
+      "retentionHours": "{count} horas",
+      "retentionMinutes": "{count} minutos",
+      "pendingCount": "{count} pendientes de revisar",
+      "filterModule": "Módulo",
+      "filterStatus": "Estado",
+      "allModules": "Todos los módulos",
+      "statusAll": "Todos",
+      "statusPending": "Pendientes",
+      "statusAcked": "Revisados",
+      "applyFilters": "Filtrar",
+      "emptyTitle": "No hay eventos",
+      "emptyDescription": "Aquí aparecerán los análisis, cambios en el vault, accesos y demás actividad de la organización.",
+      "actorSystem": "Sistema",
+      "actorApiKey": "API key {name}",
+      "actorApiKeyUnknown": "API key",
+      "inProject": "en {name}",
+      "details": "Ver detalles",
+      "ack": "Marcar como revisado",
+      "ackedBy": "Revisado por {name} · {date}",
+      "ackFailed": "No se ha podido marcar el evento como revisado.",
+      "modules": {
+        "code_report": "Code Report",
+        "vault": "Vault",
+        "projects": "Proyectos",
+        "organization": "Organización",
+        "access": "Accesos"
+      }
     }
   },
   "project": {
@@ -755,7 +805,12 @@
       "comingSoon": "Próximamente",
       "comingSoonDescription": "La rotación de claves, la política de cifrado y la protección de secretos por ámbito están previstas para una futura versión.",
       "saveNotWired": "La configuración global de autenticación aún no está conectada a una acción del servidor.",
-      "localAuthTitle": "Autenticación local: siempre ACTIVA"
+      "localAuthTitle": "Autenticación local: siempre ACTIVA",
+      "googleClusterEnabledBadge": "Activado en GitOps",
+      "googleClusterDisabledBadge": "No configurado",
+      "googleClusterEnabledTitle": "Autenticación con Google SSO: activada",
+      "googleClusterEnabled": "Cualquier miembro con invitación puede acceder con su cuenta de Google.",
+      "googleClusterDisabled": "El inicio de sesión con Google no está configurado en GitOps. Un administrador de GitOps puede activarlo con las variables de entorno GOOGLE_SSO_*."
     },
     "projects": {
       "title": "Proyectos",
@@ -865,7 +920,7 @@
     "systemRoleDeleteDisabled": "Los roles de sistema no se pueden borrar.",
     "orgRoleDetails": "Detalle del rol de organización",
     "projectRoleDetails": "Detalle del rol de proyecto",
-    "clusterRoleDetails": "Detalle del rol de clúster",
+    "clusterRoleDetails": "Detalle del rol de GitOps",
     "roleId": "ID del rol",
     "developerPlaceholder": "Developer",
     "newRole": "Nuevo rol",
@@ -882,7 +937,7 @@
     "fullAccess": "Acceso completo",
     "custom": "Personalizado",
     "sectionGroup": "Grupo de secciones",
-    "addClusterRole": "Añadir rol del clúster",
+    "addClusterRole": "Añadir rol de GitOps",
     "addOrganizationRole": "Añadir rol de la organización",
     "addProjectRole": "Añadir rol del proyecto"
   },
@@ -933,5 +988,471 @@
     "defaultRootLabel": "Proyectos",
     "select": "Seleccionar",
     "notAvailable": "N/D"
+  },
+  "events": {
+    "code_report": {
+      "analysis": {
+        "completed": {
+          "label": "Análisis completado",
+          "description": "Una herramienta de análisis ha terminado de analizar un servicio.",
+          "fields": {
+            "serviceId": "Servicio",
+            "tool": "Herramienta",
+            "gitInfo": {
+              "branch": "Rama"
+            },
+            "summary": {
+              "critical": "Vulnerabilidades críticas",
+              "high": "Vulnerabilidades altas",
+              "medium": "Vulnerabilidades medias",
+              "low": "Vulnerabilidades bajas",
+              "total": "Total de vulnerabilidades"
+            },
+            "hasVulnerabilities": "Tiene vulnerabilidades",
+            "policiesViolated": "Incumple políticas de seguridad"
+          }
+        },
+        "failed": {
+          "label": "Análisis fallido",
+          "description": "Una herramienta de análisis no ha podido completar el análisis de un servicio.",
+          "fields": {
+            "serviceId": "Servicio",
+            "tool": "Herramienta",
+            "gitInfo": {
+              "branch": "Rama"
+            }
+          }
+        }
+      },
+      "policy": {
+        "violated": {
+          "label": "Política de seguridad incumplida",
+          "description": "Un análisis completado incumple una política de seguridad del proyecto.",
+          "fields": {
+            "serviceId": "Servicio",
+            "policyId": "Política",
+            "policyType": "Tipo de política",
+            "enforcement": "Aplicación"
+          }
+        }
+      },
+      "service": {
+        "created": {
+          "label": "Servicio creado",
+          "description": "Se ha creado un servicio en Code Report.",
+          "fields": {
+            "name": "Nombre"
+          }
+        },
+        "deleted": {
+          "label": "Servicio eliminado",
+          "description": "Se ha eliminado un servicio de Code Report.",
+          "fields": {
+            "serviceId": "Servicio",
+            "name": "Nombre"
+          }
+        }
+      }
+    },
+    "options": {
+      "tool": {
+        "trivy": "Trivy",
+        "grype": "Grype",
+        "semgrep": "Semgrep",
+        "gitleaks": "Gitleaks",
+        "trufflehog": "TruffleHog",
+        "sbom": "SBOM",
+        "syft": "Syft",
+        "coverage": "Cobertura",
+        "manual-upload": "Subida manual",
+        "api": "API"
+      },
+      "policyType": {
+        "vulnerabilities": "Vulnerabilidades",
+        "license": "Licencias",
+        "code_coverage": "Cobertura de código",
+        "secrets": "Secretos"
+      },
+      "enforcement": {
+        "warn": "Aviso",
+        "block": "Bloqueante"
+      },
+      "secretChangedField": {
+        "key": "Key",
+        "description": "Descripción",
+        "folder": "Carpeta",
+        "values": "Valores"
+      },
+      "projectChangedField": {
+        "name": "Nombre",
+        "slug": "Slug",
+        "description": "Descripción",
+        "status": "Estado",
+        "modules": "Módulos",
+        "organization": "Organización",
+        "settings": "Ajustes"
+      },
+      "organizationChangedField": {
+        "name": "Nombre",
+        "slug": "Slug",
+        "description": "Descripción"
+      },
+      "accessScope": {
+        "cluster": "GitOps",
+        "organization": "Organización",
+        "project": "Proyecto"
+      }
+    },
+    "vault": {
+      "secret": {
+        "created": {
+          "label": "Secreto creado",
+          "description": "Se ha creado un secreto en el vault del proyecto.",
+          "fields": {
+            "key": "Key del secreto",
+            "environmentIds": "Entornos",
+            "folderPath": "Carpeta"
+          }
+        },
+        "updated": {
+          "label": "Secreto actualizado",
+          "description": "Se ha modificado un secreto del vault del proyecto.",
+          "fields": {
+            "key": "Key del secreto",
+            "environmentIds": "Entornos",
+            "folderPath": "Carpeta",
+            "changedFields": "Campos modificados"
+          }
+        },
+        "deleted": {
+          "label": "Secreto eliminado",
+          "description": "Se ha eliminado un secreto del vault del proyecto.",
+          "fields": {
+            "key": "Key del secreto",
+            "environmentIds": "Entornos",
+            "folderPath": "Carpeta"
+          }
+        }
+      },
+      "env": {
+        "imported": {
+          "label": "Fichero .env importado",
+          "description": "Se han importado secretos desde un fichero .env.",
+          "fields": {
+            "environmentId": "Entorno",
+            "folderPath": "Carpeta",
+            "created": "Secretos creados",
+            "updated": "Secretos actualizados"
+          }
+        }
+      },
+      "environment": {
+        "created": {
+          "label": "Entorno creado",
+          "description": "Se ha creado un entorno en el vault del proyecto.",
+          "fields": {
+            "environmentId": "Entorno",
+            "name": "Nombre"
+          }
+        },
+        "deleted": {
+          "label": "Entorno eliminado",
+          "description": "Se ha eliminado un entorno del vault del proyecto.",
+          "fields": {
+            "environmentId": "Entorno",
+            "name": "Nombre"
+          }
+        }
+      }
+    },
+    "project": {
+      "created": {
+        "label": "Proyecto creado",
+        "description": "Se ha creado un proyecto en la organización.",
+        "fields": {
+          "name": "Nombre"
+        }
+      },
+      "updated": {
+        "label": "Proyecto actualizado",
+        "description": "Se ha modificado un proyecto de la organización.",
+        "fields": {
+          "projectId": "Proyecto",
+          "name": "Nombre",
+          "changedFields": "Campos modificados"
+        }
+      },
+      "deleted": {
+        "label": "Proyecto eliminado",
+        "description": "Se ha eliminado un proyecto de la organización.",
+        "fields": {
+          "projectId": "Proyecto",
+          "name": "Nombre"
+        }
+      }
+    },
+    "organization": {
+      "updated": {
+        "label": "Organización actualizada",
+        "description": "Se han modificado los datos de la organización.",
+        "fields": {
+          "changedFields": "Campos modificados"
+        }
+      }
+    },
+    "access": {
+      "granted": {
+        "label": "Acceso concedido",
+        "description": "Se ha dado acceso a un usuario con un rol.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      },
+      "updated": {
+        "label": "Acceso modificado",
+        "description": "Ha cambiado el rol o el estado del acceso de un usuario.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      },
+      "revoked": {
+        "label": "Acceso retirado",
+        "description": "Se ha retirado el acceso de un usuario.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      }
+    },
+    "user": {
+      "invited": {
+        "label": "Usuario invitado",
+        "description": "Se ha invitado a un usuario a la organización.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol"
+        }
+      }
+    },
+    "invitation": {
+      "accepted": {
+        "label": "Invitación aceptada",
+        "description": "Un usuario ha aceptado su invitación.",
+        "fields": {
+          "userId": "Usuario",
+          "roleId": "Rol",
+          "scope": "Ámbito"
+        }
+      }
+    },
+    "role": {
+      "updated": {
+        "label": "Rol modificado",
+        "description": "Han cambiado el nombre o los permisos de un rol.",
+        "fields": {
+          "roleId": "Rol",
+          "addedPermissions": "Permisos añadidos",
+          "removedPermissions": "Permisos retirados"
+        }
+      }
+    },
+    "api_key": {
+      "created": {
+        "label": "API key creada",
+        "description": "Se ha creado una API key.",
+        "fields": {
+          "name": "Nombre"
+        }
+      },
+      "revoked": {
+        "label": "API key revocada",
+        "description": "Se ha revocado una API key.",
+        "fields": {
+          "apiKeyId": "API key",
+          "name": "Nombre"
+        }
+      }
+    },
+    "scopeFields": {
+      "projectId": "Proyecto"
+    }
+  },
+  "alerts": {
+    "email": {
+      "alertSubject": "[GitOps] {alert}: {summary}",
+      "alertIntro": "Ha ocurrido «{event}» en {where} y cumple las condiciones de esta alerta.",
+      "occurredAt": "Fecha",
+      "suppressed": "Además, se omitieron {count} eventos que coincidían con la alerta durante la ventana anterior.",
+      "footer": "Recibes este email por la alerta «{alert}» en {where}.",
+      "systemFooter": "Este aviso lo envía GitOps automáticamente y no se puede desactivar.",
+      "system": {
+        "projectTarget": "el proyecto {project} ({organization})",
+        "access_granted": {
+          "subject": "Tienes acceso a {target}",
+          "body": "Te han dado acceso a {target} con el rol {role}."
+        },
+        "access_updated": {
+          "subject": "Tu rol en {target} ha cambiado",
+          "body": "Tu rol en {target} ha cambiado a {role}."
+        },
+        "access_revoked": {
+          "subject": "Ya no tienes acceso a {target}",
+          "body": "Ya no tienes acceso a {target}."
+        },
+        "api_key_created": {
+          "subject": "Se ha creado una API key personal",
+          "body": "Se ha creado la API key personal «{name}» ({prefix}…) en tu cuenta.",
+          "warning": "Si no has sido tú, revoca la API key y cambia tu contraseña cuanto antes."
+        },
+        "openProfile": "Abrir mi perfil"
+      },
+      "manageAlert": "Gestionar la alerta",
+      "viewInApp": "Ver en GitOps",
+      "project": "Proyecto",
+      "greeting": "Hola, {name}:",
+      "service": "Servicio",
+      "tool": "Herramienta",
+      "branch": "Rama",
+      "commit": "Commit",
+      "severity": {
+        "critical": "Críticas",
+        "high": "Altas",
+        "medium": "Medias",
+        "low": "Bajas"
+      },
+      "policiesViolated": "Se han incumplido {count} políticas de seguridad ({blocking} bloqueantes).",
+      "summary": {
+        "vulnerabilities": "{critical} críticas, {high} altas ({total} en total)",
+        "noVulnerabilities": "sin vulnerabilidades",
+        "analysisFailed": "falló el análisis de {tool}",
+        "policyViolated": "«{policy}» incumplida ({count})"
+      }
+    },
+    "operators": {
+      "eq": "es",
+      "neq": "no es",
+      "in": "es uno de",
+      "not_in": "no es ninguno de",
+      "contains": "contiene",
+      "starts_with": "empieza por",
+      "gt": "mayor que",
+      "gte": "mayor o igual que",
+      "lt": "menor que",
+      "lte": "menor o igual que",
+      "is_true": "es sí",
+      "is_false": "es no",
+      "exists": "tiene valor"
+    },
+    "summary": {
+      "and": "y",
+      "or": "o",
+      "always": "Siempre (sin condiciones)",
+      "noRecipients": "Sin destinatarios"
+    },
+    "errors": {
+      "required": "Este campo es obligatorio.",
+      "too_long": "Es demasiado largo.",
+      "invalid": "El valor no es válido.",
+      "unknown_event": "Ese evento no existe.",
+      "not_alertable": "Ese evento no admite alertas.",
+      "scope_mismatch": "Este evento solo se puede vigilar desde la organización.",
+      "forbidden": "No tienes permiso para ver este evento, así que no puedes crear alertas sobre él.",
+      "unknown_field": "Este campo no existe para el evento elegido.",
+      "invalid_operator": "Operador no permitido para este campo.",
+      "unknown_option": "Elige una de las opciones.",
+      "unknown_reference": "Elige un elemento de este ámbito.",
+      "too_many": "Hay demasiados elementos.",
+      "unknown_user": "Algún usuario no pertenece a este ámbito.",
+      "unknown_role": "Algún rol no pertenece a este ámbito.",
+      "invalid_channel": "Canal no disponible."
+    },
+    "channels": {
+      "mail": "Email",
+      "in_app": "Notificación en la app",
+      "slack": "Slack",
+      "soon": "Próximamente"
+    },
+    "list": {
+      "title": "Alertas",
+      "descriptionOrganization": "Recibe un email cuando ocurra un evento en la organización o en cualquiera de sus proyectos.",
+      "descriptionProject": "Recibe un email cuando ocurra un evento en este proyecto.",
+      "create": "Crear alerta",
+      "emptyTitle": "Todavía no hay alertas",
+      "example1": "Avisar al equipo de seguridad si un análisis tiene vulnerabilidades críticas",
+      "example2": "Avisar cuando alguien borre un secreto de producción",
+      "example3": "Avisar cuando se cree una API key del proyecto",
+      "name": "Nombre",
+      "event": "Evento",
+      "conditions": "Filtros",
+      "recipients": "Destinatarios",
+      "status": "Estado",
+      "actions": "Acciones",
+      "enabled": "Activa",
+      "disabled": "Inactiva",
+      "toggle": "Activar o desactivar «{name}»",
+      "edit": "Editar",
+      "delete": "Borrar",
+      "confirmDelete": "¿Borrar esta alerta? No se puede deshacer.",
+      "throttle": "Máx. un email cada {minutes} min",
+      "inheritedTitle": "Alertas de la organización",
+      "inheritedDescription": "Estas alertas se definen en la organización y también se disparan con los eventos de este proyecto. Solo se pueden cambiar desde los ajustes de la organización."
+    },
+    "editor": {
+      "newTitle": "Nueva alerta",
+      "editTitle": "Editar alerta",
+      "subtitle": "Elige un evento, filtra por sus campos y decide quién recibe el email.",
+      "back": "Volver a las alertas",
+      "stepEvent": "Evento",
+      "stepConditions": "Condiciones",
+      "stepRecipients": "Destinatarios y envío",
+      "stepSave": "Probar y guardar",
+      "name": "Nombre",
+      "description": "Descripción (opcional)",
+      "enabled": "Alerta activa",
+      "event": "Evento",
+      "chooseEvent": "Elige un evento…",
+      "eventHelp": "Solo aparecen los eventos que puedes ver.",
+      "applyEvent": "Usar este evento",
+      "chooseEventFirst": "Elige primero un evento para ver sus campos.",
+      "droppedConditions": "Se han quitado {count} condiciones que no existen en el nuevo evento.",
+      "matchLabel": "Coincidir con",
+      "matchAll": "todas las condiciones (Y)",
+      "matchAny": "cualquiera de ellas (O)",
+      "noConditions": "Sin condiciones: la alerta salta con cada evento de este tipo.",
+      "field": "Campo",
+      "operator": "Operador",
+      "value": "Valor",
+      "addCondition": "Añadir condición",
+      "removeCondition": "Quitar la condición {index}",
+      "search": "Buscar…",
+      "searchIn": "Buscar en {label}",
+      "noOptions": "No hay elementos disponibles.",
+      "roles": "Roles",
+      "users": "Usuarios",
+      "recipientsNotice": "Solo recibirán el email los destinatarios con permiso para ver este evento.",
+      "channels": "Canal",
+      "throttle": "No enviar más de un email cada (minutos)",
+      "throttleHelp": "0 = sin límite. Los eventos que se salten se resumen en el siguiente email.",
+      "sampleProject": "Proyecto del evento de ejemplo",
+      "sampleProjectAny": "El que indiquen las condiciones",
+      "test": "Probar alerta",
+      "create": "Crear alerta",
+      "saveChanges": "Guardar cambios",
+      "fixErrors": "Revisa los campos marcados."
+    },
+    "test": {
+      "matched": "El evento de ejemplo cumple las condiciones.",
+      "notMatched": "El evento de ejemplo no cumple las condiciones.",
+      "recipients": "Se enviaría a: {names}",
+      "noRecipients": "No se enviaría a nadie.",
+      "denied": "{count} destinatarios no lo recibirían porque no pueden ver este evento.",
+      "nothingSent": "Es una prueba: no se ha enviado ningún email."
+    },
+    "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán."
   }
 }

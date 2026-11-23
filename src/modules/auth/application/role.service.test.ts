@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { RoleService } from './role.service';
 import { RoleDomain } from '../domain/role.domain';
+import { RecordingEventBus } from '#lib/server/events/testing';
 
 class FakeRoleRepository {
   rows: RoleDomain[] = [];
@@ -286,5 +287,72 @@ describe('RoleService', () => {
         ),
       ).toBe(true);
     });
+  });
+});
+
+describe('RoleService events', () => {
+  let roleRepository: FakeRoleRepository;
+  let events: RecordingEventBus;
+  let service: RoleService;
+
+  beforeEach(async () => {
+    roleRepository = new FakeRoleRepository();
+    events = new RecordingEventBus();
+    service = new RoleService(
+      roleRepository as any,
+      new FakeUserRepository() as any,
+      new FakeUserAccessRepository() as any,
+      {
+        events,
+        projects: { getProject: async () => ({ organization: { id: 'org-1' } }) },
+      },
+    );
+    await roleRepository.create({
+      id: 'role-1',
+      slug: 'project-dev',
+      name: 'Project Developer',
+      scope: 'project',
+      projectId: 'project-1',
+      permissions: ['project:vault:secrets:read', 'project:vault:secrets:update'],
+    } as any);
+  });
+
+  it('publishes role.updated with the permission diff and the project scope', async () => {
+    await service.updateRole('role-1', {
+      permissions: ['project:vault:secrets:read', 'project:vault:secrets:delete'],
+    });
+
+    expect(events.types()).toEqual(['role.updated']);
+    const [event] = events.ofType('role.updated');
+    expect(event.payload).toEqual({
+      roleId: 'role-1',
+      name: 'Project Developer',
+      scope: 'project',
+      nameChanged: false,
+      addedPermissions: ['project:vault:secrets:delete'],
+      removedPermissions: ['project:vault:secrets:update'],
+    });
+    expect(event.scope).toEqual({ organizationId: 'org-1', projectId: 'project-1' });
+  });
+
+  it('reports a rename', async () => {
+    await service.updateRole('role-1', { name: 'Developer' });
+
+    expect(events.ofType('role.updated')[0].payload).toMatchObject({
+      name: 'Developer',
+      nameChanged: true,
+      addedPermissions: [],
+      removedPermissions: [],
+    });
+  });
+
+  it('does not publish when creating default roles or on rejected updates', async () => {
+    await service.createDefaultProjectRoles('project-2');
+    await service.createDefaultOrganizationRoles('org-2');
+    await expect(service.updateRole('missing', { name: 'X' })).rejects.toThrow();
+    await expect(service.updateRole('role-1', { name: '  ' })).rejects.toThrow();
+    await expect(service.updateRole('role-1', { permissions: ['nope'] })).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
   });
 });

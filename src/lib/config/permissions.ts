@@ -59,6 +59,16 @@ const permissions = {
           resource: 'audit',
           permissions: grantsFor('organization', 'audit'),
         },
+        // events page (/org/<org>/settings/events): read to see it, update to acknowledge events
+        events: {
+          resource: 'events',
+          permissions: grantsFor('organization', 'events'),
+        },
+        // alerts of the organization (/org/<org>/settings/alerts), they cover all its projects
+        alerts: {
+          resource: 'alerts',
+          permissions: grantsFor('organization', 'alerts'),
+        },
       },
     },
     project: {
@@ -80,6 +90,11 @@ const permissions = {
         audit: {
           resource: 'audit',
           permissions: grantsFor('project', 'audit'),
+        },
+        // alerts of one project (/org/<org>/projects/<slug>/settings/alerts)
+        alerts: {
+          resource: 'alerts',
+          permissions: grantsFor('project', 'alerts'),
         },
         modules: {
           resource: 'modules',

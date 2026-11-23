@@ -9,13 +9,19 @@ import { InvitationService } from './application/invitation.service';
 import { PasswordResetService } from './application/password-reset.service';
 import { CanCanService } from './application/cancan.service';
 import { RoleService } from './application/role.service';
+import { SsoService } from './application/sso.service';
 import { UserRepository } from './infrastructure/repositories/user.repository';
 import { RoleRepository } from './infrastructure/repositories/role.repository';
 import { ApiKeyRepository } from './infrastructure/repositories/apikey.repository';
 import { UserAccessRepository } from './infrastructure/repositories/user-access.repository';
+import { readGoogleSsoConfig } from './infrastructure/config/google-sso.config';
+import { GoogleOidcClient } from './infrastructure/oidc/google-oidc.client';
 import { InvitationNotifier } from './infrastructure/notifications/invitation.notifier';
 import { PasswordResetNotifier } from './infrastructure/notifications/password-reset.notifier';
 import { projectService } from '../projects';
+import { eventBus } from '#lib/server/events';
+
+const accessEvents = { events: eventBus, projects: projectService };
 
 const userRepository = new UserRepository();
 const roleRepository = new RoleRepository();
@@ -26,7 +32,12 @@ const passwordResetNotifier = new PasswordResetNotifier();
 
 export const passwordService = new PasswordService();
 const sessionService = new SessionService(passwordService);
-export const apiKeysService = new ApiKeysService(apiKeyRepository, roleRepository, projectService);
+export const apiKeysService = new ApiKeysService(
+  apiKeyRepository,
+  roleRepository,
+  projectService,
+  eventBus,
+);
 
 export const authService = new AuthService(
   userRepository,
@@ -36,11 +47,18 @@ export const authService = new AuthService(
 );
 export const userService = new UserService(userRepository, roleRepository, passwordService);
 export const profileService = new ProfileService(userRepository, passwordService);
-export const roleService = new RoleService(roleRepository, userRepository, userAccessRepository);
+export const roleService = new RoleService(
+  roleRepository,
+  userRepository,
+  userAccessRepository,
+  accessEvents,
+);
 export const invitationService = new InvitationService(
   userRepository,
   userAccessRepository,
   passwordService,
+  undefined,
+  accessEvents,
 );
 export const passwordResetService = new PasswordResetService(
   userRepository,
@@ -54,7 +72,17 @@ export const userAccessService = new UserAccessService(
   passwordService,
   invitationNotifier,
   invitationService,
+  accessEvents,
 );
+export const ssoService = new SsoService(
+  readGoogleSsoConfig,
+  userRepository,
+  userAccessRepository,
+  userAccessService,
+  new GoogleOidcClient(),
+  () => passwordService.ensureEncryptionKey(),
+);
+export { SsoError, type SsoErrorCode, type GoogleSsoStatus } from './application/sso.service';
 export const cancanService = new CanCanService(
   userRepository,
   userAccessRepository,

@@ -1,17 +1,21 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { authService } from '#modules/auth';
+import { authService, ssoService } from '#modules/auth';
 import { clusterSettingsService } from '#modules/config';
 
 const SESSION_COOKIE = 'pos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
-export async function load({ cookies }) {
+export async function load({ cookies, url }) {
   const currentUser = await authService.resolveAuthenticatedUser(cookies.get(SESSION_COOKIE));
   if (currentUser) {
     throw redirect(303, '/');
   }
   const registrationEnabled = await clusterSettingsService.isRegistrationEnabled();
-  return { registrationEnabled };
+  return {
+    registrationEnabled,
+    googleSsoEnabled: ssoService.isGoogleEnabled(),
+    ssoError: url.searchParams.get('ssoError'),
+  };
 }
 
 export const actions = {

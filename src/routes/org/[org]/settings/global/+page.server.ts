@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { cancanService } from '#modules/auth';
+import { cancanService, ssoService } from '#modules/auth';
 
 export async function load({ parent, locals }) {
   const { organization } = await parent();
@@ -13,5 +13,6 @@ export async function load({ parent, locals }) {
     throw error(403, 'Forbidden');
   }
 
-  return {};
+  // Google SSO is configured for the whole cluster (GOOGLE_SSO_* env vars); read-only here
+  return { googleSso: ssoService.getGoogleStatus() };
 }

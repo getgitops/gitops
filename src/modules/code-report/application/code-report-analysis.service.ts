@@ -2,11 +2,21 @@ import crypto from 'crypto';
 import { CodeReportAnalysisRepository } from '../infrastructure/repositories/code-report-analysis.repository';
 import type { CodeReportAnalysisDomain } from '../domain/code-report-analysis.domain';
 import type { CodeReportGitInfo } from '../domain/code-report-analysis.domain';
-import { extractSecrets, extractVulnerabilities } from '#lib/code-report/analysis-summary';
+import {
+  extractSecrets,
+  extractVulnerabilities,
+  summarizeAnalysisResult,
+} from '#lib/code-report/analysis-summary';
 import { evaluatePolicies, type PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
 import type { SecurityPolicy } from '#lib/code-report/security-policy';
 import { TOOL_POLICY_TYPES, DEFAULT_POLICY_TYPES } from '../domain/tool-policy-types.data';
 import { createLogger } from '#lib/server/logger';
+import {
+  eventGitInfo,
+  resolveProjectScope,
+  type CodeReportEventPublisher,
+  type ProjectScopeLookup,
+} from './code-report-events';
 
 const log = createLogger('code-report-analysis');
 
@@ -18,12 +28,24 @@ type PolicyLookup = {
   listByProject(projectId: string): Promise<SecurityPolicy[]>;
 };
 
+type AnalysisEventsOptions = {
+  events?: CodeReportEventPublisher;
+  projects?: ProjectScopeLookup;
+};
+
 export class CodeReportAnalysisService {
+  private readonly events?: CodeReportEventPublisher;
+  private readonly projects?: ProjectScopeLookup;
+
   constructor(
     private readonly repository: CodeReportAnalysisRepository,
     private readonly serviceLookup: ServiceLookup,
     private readonly policyLookup?: PolicyLookup,
-  ) {}
+    options: AnalysisEventsOptions = {},
+  ) {
+    this.events = options.events;
+    this.projects = options.projects;
+  }
 
   async listByService(serviceId: string) {
     const analyses = await this.repository.findByServiceId(serviceId);
@@ -112,16 +134,114 @@ export class CodeReportAnalysisService {
       throw new Error('Result is required to complete an analysis');
     }
 
+    const securityPolicies = await this.evaluateSecurityPolicies(
+      analysis.serviceId,
+      analysis.tool,
+      input.result,
+    );
+    const gitInfo = this.resolveGitInfo(analysis.gitInfo, input.gitInfo, input.result);
+
     await this.repository.update(id, {
       status: 'completed',
       result: input.result,
       summary: input.summary,
-      securityPolicies: await this.evaluateSecurityPolicies(analysis.serviceId, analysis.tool, input.result),
-      gitInfo: this.resolveGitInfo(analysis.gitInfo, input.gitInfo, input.result),
+      securityPolicies,
+      gitInfo,
       error: null,
     });
 
+    await this.publishCompleted(
+      { id, serviceId: analysis.serviceId, tool: analysis.tool },
+      input.result,
+      gitInfo,
+      securityPolicies,
+    );
+
     return this.getById(id);
+  }
+
+  // events never break the write that already succeeded: failures are only logged
+  private async publishCompleted(
+    analysis: { id: string; serviceId: string; tool: string },
+    result: unknown,
+    gitInfo: CodeReportGitInfo | undefined,
+    report: PolicyComplianceReport | null,
+  ) {
+    if (!this.events) return;
+    try {
+      const scope = await this.scopeForService(analysis.serviceId);
+      const counts = summarizeAnalysisResult(result);
+
+      this.events.publish(
+        'code_report.analysis.completed',
+        {
+          analysisId: analysis.id,
+          serviceId: analysis.serviceId,
+          tool: analysis.tool,
+          gitInfo: eventGitInfo(gitInfo),
+          summary: {
+            ...counts.vulnerabilities,
+            total: counts.totalVulnerabilities,
+            secrets: counts.exposedSecrets,
+          },
+          policies: {
+            status: report?.status ?? 'no_policies',
+            totalViolations: report?.totalViolations ?? 0,
+            blockingFailures: report?.blockingFailures ?? 0,
+            failedPolicyIds: report?.failed.map((evaluation) => evaluation.policyId) ?? [],
+          },
+        },
+        { scope },
+      );
+
+      for (const evaluation of report?.failed ?? []) {
+        this.events.publish(
+          'code_report.policy.violated',
+          {
+            analysisId: analysis.id,
+            serviceId: analysis.serviceId,
+            tool: analysis.tool,
+            policyId: evaluation.policyId,
+            policyName: evaluation.policyName,
+            policyType: evaluation.type,
+            enforcement: evaluation.enforcement,
+            violations: evaluation.violations.length,
+          },
+          { scope },
+        );
+      }
+    } catch (error) {
+      log.error({ err: error, analysisId: analysis.id }, 'failed to publish analysis events');
+    }
+  }
+
+  private async publishFailed(
+    analysis: { id: string; serviceId: string; tool: string },
+    gitInfo: CodeReportGitInfo | null | undefined,
+    error: string,
+  ) {
+    if (!this.events) return;
+    try {
+      const scope = await this.scopeForService(analysis.serviceId);
+      this.events.publish(
+        'code_report.analysis.failed',
+        {
+          analysisId: analysis.id,
+          serviceId: analysis.serviceId,
+          tool: analysis.tool,
+          gitInfo: eventGitInfo(gitInfo),
+          error,
+        },
+        { scope },
+      );
+    } catch (publishError) {
+      log.error({ err: publishError, analysisId: analysis.id }, 'failed to publish analysis events');
+    }
+  }
+
+  private async scopeForService(serviceId: string) {
+    const service = await this.serviceLookup.findById(serviceId);
+    return resolveProjectScope(service?.projectId, this.projects);
   }
 
   private resolveGitInfo(
@@ -231,6 +351,8 @@ export class CodeReportAnalysisService {
       error,
       gitInfo: input.gitInfo,
     });
+
+    await this.publishFailed(analysis, input.gitInfo ?? analysis.gitInfo, error);
 
     return this.getById(id);
   }

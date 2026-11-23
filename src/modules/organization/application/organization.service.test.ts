@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { OrganizationService } from './organization.service';
 import { OrganizationDomain } from '../domain/organization.domain';
+import { RecordingEventBus } from '#lib/server/events/testing';
 
 class FakeOrganizationRepository {
   rows: OrganizationDomain[] = [];
@@ -84,9 +85,7 @@ describe('OrganizationService', () => {
 
   describe('createOrganization', () => {
     it('requires a non-empty name', async () => {
-      await expect(service.createOrganization({ name: '   ' })).rejects.toThrow(
-        /name is required/,
-      );
+      await expect(service.createOrganization({ name: '   ' })).rejects.toThrow(/name is required/);
     });
 
     it('auto-generates a normalized slug from the name when none is provided', async () => {
@@ -177,5 +176,39 @@ describe('OrganizationService', () => {
       await service.deleteOrganization(created.id);
       await expect(service.getOrganization(created.id)).rejects.toThrow(/not found/);
     });
+  });
+});
+
+describe('OrganizationService events', () => {
+  let repository: FakeOrganizationRepository;
+  let events: RecordingEventBus;
+  let service: OrganizationService;
+
+  beforeEach(async () => {
+    repository = new FakeOrganizationRepository();
+    events = new RecordingEventBus();
+    service = new OrganizationService(repository as any, events);
+    await repository.create({ id: 'org-1', slug: 'kettu', name: 'Kettu' });
+  });
+
+  it('publishes organization.updated with the changed fields', async () => {
+    await service.updateOrganization('org-1', { name: 'Kettu', description: 'Software studio' });
+
+    expect(events.types()).toEqual(['organization.updated']);
+    const [event] = events.ofType('organization.updated');
+    expect(event.payload).toEqual({
+      organizationId: 'org-1',
+      name: 'Kettu',
+      slug: 'kettu',
+      changedFields: ['description'],
+    });
+    expect(event.scope).toEqual({ organizationId: 'org-1', projectId: null });
+  });
+
+  it('publishes nothing when the update is rejected', async () => {
+    await expect(service.updateOrganization('missing', { name: 'X' })).rejects.toThrow();
+    await expect(service.updateOrganization('org-1', { name: '  ' })).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
   });
 });

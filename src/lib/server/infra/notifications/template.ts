@@ -69,3 +69,42 @@ async function readFromDisk(name: string): Promise<string> {
 export function clearTemplateCache(): void {
   cache.clear();
 }
+
+export type EmailLayout = {
+  subject: string;
+  /** `lang` of the document. */
+  lang?: string;
+  productName?: string;
+  /** Why the recipient gets this email (plain text, escaped). */
+  footer: string;
+  /** Absolute link shown after the footer text, e.g. to manage the alert. */
+  footerLink?: { url: string; label: string } | null;
+};
+
+export const PRODUCT_NAME = 'GitOps';
+
+/**
+ * Renders template `name` and wraps it in the shared layout (`_layout.html`): header with the
+ * product, the content, and a footer explaining why the email was sent.
+ */
+export async function renderEmail(
+  name: string,
+  variables: TemplateVariables,
+  layout: EmailLayout,
+): Promise<string> {
+  const content = await renderTemplate(name, variables);
+  const footerLink = layout.footerLink
+    ? renderTemplateString('<a href="{{ url }}" style="color: #6b7280">{{ label }}</a>', {
+        url: layout.footerLink.url,
+        label: layout.footerLink.label,
+      })
+    : '';
+  return renderTemplate('_layout', {
+    lang: layout.lang ?? 'en',
+    subject: layout.subject,
+    productName: layout.productName ?? PRODUCT_NAME,
+    content,
+    footer: layout.footer,
+    footerLink,
+  });
+}

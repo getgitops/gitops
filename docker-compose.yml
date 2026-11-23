@@ -13,3 +13,13 @@ services:
       - ./data:/app/data
       - /run/host-services/ssh-auth.sock:/ssh-agent
     restart: unless-stopped
+
+  # local SMTP for trying emails: `docker compose --profile mail up`, then set
+  # NOTIFICATION_SMTP_HOST=mailpit (or localhost outside Docker), NOTIFICATION_SMTP_PORT=1025,
+  # NOTIFICATION_SMTP_FROM=gitops@localhost and open http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ['mail']
+    ports:
+      - '1025:1025'
+      - '8025:8025'

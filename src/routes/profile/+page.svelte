@@ -7,7 +7,6 @@
     LockKeyhole,
     Mail,
     Save,
-    Shield,
     UserRound,
     Plus,
     Trash2,
@@ -111,7 +110,7 @@
       </div>
     </div>
 
-    <div class="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:grid-cols-4 sm:px-8">
+    <div class="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:grid-cols-3 sm:px-8">
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <UserRound class="h-5 w-5 text-slate-900" />
         <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.username')}</p>
@@ -125,21 +124,13 @@
       </div>
 
       <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
-        <Shield class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.role')}</p>
-        <p class="mt-1 text-base font-semibold text-slate-900 capitalize">{data.user.role.name}</p>
-      </div>
-
-      <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
         <Cloud class="h-5 w-5 text-slate-900" />
         <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.gcp')}</p>
-        <p class="mt-1 text-base font-semibold text-slate-900">
-          {#if data.gcpConnected}
-            {$_('profile.connected')}
-          {:else}
-            {$_('profile.notConnected')}
-          {/if}
-        </p>
+        {#if data.gcpConnected}
+          <p class="mt-1 text-base font-semibold text-emerald-600">{$_('profile.connected')}</p>
+        {:else}
+          <p class="mt-1 text-base font-semibold text-red-600">{$_('profile.notConnected')}</p>
+        {/if}
       </div>
     </div>
   </section>
@@ -170,20 +161,6 @@
             class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
             placeholder="you@example.com"
           />
-        </div>
-
-        <div
-          class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
-        >
-          <span>{$_('profile.username')}</span>
-          <span class="font-medium text-slate-900">{data.user.username}</span>
-        </div>
-
-        <div
-          class="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
-        >
-          <span>{$_('profile.role')}</span>
-          <span class="font-medium text-slate-900 capitalize">{data.user.role.name}</span>
         </div>
 
         <button

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import crypto from 'crypto';
 import { InvitationService } from './invitation.service';
 import { UserDomain } from '../domain/user.domain';
+import { RecordingEventBus } from '#lib/server/events/testing';
 
 function hash(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -188,5 +189,81 @@ describe('InvitationService', () => {
         /no longer valid/,
       );
     });
+  });
+});
+
+describe('InvitationService events', () => {
+  let userRepository: FakeUserRepository;
+  let userAccessRepository: FakeUserAccessRepository;
+  let events: RecordingEventBus;
+  let service: InvitationService;
+
+  beforeEach(() => {
+    userRepository = new FakeUserRepository();
+    userAccessRepository = new FakeUserAccessRepository();
+    events = new RecordingEventBus();
+    service = new InvitationService(
+      userRepository as any,
+      userAccessRepository as any,
+      { hashPassword: (password: string) => `hashed:${password}` },
+      undefined,
+      { events, projects: { getProject: async () => ({ organization: { id: 'org-1' } }) } },
+    );
+    userRepository.rows.push(invitedUser());
+    userAccessRepository.rows.push(
+      {
+        id: 'access-org',
+        userId: 'jose-id',
+        status: 'invited',
+        roleId: 'role-org',
+        scope: 'organization',
+        organizationId: 'org-1',
+        projectId: null,
+      } as any,
+      {
+        id: 'access-project',
+        userId: 'jose-id',
+        status: 'invited',
+        roleId: 'role-project',
+        scope: 'project',
+        organizationId: null,
+        projectId: 'project-1',
+      } as any,
+      { id: 'access-old', userId: 'jose-id', status: 'active', scope: 'organization' } as any,
+    );
+  });
+
+  it('publishes one invitation.accepted per activated membership, without the token', async () => {
+    const { token } = await service.issueToken('jose-id');
+
+    await service.acceptInvitation(token, 'a-strong-password');
+
+    expect(
+      events.ofType('invitation.accepted').map((event) => [event.payload, event.scope]),
+    ).toEqual([
+      [
+        { userId: 'jose-id', accessId: 'access-org', roleId: 'role-org', scope: 'organization' },
+        { organizationId: 'org-1', projectId: null },
+      ],
+      [
+        {
+          userId: 'jose-id',
+          accessId: 'access-project',
+          roleId: 'role-project',
+          scope: 'project',
+        },
+        { organizationId: 'org-1', projectId: 'project-1' },
+      ],
+    ]);
+    expect(JSON.stringify(events.events)).not.toContain(token);
+  });
+
+  it('publishes nothing when the invitation is rejected', async () => {
+    const { token } = await service.issueToken('jose-id');
+
+    await expect(service.acceptInvitation('wrong', 'a-strong-password')).rejects.toThrow();
+    await expect(service.acceptInvitation(token, 'short')).rejects.toThrow();
+
+    expect(events.events).toEqual([]);
   });
 });

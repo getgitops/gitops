@@ -1,0 +1,44 @@
+import { redirect } from '@sveltejs/kit';
+import { authService, SsoError, ssoService } from '#modules/auth';
+
+const SESSION_COOKIE = 'pos_session';
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+const FLOW_COOKIE = 'gitops_sso_flow';
+
+export async function GET({ url, cookies, locals }) {
+  const flowCookie = cookies.get(FLOW_COOKIE);
+  // the flow is single-use whatever the outcome
+  cookies.delete(FLOW_COOKIE, { path: '/auth/sso' });
+
+  const loginWithError = (code: string) => `/auth/login?${new URLSearchParams({ ssoError: code })}`;
+
+  // the user cancelled or Google refused the request before issuing a code
+  if (url.searchParams.has('error')) {
+    throw redirect(303, loginWithError('cancelled'));
+  }
+
+  let userId: string;
+  try {
+    ({ userId } = await ssoService.completeGoogleSignIn({
+      flowCookie,
+      state: url.searchParams.get('state') ?? '',
+      code: url.searchParams.get('code') ?? '',
+      redirectUri: `${url.origin}/auth/sso/google/callback`,
+    }));
+  } catch (error) {
+    const code = error instanceof SsoError ? error.code : 'provider_error';
+    locals.logger.warn({ err: error, code }, '[sso] sign-in rejected');
+    throw redirect(303, loginWithError(code));
+  }
+
+  cookies.set(SESSION_COOKIE, authService.createSessionToken(userId), {
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: SESSION_MAX_AGE,
+  });
+
+  // same landing as the password form: the root sends the user to their organizations
+  throw redirect(303, '/');
+}

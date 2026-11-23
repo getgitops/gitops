@@ -7,7 +7,24 @@ con SvelteKit. Mantener este archivo y `CLAUDE.md` equivalentes en arquitectura 
 
 GitOps combina autenticacion y RBAC, organizaciones y proyectos, Open Report de seguridad y
 visibilidad de Pulumi State. La ruta Vault es actualmente una base visual sin backend completo.
-Google SSO y SAML son configuracion, no estrategias de autenticacion implementadas.
+
+Google SSO es a nivel de sistema y se configura solo con variables de entorno
+(`GOOGLE_SSO_CLIENT_ID`, `GOOGLE_SSO_CLIENT_SECRET` y, opcionales, `GOOGLE_SSO_ALLOWED_DOMAINS` y
+`GOOGLE_SSO_AUTO_PROVISION`), leídas en cada request por `readGoogleSsoConfig()` desde
+`src/modules/auth/infrastructure/config/google-sso.config.ts` en `GoogleSsoConfig`; nada se
+persiste en GitDB. Si ambas credenciales están válidas, `/auth/login` muestra "Continuar con
+Google" y `/org/<org>/settings/global` muestra Google SSO en solo lectura (sin exponer credenciales).
+Una configuración inválida (credencial faltante, dominio inválido, inconsistencia en auto-provision)
+se silencia como deshabilitada y se registra la razón; la UI nunca se rompe. `ssoService` en
+`$modules/auth` ejecuta Authorization Code + PKCE (`/auth/sso/google/start` y
+`/auth/sso/google/callback`, ambas sin sesión), verifica el ID token contra JWKS de Google con
+`GoogleOidcClient` y autentica al usuario existente y no deshabilitado por `sub` o email verificado;
+vincula el `sub` en `user.authProviders[]` y acepta invitaciones pendientes. Los dominios se
+comprueban contra el claim `hd` de Workspace, no email. Con `GOOGLE_SSO_AUTO_PROVISION=true`
+(requiere dominios permitidos), una cuenta Workspace desconocida recibe una cuenta GitOps User (`cluster-user`)
+activa sin organización vía `userAccessService.provisionClusterUser()`. `user.disabled` solo lo
+aplica Google sign-in. Templates de notificación (`src/notifications/`) se leen en tiempo de
+ejecución. SAML es configuración solo.
 
 - SvelteKit 2, Svelte 5, Vite 8 y TypeScript 6 strict
 - Tailwind CSS 4 y `@lucide/svelte`
@@ -16,6 +33,8 @@ Google SSO y SAML son configuracion, no estrategias de autenticacion implementad
 - GitDB como unica capa de persistencia
 - Vitest, ESLint y Prettier
 - Playwright para tests e2e de RBAC (`e2e/`)
+
+Las variables de entorno se declaran en `src/env.ts` y se documentan en `.env.example`; Google SSO usa las `GOOGLE_SSO_*` descritas arriba.
 
 Comandos:
 
@@ -80,12 +99,12 @@ para obtener flags de lectura de alto nivel que se filtran en AppSidebar según 
 Roles por defecto en `src/modules/auth/domain/role-permissions.data.ts`. Los permisos incluyen scope
 como prefijo (ej: `organization:projects:read`, `project:vault:secrets:all`) y se almacenan verbatim sin
 transformaciones. Recursos de módulos tienen sub-permisos granulares (ej: `project:vault:secrets:read`, `project:vault:environments:read`):
-- **Cluster Admin**: vault, openreport, stateiac (todos)
-- **Cluster User**: sin permisos propios; rol base para acceso a nivel cluster
-- **Organization Admin**: todos los permisos de org (proyectos, usuarios, roles, configuración global, backups, server-access-keys, audit)
-- **Organization Developer**: solo read/create/update de proyectos
-- **Project Admin**: metadata/usuarios/roles/server-keys/audit plus todos los permisos de módulos (vault, codereport, stateiac)
-- **Project Developer/Viewer**: acceso granular a módulos con permisos diferenciados (solo lectura en Viewer)
+- **GitOps Admin** (`cluster-admin`) — vault, openreport, stateiac (todos)
+- **GitOps User** (`cluster-user`) — rol base sin permisos propios para acceso a nivel sistema
+- **Organization Admin** — todos los permisos de org (proyectos, usuarios, roles, configuración global, backups, server-access-keys, audit)
+- **Organization Developer** — solo read/create/update de proyectos
+- **Project Admin** — metadata/usuarios/roles/server-keys/audit plus todos los permisos de módulos (vault, codereport, stateiac)
+- **Project Developer/Viewer** — acceso granular a módulos con permisos diferenciados (solo lectura en Viewer)
 
 Los permisos de organización se propagan a sus proyectos solo cuando no hay un assignment explícito a nivel de
 proyecto. Un usuario con `organization:projects:read` puede satisfacer `project:project:read` en cualquier
@@ -95,7 +114,7 @@ aplican (regla most-specific-wins). Permite delegación de autoridad granular co
 `canManageOrganization()` controla acceso al area `/settings`, mientras que `canViewOrganization()` incluye
 tambien usuarios con acceso solo a proyectos bajo la organización (ven el overview pero no pueden acciones de org-scope).
 
-Al crear una organizacion (via bootstrap o cluster-settings), se llama automaticamente a
+Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a
 `roleService.createDefaultProjectRoles()`. Ambas operaciones inicializan sus roles por defecto.
 

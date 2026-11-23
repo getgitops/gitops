@@ -16,6 +16,7 @@ export const variables = defineEnvVars({
   GITDB_DATA_PATH: optional,
   GITDB_ENCRYPTION_KEY: optional,
   VAULT_ENCRYPTION_KEY: optional,
+  ORIGIN: optional,
   NOTIFICATION_SMTP_HOST: optional,
   NOTIFICATION_SMTP_PORT: optional,
   NOTIFICATION_SMTP_SECURE: optional,
@@ -24,4 +25,9 @@ export const variables = defineEnvVars({
   NOTIFICATION_SMTP_FROM: optional,
   NOTIFICATION_SMTP_FROM_NAME: optional,
   NOTIFICATION_SMTP_REJECT_UNAUTHORIZED: optional,
+  GOOGLE_SSO_CLIENT_ID: optional,
+  GOOGLE_SSO_CLIENT_SECRET: optional,
+  GOOGLE_SSO_ALLOWED_DOMAINS: optional,
+  GOOGLE_SSO_AUTO_PROVISION: optional,
+  GITOPS_EVENTS_EXPIRATION: optional,
 });
