@@ -36,6 +36,7 @@
     <AppNavbar
       projects={data.projects}
       organizationSlug={data.organization?.slug ?? null}
+      organizationName={data.organization?.name ?? null}
       projectSlug={data.currentProjectSlug ?? ''}
       compact={sidebarCollapsed}
     />
@@ -50,11 +51,13 @@
         canCreateOrganization={data.canCreateOrganization}
         projects={data.projects}
         user={data.user}
-        canAdministerOrganization={data.canAdministerOrganization}
         canReadOrgProjects={data.canReadOrgProjects}
         canReadOrgUsers={data.canReadOrgUsers}
         canReadOrgGlobal={data.canReadOrgGlobal}
         canReadOrgAudit={data.canReadOrgAudit}
+        canReadOrgRoles={data.canReadOrgRoles}
+        canReadOrgEvents={data.canReadOrgEvents}
+        canReadOrganizationAlerts={data.canReadOrganizationAlerts}
         canReadProjectVault={data.canReadProjectVault}
         canReadProjectCodeReport={data.canReadProjectCodeReport}
         canReadProjectStateIac={data.canReadProjectStateIac}

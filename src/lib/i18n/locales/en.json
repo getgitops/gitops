@@ -446,14 +446,64 @@
       "inviteMembersDescription": "Invite users to collaborate on this project.",
       "addSecretToken": "Add secret token",
       "addSecretTokenDescription": "Generate a token for integrations and CI/CD.",
-      "description": "Description",
-      "noDescription": "No description.",
-      "activeModules": "Active modules",
-      "noActiveModules": "This project has no active modules. Enable them in project settings.",
-      "guides": "Guides",
-      "guidesDescription": "Learn how to get the most out of each module.",
-      "guidePrefix": "Guide for",
-      "quickAccess": "Quick access"
+      "noDescription": "No description",
+      "createdAgo": "Created {time}",
+      "settings": "Settings",
+      "metrics": "Project metrics",
+      "scoreTitle": "Security score",
+      "scoreHint": "{passing} of {scanned} scanned services with no criticals, exposed secrets or policy violations",
+      "scoreEmpty": "Scan a service to calculate it",
+      "codeReportOff": "Code Report is disabled in this project.",
+      "codeReportLocked": "You don't have access to Code Report in this project.",
+      "servicesTitle": "Services",
+      "servicesHint": "{scanned} scanned · {stale} not scanned in 30 days",
+      "vulnerabilitiesTitle": "Vulnerabilities",
+      "severity": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "vaultTitle": "Vault secrets",
+      "vaultHint": "{environments} environments · last change {time}",
+      "vaultHintNever": "{environments} environments",
+      "moduleOff": "Module disabled",
+      "noAccess": "No access",
+      "servicesPanel": "Service health",
+      "exposedSecretsAlert": "{count} secrets exposed in code",
+      "newService": "New service",
+      "viewAll": "View all",
+      "servicesEmpty": "No services yet",
+      "servicesEmptyHint": "Create a service and send its first scan from your CI to see its status here.",
+      "health": {
+        "critical": "Critical",
+        "warning": "Needs attention",
+        "healthy": "Healthy",
+        "unscanned": "Not scanned"
+      },
+      "lastScan": "Scanned {time}",
+      "neverScanned": "Never scanned",
+      "noFindings": "No findings",
+      "secretsExposed": "{count} secrets",
+      "policyViolated": "Policy violated",
+      "trend": "Findings in the latest scans (criticals weigh more)",
+      "scansPanel": "Latest scans",
+      "scansEmpty": "No scans yet.",
+      "scanFailed": "Failed",
+      "scanRunning": "Running",
+      "scanFindings": "{count} findings",
+      "activityPanel": "Recent activity",
+      "activityEmpty": "No recent activity in this project.",
+      "modulesPanel": "Modules",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "open": "Open",
+      "guide": "Guide",
+      "teamPanel": "Team and access",
+      "membersCount": "{count} members with access",
+      "exposedSecretsAlertOne": "1 secret exposed in code",
+      "secretsExposedOne": "1 secret",
+      "scanFindingsOne": "1 finding"
     },
     "stateIac": {
       "title": "State IaC",
@@ -495,7 +545,10 @@
       "title": "Audit",
       "description": "History of changes and relevant activity for each project.",
       "comingSoon": "Coming soon",
-      "comingSoonDescription": "Project-level audit log is not available yet."
+      "comingSoonDescription": "Project-level audit log is not available yet.",
+      "featureHistory": "Project change history",
+      "featureDiff": "What changed in each record",
+      "featureFilters": "Filters by person and date"
     },
     "serverAccessKeys": {
       "title": "Server Access Keys",
@@ -526,7 +579,15 @@
       "days7": "7 days",
       "days30": "30 days",
       "days90": "90 days",
-      "days365": "365 days"
+      "days365": "365 days",
+      "summary": "{usable} of {total} usable",
+      "expiringSoon": "Expires soon",
+      "emptyHint": "Create a key so your CI/CD can send Code Report scans to this project.",
+      "rotateHint": "Generates a new token and invalidates the current one",
+      "confirmRotate": "Rotate «{name}»? The current token will stop working and you will need to update it in your CI.",
+      "confirmRevoke": "Revoke «{name}»? Integrations using it will stop working. This cannot be undone.",
+      "usageTitle": "Use a key in your CI",
+      "usageDescription": "Send it as a Bearer token. It can only do what its role allows, inside this project."
     },
     "overview": {
       "codeReport": "Code Report",
@@ -584,7 +645,35 @@
       "optionalDescription": "Optional description",
       "comingSoon": "Coming soon",
       "transferSoon": "Coming soon"
-    }
+    },
+    "subtitle": "Project configuration, access and operations",
+    "tabs": {
+      "global": "Global",
+      "accessControl": "Access Control",
+      "roles": "Roles",
+      "alerts": "Alerts",
+      "serverKeys": "Server Keys",
+      "audit": "Audit"
+    },
+    "global": {
+      "readOnly": "Read only: you don't have permission to edit this project.",
+      "generalTitle": "General",
+      "generalDescription": "What the project is called and how it is identified in URLs, the CLI and the API.",
+      "nameHelp": "Shown across the platform.",
+      "slugHelp": "Identifier in URLs, the CLI and CI calls.",
+      "slugChangeWarning": "Changing the slug breaks links and scripts that use the old one.",
+      "descriptionHelp": "What the project is for. Shown in its overview.",
+      "noDescription": "No description",
+      "modulesDescription": "Turn on the products this project uses. Turning them off does not delete their data.",
+      "moduleSoon": "Available in an upcoming release",
+      "unsaved": "You have unsaved changes",
+      "upToDate": "All changes saved",
+      "discard": "Discard",
+      "dangerDescription": "Actions that affect the whole project. Review them carefully.",
+      "deleteDescription": "Deletes the project and everything in it. This cannot be undone.",
+      "deleteConfirmLabel": "Type {slug} to confirm"
+    },
+    "title": "Project settings"
   },
   "codeReport": {
     "dashboard": {
@@ -1497,5 +1586,36 @@
       "nothingSent": "This is a test: no email was sent."
     },
     "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent."
+  },
+  "projectSwitcher": {
+    "label": "Project",
+    "choose": "Choose a project",
+    "triggerLabel": "Current project: {project}. Switch project",
+    "search": "Search projects…",
+    "count": "{count} total",
+    "recent": "Recent",
+    "inOrganization": "Projects in {organization}",
+    "projects": "Projects",
+    "none": "You don't have access to any project yet.",
+    "noResults": "No project matches «{query}»",
+    "noDescription": "No description",
+    "updated": "Updated {time}",
+    "current": "Current",
+    "viewAll": "View all projects",
+    "hintNavigate": "navigate",
+    "hintOpen": "open"
+  },
+  "orgSwitcher": {
+    "label": "Organization",
+    "choose": "Choose an organization",
+    "triggerLabel": "Current organization: {organization}. Switch organization",
+    "projectCount": "{count} projects",
+    "projectCountOne": "1 project",
+    "settings": "Organization settings",
+    "search": "Search organizations…",
+    "organizations": "Organizations",
+    "noResults": "No organization matches «{query}»",
+    "viewAll": "View all",
+    "create": "New organization"
   }
 }

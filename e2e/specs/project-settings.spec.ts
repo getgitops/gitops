@@ -8,7 +8,7 @@ const project = seed.primaryProjectSlug;
 const base = `/org/${org}/projects/${project}`;
 
 const settingsRoutes = [
-  `${base}/settings/overview`,
+  `${base}/settings/global`,
   `${base}/settings/access-control`,
   `${base}/settings/roles-permissions`,
   `${base}/settings/server-access-keys`,
@@ -39,7 +39,7 @@ test.describe('project overview — read-only role (project:project:read only)',
     loginAs,
   }) => {
     await loginAs('projectReadOnly');
-    await page.goto(`${base}/settings/overview`);
+    await page.goto(`${base}/settings/global`);
     await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Zona de peligro' })).toHaveCount(0);
     // the name field must not be an editable input when read-only
@@ -50,7 +50,7 @@ test.describe('project overview — read-only role (project:project:read only)',
 test.describe('project overview — project admin', () => {
   test('Danger Zone and Save are visible, name field is editable', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
-    await page.goto(`${base}/settings/overview`);
+    await page.goto(`${base}/settings/global`);
     await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Zona de peligro' })).toBeVisible();
     await expect(page.locator('input#edit-project-name')).toBeVisible();
@@ -81,10 +81,7 @@ test.describe('server access keys — real revoke mutation', () => {
   // client-side hydration, which is unrelated to what this test cares about — whether the
   // server actually revokes the key for a role with delete permission, not whether the click
   // wiring works.
-  test('a role with delete permission can actually revoke a key', async ({
-    page,
-    loginAs,
-  }) => {
+  test('a role with delete permission can actually revoke a key', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     await page.goto(`${base}/settings/server-access-keys`);
     const before = await page.getByRole('button', { name: /revocar/i }).count();
@@ -145,10 +142,7 @@ test.describe('project users — role-change control (canUpdate)', () => {
 });
 
 test.describe('project roles — real create mutation', () => {
-  test('project admin can create a role and see it in the list', async ({
-    page,
-    loginAs,
-  }) => {
+  test('project admin can create a role and see it in the list', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     const response = await page.request.post(`${base}/settings/roles-permissions/new?/createRole`, {
       form: {

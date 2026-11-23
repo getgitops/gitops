@@ -278,7 +278,7 @@
   <title>{title || $_('usersComponent.defaultTitle')}</title>
 </svelte:head>
 
-<div class="flex min-h-[calc(100dvh-22rem)] flex-col gap-6">
+<div class="flex flex-col gap-6">
   <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
     <div>
       <h3 class="text-xl font-semibold text-slate-900">
@@ -350,8 +350,9 @@
       </p>
     </div>
   {:else}
-    <div class="relative flex-1 overflow-visible rounded-md border border-slate-200 bg-white">
-      <div class="overflow-x-auto overflow-y-visible pb-24">
+    <div class="relative overflow-visible rounded-md border border-slate-200 bg-white">
+      <!-- room for the role menu (absolute, clipped by the horizontal scroll) only while it is open -->
+      <div class="overflow-x-auto overflow-y-visible {openRoleMenuId ? 'pb-24' : ''}">
         <table class="w-full min-w-160 text-sm">
           <thead>
             <tr

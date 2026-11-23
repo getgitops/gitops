@@ -58,7 +58,7 @@ test('a key scoped to a different project is denied (cross-project isolation)', 
 
 test('a project-scoped key cannot be used on a non-API browser route', async ({ request }) => {
   const response = await request.get(
-    `/org/${seed.primaryOrgSlug}/projects/${seed.primaryProjectSlug}/settings/overview`,
+    `/org/${seed.primaryOrgSlug}/projects/${seed.primaryProjectSlug}/settings/global`,
     { headers: { Authorization: `Bearer ${seed.apiKeys.write}` } },
   );
   expect(response.status()).toBe(401);

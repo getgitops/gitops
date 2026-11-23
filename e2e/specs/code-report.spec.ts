@@ -16,10 +16,7 @@ const readOnlyRoutes = [
 ];
 
 test.describe('code report — no codereport:*:read grant at all', () => {
-  test('a project:project:read-only role is denied every sub-page', async ({
-    page,
-    loginAs,
-  }) => {
+  test('a project:project:read-only role is denied every sub-page', async ({ page, loginAs }) => {
     await loginAs('projectReadOnly');
     for (const route of readOnlyRoutes) {
       await expectDenied(page, route);

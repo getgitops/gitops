@@ -3,7 +3,7 @@
   import type { SubmitFunction } from '$app/forms';
   import { Activity, CheckCircle2, Circle, Filter } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
-  import type { EventStatusFilter, EventView } from './event-view';
+  import type { EventStatusFilter, EventView } from '#lib/server/events/event-view';
 
   export let data: {
     orgSlug: string;

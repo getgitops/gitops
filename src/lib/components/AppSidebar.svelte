@@ -3,30 +3,26 @@
   import {
     Activity,
     Box,
-    Check,
     BookOpen,
-    ChevronDown,
     ChevronRight,
     Folder,
-    History,
     LayoutDashboard,
     LogOut,
     LockKeyhole,
     MessageCircle,
     PanelLeftClose,
     PanelLeftOpen,
-    Plus,
-    Settings,
     Shield,
     SlidersHorizontal,
     UserRound,
-    Users,
   } from '@lucide/svelte';
   import packageJson from '../../../package.json';
+  import OrganizationSwitcher from './OrganizationSwitcher.svelte';
 
   type Project = {
     slug: string;
     name?: string;
+    organization?: { id: string } | null;
     modules?: { vault: boolean; codereport: boolean; stateiac: boolean };
   };
 
@@ -35,22 +31,28 @@
   export let collapsed = false;
   export let organizationSlug: string | null = null;
   export let organizationName: string | null = null;
-  export let organizations: { id: string; name: string; slug: string }[] = [];
+  export let organizations: {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+  }[] = [];
   export let canCreateOrganization = false;
   export let projects: Project[] = [];
   export let user: { username: string } | null = null;
-  export let canAdministerOrganization = false;
   export let canReadOrgProjects = false;
   export let canReadOrgUsers = false;
   export let canReadOrgGlobal = false;
   export let canReadOrgAudit = false;
+  export let canReadOrgRoles = false;
+  export let canReadOrgEvents = false;
+  export let canReadOrganizationAlerts = false;
   export let canReadProjectVault = false;
   export let canReadProjectCodeReport = false;
   export let canReadProjectStateIac = false;
   export let canViewGitDbStatus = false;
   export let currentProjectSlug: string | null = null;
 
-  let organizationOpen = false;
   let profileOpen = false;
   let profileMenuRef: HTMLDivElement | undefined;
 
@@ -68,36 +70,22 @@
     .join('')
     .toUpperCase();
 
-  $: organizationLinks = [
-    {
-      label: 'Projects',
-      href: `${orgBase}/projects`,
-      icon: Folder,
-      active: currentPath === `${orgBase}/projects`,
-      visible: canReadOrgProjects,
-    },
-    {
-      label: 'Access Control',
-      href: `${orgBase}/settings/access-control`,
-      icon: Users,
-      active: currentPath.includes('/settings/access-control'),
-      visible: canReadOrgUsers,
-    },
-    {
-      label: 'Audit Log',
-      href: `${orgBase}/settings/audit`,
-      icon: History,
-      active: currentPath.includes('/settings/audit'),
-      visible: canReadOrgAudit,
-    },
-    {
-      label: 'Settings',
-      href: `${orgBase}/settings/global`,
-      icon: Settings,
-      active: currentPath.startsWith(`${orgBase}/settings/`),
-      visible: canReadOrgGlobal,
-    },
-  ].filter((item) => item.visible !== false);
+  // organization settings live in the organization switcher: first settings tab the user may open
+  $: settingsHref = !orgBase
+    ? null
+    : canReadOrgGlobal
+      ? `${orgBase}/settings/global`
+      : canReadOrgUsers
+        ? `${orgBase}/settings/access-control`
+        : canReadOrgRoles
+          ? `${orgBase}/settings/roles-permissions`
+          : canReadOrganizationAlerts
+            ? `${orgBase}/settings/alerts`
+            : canReadOrgAudit
+              ? `${orgBase}/settings/audit`
+              : canReadOrgEvents
+                ? `${orgBase}/settings/events`
+                : null;
 
   $: productLinks = [
     {
@@ -163,42 +151,15 @@
 
 <div class="sidebar-inner">
   <div class="sidebar-workspace">
-    <button
-      type="button"
-      class:collapsed
-      on:click={() => (organizationOpen = !organizationOpen)}
-      aria-expanded={organizationOpen}
-    >
-      <span class="workspace-avatar">{(organizationName ?? 'Acme Engineering')[0]}</span>
-      {#if !collapsed}
-        <span class="workspace-name">{organizationName ?? 'Acme Engineering'}</span>
-        <ChevronDown class="h-3 w-3 text-[#757984]" />
-      {/if}
-    </button>
-
-    {#if organizationOpen && !collapsed}
-      <div class="workspace-menu">
-        <div class="workspace-menu-label">Organizations</div>
-        {#each organizations as organization (organization.id)}
-          <a
-            href={`/org/${organization.slug}/overview`}
-            class:active={organization.slug === organizationSlug}
-          >
-            <span>{organization.name[0]}</span>
-            <strong>{organization.name}</strong>
-            {#if organization.slug === organizationSlug}
-              <Check class="h-4 w-4" />
-            {/if}
-          </a>
-        {/each}
-        {#if canCreateOrganization}
-          <a href="/org?create=1" class="workspace-menu-create">
-            <Plus class="h-4 w-4" />
-            <strong>Añadir organización</strong>
-          </a>
-        {/if}
-      </div>
-    {/if}
+    <OrganizationSwitcher
+      {organizations}
+      currentSlug={organizationSlug}
+      currentName={organizationName}
+      {projects}
+      {settingsHref}
+      canCreate={canCreateOrganization}
+      {collapsed}
+    />
   </div>
 
   <div class="sidebar-collapse-row">
@@ -228,6 +189,18 @@
       {#if !collapsed}<span>Overview</span>{/if}
     </a>
 
+    {#if canReadOrgProjects}
+      <a
+        href={`${orgBase}/projects`}
+        class="sidebar-overview"
+        class:active={currentPath === `${orgBase}/projects`}
+        title="Projects"
+      >
+        <Folder class="h-4 w-4" />
+        {#if !collapsed}<span>Projects</span>{/if}
+      </a>
+    {/if}
+
     {#if !collapsed}<p class="sidebar-section-label">Products</p>{/if}
 
     <div class="sidebar-links products">
@@ -241,21 +214,6 @@
         </a>
       {/each}
     </div>
-
-    {#if canAdministerOrganization && !collapsed}
-      <p class="sidebar-section-label">Organization</p>
-    {/if}
-
-    {#if canAdministerOrganization}
-      <div class="sidebar-links">
-        {#each organizationLinks as item}
-          <a href={item.href} class:active={item.active} title={item.label}>
-            <svelte:component this={item.icon} class="h-4 w-4" />
-            {#if !collapsed}<span>{item.label}</span>{/if}
-          </a>
-        {/each}
-      </div>
-    {/if}
   </nav>
 
   <div class="sidebar-bottom">

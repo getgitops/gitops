@@ -48,10 +48,7 @@
       </p>
     </div>
     {#if data.canCreate && data.alerts.length > 0}
-      <a
-        href="{data.basePath}/new"
-        class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-      >
+      <a href="{data.basePath}/new" class="alerts-empty-create header-create">
         <Plus class="h-4 w-4" />
         {$_('alerts.list.create')}
       </a>
@@ -79,21 +76,16 @@
   {/if}
 
   {#if data.alerts.length === 0}
-    <div
-      class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center"
-    >
-      <BellRing class="h-6 w-6 text-slate-400" />
-      <p class="text-sm font-medium text-slate-900">{$_('alerts.list.emptyTitle')}</p>
-      <ul class="space-y-1 text-xs text-slate-500">
+    <div class="alerts-empty">
+      <span class="alerts-empty-icon"><BellRing class="h-6 w-6" /></span>
+      <p class="alerts-empty-title">{$_('alerts.list.emptyTitle')}</p>
+      <ul class="alerts-empty-examples">
         {#each examples as example (example)}
           <li>“{$_(example)}”</li>
         {/each}
       </ul>
       {#if data.canCreate}
-        <a
-          href="{data.basePath}/new"
-          class="mt-2 inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
+        <a href="{data.basePath}/new" class="alerts-empty-create">
           <Plus class="h-4 w-4" />
           {$_('alerts.list.create')}
         </a>
@@ -389,5 +381,68 @@
     .alert-cards-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  /* Empty state, in the same style as the "coming soon" pages (app.css turns bg-white navy) */
+  .alerts-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 44px 24px;
+    border: 1px dashed rgb(255 255 255 / 0.11);
+    border-radius: 14px;
+    background:
+      radial-gradient(45% 55% at 50% 0%, rgb(249 93 17 / 0.08), transparent 75%),
+      rgb(255 255 255 / 0.018);
+    text-align: center;
+  }
+
+  .alerts-empty-icon {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    place-items: center;
+    border: 1px solid rgb(249 93 17 / 0.22);
+    border-radius: 14px;
+    background: rgb(249 93 17 / 0.08);
+    color: #ff8a4c;
+  }
+
+  .alerts-empty-title {
+    margin-top: 4px;
+    color: #ece8ee;
+    font-size: 15px;
+    font-weight: 560;
+  }
+
+  .alerts-empty-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: #8a858d;
+    font-size: 12.5px;
+  }
+
+  .alerts-empty-create {
+    display: inline-flex;
+    height: 34px;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 0 14px;
+    border: 1px solid #f95d11;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #ff7430, #e74d08);
+    box-shadow: 0 6px 18px rgb(249 93 17 / 0.18);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 540;
+  }
+
+  /* same orange primary button in the header, without the empty state's top margin */
+  .header-create {
+    flex-shrink: 0;
+    margin-top: 0;
   }
 </style>

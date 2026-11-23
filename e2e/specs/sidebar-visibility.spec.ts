@@ -18,24 +18,41 @@ test('org developer only has a sidebar link into "Proyectos", nothing else', asy
   await expect(sidebar.locator(`a[href="/org/${org}/settings/audit"]`)).toHaveCount(0);
 });
 
-test('org admin has sidebar links into every organization settings resource', async ({
+test('organization settings live in the organization switcher, not in the sidebar', async ({
   page,
   loginAs,
 }) => {
   await loginAs('orgAdmin');
   await page.goto(`/org/${org}/projects`);
+  // the switcher only opens once the page is hydrated
+  await page.waitForLoadState('networkidle');
   const sidebar = page.locator('aside').first();
-  for (const path of [
-    'projects',
-    'global',
-    'access-control',
-    'roles-permissions',
-    'system-backup',
-    'server-access-keys',
-    'audit',
-  ]) {
-    await expect(sidebar.locator(`a[href="/org/${org}/settings/${path}"]`)).toBeVisible();
-  }
+  await expect(sidebar.locator(`a[href^="/org/${org}/settings/"]`)).toHaveCount(0);
+
+  await sidebar.getByRole('button', { name: /Organización actual/ }).click();
+  const settings = page
+    .getByRole('dialog')
+    .getByRole('link', { name: 'Ajustes de la organización' });
+  await expect(settings).toHaveAttribute('href', `/org/${org}/settings/global`);
+  await settings.click();
+  await expect(page).toHaveURL(new RegExp(`/org/${org}/settings/global`));
+});
+
+test('the organization switcher hides the settings link from members without settings access', async ({
+  page,
+  loginAs,
+}) => {
+  await loginAs('orgDeveloper');
+  await page.goto(`/org/${org}/projects`);
+  await page.waitForLoadState('networkidle');
+  await page
+    .locator('aside')
+    .first()
+    .getByRole('button', { name: /Organización actual/ })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('link', { name: 'Ver todas' })).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Ajustes de la organización' })).toHaveCount(0);
 });
 
 test('a read-only project role has no sidebar link into Vault, Code Report or State IaC', async ({

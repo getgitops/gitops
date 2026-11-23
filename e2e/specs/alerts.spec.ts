@@ -118,7 +118,7 @@ test.describe('project alerts', () => {
 
   test('the sidebar only shows alerts to people who can read them', async ({ page, loginAs }) => {
     await loginAs('projectViewer');
-    await page.goto(`${projectBase}/settings/overview`);
+    await page.goto(`${projectBase}/settings/global`);
     await expect(page.locator(`a[href="${alertsUrl}"]`)).toHaveCount(1);
 
     await loginAs('vaultSecretsOnly');

@@ -54,7 +54,7 @@
     },
     {
       label: $_('project.layout.information'),
-      href: `/org/${orgSlug}/projects/${project.slug}/settings/overview`,
+      href: `/org/${orgSlug}/projects/${project.slug}/settings/global`,
       icon: Info,
       subtitle: $_('project.layout.informationSubtitle'),
     },
@@ -92,17 +92,20 @@
 </script>
 
 <div class="mx-auto w-full max-w-7xl space-y-4">
-  <div class="w-full rounded-md border border-slate-200 bg-white px-6 py-4 shadow-sm sm:px-8">
-    <div class="flex items-center gap-1.5 text-sm">
-      <a href={overviewHref} class="font-medium text-slate-900 hover:underline">
-        {project.name}
-      </a>
-      <ChevronRight class="h-3.5 w-3.5 shrink-0 text-slate-400" />
-      <span class="text-slate-600">{currentTab.label}</span>
-    </div>
+  <!-- settings pages render their own header and tabs (settings/+layout.svelte) -->
+  {#if !currentPath?.includes('/settings/')}
+    <div class="w-full rounded-md border border-slate-200 bg-white px-6 py-4 shadow-sm sm:px-8">
+      <div class="flex items-center gap-1.5 text-sm">
+        <a href={overviewHref} class="font-medium text-slate-900 hover:underline">
+          {project.name}
+        </a>
+        <ChevronRight class="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <span class="text-slate-600">{currentTab.label}</span>
+      </div>
 
-    <p class="mt-1 text-sm text-slate-500">{currentTab.subtitle}</p>
-  </div>
+      <p class="mt-1 text-sm text-slate-500">{currentTab.subtitle}</p>
+    </div>
+  {/if}
 
   <slot />
 </div>

@@ -446,14 +446,64 @@
       "inviteMembersDescription": "Invita usuarios a colaborar en este proyecto.",
       "addSecretToken": "Añadir token secreto",
       "addSecretTokenDescription": "Genera un token para integraciones y CI/CD.",
-      "description": "Descripción",
-      "noDescription": "Sin descripción.",
-      "activeModules": "Módulos activos",
-      "noActiveModules": "Este proyecto no tiene módulos activos. Actívalos desde la configuración del proyecto.",
-      "guides": "Guías",
-      "guidesDescription": "Aprende a sacarle partido a cada módulo.",
-      "guidePrefix": "Guía de",
-      "quickAccess": "Acceso rápido"
+      "noDescription": "Sin descripción",
+      "createdAgo": "Creado {time}",
+      "settings": "Ajustes",
+      "metrics": "Métricas del proyecto",
+      "scoreTitle": "Security score",
+      "scoreHint": "{passing} de {scanned} servicios analizados sin críticos, secretos expuestos ni políticas incumplidas",
+      "scoreEmpty": "Analiza un servicio para calcularlo",
+      "codeReportOff": "Code Report está desactivado en este proyecto.",
+      "codeReportLocked": "No tienes acceso a Code Report en este proyecto.",
+      "servicesTitle": "Servicios",
+      "servicesHint": "{scanned} analizados · {stale} sin analizar en 30 días",
+      "vulnerabilitiesTitle": "Vulnerabilidades",
+      "severity": {
+        "critical": "Críticas",
+        "high": "Altas",
+        "medium": "Medias",
+        "low": "Bajas"
+      },
+      "vaultTitle": "Secretos en Vault",
+      "vaultHint": "{environments} entornos · último cambio {time}",
+      "vaultHintNever": "{environments} entornos",
+      "moduleOff": "Módulo desactivado",
+      "noAccess": "Sin acceso",
+      "servicesPanel": "Estado de los servicios",
+      "exposedSecretsAlert": "{count} secretos expuestos en el código",
+      "newService": "Nuevo servicio",
+      "viewAll": "Ver todo",
+      "servicesEmpty": "Todavía no hay servicios",
+      "servicesEmptyHint": "Crea un servicio y envía su primer análisis desde tu CI para ver aquí su estado.",
+      "health": {
+        "critical": "Crítico",
+        "warning": "Atención",
+        "healthy": "Sin problemas",
+        "unscanned": "Sin analizar"
+      },
+      "lastScan": "Analizado {time}",
+      "neverScanned": "Nunca analizado",
+      "noFindings": "Sin hallazgos",
+      "secretsExposed": "{count} secretos",
+      "policyViolated": "Política incumplida",
+      "trend": "Hallazgos en los últimos análisis (los críticos pesan más)",
+      "scansPanel": "Últimos análisis",
+      "scansEmpty": "Aún no hay análisis.",
+      "scanFailed": "Fallido",
+      "scanRunning": "En curso",
+      "scanFindings": "{count} hallazgos",
+      "activityPanel": "Actividad reciente",
+      "activityEmpty": "Sin actividad reciente en este proyecto.",
+      "modulesPanel": "Módulos",
+      "enabled": "Activo",
+      "disabled": "Desactivado",
+      "open": "Abrir",
+      "guide": "Guía",
+      "teamPanel": "Equipo y accesos",
+      "membersCount": "{count} miembros con acceso",
+      "exposedSecretsAlertOne": "1 secreto expuesto en el código",
+      "secretsExposedOne": "1 secreto",
+      "scanFindingsOne": "1 hallazgo"
     },
     "stateIac": {
       "title": "State IaC",
@@ -495,7 +545,10 @@
       "title": "Auditoría",
       "description": "Historial de cambios y actividad relevante de cada proyecto.",
       "comingSoon": "Próximamente",
-      "comingSoonDescription": "El registro de auditoría por proyecto todavía no está disponible."
+      "comingSoonDescription": "El registro de auditoría por proyecto todavía no está disponible.",
+      "featureHistory": "Historial de cambios del proyecto",
+      "featureDiff": "Qué cambió en cada registro",
+      "featureFilters": "Filtros por persona y fecha"
     },
     "serverAccessKeys": {
       "title": "Claves de acceso del servidor",
@@ -526,7 +579,15 @@
       "days7": "7 días",
       "days30": "30 días",
       "days90": "90 días",
-      "days365": "365 días"
+      "days365": "365 días",
+      "summary": "{usable} de {total} utilizables",
+      "expiringSoon": "Caduca pronto",
+      "emptyHint": "Crea una key para que tu CI/CD envíe los análisis de Code Report a este proyecto.",
+      "rotateHint": "Genera un token nuevo e invalida el actual",
+      "confirmRotate": "¿Rotar «{name}»? El token actual dejará de funcionar y tendrás que actualizarlo en tu CI.",
+      "confirmRevoke": "¿Revocar «{name}»? Las integraciones que la usen dejarán de funcionar. No se puede deshacer.",
+      "usageTitle": "Usar una key en tu CI",
+      "usageDescription": "Envíala como Bearer token. Solo puede hacer lo que permita su rol, dentro de este proyecto."
     },
     "overview": {
       "codeReport": "Code Report",
@@ -584,7 +645,35 @@
       "optionalDescription": "Descripción opcional",
       "comingSoon": "Próximamente",
       "transferSoon": "Próximamente"
-    }
+    },
+    "subtitle": "Configuración, accesos y operación del proyecto",
+    "tabs": {
+      "global": "Global",
+      "accessControl": "Access Control",
+      "roles": "Roles",
+      "alerts": "Alertas",
+      "serverKeys": "Server Keys",
+      "audit": "Auditoría"
+    },
+    "global": {
+      "readOnly": "Solo lectura: no tienes permiso para editar este proyecto.",
+      "generalTitle": "General",
+      "generalDescription": "Cómo se llama el proyecto y cómo se identifica en URLs, la CLI y la API.",
+      "nameHelp": "Visible en toda la plataforma.",
+      "slugHelp": "Identificador en URLs, la CLI y las llamadas de CI.",
+      "slugChangeWarning": "Cambiar el slug rompe los enlaces y scripts que usen el anterior.",
+      "descriptionHelp": "Para qué sirve el proyecto. Aparece en su vista general.",
+      "noDescription": "Sin descripción",
+      "modulesDescription": "Activa los productos que usa este proyecto. Desactivarlos no borra sus datos.",
+      "moduleSoon": "Disponible en una próxima versión",
+      "unsaved": "Tienes cambios sin guardar",
+      "upToDate": "Todo guardado",
+      "discard": "Descartar",
+      "dangerDescription": "Acciones que afectan a todo el proyecto. Revísalas con cuidado.",
+      "deleteDescription": "Borra el proyecto y todo su contenido. No se puede deshacer.",
+      "deleteConfirmLabel": "Escribe {slug} para confirmar"
+    },
+    "title": "Ajustes del proyecto"
   },
   "codeReport": {
     "dashboard": {
@@ -1497,5 +1586,36 @@
       "nothingSent": "Es una prueba: no se ha enviado ningún email."
     },
     "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán."
+  },
+  "projectSwitcher": {
+    "label": "Proyecto",
+    "choose": "Elegir proyecto",
+    "triggerLabel": "Proyecto actual: {project}. Cambiar de proyecto",
+    "search": "Buscar proyectos…",
+    "count": "{count} en total",
+    "recent": "Recientes",
+    "inOrganization": "Proyectos de {organization}",
+    "projects": "Proyectos",
+    "none": "Todavía no tienes acceso a ningún proyecto.",
+    "noResults": "Ningún proyecto coincide con «{query}»",
+    "noDescription": "Sin descripción",
+    "updated": "Actualizado {time}",
+    "current": "Actual",
+    "viewAll": "Ver todos los proyectos",
+    "hintNavigate": "navegar",
+    "hintOpen": "abrir"
+  },
+  "orgSwitcher": {
+    "label": "Organización",
+    "choose": "Elegir organización",
+    "triggerLabel": "Organización actual: {organization}. Cambiar de organización",
+    "projectCount": "{count} proyectos",
+    "projectCountOne": "1 proyecto",
+    "settings": "Ajustes de la organización",
+    "search": "Buscar organizaciones…",
+    "organizations": "Organizaciones",
+    "noResults": "Ninguna organización coincide con «{query}»",
+    "viewAll": "Ver todas",
+    "create": "Nueva organización"
   }
 }

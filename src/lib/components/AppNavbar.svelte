@@ -1,26 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import {
-    Bell,
-    Check,
-    ChevronDown,
-    CircleCheck,
-    FolderKanban,
-    Search,
-    ShieldAlert,
-    TriangleAlert,
-    X,
-  } from '@lucide/svelte';
+  import { Bell, Check, CircleCheck, Search, ShieldAlert, TriangleAlert, X } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
+  import ProjectSwitcher, { type SwitcherProject } from './ProjectSwitcher.svelte';
 
-  export let projects: { id: string; name: string; slug: string }[] = [];
+  export let projects: SwitcherProject[] = [];
   export let organizationSlug: string | null = 'gitops';
+  export let organizationName: string | null = null;
   export let projectSlug = '';
   export let compact = false;
 
-  let showProjectDropdown = false;
   let showNotifications = false;
-  let projectMenuRef: HTMLDivElement | undefined;
   let notificationsButtonRef: HTMLButtonElement | undefined;
 
   type NotificationItem = {
@@ -68,14 +58,9 @@
     },
   ];
 
-  $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
   $: unreadCount = notifications.filter((notification) => notification.unread).length;
   function handleWindowClick(event: MouseEvent) {
     const target = event.target as Node;
-
-    if (showProjectDropdown && projectMenuRef && !projectMenuRef.contains(target)) {
-      showProjectDropdown = false;
-    }
 
     if (
       showNotifications &&
@@ -136,38 +121,8 @@
   </a>
 
   <div class="topbar-content">
-    {#if currentProject}
-      <div class="relative" bind:this={projectMenuRef}>
-        <button
-          type="button"
-          class="topbar-context"
-          on:click={() => (showProjectDropdown = !showProjectDropdown)}
-          aria-expanded={showProjectDropdown}
-        >
-          <span class="context-avatar">
-            <FolderKanban class="h-4 w-4" />
-          </span>
-          <span class="topbar-project-label">
-            <small>Project</small>
-            <strong>{currentProject.name}</strong>
-          </span>
-          <ChevronDown class="h-3.5 w-3.5 text-[#777b86]" />
-        </button>
-
-        {#if showProjectDropdown}
-          <div class="topbar-menu left-0">
-            {#each projects as project (project.id)}
-              <a
-                href={`/org/${organizationSlug}/projects/${project.slug}/overview`}
-                class:active={project.id === currentProject.id}
-                on:click={() => (showProjectDropdown = false)}
-              >
-                {project.name}
-              </a>
-            {/each}
-          </div>
-        {/if}
-      </div>
+    {#if projects.length > 0 || organizationSlug}
+      <ProjectSwitcher {projects} {organizationSlug} {organizationName} {projectSlug} />
     {:else}
       <div aria-hidden="true"></div>
     {/if}

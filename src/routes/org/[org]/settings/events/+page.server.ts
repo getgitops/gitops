@@ -17,7 +17,7 @@ import {
   parseStatusFilter,
   toEventView,
   type EventView,
-} from './event-view';
+} from '#lib/server/events/event-view';
 
 const PAGE_SIZE = 200;
 
