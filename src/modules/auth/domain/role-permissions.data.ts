@@ -42,6 +42,7 @@ export const PROJECT_ADMIN_PERMISSIONS = [
   'project:stateiac:stacks:all',
   'project:stateiac:states:all',
   'project:stateiac:history:all',
+  'project:monitoring:monitors:all',
 ];
 
 export const PROJECT_DEVELOPER_PERMISSIONS = [
@@ -75,6 +76,10 @@ export const PROJECT_DEVELOPER_PERMISSIONS = [
   'project:stateiac:history:read',
   'project:stateiac:history:create',
   'project:stateiac:history:update',
+  'project:monitoring:monitors:read',
+  'project:monitoring:monitors:create',
+  'project:monitoring:monitors:update',
+  'project:monitoring:monitors:test',
 ];
 
 export const PROJECT_VIEWER_PERMISSIONS = [
@@ -94,4 +99,5 @@ export const PROJECT_VIEWER_PERMISSIONS = [
   'project:stateiac:stacks:read',
   'project:stateiac:states:read',
   'project:stateiac:history:read',
+  'project:monitoring:monitors:read',
 ];

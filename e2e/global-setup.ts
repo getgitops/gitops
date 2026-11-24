@@ -14,6 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const E2E_PORT = 5390;
 export const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
 export const E2E_ENCRYPTION_KEY = 'e2e-test-encryption-key-do-not-use-in-prod';
+export const E2E_MONITORING_WORKER_TOKEN = 'e2e-monitoring-worker-token';
 
 const ROOT = path.resolve(__dirname, '..');
 // deliberately OUTSIDE the repo (not e2e/.tmp): a throwaway git repo nested inside this repo's
@@ -58,6 +59,13 @@ function buildEnv(): Record<string, string | undefined> {
     NOTIFICATION_SMTP_FROM: '',
     NOTIFICATION_SMTP_FROM_NAME: '',
     NOTIFICATION_SMTP_REJECT_UNAUTHORIZED: '',
+    // monitoring: metrics in the throwaway main repository, checks may reach the local test
+    // target the monitoring spec starts, and the internal worker API is enabled
+    MONITORING_GITDB_REPOSITORY_URL: '',
+    MONITORING_WORKER_TOKEN: E2E_MONITORING_WORKER_TOKEN,
+    MONITORING_INTERNAL_HOSTS: '',
+    MONITORING_EMBEDDED_WORKER: 'true',
+    MONITORING_ALLOW_PRIVATE_TARGETS: 'true',
     PORT: String(E2E_PORT),
   };
 }
@@ -68,9 +76,10 @@ async function waitForServer(url: string, timeoutMs: number) {
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, { redirect: 'manual' });
-      // any HTTP response (even a redirect to /bootstrap) means the process
-      // is up; we only need "port is listening and hooks.server.ts responded".
-      if (response.status > 0) return;
+      // /health only answers 200 once startup (GitDB clone, auth, bootstrap detection) has
+      // finished; until then every page gets the 503 "GitOps is starting" landing
+      if (response.ok) return;
+      lastError = `HTTP ${response.status}`;
     } catch (error) {
       lastError = error;
     }
@@ -115,7 +124,7 @@ export default async function globalSetup() {
     serverExited = true;
   });
 
-  await waitForServer(`${E2E_BASE_URL}/auth/login`, 60_000);
+  await waitForServer(`${E2E_BASE_URL}/health`, 120_000);
   if (serverExited) {
     throw new Error('Dev server exited before becoming ready');
   }

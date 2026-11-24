@@ -59,10 +59,11 @@
   export let canReadProjectVault = false;
   export let canReadProjectCodeReport = false;
   export let canReadProjectStateIac = false;
+  export let canReadProjectMonitoring = false;
   export let currentProjectSlug: string | null = null;
   export let projects: {
     slug: string;
-    modules?: { vault: boolean; codereport: boolean; stateiac: boolean };
+    modules?: { vault: boolean; codereport: boolean; stateiac: boolean; monitoring?: boolean };
   }[] = [];
 
   let currentPath = pathname;
@@ -178,6 +179,32 @@
                     label: $_('sidebar.items.settings'),
                     href: `${projectBase}/code-report/settings`,
                     icon: Settings,
+                  },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
+    ...(currentProject?.modules?.monitoring && canReadProjectMonitoring
+      ? [
+          {
+            name: $_('sidebar.categories.monitoring'),
+            modules: [
+              {
+                name: $_('sidebar.modules.monitoring'),
+                icon: Activity,
+                base: `${projectBase}/monitoring`,
+                items: [
+                  {
+                    label: $_('sidebar.items.dashboard'),
+                    href: `${projectBase}/monitoring/dashboard`,
+                    icon: LayoutDashboard,
+                  },
+                  {
+                    label: $_('sidebar.items.monitors'),
+                    href: `${projectBase}/monitoring/monitors`,
+                    icon: Activity,
                   },
                 ],
               },

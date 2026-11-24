@@ -101,7 +101,7 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 and tool policy mappings.
 
 Current modules include `auth`, `config`, `organization`, `projects`, `storage`,
-`code-report`, `vault`, `audit`, and `alerts`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
+`code-report`, `vault`, `audit`, `alerts`, and `monitoring`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
 their `index.ts`, not internal layers.
 
 GitDB is the single source of truth. Users, roles, API keys, organizations, projects, storage
@@ -109,6 +109,9 @@ metadata, and code reports are GitDB entities in the repository configured by
 `GITDB_REPOSITORY_URL`. Writes become auditable Git commits. Use `getGitDb()` and the schemas in
 `src/lib/database/schemas.ts`; do not add another database or persistence backend without an
 architecture discussion and migration plan.
+The client behind `getGitDb()` is one per process (kept on `globalThis`): in dev the server code is
+evaluated by more than one Vite module runner, and a second client would keep its own cache over
+the same clone.
 
 `GITDB_REPOSITORY_URL` supports both HTTPS and SSH URLs (e.g., `git@github.com:user/repo.git`).
 The Docker image includes `openssh-client` and pre-configures the SSH key fingerprints for GitHub,
@@ -218,6 +221,49 @@ Making an event alertable:
 3. Add the `events.<type>.*` translations in `es.json` and `en.json`.
 4. Nothing else: the catalog endpoint, the validation, the engine and the UI pick it up.
 
+## Monitoring
+
+`$modules/monitoring` runs HTTP uptime monitors; the design is in
+`docs/adr/0002-http-monitoring.md`.
+
+- Configuration: `MonitorEntity` (main GitDB `monitors`), per project, optional `serviceId` of a
+  Code Report service of the same project (unlinked when that service is deleted). Header values
+  and the body are encrypted together (`monitor-secrets.ts`, vault key material, AAD = monitor id);
+  only `headerNames` and `hasBody` reach the UI. A header row with an empty value keeps the stored
+  value. `MonitorService` returns field-level codes in `MonitorValidationError`
+  (`monitoring.errors.<code>`).
+- Metrics: **never one row per check.** `monitoring_incidents` (written at once on every status
+  change), `monitoring_current` (hour in progress, every `MONITORING_FLUSH_SECONDS`),
+  `monitoring_hourly`, `monitoring_daily` (hours past `MONITORING_HOURLY_RETENTION_DAYS`). They go to
+  `MONITORING_GITDB_REPOSITORY_URL` when set (`startSecondaryGitDb`, `#lib/server/gitdb/secondary`),
+  to the main GitDB otherwise; the audit views skip `monitoring_*` (`isSystemMetricsEntity`).
+  Uptime is time-based from incidents (`domain/aggregates.ts`); status and uptime are never written
+  to `monitors`.
+- Runtime (`MonitoringRuntime`, one per process on `globalThis`, started by `startMonitoring()`
+  in `hooks.server.ts` after GitDB; a failure only disables monitoring): in-memory
+  `MonitorScheduler` (stable offsets, leases of `timeout + 15 s`, 2 attempts, results accepted once
+  per lease), `status-tracker.ts` (`confirmations` failing checks open an incident that starts at
+  the first of them; one good check closes it), events `monitoring.monitor.down|degraded|recovered`
+  (alertable, `readPermission` `project:monitoring:monitors:read`, display URL only).
+- Workers: `#lib/monitoring/*` is framework-free (no aliases, `.ts` import extensions, erasable
+  TypeScript only) because `src/worker/monitoring-worker.ts` runs on plain Node (`bun run worker`,
+  copied into the Docker image). Keep it that way. The embedded worker
+  (`MONITORING_EMBEDDED_WORKER`, default on) uses the runtime as its transport; dedicated workers
+  use `POST /api/internal/monitoring/lease|results`, authenticated in `hooks.server.ts` by
+  `verifyWorkerRequest` (`MONITORING_WORKER_TOKEN`, optional `MONITORING_INTERNAL_HOSTS`), never by
+  API keys or sessions. Both log every finished check (`info` up, `warn` degraded/down; display URL
+  only, never header values) unless `MONITORING_CHECK_LOGS=false`.
+- SSRF: `runHttpCheck` checks the connected address in the DNS lookup hook and the hostname before
+  that (`target-guard.ts`); the form rejects private literals too. Only
+  `MONITORING_ALLOW_PRIVATE_TARGETS=true` lifts it (the e2e suite sets it). Errors and events never
+  contain the URL query, credentials or header values.
+- Permissions: `project:monitoring:monitors:{read,create,update,delete,test,all}`; Project Admin
+  all, Developer read/create/update/test, Viewer read. The project module flag is
+  `modules.monitoring` (off by default). UI: `/org/<org>/projects/<slug>/monitoring/{dashboard,
+monitors, monitors/new, monitors/[id], monitors/[id]/edit}`, thin routes over
+  `#lib/server/monitoring/page.ts`; components in `#lib/components/monitoring/`; the Code Report
+  service page shows its monitors (`service-monitors.ts`).
+
 ## Authorization
 
 Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`
@@ -313,3 +359,15 @@ permission-first and normalize errors consistently.
 Before finishing a change, run the relevant checks. Do not silently fix unrelated bugs or rewrite
 generated files. Update `README.md`, `CONTRIBUTING.md`, and this file when architecture or public
 commands change.
+
+## Known behavior
+
+**Server startup and readiness:** The auth guard in `hooks.server.ts` checks readiness via
+`getServerReadyState()` before processing any request. During startup, browsers receive a
+self-reloading "GitOps is starting" landing page, while API requests get a 503 response with
+`retry-after: 3` header. If startup fails, both receive 503 Service Unavailable (HTML landing
+page for browsers, JSON for APIs with "Server failed to start" message). The `/health` endpoint
+(used by e2e and infrastructure probes) returns 200 only after startup completes. This applies
+in both development (where Vite loads the module on the first request) and production (where no
+infrastructure probe guarantees traffic is held back during startup). The bootstrap state is only
+meaningful after startup completes.

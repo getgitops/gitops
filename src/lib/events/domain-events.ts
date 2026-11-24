@@ -172,6 +172,29 @@ export type ApiKeyPayload = {
   userId: string | null;
 };
 
+export type MonitoringMonitorStatus = 'up' | 'down' | 'degraded';
+
+/**
+ * A monitor changed status. `url` is the display URL: no credentials, no query string (it may carry
+ * tokens). Header values and the body never leave the monitoring module.
+ */
+export type MonitoringMonitorStatusPayload = {
+  monitorId: string;
+  name: string;
+  url: string;
+  /** Code Report service the monitor belongs to, if any. */
+  serviceId: string | null;
+  status: MonitoringMonitorStatus;
+  previousStatus: string;
+  incidentId: string;
+  /** `timeout`, `dns`, `connection`, `tls`, `unexpected_status`, `slow_response`… */
+  cause: string | null;
+  httpStatus: number | null;
+  error: string | null;
+  /** How long the incident lasted (`recovered` only). */
+  durationSeconds: number | null;
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
@@ -196,6 +219,9 @@ export interface DomainEventMap {
   'role.updated': RoleUpdatedPayload;
   'api_key.created': ApiKeyPayload;
   'api_key.revoked': ApiKeyPayload;
+  'monitoring.monitor.down': MonitoringMonitorStatusPayload;
+  'monitoring.monitor.degraded': MonitoringMonitorStatusPayload;
+  'monitoring.monitor.recovered': MonitoringMonitorStatusPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;

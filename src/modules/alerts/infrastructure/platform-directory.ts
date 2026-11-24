@@ -43,6 +43,7 @@ export type PlatformDirectoryDeps = {
   codeReportPolicies: { listByProject(projectId: string): Promise<Named[]> };
   vaultEnvironments: { listEnvironments(projectId: string): Promise<Named[]> };
   apiKeys: { listActiveApiKeysByProject(projectId: string): Promise<Named[]> };
+  monitors?: { listByProject(projectId: string): Promise<Named[]> };
 };
 
 /**
@@ -132,6 +133,8 @@ export class PlatformDirectory implements AlertDirectory {
         return this.perProject(location, (id) => this.deps.vaultEnvironments.listEnvironments(id));
       case 'api_key':
         return this.perProject(location, (id) => this.deps.apiKeys.listActiveApiKeysByProject(id));
+      case 'monitor':
+        return this.perProject(location, (id) => this.deps.monitors?.listByProject(id) ?? Promise.resolve([]));
       case 'user':
         return (await this.listMembers(location)).map((member) => ({
           id: member.userId,

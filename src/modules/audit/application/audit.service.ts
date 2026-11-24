@@ -19,6 +19,15 @@ export type AuditListResult = {
 };
 
 const DEFAULT_PER_PAGE = 20;
+
+/**
+ * Tables written by the system on a timer, not by people: monitoring metrics (`monitoring_*`,
+ * kept in the main repository when MONITORING_GITDB_REPOSITORY_URL is not set). The monitor
+ * configuration (`monitors`) is audited like any other entity.
+ */
+export function isSystemMetricsEntity(entity: string | null): boolean {
+  return entity !== null && entity.startsWith('monitoring_');
+}
 const MAX_PER_PAGE = 100;
 
 export class AuditService {
@@ -27,7 +36,10 @@ export class AuditService {
     const gitdb = getGitDb();
     const { search, organizationId, dateFrom, dateTo } = options;
     const { events } = await gitdb.auditLog({ search, organizationId, dateFrom, dateTo });
-    const filtered = events.filter((event) => event.action !== 'other' && event.entity !== null);
+    const filtered = events.filter(
+      (event) =>
+        event.action !== 'other' && event.entity !== null && !isSystemMetricsEntity(event.entity),
+    );
 
     const perPage = Math.min(Math.max(Math.trunc(options.perPage ?? DEFAULT_PER_PAGE), 1), MAX_PER_PAGE);
     const total = filtered.length;
