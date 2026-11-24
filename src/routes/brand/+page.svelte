@@ -44,6 +44,7 @@
   } from '@lucide/svelte';
   import {
     AppWindow,
+    Sparkles,
     BellOff,
     CheckCheck,
     Clock,
@@ -61,6 +62,7 @@
   import CommandPalette, { type CommandGroup } from './CommandPalette.svelte';
 
   const sections = [
+    { id: 'logo', label: 'Logo', icon: Sparkles },
     { id: 'paleta', label: 'Paleta', icon: LayoutDashboard },
     { id: 'tipografia', label: 'Tipografía', icon: Pencil },
     { id: 'botones', label: 'Botones', icon: Rocket },
@@ -252,7 +254,7 @@
     ok: 'bg-green-500/10 text-green-400',
     warn: 'bg-amber-500/10 text-amber-400',
     brand: 'bg-brand-500/10 text-brand-400',
-    neutral: 'bg-white/[0.05] text-fg-muted',
+    neutral: 'bg-white/5 text-fg-muted',
   } as const;
 
   // Dropdowns
@@ -342,28 +344,28 @@
       icon: Info,
       title: 'Novedades en GitOps 1.4',
       body: 'Ya puedes crear monitores HTTP desde cada proyecto.',
-      box: 'border-blue-400/25 bg-blue-400/[0.06]',
+      box: 'border-blue-400/25 bg-blue-400/6',
       iconCls: 'text-blue-300',
     },
     {
       icon: CircleCheck,
       title: 'Análisis completado',
       body: 'Sin vulnerabilidades críticas en checkout-api.',
-      box: 'border-green-500/25 bg-green-500/[0.06]',
+      box: 'border-green-500/25 bg-green-500/6',
       iconCls: 'text-green-400',
     },
     {
       icon: TriangleAlert,
       title: 'SMTP no configurado',
       body: 'Las alertas no se enviarán por email hasta configurarlo.',
-      box: 'border-amber-500/25 bg-amber-500/[0.06]',
+      box: 'border-amber-500/25 bg-amber-500/6',
       iconCls: 'text-amber-400',
     },
     {
       icon: CircleX,
       title: 'Sincronización fallida',
       body: 'GitDB no pudo hacer push: conflicto en organizations.json.',
-      box: 'border-red-500/30 bg-red-500/[0.06]',
+      box: 'border-red-500/30 bg-red-500/6',
       iconCls: 'text-red-400',
     },
   ];
@@ -475,11 +477,10 @@
 <div class="brand-root min-h-screen bg-ink-950 font-sans text-fg antialiased">
   <!-- Topbar -->
   <header
-    class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-ink-950/80 px-4 backdrop-blur-xl sm:px-6"
+    class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/8 bg-ink-950/80 px-4 backdrop-blur-xl sm:px-6"
   >
     <a href="/" class="flex items-center gap-2.5">
-      <img src="/gitops_logo_white.png" alt="" class="h-7 w-7 object-contain" />
-      <span class="text-[15px] font-semibold text-white">GitOps</span>
+      <img src="/brand/gitops-logo-dark.svg" alt="GitOps" class="h-6 w-auto" />
       <span class="k-badge k-badge-brand hidden sm:inline-flex">brand v3</span>
     </a>
 
@@ -506,7 +507,7 @@
       <div class="relative" data-dropdown>
         <button
           class="k-btn k-btn-ghost k-btn-icon relative {openDropdown === 'notif'
-            ? 'bg-white/[0.06] text-white'
+            ? 'bg-white/6 text-white'
             : ''}"
           aria-label="Notificaciones ({unreadCount} sin leer)"
           aria-haspopup="dialog"
@@ -523,7 +524,7 @@
         </button>
         {#if openDropdown === 'notif'}
           <div
-            class="k-popover fixed inset-x-3 top-[4.25rem] z-40 overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px]"
+            class="k-popover fixed inset-x-3 top-17 z-40 overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-95"
             role="dialog"
             aria-label="Notificaciones"
             transition:fly={{ y: -6, duration: 140, easing: cubicOut }}
@@ -538,7 +539,7 @@
                 <CheckCheck class="h-3.5 w-3.5" />Marcar todo como leído
               </button>
             </div>
-            <div class="flex gap-4 border-b border-white/[0.08] px-4" role="tablist">
+            <div class="flex gap-4 border-b border-white/8 px-4" role="tablist">
               {#each [['todas', 'Todas'], ['no-leidas', `No leídas · ${unreadCount}`]] as [id, label]}
                 <button
                   role="tab"
@@ -551,12 +552,12 @@
                 >
               {/each}
             </div>
-            <ul class="max-h-[360px] divide-y divide-white/[0.05] overflow-y-auto">
+            <ul class="max-h-90 divide-y divide-white/5 overflow-y-auto">
               {#each notifVisibles as n (n.id)}
                 <li>
                   <button
-                    class="flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.03] {n.unread
-                      ? 'bg-brand-500/[0.03]'
+                    class="flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/3 {n.unread
+                      ? 'bg-brand-500/3'
                       : ''}"
                     onclick={() => (n.unread = false)}
                   >
@@ -589,7 +590,7 @@
               {/each}
             </ul>
             <div
-              class="flex items-center justify-between border-t border-white/[0.08] bg-ink-900/60 px-4 py-2.5"
+              class="flex items-center justify-between border-t border-white/8 bg-ink-900/60 px-4 py-2.5"
             >
               <a
                 href="#modales"
@@ -612,7 +613,7 @@
           onclick={() => toggleDropdown('user')}
         >
           <span
-            class="grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-xs font-semibold text-white"
+            class="grid h-7 w-7 place-items-center rounded-full bg-linear-to-br from-brand-400 to-brand-700 text-xs font-semibold text-white"
             >CL</span
           >
           <ChevronDown class="h-3.5 w-3.5 text-fg-subtle" />
@@ -643,7 +644,7 @@
   <div class="flex">
     <!-- Sidebar de la página (índice del brand) -->
     <aside
-      class="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 overflow-y-auto border-r border-white/[0.08] px-3 py-6 lg:block"
+      class="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 overflow-y-auto border-r border-white/8 px-3 py-6 lg:block"
     >
       <p class="k-nav-heading">Brand</p>
       <nav class="space-y-0.5">
@@ -663,7 +664,7 @@
 
     <main class="min-w-0 flex-1">
       <!-- Hero -->
-      <section class="relative overflow-hidden border-b border-white/[0.08]">
+      <section class="relative overflow-hidden border-b border-white/8">
         <div class="k-hero-glow absolute inset-0"></div>
         <div class="k-bg-grid absolute inset-0"></div>
         <div class="relative mx-auto max-w-6xl px-4 py-16 sm:px-8 sm:py-20">
@@ -686,6 +687,138 @@
       </section>
 
       <div class="mx-auto max-w-6xl space-y-20 px-4 py-14 sm:px-8">
+        <!-- ================= LOGO ================= -->
+        <section class="space-y-6">
+          {@render sectionTitle(
+            'logo',
+            'Logo',
+            'La misma idea de siempre, Git y Ops como dos círculos que se solapan, ahora con la paleta Kettu: Git en neutro, Ops en naranja zorro y la intersección en brand-700. Wordmark en Inter Bold, convertido a trazados.',
+          )}
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <div class="k-card flex flex-col p-6">
+              <div class="flex flex-1 items-center justify-center py-10">
+                <img
+                  src="/brand/gitops-logo-dark.svg"
+                  alt="GitOps, versión para fondo oscuro"
+                  class="h-16 w-auto"
+                />
+              </div>
+              <div class="flex items-center justify-between border-t border-white/8 pt-4">
+                <span class="text-xs text-fg-subtle">Fondo oscuro · uso principal</span>
+                <a href="/brand/gitops-logo-dark.svg" download class="k-btn k-btn-ghost k-btn-sm"
+                  ><Download class="h-3.5 w-3.5" />SVG</a
+                >
+              </div>
+            </div>
+            <div class="flex flex-col rounded-2xl border border-white/10 bg-[#fafafa] p-6">
+              <div class="flex flex-1 items-center justify-center py-10">
+                <img
+                  src="/brand/gitops-logo-light.svg"
+                  alt="GitOps, versión para fondo claro"
+                  class="h-16 w-auto"
+                />
+              </div>
+              <div class="flex items-center justify-between border-t border-black/8 pt-4">
+                <span class="text-xs text-zinc-500">Fondo claro · documentos, emails</span>
+                <a
+                  href="/brand/gitops-logo-light.svg"
+                  download
+                  class="inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold text-zinc-700 hover:bg-black/5"
+                  ><Download class="h-3.5 w-3.5" />SVG</a
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="k-card p-6">
+              <p class="text-sm font-medium text-white">Marca</p>
+              <p class="text-xs text-fg-subtle">Cuando no cabe el wordmark</p>
+              <div class="mt-6 flex items-end gap-5">
+                <img src="/brand/gitops-mark-dark.svg" alt="" class="h-16 w-auto" />
+                <img src="/brand/gitops-mark-dark.svg" alt="" class="h-8 w-auto" />
+                <img src="/brand/gitops-mark-dark.svg" alt="" class="h-4 w-auto" />
+              </div>
+              <div class="mt-5 flex gap-2">
+                <a
+                  href="/brand/gitops-mark-dark.svg"
+                  download
+                  class="k-btn k-btn-secondary k-btn-sm">Oscuro</a
+                >
+                <a
+                  href="/brand/gitops-mark-light.svg"
+                  download
+                  class="k-btn k-btn-secondary k-btn-sm">Claro</a
+                >
+              </div>
+            </div>
+
+            <div class="k-card p-6">
+              <p class="text-sm font-medium text-white">Icono de app y favicon</p>
+              <p class="text-xs text-fg-subtle">512 · 192 · 180 (Apple) · 32</p>
+              <div class="mt-6 flex items-end gap-4">
+                <img src="/brand/gitops-icon.svg" alt="" class="h-20 w-20" />
+                <img src="/brand/gitops-icon.svg" alt="" class="h-12 w-12" />
+                <img src="/brand/gitops-icon-32.png" alt="" class="h-8 w-8" />
+                <img src="/brand/gitops-icon-32.png" alt="" class="h-4 w-4" />
+              </div>
+              <div class="mt-5 flex flex-wrap gap-2">
+                <a href="/brand/gitops-icon.svg" download class="k-btn k-btn-secondary k-btn-sm"
+                  >SVG</a
+                >
+                <a href="/brand/gitops-icon-512.png" download class="k-btn k-btn-secondary k-btn-sm"
+                  >PNG 512</a
+                >
+              </div>
+            </div>
+
+            <div class="k-card p-6">
+              <p class="text-sm font-medium text-white">Colores del logo</p>
+              <p class="text-xs text-fg-subtle">Solo estos, sin degradados</p>
+              <ul class="mt-5 space-y-2.5">
+                {#each [['Git (oscuro)', '#e7e7ea', 'fg'], ['Git (claro)', '#0a0a0d', 'ink-950'], ['Ops', '#f95d11', 'brand-500'], ['Intersección', '#ba3208', 'brand-700']] as [label, hex, token]}
+                  <li class="flex items-center gap-3">
+                    <span class="h-6 w-6 rounded-full ring-1 ring-white/15" style="background:{hex}"
+                    ></span>
+                    <span class="flex-1 text-sm text-fg">{label}</span>
+                    <span class="font-mono text-[11px] text-fg-subtle">{token} · {hex}</span>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          </div>
+
+          <div class="k-card grid gap-6 p-6 sm:grid-cols-3">
+            <div>
+              <p class="flex items-center gap-1.5 text-sm font-medium text-green-400">
+                <CircleCheck class="h-4 w-4" />Sí
+              </p>
+              <p class="mt-1 text-sm text-fg-muted">
+                Margen libre alrededor de, como mínimo, la mitad de un círculo. Tamaño mínimo: 16 px
+                para la marca y 80 px para el logo completo.
+              </p>
+            </div>
+            <div>
+              <p class="flex items-center gap-1.5 text-sm font-medium text-red-400">
+                <CircleX class="h-4 w-4" />No
+              </p>
+              <p class="mt-1 text-sm text-fg-muted">
+                Cambiar los colores, añadir sombras o degradados, girarlo o deformarlo.
+              </p>
+            </div>
+            <div>
+              <p class="flex items-center gap-1.5 text-sm font-medium text-amber-400">
+                <TriangleAlert class="h-4 w-4" />Ojo
+              </p>
+              <p class="mt-1 text-sm text-fg-muted">
+                Sobre fotos o fondos naranjas, usa el icono de app (con su cuadrado ink), no la
+                marca suelta.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <!-- ================= PALETA ================= -->
         <section class="space-y-6">
           {@render sectionTitle(
@@ -768,7 +901,7 @@
               <div class="grid grid-cols-2 gap-2">
                 {#each statusTokens as [name, hex, label, Icon]}
                   <button
-                    class="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-left"
+                    class="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/2 p-2.5 text-left"
                     onclick={() => copy(hex)}
                   >
                     <Icon class="h-4 w-4" style="color:{hex}" />
@@ -807,7 +940,7 @@
             'Tipografía',
             'Inter para la interfaz, JetBrains Mono para código, IDs y hashes. Titulares con tracking ajustado.',
           )}
-          <div class="k-card divide-y divide-white/[0.06]">
+          <div class="k-card divide-y divide-white/6">
             {#each [['Display · 48/700', 'text-5xl font-bold tracking-tight k-text-gradient', 'Infraestructura en Git'], ['H1 · 36/700', 'text-4xl font-bold tracking-tight text-white', 'Proyectos de la organización'], ['H2 · 24/600', 'text-2xl font-semibold tracking-tight text-white', 'Secretos del entorno prod'], ['H3 · 18/600', 'text-lg font-semibold text-white', 'Última analítica de seguridad'], ['Body · 15/400', 'text-[15px] text-fg-muted', 'Cada cambio queda registrado como un commit auditable en tu repositorio GitDB.'], ['Small · 13/400', 'text-[13px] text-fg-subtle', 'Actualizado hace 3 minutos por carlos@kettu.studio'], ['Overline · 11/600', 'text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-400', 'Organización'], ['Mono · 13/400', 'font-mono text-[13px] text-fg', 'gvs_7f3a…c91e  ·  a1b2c3d']] as [meta, cls, sample]}
               <div class="grid gap-2 px-5 py-4 sm:grid-cols-[160px_1fr] sm:items-baseline">
                 <span class="font-mono text-xs text-fg-subtle">{meta}</span>
@@ -920,7 +1053,7 @@
                 {#each [['CL', 'from-brand-400 to-brand-700'], ['AM', 'from-sky-400 to-blue-700'], ['JR', 'from-teal-400 to-teal-700'], ['+4', '']] as [ini, grad]}
                   <span
                     class="grid h-8 w-8 place-items-center rounded-full text-xs font-semibold ring-2 ring-ink-950 {grad
-                      ? `bg-gradient-to-br ${grad} text-white`
+                      ? `bg-linear-to-br ${grad} text-white`
                       : 'bg-ink-700 text-fg-muted'}">{ini}</span
                   >
                 {/each}
@@ -993,7 +1126,7 @@
                 {#each [['sso', 'Google SSO', 'Inicio de sesión con Google Workspace'], ['registro', 'Registro abierto', 'Cualquiera puede crear una cuenta'], ['monitoring', 'Monitoring', 'Monitores HTTP de uptime']] as [key, label, desc]}
                   {@const k = key as keyof typeof toggles}
                   <div
-                    class="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.015] p-3"
+                    class="flex items-center justify-between gap-4 rounded-xl border border-white/8 bg-white/1.5 p-3"
                   >
                     <div>
                       <p class="text-sm font-medium text-white">{label}</p>
@@ -1145,7 +1278,7 @@
                       ><Download class="h-4 w-4 text-fg-subtle" />Exportar JSON</button
                     >
                     <div class="k-divider my-1"></div>
-                    <button class="k-menu-item text-red-300 hover:!bg-red-500/10" role="menuitem"
+                    <button class="k-menu-item text-red-300 hover:bg-red-500/10!" role="menuitem"
                       ><Trash class="h-4 w-4" />Eliminar</button
                     >
                   </div>
@@ -1158,7 +1291,7 @@
               <p class="k-label">Selector de contexto</p>
               <div class="relative" data-dropdown>
                 <button
-                  class="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-2 text-left hover:border-white/20"
+                  class="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/2 p-2 text-left hover:border-white/20"
                   aria-haspopup="listbox"
                   aria-expanded={openDropdown === 'switcher'}
                   onclick={() => toggleDropdown('switcher')}
@@ -1260,7 +1393,7 @@
           {@render sectionTitle(
             'cards',
             'Cards',
-            'rounded-2xl, borde white/10 y fondo white/[0.02], como en kettu.studio. Hover con borde naranja en las navegables.',
+            'rounded-2xl, borde white/10 y fondo white/2, como en kettu.studio. Hover con borde naranja en las navegables.',
           )}
 
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1342,7 +1475,7 @@
             <div
               class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 p-6 text-center"
             >
-              <span class="grid h-11 w-11 place-items-center rounded-full bg-white/[0.04] text-xl"
+              <span class="grid h-11 w-11 place-items-center rounded-full bg-white/4 text-xl"
                 >🦊</span
               >
               <p class="mt-3 font-medium text-white">Aún no hay secretos</p>
@@ -1354,7 +1487,7 @@
           </div>
 
           <div class="k-card">
-            <div class="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
+            <div class="flex items-center justify-between border-b border-white/8 px-5 py-4">
               <div>
                 <p class="font-semibold text-white">Claves de servidor</p>
                 <p class="text-xs text-fg-subtle">Card con cabecera y lista</p>
@@ -1363,7 +1496,7 @@
                 ><Plus class="h-3.5 w-3.5" />Nueva clave</button
               >
             </div>
-            <ul class="divide-y divide-white/[0.06]">
+            <ul class="divide-y divide-white/6">
               {#each [['ci-github-actions', 'gvs_7f3a…c91e', 'hace 3 min'], ['pulumi-prod', 'gvs_02bd…11af', 'hace 2 días']] as [name, key, used]}
                 <li class="flex items-center gap-4 px-5 py-3.5">
                   <KeyRound class="h-4 w-4 text-fg-subtle" />
@@ -1389,7 +1522,7 @@
             'Cabecera sobria en mayúsculas pequeñas, filas con hover y acciones ghost a la derecha.',
           )}
           <div class="k-card overflow-hidden">
-            <div class="flex flex-wrap items-center gap-3 border-b border-white/[0.08] p-4">
+            <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
               <label class="relative w-full sm:w-64">
                 <Search
                   class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
@@ -1402,9 +1535,9 @@
               <span class="ml-auto text-xs text-fg-subtle">4 servicios</span>
             </div>
             <div class="overflow-x-auto">
-              <table class="w-full min-w-[640px] text-left text-sm">
+              <table class="w-full min-w-160 text-left text-sm">
                 <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
-                  <tr class="border-b border-white/[0.08]">
+                  <tr class="border-b border-white/8">
                     <th class="px-5 py-3 font-semibold">Servicio</th>
                     <th class="px-5 py-3 font-semibold">Estado</th>
                     <th class="px-5 py-3 text-right font-semibold">Uptime</th>
@@ -1413,9 +1546,9 @@
                     <th class="w-12 px-5 py-3"></th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-white/[0.06]">
+                <tbody class="divide-y divide-white/6">
                   {#each servicios as s}
-                    <tr class="transition-colors hover:bg-white/[0.025]">
+                    <tr class="transition-colors hover:bg-white/2.5">
                       <td class="px-5 py-3.5">
                         <p class="font-medium text-white">{s.name}</p>
                         <p class="flex items-center gap-1 font-mono text-xs text-fg-subtle">
@@ -1463,7 +1596,7 @@
               <span class="text-white">Vault</span>
             </nav>
 
-            <div class="border-b border-white/[0.08]">
+            <div class="border-b border-white/8">
               <div class="-mb-px flex gap-6 overflow-x-auto" role="tablist">
                 {#each [['resumen', 'Resumen'], ['dependencias', 'Dependencias'], ['vulnerabilidades', 'Vulnerabilidades', '41'], ['historial', 'Historial']] as [id, label, count]}
                   <button
@@ -1587,7 +1720,7 @@
                       >{value} %</span
                     >
                   </div>
-                  <div class="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                  <div class="h-1.5 overflow-hidden rounded-full bg-white/6">
                     <div class="h-full rounded-full {color}" style="width:{value}%"></div>
                   </div>
                 </div>
@@ -1595,15 +1728,15 @@
             </div>
             <div class="k-card space-y-3 p-6" aria-hidden="true">
               <div class="flex items-center gap-3">
-                <div class="h-10 w-10 animate-pulse rounded-xl bg-white/[0.06]"></div>
+                <div class="h-10 w-10 animate-pulse rounded-xl bg-white/6"></div>
                 <div class="flex-1 space-y-2">
-                  <div class="h-3 w-1/3 animate-pulse rounded bg-white/[0.06]"></div>
-                  <div class="h-3 w-1/2 animate-pulse rounded bg-white/[0.04]"></div>
+                  <div class="h-3 w-1/3 animate-pulse rounded bg-white/6"></div>
+                  <div class="h-3 w-1/2 animate-pulse rounded bg-white/4"></div>
                 </div>
               </div>
-              <div class="h-3 w-full animate-pulse rounded bg-white/[0.04]"></div>
-              <div class="h-3 w-5/6 animate-pulse rounded bg-white/[0.04]"></div>
-              <div class="h-3 w-2/3 animate-pulse rounded bg-white/[0.04]"></div>
+              <div class="h-3 w-full animate-pulse rounded bg-white/4"></div>
+              <div class="h-3 w-5/6 animate-pulse rounded bg-white/4"></div>
+              <div class="h-3 w-2/3 animate-pulse rounded bg-white/4"></div>
             </div>
           </div>
 
@@ -1624,7 +1757,7 @@
             'Fondo negro al 60 % con blur, panel sobre ink-800. Se cierran con Esc, con clic fuera o con Cancelar, y bloquean el scroll del fondo.',
           )}
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {#each [{ id: 'confirm', icon: Trash, title: 'Confirmación destructiva', desc: 'Hay que escribir el nombre para habilitar el botón.', tone: 'bg-red-500/10 text-red-400' }, { id: 'form', icon: KeyRound, title: 'Formulario', desc: 'Crear un secreto, con validación en vivo.', tone: 'bg-brand-500/10 text-brand-400' }, { id: 'detalle', icon: MessageSquareText, title: 'Detalle grande', desc: 'Cabecera, tabs, cuerpo con scroll y pie fijo.', tone: 'bg-blue-400/10 text-blue-300' }, { id: 'drawer', icon: PanelRight, title: 'Drawer lateral', desc: 'Panel desde la derecha para ver detalles sin salir de la lista.', tone: 'bg-teal-500/10 text-teal-300' }, { id: 'palette', icon: Command, title: 'Búsqueda ⌘K', desc: 'Paleta de comandos con teclado.', tone: 'bg-white/[0.06] text-fg' }] as m}
+            {#each [{ id: 'confirm', icon: Trash, title: 'Confirmación destructiva', desc: 'Hay que escribir el nombre para habilitar el botón.', tone: 'bg-red-500/10 text-red-400' }, { id: 'form', icon: KeyRound, title: 'Formulario', desc: 'Crear un secreto, con validación en vivo.', tone: 'bg-brand-500/10 text-brand-400' }, { id: 'detalle', icon: MessageSquareText, title: 'Detalle grande', desc: 'Cabecera, tabs, cuerpo con scroll y pie fijo.', tone: 'bg-blue-400/10 text-blue-300' }, { id: 'drawer', icon: PanelRight, title: 'Drawer lateral', desc: 'Panel desde la derecha para ver detalles sin salir de la lista.', tone: 'bg-teal-500/10 text-teal-300' }, { id: 'palette', icon: Command, title: 'Búsqueda ⌘K', desc: 'Paleta de comandos con teclado.', tone: 'bg-white/6 text-fg' }] as m}
               <button
                 class="k-card k-card-hover flex flex-col items-start p-5 text-left"
                 onclick={() =>
@@ -1668,14 +1801,14 @@
             'Propuesta para la navegación de la app: selector de contexto arriba, secciones agrupadas y modo colapsado.',
           )}
           <div class="k-card overflow-hidden">
-            <div class="flex h-[560px]">
+            <div class="flex h-140">
               <aside
-                class="flex shrink-0 flex-col border-r border-white/[0.08] bg-ink-950 p-3 transition-[width] duration-200 {collapsed
-                  ? 'w-[68px]'
+                class="flex shrink-0 flex-col border-r border-white/8 bg-ink-950 p-3 transition-[width] duration-200 {collapsed
+                  ? 'w-17'
                   : 'w-64'}"
               >
                 <button
-                  class="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] p-2 text-left hover:border-white/20"
+                  class="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/2 p-2 text-left hover:border-white/20"
                 >
                   <span
                     class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500/15 text-sm"
@@ -1734,13 +1867,13 @@
                 </nav>
 
                 {#if !collapsed}
-                  <div class="mb-3 rounded-xl border border-brand-500/25 bg-brand-500/[0.06] p-3">
+                  <div class="mb-3 rounded-xl border border-brand-500/25 bg-brand-500/6 p-3">
                     <p class="text-xs font-medium text-brand-200">GitOps 1.4.0</p>
                     <p class="mt-0.5 text-xs text-fg-subtle">Monitores HTTP disponibles.</p>
                   </div>
                 {/if}
                 <div
-                  class="flex items-center gap-2 border-t border-white/[0.08] pt-3 {collapsed
+                  class="flex items-center gap-2 border-t border-white/8 pt-3 {collapsed
                     ? 'flex-col'
                     : ''}"
                 >
@@ -1788,10 +1921,10 @@
                 </div>
                 <div class="k-card mt-4 h-48 p-4">
                   <div class="space-y-3" aria-hidden="true">
-                    <div class="h-3 w-1/4 rounded bg-white/[0.06]"></div>
-                    <div class="h-3 w-full rounded bg-white/[0.04]"></div>
-                    <div class="h-3 w-5/6 rounded bg-white/[0.04]"></div>
-                    <div class="h-3 w-2/3 rounded bg-white/[0.04]"></div>
+                    <div class="h-3 w-1/4 rounded bg-white/6"></div>
+                    <div class="h-3 w-full rounded bg-white/4"></div>
+                    <div class="h-3 w-5/6 rounded bg-white/4"></div>
+                    <div class="h-3 w-2/3 rounded bg-white/4"></div>
                   </div>
                 </div>
               </div>
@@ -1800,9 +1933,7 @@
         </section>
       </div>
 
-      <footer
-        class="border-t border-white/[0.08] px-4 py-8 text-center text-xs text-fg-subtle sm:px-8"
-      >
+      <footer class="border-t border-white/8 px-4 py-8 text-center text-xs text-fg-subtle sm:px-8">
         Hecho con 🦊 por Kettu Studio · tokens en <span class="font-mono"
           >src/lib/styles/brand.css</span
         >
@@ -1885,9 +2016,7 @@
         transition:scale={{ start: 0.96, duration: 150, easing: cubicOut }}
       >
         <form onsubmit={saveSecret}>
-          <div
-            class="flex items-start justify-between gap-4 border-b border-white/[0.08] px-6 py-5"
-          >
+          <div class="flex items-start justify-between gap-4 border-b border-white/8 px-6 py-5">
             <div>
               <h3 id="form-title" class="text-lg font-semibold text-white">Nuevo secreto</h3>
               <p class="mt-0.5 text-sm text-fg-subtle">Se cifra antes de guardarse en GitDB.</p>
@@ -1954,7 +2083,7 @@
                     class="rounded-lg border px-3 py-2.5 text-left text-sm transition-colors {secretEnv ===
                     id
                       ? 'border-brand-500/60 bg-brand-500/10 text-white'
-                      : 'border-white/10 bg-white/[0.02] text-fg-muted hover:border-white/20'}"
+                      : 'border-white/10 bg-white/2 text-fg-muted hover:border-white/20'}"
                   >
                     <span class="block font-mono text-[11px] text-fg-subtle">{id}</span>
                     {label}
@@ -1964,7 +2093,7 @@
             </div>
             {#if secretEnv === 'prod'}
               <div
-                class="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-3 text-xs text-amber-200"
+                class="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/6 p-3 text-xs text-amber-200"
                 transition:fade={{ duration: 100 }}
               >
                 <TriangleAlert class="h-4 w-4 shrink-0 text-amber-400" />Los cambios en producción
@@ -1974,7 +2103,7 @@
           </div>
 
           <div
-            class="flex items-center justify-between gap-2 border-t border-white/[0.08] bg-ink-900/60 px-6 py-4"
+            class="flex items-center justify-between gap-2 border-t border-white/8 bg-ink-900/60 px-6 py-4"
           >
             <span class="hidden items-center gap-1 text-xs text-fg-subtle sm:flex"
               ><span class="k-kbd">Esc</span> para cerrar</span
@@ -2006,7 +2135,7 @@
         aria-labelledby="detalle-title"
         transition:scale={{ start: 0.96, duration: 150, easing: cubicOut }}
       >
-        <div class="border-b border-white/[0.08] px-6 pt-5">
+        <div class="border-b border-white/8 px-6 pt-5">
           <div class="flex items-start justify-between gap-4">
             <div>
               <div class="flex flex-wrap items-center gap-2">
@@ -2051,7 +2180,7 @@
               </p>
               <div class="grid grid-cols-3 gap-3">
                 {#each [['CVSS', '9.1'], ['Exploit', 'Público'], ['Fix', 'Disponible']] as [k, v]}
-                  <div class="rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
+                  <div class="rounded-lg border border-white/8 bg-white/2 p-3">
                     <p class="text-xs text-fg-subtle">{k}</p>
                     <p class="mt-0.5 font-semibold text-white">{v}</p>
                   </div>
@@ -2061,7 +2190,7 @@
                 Cómo corregirlo
               </p>
               <pre
-                class="overflow-x-auto rounded-lg border border-white/[0.08] bg-ink-950 p-4 font-mono text-[13px] leading-relaxed text-fg"><span
+                class="overflow-x-auto rounded-lg border border-white/8 bg-ink-950 p-4 font-mono text-[13px] leading-relaxed text-fg"><span
                   class="text-fg-subtle"># package.json</span
                 >
 <span class="text-red-300">-  "lodash": "4.17.20"</span>
@@ -2076,7 +2205,7 @@
               {/each}
             </div>
           {:else if detalleTab === 'afectados'}
-            <ul class="divide-y divide-white/[0.06]">
+            <ul class="divide-y divide-white/6">
               {#each [['billing-worker', 'release/1.4'], ['checkout-api', 'main'], ['legacy-cron', 'develop']] as [svc, br]}
                 <li class="flex items-center gap-3 py-3">
                   <Server class="h-4 w-4 text-fg-subtle" /><span class="flex-1 text-sm text-white"
@@ -2090,7 +2219,7 @@
               {#each [['Detectada por Open Report', 'hace 25 min'], ['Alerta enviada a 3 personas', 'hace 24 min'], ['Asignada a Carlos López', 'hace 10 min']] as [t, when]}
                 <li class="relative">
                   <span
-                    class="absolute -left-[25px] top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-4 ring-ink-800"
+                    class="absolute -left-6.25 top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-4 ring-ink-800"
                   ></span>
                   <p class="text-sm text-white">{t}</p>
                   <p class="text-xs text-fg-subtle">{when}</p>
@@ -2101,7 +2230,7 @@
         </div>
 
         <div
-          class="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] bg-ink-900/60 px-6 py-4"
+          class="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 bg-ink-900/60 px-6 py-4"
         >
           <button class="k-btn k-btn-ghost k-btn-sm"
             ><ExternalLink class="h-3.5 w-3.5" />Ver en NVD</button
@@ -2132,7 +2261,7 @@
         aria-labelledby="drawer-title"
         transition:fly={{ x: 420, duration: 220, easing: cubicOut }}
       >
-        <div class="flex items-start justify-between gap-4 border-b border-white/[0.08] px-6 py-5">
+        <div class="flex items-start justify-between gap-4 border-b border-white/8 px-6 py-5">
           <div>
             <p class="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-400">
               Monitor HTTP
@@ -2158,7 +2287,7 @@
           </div>
           <div class="grid grid-cols-2 gap-3">
             {#each [['Uptime 30 d', '99,41 %'], ['p95', '640 ms'], ['Intervalo', '60 s'], ['Timeout', '10 s']] as [k, v]}
-              <div class="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+              <div class="rounded-xl border border-white/8 bg-white/2 p-3">
                 <p class="text-xs text-fg-subtle">{k}</p>
                 <p class="mt-0.5 text-lg font-semibold text-white">{v}</p>
               </div>
@@ -2168,7 +2297,7 @@
             <p class="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle">
               Últimos checks
             </p>
-            <ul class="divide-y divide-white/[0.06] rounded-xl border border-white/[0.08]">
+            <ul class="divide-y divide-white/6 rounded-xl border border-white/8">
               {#each [['503', 'Service Unavailable', 'danger', '12:04:01'], ['503', 'Service Unavailable', 'danger', '12:03:01'], ['504', 'Gateway Timeout', 'danger', '12:02:01'], ['200', 'OK · 212 ms', 'ok', '12:01:01']] as [code, text, tone, at]}
                 <li class="flex items-center gap-3 px-3 py-2.5 text-sm">
                   <span class="h-1.5 w-1.5 rounded-full {tone === 'ok' ? 'bg-ok' : 'bg-danger'}"
@@ -2181,7 +2310,7 @@
             </ul>
           </div>
         </div>
-        <div class="flex gap-2 border-t border-white/[0.08] px-6 py-4">
+        <div class="flex gap-2 border-t border-white/8 px-6 py-4">
           <button class="k-btn k-btn-secondary flex-1"><Pencil class="h-4 w-4" />Editar</button>
           <button
             class="k-btn k-btn-primary flex-1"
@@ -2198,7 +2327,7 @@
   <!-- Toast -->
   {#if toastVisible}
     <div
-      class="k-popover fixed bottom-6 right-6 z-[70] flex w-80 items-start gap-3 p-4"
+      class="k-popover fixed bottom-6 right-6 z-70 flex w-80 items-start gap-3 p-4"
       role="status"
       transition:fly={{ y: 12, duration: 180, easing: cubicOut }}
     >

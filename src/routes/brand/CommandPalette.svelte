@@ -91,7 +91,7 @@
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh]">
+  <div class="fixed inset-0 z-60 flex items-start justify-center p-4 pt-[12vh]">
     <button
       class="absolute inset-0 bg-black/60 backdrop-blur-sm"
       aria-label="Cerrar búsqueda"
@@ -106,7 +106,7 @@
       aria-label="Búsqueda"
       transition:scale={{ start: 0.97, duration: 140, easing: cubicOut }}
     >
-      <div class="flex items-center gap-3 border-b border-white/[0.08] px-4">
+      <div class="flex items-center gap-3 border-b border-white/8 px-4">
         <Search class="h-4 w-4 shrink-0 text-fg-subtle" />
         <input
           use:focusOnMount
@@ -138,7 +138,7 @@
               aria-selected={isActive}
               data-active={isActive}
               class="flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left text-sm transition-colors {isActive
-                ? 'bg-white/[0.07] text-white'
+                ? 'bg-white/7 text-white'
                 : 'text-fg'}"
               onmousemove={() => (active = index)}
               onclick={() => runItem(item)}
@@ -146,7 +146,7 @@
               <span
                 class="grid h-7 w-7 shrink-0 place-items-center rounded-md border transition-colors {isActive
                   ? 'border-brand-500/40 bg-brand-500/10 text-brand-400'
-                  : 'border-white/10 bg-white/[0.03] text-fg-subtle'}"
+                  : 'border-white/10 bg-white/3 text-fg-subtle'}"
               >
                 <item.icon class="h-3.5 w-3.5" />
               </span>
@@ -175,7 +175,7 @@
       </div>
 
       <div
-        class="flex items-center gap-4 border-t border-white/[0.08] bg-ink-900/60 px-4 py-2.5 text-xs text-fg-subtle"
+        class="flex items-center gap-4 border-t border-white/8 bg-ink-900/60 px-4 py-2.5 text-xs text-fg-subtle"
       >
         <span class="flex items-center gap-1.5">
           <span class="k-kbd"><ArrowUp class="h-3 w-3" /></span><span class="k-kbd"
