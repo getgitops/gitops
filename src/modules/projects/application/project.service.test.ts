@@ -28,7 +28,7 @@ class FakeProjectRepository {
     name: string;
     description?: string;
     status: string;
-    modules: { vault: boolean; codereport: boolean; stateiac: boolean };
+    modules: { vault: boolean; codereport: boolean; stateiac: boolean; monitoring: boolean };
     settings?: ProjectDomain['settings'];
   }) {
     this.rows.push(
@@ -54,7 +54,7 @@ class FakeProjectRepository {
       slug?: string;
       description?: string;
       status?: string;
-      modules?: { vault: boolean; codereport: boolean; stateiac: boolean };
+      modules?: { vault: boolean; codereport: boolean; stateiac: boolean; monitoring: boolean };
       organizationId?: string;
     },
   ) {
@@ -164,7 +164,12 @@ describe('ProjectService', () => {
 
     it('defaults only available modules to enabled when none are provided', async () => {
       const project = await createProject({ name: 'Project C' });
-      expect(project.modules).toEqual({ vault: false, codereport: true, stateiac: false });
+      expect(project.modules).toEqual({
+        vault: false,
+        codereport: true,
+        stateiac: false,
+        monitoring: false,
+      });
     });
 
     it('persists default code report risk multipliers', async () => {
@@ -182,7 +187,12 @@ describe('ProjectService', () => {
         name: 'Project D',
         modules: { vault: true, codereport: false, stateiac: true },
       });
-      expect(project.modules).toEqual({ vault: true, codereport: false, stateiac: false });
+      expect(project.modules).toEqual({
+        vault: true,
+        codereport: false,
+        stateiac: false,
+        monitoring: false,
+      });
     });
   });
 
@@ -233,12 +243,22 @@ describe('ProjectService', () => {
       const updated = await service.updateProject(created.id, {
         modules: { vault: true, stateiac: true },
       });
-      expect(updated.modules).toEqual({ vault: true, codereport: true, stateiac: false });
+      expect(updated.modules).toEqual({
+        vault: true,
+        codereport: true,
+        stateiac: false,
+        monitoring: false,
+      });
 
       const updatedAgain = await service.updateProject(created.id, {
         modules: { codereport: false },
       });
-      expect(updatedAgain.modules).toEqual({ vault: true, codereport: false, stateiac: false });
+      expect(updatedAgain.modules).toEqual({
+        vault: true,
+        codereport: false,
+        stateiac: false,
+        monitoring: false,
+      });
     });
 
     it('updates the status', async () => {

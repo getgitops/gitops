@@ -11,6 +11,7 @@ import { codeReportSecurityPolicyService, codeReportService } from '../code-repo
 import { organizationService } from '../organization';
 import { projectService } from '../projects';
 import { vaultService } from '../vault';
+import { monitorService } from '../monitoring';
 import { AlertEngine } from './application/alert-engine';
 import { AlertService } from './application/alert.service';
 import { AlertThrottle } from './application/alert-throttle';
@@ -32,6 +33,7 @@ export const alertDirectory = new PlatformDirectory({
   codeReportPolicies: codeReportSecurityPolicyService,
   vaultEnvironments: vaultService,
   apiKeys: apiKeysService,
+  monitors: { listByProject: (projectId) => monitorService.listByProject(projectId) },
 });
 
 const recipientResolver = new RecipientResolver(alertDirectory, (userId, permission, context) =>

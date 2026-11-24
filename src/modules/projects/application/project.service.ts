@@ -270,6 +270,7 @@ export class ProjectService {
       vault: modules?.vault ?? DEFAULT_PROJECT_MODULES.vault,
       codereport: modules?.codereport ?? DEFAULT_PROJECT_MODULES.codereport,
       stateiac: false,
+      monitoring: modules?.monitoring ?? DEFAULT_PROJECT_MODULES.monitoring,
     };
   }
 }

@@ -23,7 +23,8 @@
       "analisis": "Análisis",
       "gitops": "GitOps",
       "proyecto": "Proyecto",
-      "organization": "Organización"
+      "organization": "Organización",
+      "monitoring": "Monitorización"
     },
     "modules": {
       "overview": "Vista general",
@@ -32,7 +33,8 @@
       "stateIac": "State IaC",
       "projectSettings": "Ajustes de proyecto",
       "organizationSettings": "Configuración",
-      "clusterSettings": "Ajustes de GitOps"
+      "clusterSettings": "Ajustes de GitOps",
+      "monitoring": "Monitoring"
     },
     "items": {
       "overview": "Vista general",
@@ -57,7 +59,8 @@
       "auditLog": "Registro de auditoría",
       "registration": "Registro",
       "events": "Eventos",
-      "alerts": "Alertas"
+      "alerts": "Alertas",
+      "monitors": "Monitores"
     }
   },
   "footer": {
@@ -420,7 +423,8 @@
         "vault": "Vault",
         "projects": "Proyectos",
         "organization": "Organización",
-        "access": "Accesos"
+        "access": "Accesos",
+        "monitoring": "Monitoring"
       }
     }
   },
@@ -1101,6 +1105,18 @@
         "cluster": "GitOps",
         "organization": "Organización",
         "project": "Proyecto"
+      },
+      "monitoringCause": {
+        "timeout": "Tiempo de espera agotado",
+        "dns": "Error de DNS",
+        "connection": "Error de conexión",
+        "tls": "Error TLS/certificado",
+        "unexpected_status": "Código HTTP inesperado",
+        "slow_response": "Respuesta lenta",
+        "blocked_target": "Destino bloqueado",
+        "too_many_redirects": "Demasiadas redirecciones",
+        "invalid_url": "URL no válida",
+        "error": "Error"
       }
     },
     "vault": {
@@ -1280,6 +1296,44 @@
     },
     "scopeFields": {
       "projectId": "Proyecto"
+    },
+    "monitoring": {
+      "monitor": {
+        "down": {
+          "label": "Monitor caído",
+          "description": "Un monitor HTTP ha fallado las comprobaciones de confirmación seguidas.",
+          "fields": {
+            "monitorId": "Monitor",
+            "serviceId": "Servicio",
+            "name": "Nombre del monitor",
+            "cause": "Causa",
+            "httpStatus": "Código HTTP"
+          }
+        },
+        "degraded": {
+          "label": "Monitor degradado",
+          "description": "Un monitor HTTP responde, pero más lento que su umbral.",
+          "fields": {
+            "monitorId": "Monitor",
+            "serviceId": "Servicio",
+            "name": "Nombre del monitor",
+            "cause": "Causa",
+            "httpStatus": "Código HTTP"
+          }
+        },
+        "recovered": {
+          "label": "Monitor recuperado",
+          "description": "Un monitor caído o degradado vuelve a responder correctamente.",
+          "fields": {
+            "monitorId": "Monitor",
+            "serviceId": "Servicio",
+            "name": "Nombre del monitor",
+            "cause": "Causa",
+            "httpStatus": "Código HTTP",
+            "durationSeconds": "Duración de la incidencia (s)"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1330,7 +1384,10 @@
         "vulnerabilities": "{critical} críticas, {high} altas ({total} en total)",
         "noVulnerabilities": "sin vulnerabilidades",
         "analysisFailed": "falló el análisis de {tool}",
-        "policyViolated": "«{policy}» incumplida ({count})"
+        "policyViolated": "«{policy}» incumplida ({count})",
+        "monitorDown": "{name} está caído ({cause})",
+        "monitorDegraded": "{name} responde degradado",
+        "monitorRecovered": "{name} se ha recuperado tras {minutes} min"
       }
     },
     "operators": {
@@ -1454,5 +1511,191 @@
       "nothingSent": "Es una prueba: no se ha enviado ningún email."
     },
     "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán."
+  },
+  "monitoring": {
+    "title": "Monitoring",
+    "moduleDescription": "Monitores HTTP con uptime, latencia e incidencias, enlazados con tus servicios.",
+    "newMonitor": "Nuevo monitor",
+    "editMonitor": "Editar monitor",
+    "monitorsTitle": "Monitores",
+    "monitorsSubtitle": "Gestiona los monitores HTTP del proyecto.",
+    "backToMonitors": "Volver a monitores",
+    "backToDashboard": "Volver al dashboard",
+    "status": {
+      "up": "Operativo",
+      "degraded": "Degradado",
+      "down": "Caído",
+      "pending": "Pendiente",
+      "paused": "Pausado",
+      "none": "Sin datos"
+    },
+    "causes": {
+      "timeout": "Tiempo de espera agotado",
+      "dns": "Error de DNS",
+      "connection": "Error de conexión",
+      "tls": "Error TLS/certificado",
+      "unexpected_status": "Código HTTP inesperado",
+      "slow_response": "Respuesta lenta",
+      "blocked_target": "Destino bloqueado",
+      "too_many_redirects": "Demasiadas redirecciones",
+      "invalid_url": "URL no válida",
+      "error": "Error"
+    },
+    "uptime": {
+      "h24": "Uptime 24 h",
+      "d7": "Uptime 7 días",
+      "d30": "Uptime 30 días",
+      "d90": "Uptime 90 días"
+    },
+    "bars": {
+      "label": "Historial de estado",
+      "uptime": "Uptime",
+      "checks": "Comprobaciones",
+      "latency": "Latencia media",
+      "down": "Caído",
+      "degraded": "Degradado",
+      "noData": "Sin datos en este periodo",
+      "hoursAgo": "hace {count} h",
+      "daysAgo": "hace {count} días",
+      "now": "ahora",
+      "today": "hoy"
+    },
+    "dashboard": {
+      "title": "Dashboard de monitoring",
+      "eyebrow": "Estado del proyecto",
+      "headlineUp": "Todos los sistemas operativos",
+      "headlineDown": "{count} monitor(es) caídos",
+      "headlineDegraded": "{count} monitor(es) degradados",
+      "headlineEmpty": "Aún no hay monitores activos",
+      "updated": "Actualizado hace {seconds} s · se refresca cada 30 s",
+      "monitors": "Monitores",
+      "avgLatency": "Latencia media 24 h",
+      "openIncidents": "Incidencias abiertas",
+      "search": "Buscar por nombre, URL o servicio",
+      "all": "Todos",
+      "days": "{count} días",
+      "emptyTitle": "Todavía no hay monitores",
+      "emptyDescription": "Crea un monitor HTTP para vigilar una URL cada minuto y enlázalo con un servicio de Code Report.",
+      "noMatches": "Ningún monitor coincide con el filtro.",
+      "workers": "{count} worker(s) activos",
+      "scheduled": "{count} monitores programados",
+      "overdue": "{count} comprobaciones con retraso",
+      "dedicatedRepo": "Métricas en repositorio GitDB dedicado",
+      "sharedRepo": "Métricas en el repositorio GitDB principal"
+    },
+    "table": {
+      "monitor": "Monitor",
+      "service": "Servicio",
+      "interval": "Frecuencia",
+      "latency": "Latencia 24 h",
+      "actions": "Acciones"
+    },
+    "actions": {
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "runNow": "Probar ahora"
+    },
+    "delete": {
+      "title": "Eliminar monitor",
+      "description": "Se eliminará «{name}» junto con su historial de uptime e incidencias. No se puede deshacer."
+    },
+    "detail": {
+      "since": "desde hace {duration}",
+      "lastCheck": "última comprobación hace {ago}",
+      "openIncident": {
+        "down": "Incidencia abierta: caído",
+        "degraded": "Incidencia abierta: degradado"
+      },
+      "avgLatency": "Latencia media 24 h",
+      "last90Days": "Últimos 90 días",
+      "last24Hours": "Últimas 24 horas",
+      "incidents": "Incidencias",
+      "noIncidents": "Sin incidencias registradas",
+      "ongoing": "En curso",
+      "configuration": "Configuración",
+      "bodyStored": "Guardado (cifrado)"
+    },
+    "service": {
+      "title": "Monitores",
+      "add": "Añadir monitor",
+      "empty": "Este servicio aún no tiene monitores. Añade uno para ver su uptime aquí."
+    },
+    "form": {
+      "intro": "Comprueba una URL periódicamente y avisa cuando falle o responda lento.",
+      "requestTitle": "Petición",
+      "requestHelp": "Qué URL se comprueba y con qué frecuencia.",
+      "name": "Nombre",
+      "namePlaceholder": "API pública – health",
+      "url": "URL",
+      "method": "Método",
+      "service": "Servicio",
+      "noService": "Sin servicio",
+      "serviceHelp": "Enlázalo con un servicio de Code Report para verlo en su ficha.",
+      "interval": "Frecuencia",
+      "everySeconds": "Cada {count} s",
+      "everyMinutes": "Cada {count} min",
+      "headersTitle": "Headers y body",
+      "headersHelp": "Se envían en cada comprobación.",
+      "addHeader": "Añadir header",
+      "headerName": "Nombre del header",
+      "headerValue": "Valor del header",
+      "removeHeader": "Quitar header",
+      "keepValue": "•••••• (sin cambios)",
+      "secretsNote": "Los valores de los headers y el body se guardan cifrados y nunca se vuelven a mostrar. No pongas secretos en la URL.",
+      "body": "Body",
+      "keepBody": "(se mantiene el body guardado)",
+      "clearBody": "Quitar el body guardado",
+      "conditionsTitle": "Condiciones",
+      "conditionsHelp": "Qué cuenta como correcto, lento o caído.",
+      "show": "Mostrar",
+      "hide": "Ocultar",
+      "expectedStatus": "Códigos esperados",
+      "expectedStatusHelp": "Rangos o códigos separados por comas: 200-299, 301",
+      "timeout": "Timeout (ms)",
+      "degradedThreshold": "Umbral de degradación (ms)",
+      "degradedThresholdHelp": "Más lento que esto se marca como degradado. 0 lo desactiva.",
+      "confirmations": "Confirmaciones",
+      "confirmationsHelp": "Fallos seguidos antes de abrir una incidencia (evita falsas alarmas).",
+      "followRedirects": "Seguir redirecciones",
+      "enabled": "Monitor activo",
+      "test": "Probar",
+      "create": "Crear monitor",
+      "saveChanges": "Guardar cambios"
+    },
+    "test": {
+      "result": {
+        "up": "La comprobación ha ido bien",
+        "degraded": "Responde, pero lento",
+        "down": "La comprobación ha fallado"
+      },
+      "redirects": "{count} redirección(es)",
+      "responseHeaders": "Headers de respuesta ({count})",
+      "body": "Inicio del body"
+    },
+    "errors": {
+      "required": "Este campo es obligatorio.",
+      "too_long": "Es demasiado largo.",
+      "invalid_url": "Introduce una URL http o https válida.",
+      "private_target": "Las direcciones privadas, locales o internas no están permitidas.",
+      "invalid_method": "Método HTTP no válido.",
+      "out_of_range": "Valor fuera del rango permitido.",
+      "invalid_expected_status": "Usa códigos 100-599 o rangos, p. ej. 200-299,301.",
+      "service_not_found": "El servicio no existe en este proyecto.",
+      "too_many_headers": "Demasiados headers (máximo 30).",
+      "invalid_header": "Header no válido.",
+      "duplicate_header": "Header repetido."
+    },
+    "latency": {
+      "title": "Tiempo de respuesta",
+      "responseTime": "Respuesta",
+      "avg": "Media",
+      "threshold": "Umbral degradado",
+      "noResponse": "Sin respuesta",
+      "recentHelp": "Cada comprobación de la última hora (en memoria); color según su estado.",
+      "aggregateHelp": "Media y p95 de los agregados guardados.",
+      "noData": "Aún no hay tiempos de respuesta en este periodo."
+    }
   }
 }

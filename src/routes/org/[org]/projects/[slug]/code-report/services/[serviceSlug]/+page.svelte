@@ -3,6 +3,8 @@
   import { enhance } from '$app/forms';
   import { ArrowLeft, History, Trash2, X } from '@lucide/svelte';
   import CodeReportVisualization from '#lib/components/CodeReportVisualization.svelte';
+  import ServiceMonitors from '#lib/components/monitoring/ServiceMonitors.svelte';
+  import type { MonitorRowData } from '#lib/components/monitoring/types';
   import { _ } from '#lib/i18n';
 
   export let data: {
@@ -14,6 +16,7 @@
     project?: { slug?: string; organization?: { slug?: string | null } | null };
     canCreate: boolean;
     canDelete: boolean;
+    monitoring: { base: string; canCreate: boolean; monitors: MonitorRowData[] } | null;
   };
   export let form: {
     error?: string;
@@ -62,6 +65,10 @@
       {/if}
     </div>
   </div>
+
+  {#if data.monitoring}
+    <ServiceMonitors serviceId={data.service.id} monitoring={data.monitoring} />
+  {/if}
 
   <CodeReportVisualization
     service={data.service}

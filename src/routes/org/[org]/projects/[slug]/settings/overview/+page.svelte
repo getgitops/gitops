@@ -10,6 +10,7 @@
     Building2,
     CheckCircle,
     Copy,
+    Activity,
     ExternalLink,
     GitBranch,
     Save,
@@ -23,6 +24,7 @@
     vault: boolean;
     codereport: boolean;
     stateiac: boolean;
+    monitoring?: boolean;
   };
 
   type ProjectRow = {
@@ -73,6 +75,12 @@
       label: 'Code Report',
       icon: BarChart3,
       href: `/org/${orgSlug}/projects/${project.slug}/code-report`,
+    },
+    {
+      key: 'monitoring',
+      label: 'Monitoring',
+      icon: Activity,
+      href: `/org/${orgSlug}/projects/${project.slug}/monitoring`,
     },
     {
       key: 'stateiac',
@@ -242,6 +250,7 @@
     <input type="hidden" name="moduleVault" value={editModules.vault ? 'on' : ''} />
     <input type="hidden" name="moduleCodeReport" value={editModules.codereport ? 'on' : ''} />
     <input type="hidden" name="moduleStateIac" value="" />
+    <input type="hidden" name="moduleMonitoring" value={editModules.monitoring ? 'on' : ''} />
     <div class="flex items-center justify-end gap-3 border-b border-slate-200 px-4 py-4">
       {#if isArchived}
         <span

@@ -16,8 +16,10 @@ operational data versioned and auditable in Git.
 - Cluster-wide Google sign-in (OpenID Connect) alongside local email and password login.
 - Security reporting for vulnerabilities, SBOMs, secrets, licenses, and services.
 - Pulumi state, history, and lock visibility for S3 and Google Cloud Storage backends.
-- Email alerts on platform events (security analyses, vault, projects, access), with filters
-  built from an event catalog.
+- Email alerts on platform events (security analyses, vault, projects, access, monitors), with
+  filters built from an event catalog.
+- HTTP uptime monitoring: monitors linked to Code Report services, uptime and latency dashboard,
+  incidents, and stateless workers that scale horizontally.
 - Git-backed, auditable application data through GitDB.
 
 ## Get started
@@ -162,6 +164,63 @@ curl -X POST "$ORIGIN/api/alerts" \
 fields. Only recipients allowed to view the event get the email, and you can only create alerts on
 events you can view yourself. Some notifications are always on: users are told when their access to
 an organization or project changes and when a personal API key is created on their account.
+
+### Monitoring
+
+HTTP monitors check a URL (method, headers and body of your choice) every 60 seconds by default and
+report it **up**, **degraded** (answered as expected, but slower than the threshold) or **down**. A
+monitor can belong to a Code Report service, and the service page lists its monitors. Enable the
+**Monitoring** module in the project's **Settings → Overview**; the module adds a dashboard (status
+bars, uptime 24 h / 7 d / 30 d / 90 d, latency) and the monitor pages, where **Test** runs the check
+once without saving anything.
+
+Header values and the body are stored encrypted and never shown again. Checks may only reach public
+addresses unless `MONITORING_ALLOW_PRIVATE_TARGETS=true`. A monitor goes down or degraded after
+`confirmations` failing checks in a row (2 by default) and publishes `monitoring.monitor.down`,
+`.degraded` and `.recovered`, so alerts can email people about it.
+
+What is stored, and where (see [ADR 0002](docs/adr/0002-http-monitoring.md)):
+
+| Data                                                              | Where                                                        | Volume                                    |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------- |
+| Monitor configuration                                             | main GitDB (`monitors`), audited                             | one row per monitor                       |
+| Incidents (each period down or degraded)                          | metrics GitDB (`monitoring_incidents`), written at once      | one row per status change                 |
+| Hourly aggregates (checks, up/degraded/down, latency avg/p95/max) | metrics GitDB (`monitoring_hourly`)                          | 24 rows per monitor and day, kept 30 days |
+| Hour in progress                                                  | metrics GitDB (`monitoring_current`), saved every 5 minutes  | one row per monitor                       |
+| Daily aggregates                                                  | metrics GitDB (`monitoring_daily`), compacted from old hours | one row per monitor and day               |
+| Last checks                                                       | memory only                                                  | 120 per monitor                           |
+
+Uptime is computed from incidents (time-based), so it stays exact after hours are compacted into
+days. A crash loses at most one flush of hourly counters and the recent checks, never an incident.
+Set `MONITORING_GITDB_REPOSITORY_URL` to keep metrics in their own repository (recommended: the main
+history stays clean and the metrics repository can be squashed or recreated); without it they go to
+the main repository and are hidden from the audit views.
+
+**Workers.** The server keeps the schedule in memory and hands due checks to workers through
+leases. By default an embedded worker runs inside the server. To scale out, run dedicated workers
+anywhere that reaches the server over the private network; they are stateless, need no database,
+and each check runs once whatever the number of workers:
+
+```bash
+# on the server
+MONITORING_WORKER_TOKEN=<long random secret>
+MONITORING_INTERNAL_HOSTS=gitops.railway.internal:3000   # optional: refuse the public domain
+MONITORING_EMBEDDED_WORKER=false                          # optional: only dedicated workers
+
+# each worker (same Docker image, start command `bun run worker`)
+MONITORING_API_URL=http://gitops.railway.internal:3000
+MONITORING_WORKER_TOKEN=<same secret>
+MONITORING_WORKER_REGION=eu-west          # optional label, shown on the dashboard
+MONITORING_WORKER_CONCURRENCY=50          # checks in flight per worker
+MONITORING_CHECK_LOGS=false               # optional: stop logging every check (default on)
+```
+
+Every worker, embedded or dedicated, logs each finished check (monitor, method and URL without the
+query string, status, HTTP code, latency, cause): `info` when up, `warn` when degraded or down.
+`MONITORING_CHECK_LOGS=false` turns it off.
+
+The worker API is `POST /api/internal/monitoring/lease` and `POST /api/internal/monitoring/results`;
+it does not exist without `MONITORING_WORKER_TOKEN`.
 
 ### Email
 

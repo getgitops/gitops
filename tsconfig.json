@@ -12,6 +12,7 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "paths": {
       "#lib/*": ["./src/lib/*"],
       "#modules/*": ["./src/modules/*"]

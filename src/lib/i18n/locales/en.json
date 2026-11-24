@@ -23,7 +23,8 @@
       "analisis": "Analysis",
       "gitops": "GitOps",
       "proyecto": "Project",
-      "organization": "Organization"
+      "organization": "Organization",
+      "monitoring": "Monitoring"
     },
     "modules": {
       "overview": "Overview",
@@ -32,7 +33,8 @@
       "stateIac": "State IaC",
       "projectSettings": "Project Settings",
       "organizationSettings": "Organization Settings",
-      "clusterSettings": "GitOps Settings"
+      "clusterSettings": "GitOps Settings",
+      "monitoring": "Monitoring"
     },
     "items": {
       "overview": "Overview",
@@ -57,7 +59,8 @@
       "auditLog": "Audit Log",
       "registration": "Registration",
       "events": "Events",
-      "alerts": "Alerts"
+      "alerts": "Alerts",
+      "monitors": "Monitors"
     }
   },
   "footer": {
@@ -420,7 +423,8 @@
         "vault": "Vault",
         "projects": "Projects",
         "organization": "Organization",
-        "access": "Access"
+        "access": "Access",
+        "monitoring": "Monitoring"
       }
     }
   },
@@ -1101,6 +1105,18 @@
         "cluster": "GitOps",
         "organization": "Organization",
         "project": "Project"
+      },
+      "monitoringCause": {
+        "timeout": "Timed out",
+        "dns": "DNS error",
+        "connection": "Connection error",
+        "tls": "TLS/certificate error",
+        "unexpected_status": "Unexpected HTTP status",
+        "slow_response": "Slow response",
+        "blocked_target": "Blocked target",
+        "too_many_redirects": "Too many redirects",
+        "invalid_url": "Invalid URL",
+        "error": "Error"
       }
     },
     "vault": {
@@ -1280,6 +1296,44 @@
     },
     "scopeFields": {
       "projectId": "Project"
+    },
+    "monitoring": {
+      "monitor": {
+        "down": {
+          "label": "Monitor down",
+          "description": "An HTTP monitor failed its confirmation checks in a row.",
+          "fields": {
+            "monitorId": "Monitor",
+            "serviceId": "Service",
+            "name": "Monitor name",
+            "cause": "Cause",
+            "httpStatus": "HTTP status"
+          }
+        },
+        "degraded": {
+          "label": "Monitor degraded",
+          "description": "An HTTP monitor answers, but slower than its threshold.",
+          "fields": {
+            "monitorId": "Monitor",
+            "serviceId": "Service",
+            "name": "Monitor name",
+            "cause": "Cause",
+            "httpStatus": "HTTP status"
+          }
+        },
+        "recovered": {
+          "label": "Monitor recovered",
+          "description": "A down or degraded monitor answers correctly again.",
+          "fields": {
+            "monitorId": "Monitor",
+            "serviceId": "Service",
+            "name": "Monitor name",
+            "cause": "Cause",
+            "httpStatus": "HTTP status",
+            "durationSeconds": "Incident duration (s)"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1330,7 +1384,10 @@
         "vulnerabilities": "{critical} critical, {high} high ({total} in total)",
         "noVulnerabilities": "no vulnerabilities",
         "analysisFailed": "{tool} analysis failed",
-        "policyViolated": "“{policy}” violated ({count})"
+        "policyViolated": "“{policy}” violated ({count})",
+        "monitorDown": "{name} is down ({cause})",
+        "monitorDegraded": "{name} is degraded",
+        "monitorRecovered": "{name} recovered after {minutes} min"
       }
     },
     "operators": {
@@ -1454,5 +1511,191 @@
       "nothingSent": "This is a test: no email was sent."
     },
     "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent."
+  },
+  "monitoring": {
+    "title": "Monitoring",
+    "moduleDescription": "HTTP monitors with uptime, latency and incidents, linked to your services.",
+    "newMonitor": "New monitor",
+    "editMonitor": "Edit monitor",
+    "monitorsTitle": "Monitors",
+    "monitorsSubtitle": "Manage the HTTP monitors of the project.",
+    "backToMonitors": "Back to monitors",
+    "backToDashboard": "Back to dashboard",
+    "status": {
+      "up": "Operational",
+      "degraded": "Degraded",
+      "down": "Down",
+      "pending": "Pending",
+      "paused": "Paused",
+      "none": "No data"
+    },
+    "causes": {
+      "timeout": "Timed out",
+      "dns": "DNS error",
+      "connection": "Connection error",
+      "tls": "TLS/certificate error",
+      "unexpected_status": "Unexpected HTTP status",
+      "slow_response": "Slow response",
+      "blocked_target": "Blocked target",
+      "too_many_redirects": "Too many redirects",
+      "invalid_url": "Invalid URL",
+      "error": "Error"
+    },
+    "uptime": {
+      "h24": "Uptime 24 h",
+      "d7": "Uptime 7 days",
+      "d30": "Uptime 30 days",
+      "d90": "Uptime 90 days"
+    },
+    "bars": {
+      "label": "Status history",
+      "uptime": "Uptime",
+      "checks": "Checks",
+      "latency": "Average latency",
+      "down": "Down",
+      "degraded": "Degraded",
+      "noData": "No data in this period",
+      "hoursAgo": "{count} h ago",
+      "daysAgo": "{count} days ago",
+      "now": "now",
+      "today": "today"
+    },
+    "dashboard": {
+      "title": "Monitoring dashboard",
+      "eyebrow": "Project status",
+      "headlineUp": "All systems operational",
+      "headlineDown": "{count} monitor(s) down",
+      "headlineDegraded": "{count} monitor(s) degraded",
+      "headlineEmpty": "No active monitors yet",
+      "updated": "Updated {seconds} s ago · refreshes every 30 s",
+      "monitors": "Monitors",
+      "avgLatency": "Avg latency 24 h",
+      "openIncidents": "Open incidents",
+      "search": "Search by name, URL or service",
+      "all": "All",
+      "days": "{count} days",
+      "emptyTitle": "No monitors yet",
+      "emptyDescription": "Create an HTTP monitor to watch a URL every minute and link it to a Code Report service.",
+      "noMatches": "No monitor matches the filter.",
+      "workers": "{count} active worker(s)",
+      "scheduled": "{count} scheduled monitors",
+      "overdue": "{count} checks running late",
+      "dedicatedRepo": "Metrics in a dedicated GitDB repository",
+      "sharedRepo": "Metrics in the main GitDB repository"
+    },
+    "table": {
+      "monitor": "Monitor",
+      "service": "Service",
+      "interval": "Frequency",
+      "latency": "Latency 24 h",
+      "actions": "Actions"
+    },
+    "actions": {
+      "pause": "Pause",
+      "resume": "Resume",
+      "edit": "Edit",
+      "delete": "Delete",
+      "runNow": "Run now"
+    },
+    "delete": {
+      "title": "Delete monitor",
+      "description": "“{name}” will be deleted with its uptime history and incidents. This can't be undone."
+    },
+    "detail": {
+      "since": "for {duration}",
+      "lastCheck": "last check {ago} ago",
+      "openIncident": {
+        "down": "Open incident: down",
+        "degraded": "Open incident: degraded"
+      },
+      "avgLatency": "Avg latency 24 h",
+      "last90Days": "Last 90 days",
+      "last24Hours": "Last 24 hours",
+      "incidents": "Incidents",
+      "noIncidents": "No incidents recorded",
+      "ongoing": "Ongoing",
+      "configuration": "Configuration",
+      "bodyStored": "Stored (encrypted)"
+    },
+    "service": {
+      "title": "Monitors",
+      "add": "Add monitor",
+      "empty": "This service has no monitors yet. Add one to see its uptime here."
+    },
+    "form": {
+      "intro": "Checks a URL periodically and tells you when it fails or answers slowly.",
+      "requestTitle": "Request",
+      "requestHelp": "Which URL is checked and how often.",
+      "name": "Name",
+      "namePlaceholder": "Public API – health",
+      "url": "URL",
+      "method": "Method",
+      "service": "Service",
+      "noService": "No service",
+      "serviceHelp": "Link it to a Code Report service to see it on its page.",
+      "interval": "Frequency",
+      "everySeconds": "Every {count} s",
+      "everyMinutes": "Every {count} min",
+      "headersTitle": "Headers and body",
+      "headersHelp": "Sent with every check.",
+      "addHeader": "Add header",
+      "headerName": "Header name",
+      "headerValue": "Header value",
+      "removeHeader": "Remove header",
+      "keepValue": "•••••• (unchanged)",
+      "secretsNote": "Header values and the body are stored encrypted and never shown again. Don't put secrets in the URL.",
+      "body": "Body",
+      "keepBody": "(the stored body is kept)",
+      "clearBody": "Remove the stored body",
+      "conditionsTitle": "Conditions",
+      "conditionsHelp": "What counts as healthy, slow or down.",
+      "show": "Show",
+      "hide": "Hide",
+      "expectedStatus": "Expected status codes",
+      "expectedStatusHelp": "Comma-separated codes or ranges: 200-299, 301",
+      "timeout": "Timeout (ms)",
+      "degradedThreshold": "Degraded threshold (ms)",
+      "degradedThresholdHelp": "Slower than this is marked degraded. 0 turns it off.",
+      "confirmations": "Confirmations",
+      "confirmationsHelp": "Failures in a row before an incident opens (avoids false alarms).",
+      "followRedirects": "Follow redirects",
+      "enabled": "Monitor enabled",
+      "test": "Test",
+      "create": "Create monitor",
+      "saveChanges": "Save changes"
+    },
+    "test": {
+      "result": {
+        "up": "The check succeeded",
+        "degraded": "It answers, but slowly",
+        "down": "The check failed"
+      },
+      "redirects": "{count} redirect(s)",
+      "responseHeaders": "Response headers ({count})",
+      "body": "Start of the body"
+    },
+    "errors": {
+      "required": "This field is required.",
+      "too_long": "It is too long.",
+      "invalid_url": "Enter a valid http or https URL.",
+      "private_target": "Private, local or internal addresses are not allowed.",
+      "invalid_method": "Invalid HTTP method.",
+      "out_of_range": "Value out of the allowed range.",
+      "invalid_expected_status": "Use codes 100-599 or ranges, e.g. 200-299,301.",
+      "service_not_found": "The service doesn't exist in this project.",
+      "too_many_headers": "Too many headers (30 at most).",
+      "invalid_header": "Invalid header.",
+      "duplicate_header": "Duplicate header."
+    },
+    "latency": {
+      "title": "Response time",
+      "responseTime": "Response",
+      "avg": "Average",
+      "threshold": "Degraded threshold",
+      "noResponse": "No response",
+      "recentHelp": "Every check of the last hour (in memory), colored by status.",
+      "aggregateHelp": "Average and p95 of the stored aggregates.",
+      "noData": "No response times in this period yet."
+    }
   }
 }

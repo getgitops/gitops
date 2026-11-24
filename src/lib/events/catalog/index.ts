@@ -4,6 +4,7 @@ import { vaultEvents } from './vault.events';
 import { projectEvents } from './projects.events';
 import { organizationEvents } from './organization.events';
 import { accessEvents } from './access.events';
+import { monitoringEvents } from './monitoring.events';
 import type {
   EventCatalog,
   EventDefinition,
@@ -19,6 +20,7 @@ export { VAULT_SECRET_CHANGED_FIELDS } from './vault.events';
 export { PROJECT_CHANGED_FIELDS } from './projects.events';
 export { ORGANIZATION_CHANGED_FIELDS } from './organization.events';
 export { ACCESS_SCOPES } from './access.events';
+export { MONITORING_CAUSES } from './monitoring.events';
 export {
   PROJECT_SCOPE_FIELD,
   isScopeField,
@@ -50,6 +52,7 @@ export const EVENT_CATALOG: EventCatalog = defineEventCatalog({
   ...projectEvents,
   ...organizationEvents,
   ...accessEvents,
+  ...monitoringEvents,
 });
 
 export function isEventType(value: string): value is EventType {

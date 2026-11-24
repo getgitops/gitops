@@ -29,9 +29,16 @@ export type FieldReference =
   | 'user'
   | 'role'
   | 'vault_environment'
-  | 'api_key';
+  | 'api_key'
+  | 'monitor';
 
-export type EventModule = 'code_report' | 'vault' | 'projects' | 'organization' | 'access';
+export type EventModule =
+  | 'code_report'
+  | 'vault'
+  | 'projects'
+  | 'organization'
+  | 'access'
+  | 'monitoring';
 
 export type EventDefinitionScope = 'organization' | 'project';
 

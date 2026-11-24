@@ -149,7 +149,7 @@ export async function seedAll(): Promise<SeedOutput> {
     organizationId: primaryOrg.id,
     name: 'E2E Primary Project',
     slug: 'e2e-project',
-    modules: { vault: true, codereport: true, stateiac: true },
+    modules: { vault: true, codereport: true, stateiac: true, monitoring: true },
   });
   await roleService.createDefaultProjectRoles(primaryProject.id);
   const primaryProjectRoles = await roleService.listRoles('project', primaryProject.id);
