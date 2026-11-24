@@ -16,7 +16,9 @@
   setupI18n();
 
   $: isBareLayout =
-    $page?.url?.pathname?.startsWith('/auth/') || $page?.url?.pathname?.startsWith('/bootstrap');
+    $page?.url?.pathname?.startsWith('/auth/') ||
+    $page?.url?.pathname?.startsWith('/bootstrap') ||
+    $page?.url?.pathname === '/brand';
 
   onMount(() => {
     sidebarCollapsed = localStorage.getItem('gitops-sidebar-collapsed') === '1';

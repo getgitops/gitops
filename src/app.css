@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './lib/styles/brand.css';
 
 body {
   @apply bg-[#020813] text-slate-100;
