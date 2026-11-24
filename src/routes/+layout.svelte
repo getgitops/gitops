@@ -16,7 +16,9 @@
   setupI18n();
 
   $: isBareLayout =
-    $page?.url?.pathname?.startsWith('/auth/') || $page?.url?.pathname?.startsWith('/bootstrap');
+    $page?.url?.pathname?.startsWith('/auth/') ||
+    $page?.url?.pathname?.startsWith('/bootstrap') ||
+    $page?.url?.pathname?.startsWith('/notifications/');
 
   onMount(() => {
     sidebarCollapsed = localStorage.getItem('gitops-sidebar-collapsed') === '1';
@@ -66,6 +68,7 @@
           canReadOrgAudit={data.canReadOrgAudit}
           canReadOrgEvents={data.canReadOrgEvents}
           canReadOrganizationAlerts={data.canReadOrganizationAlerts}
+          canReadOrgNotifications={data.canReadOrgNotifications}
           canReadProjectInfo={data.canReadProjectInfo}
           canReadProjectUsers={data.canReadProjectUsers}
           canReadProjectRoles={data.canReadProjectRoles}

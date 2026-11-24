@@ -137,7 +137,8 @@ vulnerabilities*.
    *greater than* `0`.
 4. Recipients: the **Project Admin** role. Throttle: one email every **30** minutes at most.
 5. **Test alert** shows whether an example event matches and who would get the email, without
-   sending anything. Then **Create alert**.
+   sending anything. **Send test email** also emails those recipients with an example event and a
+   `[Test]` subject (external addresses only once confirmed). Then **Create alert**.
 
 The same alert through the API (`gvs_` project keys only manage alerts of their own project):
 
@@ -162,6 +163,24 @@ curl -X POST "$ORIGIN/api/alerts" \
 fields. Only recipients allowed to view the event get the email, and you can only create alerts on
 events you can view yourself. Some notifications are always on: users are told when their access to
 an organization or project changes and when a personal API key is created on their account.
+
+#### External email recipients
+
+Alerts can also email people without a GitOps account (a vendor, an on-call mailbox):
+
+1. In the organization's **Settings → Notifications**, list the allowed domains (needs
+   `organization:settings:update`). `partner.com` matches only that domain; use `*.partner.com`
+   for its subdomains. The list is empty by default, which means no external recipients.
+2. In the alert editor, add the addresses under **External emails** (needs
+   `organization:notifications:update` or `project:notifications:update`). The API takes them in
+   `recipients.externalEmails`.
+3. Each new address gets a confirmation email and receives nothing until its owner confirms. Every
+   alert email carries a one-click unsubscribe link.
+
+External recipients are not checked against GitOps permissions, so their emails leave out
+sensitive fields and links into the app. Removing a domain blocks its addresses without deleting
+them, and allowing it again restores them. `ORIGIN` must be set: without it, confirmation and
+unsubscribe links can't be built and nothing is sent to external addresses.
 
 ### Email
 

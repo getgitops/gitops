@@ -60,6 +60,7 @@ export async function load({ locals, url }) {
     canReadOrgAudit,
     canReadOrgEvents,
     canReadOrganizationAlerts,
+    canReadOrgNotificationSettings,
   ] = await Promise.all([
     orgSectionPermission('organization:projects:read'),
     orgSectionPermission('organization:users:read'),
@@ -70,7 +71,10 @@ export async function load({ locals, url }) {
     orgSectionPermission('organization:audit:read'),
     orgSectionPermission('organization:events:read'),
     orgSectionPermission('organization:alerts:read'),
+    orgSectionPermission('organization:notifications:read'),
   ]);
+  // allowed domains are organization settings, external recipients are notifications
+  const canReadOrgNotifications = canReadOrgNotificationSettings || canReadOrgGlobal;
 
   const currentProjectSlug = url.pathname.match(/\/projects\/([^/]+)/)?.[1] ?? null;
 
@@ -175,6 +179,7 @@ export async function load({ locals, url }) {
     canReadOrgAudit,
     canReadOrgEvents,
     canReadOrganizationAlerts,
+    canReadOrgNotifications,
     canReadProjectInfo,
     canReadProjectUsers,
     canReadProjectRoles,

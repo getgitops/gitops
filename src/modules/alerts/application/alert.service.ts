@@ -27,6 +27,7 @@ import {
   locationContext,
   type AlertActor,
   type AlertDirectory,
+  type ExternalRecipientsPort,
   type ReferenceOption,
 } from './types';
 
@@ -34,6 +35,8 @@ const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_CONDITIONS = 20;
 const MAX_LIST_VALUES = 100;
+/** External addresses one alert may email. */
+export const MAX_EXTERNAL_EMAILS = 50;
 
 const VALUELESS_OPERATORS = new Set(['is_true', 'is_false', 'exists']);
 const LIST_OPERATORS = new Set(['in', 'not_in']);
@@ -43,6 +46,9 @@ export type AlertServiceOptions = {
   generateId?: () => string;
   /** Called after every successful write, so the engine drops its cached alerts. */
   onChange?: () => void;
+  /** Without it, alerts can't have external email recipients. */
+  externalRecipients?: ExternalRecipientsPort;
+  logger?: { warn: (object: object, message: string) => void };
 };
 
 /** Ids the location's reference lists contain, loaded once per validation. */
@@ -58,6 +64,8 @@ export class AlertService {
   private readonly now: () => Date;
   private readonly generateId: () => string;
   private readonly onChange: () => void;
+  private readonly externalRecipients: ExternalRecipientsPort | null;
+  private readonly logger: AlertServiceOptions['logger'];
 
   constructor(
     private readonly repository: AlertRepositoryPort,
@@ -67,6 +75,8 @@ export class AlertService {
     this.now = options.now ?? (() => new Date());
     this.generateId = options.generateId ?? (() => crypto.randomUUID());
     this.onChange = options.onChange ?? (() => {});
+    this.externalRecipients = options.externalRecipients ?? null;
+    this.logger = options.logger;
   }
 
   async get(id: string): Promise<AlertDomain> {
@@ -109,11 +119,16 @@ export class AlertService {
     });
   }
 
-  /** Validates `input` for `location` and returns the normalized fields, without saving. */
+  /**
+   * Validates `input` for `location` and returns the normalized fields, without saving.
+   * `previousExternalEmails` are the external addresses the alert already had: keeping them does
+   * not need `<scope>:notifications:update`, adding new ones does.
+   */
   async validate(
     location: AlertLocation,
     input: AlertInput,
     actor: AlertActor,
+    previousExternalEmails: readonly string[] = [],
   ): Promise<AlertFields> {
     const errors: AlertValidationErrors = {};
     const references: ReferenceCache = new Map();
@@ -142,7 +157,13 @@ export class AlertService {
       ? await this.validateConditions(location, definition, input.conditions, errors, references)
       : [];
 
-    const recipients = await this.validateRecipients(location, input.recipients, errors);
+    const recipients = await this.validateRecipients(
+      location,
+      input.recipients,
+      actor,
+      previousExternalEmails,
+      errors,
+    );
 
     const channels = this.validateChannels(input.channels, errors);
 
@@ -190,6 +211,7 @@ export class AlertService {
     };
     await this.repository.create(row);
     this.onChange();
+    await this.registerExternal(location, fields.recipients.externalEmails, actor);
     return new AlertDomain(row);
   }
 
@@ -208,10 +230,37 @@ export class AlertService {
       throttleMinutes: current.throttleMinutes,
       ...Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)),
     };
-    const fields = await this.validate(current.location, merged, actor);
+    const fields = await this.validate(
+      current.location,
+      merged,
+      actor,
+      current.recipients.externalEmails,
+    );
     await this.repository.update(id, fields);
     this.onChange();
+    await this.registerExternal(current.location, fields.recipients.externalEmails, actor);
     return new AlertDomain({ ...current.toJson(), ...fields, updatedAt: this.now().toISOString() });
+  }
+
+  /**
+   * New addresses become pending external recipients and get their confirmation email: after a
+   * save, and when a test email is sent from the editor (so the address can confirm before the
+   * alert is created). The addresses must have passed `validate()`; a failure is only logged.
+   */
+  async registerExternal(
+    location: AlertLocation,
+    emails: readonly string[],
+    actor: AlertActor,
+  ): Promise<void> {
+    if (!this.externalRecipients || emails.length === 0) return;
+    try {
+      await this.externalRecipients.register(location.organizationId, emails, actor.userId);
+    } catch (error) {
+      this.logger?.warn(
+        { err: error, organizationId: location.organizationId },
+        '[alerts] external recipients could not be registered',
+      );
+    }
   }
 
   async delete(id: string): Promise<void> {
@@ -395,6 +444,8 @@ export class AlertService {
   private async validateRecipients(
     location: AlertLocation,
     value: unknown,
+    actor: AlertActor,
+    previousExternalEmails: readonly string[],
     errors: AlertValidationErrors,
   ): Promise<AlertRecipients> {
     const raw = (value ?? {}) as Record<string, unknown>;
@@ -404,10 +455,17 @@ export class AlertService {
         : [];
     const userIds = ids(raw.userIds);
     const roleIds = ids(raw.roleIds);
+    const externalEmails = await this.validateExternalEmails(
+      location,
+      raw.externalEmails,
+      actor,
+      previousExternalEmails,
+      errors,
+    );
 
-    if (userIds.length === 0 && roleIds.length === 0) {
-      errors.recipients = 'required';
-      return { userIds, roleIds };
+    if (userIds.length === 0 && roleIds.length === 0 && externalEmails.length === 0) {
+      if (!errors['recipients.externalEmails']) errors.recipients = 'required';
+      return { userIds, roleIds, externalEmails };
     }
 
     if (userIds.length > 0) {
@@ -419,7 +477,51 @@ export class AlertService {
       if (roleIds.some((id) => !roles.has(id))) errors['recipients.roleIds'] = 'unknown_role';
     }
 
-    return { userIds, roleIds };
+    return { userIds, roleIds, externalEmails };
+  }
+
+  /**
+   * External addresses: valid, inside the organization's allowed domains, and only added by
+   * someone with `<scope>:notifications:update` (they get the event without any cancan check).
+   */
+  private async validateExternalEmails(
+    location: AlertLocation,
+    value: unknown,
+    actor: AlertActor,
+    previous: readonly string[],
+    errors: AlertValidationErrors,
+  ): Promise<string[]> {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) {
+      errors['recipients.externalEmails'] = 'invalid';
+      return [];
+    }
+    const items = value.filter((item) => !(typeof item === 'string' && !item.trim()));
+    if (items.length === 0) return [];
+    if (items.length > MAX_EXTERNAL_EMAILS) {
+      errors['recipients.externalEmails'] = 'too_many';
+      return [];
+    }
+
+    let emails: string[] = [];
+    if (!this.externalRecipients) {
+      errors['recipients.externalEmails'] = 'domain_not_allowed';
+    } else {
+      const checked = await this.externalRecipients.check(location.organizationId, items);
+      emails = checked.emails;
+      const failures = Object.entries(checked.errors);
+      for (const [index, code] of failures) errors[`recipients.externalEmails.${index}`] = code;
+      if (failures.length > 0) errors['recipients.externalEmails'] = failures[0][1];
+    }
+
+    const known = new Set(previous);
+    if (emails.some((email) => !known.has(email))) {
+      const permission = `${location.scope}:notifications:update` as const;
+      if (!(await actor.canRead(permission, locationContext(location)))) {
+        errors['recipients.externalEmails'] = 'forbidden_external';
+      }
+    }
+    return emails;
   }
 
   private validateChannels(value: unknown, errors: AlertValidationErrors): AlertChannel[] {

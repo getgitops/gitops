@@ -69,6 +69,12 @@ const permissions = {
           resource: 'alerts',
           permissions: grantsFor('organization', 'alerts'),
         },
+        // notification delivery of the organization (/org/<org>/settings/notifications): external
+        // email recipients of alerts today, chat and webhook channels later (#82)
+        notifications: {
+          resource: 'notifications',
+          permissions: grantsFor('organization', 'notifications'),
+        },
       },
     },
     project: {
@@ -95,6 +101,11 @@ const permissions = {
         alerts: {
           resource: 'alerts',
           permissions: grantsFor('project', 'alerts'),
+        },
+        // notification delivery of one project: external email recipients of its alerts
+        notifications: {
+          resource: 'notifications',
+          permissions: grantsFor('project', 'notifications'),
         },
         modules: {
           resource: 'modules',

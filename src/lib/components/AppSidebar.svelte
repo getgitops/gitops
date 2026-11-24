@@ -3,6 +3,7 @@
   import {
     Activity,
     BellRing,
+    Mail,
     BarChart3,
     Building2,
     ChevronDown,
@@ -50,6 +51,7 @@
   export let canReadOrgAudit = false;
   export let canReadOrgEvents = false;
   export let canReadOrganizationAlerts = false;
+  export let canReadOrgNotifications = false;
   export let canReadProjectInfo = false;
   export let canReadProjectUsers = false;
   export let canReadProjectRoles = false;
@@ -325,6 +327,12 @@
                   icon: BellRing,
                   visible: canReadOrganizationAlerts,
                 },
+                {
+                  label: $_('sidebar.items.notifications'),
+                  href: `/org/${organizationSlug}/settings/notifications`,
+                  icon: Mail,
+                  visible: canReadOrgNotifications,
+                },
               ]
                 .filter((item) => item.visible)
                 .map(({ visible, ...item }) => item);
@@ -401,14 +409,14 @@
     ),
   ) as Record<string, boolean>;
 
-  function isItemActive(href: string) {
-    return currentPath.startsWith(href);
-  }
+  // reactive declarations, not plain functions: the template calls them with `item` / `navModule`
+  // only, so a plain function would keep the active state of the first rendered page after a
+  // client-side navigation. Reassigning them when `currentPath` changes re-renders every call
+  $: isItemActive = (href: string) => currentPath.startsWith(href);
 
-  function isModuleActive(navModule: NavModule) {
-    if (navModule.base && currentPath.startsWith(navModule.base)) return true;
-    return navModule.items.some((item) => isItemActive(item.href));
-  }
+  $: isModuleActive = (navModule: NavModule) =>
+    (navModule.base ? currentPath.startsWith(navModule.base) : false) ||
+    navModule.items.some((item) => isItemActive(item.href));
 
   function toggleModule(navModule: NavModule) {
     openModules = { ...openModules, [navModule.name]: !moduleOpenState[navModule.name] };

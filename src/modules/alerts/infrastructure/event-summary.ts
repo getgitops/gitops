@@ -19,15 +19,18 @@ function safeValue(event: AnyDomainEvent, key: string): unknown {
 
 /**
  * The catalog fields of an event as label/value lines for an email. Reference ids are replaced by
- * the names in `names` when known; enum values and booleans become i18n keys.
+ * the names in `names` when known; enum values and booleans become i18n keys. `omitSensitive`
+ * leaves out fields marked `sensitive` (emails to external recipients).
  */
 export function describeEventFields(
   event: AnyDomainEvent,
   definition: EventDefinition,
   names: ReadonlyMap<string, string> = new Map(),
+  options: { omitSensitive?: boolean } = {},
 ): EventFieldLine[] {
   const lines: EventFieldLine[] = [];
   for (const field of definition.fields) {
+    if (options.omitSensitive && field.sensitive) continue;
     const value = safeValue(event, field.key as string);
     if (value === undefined || value === null || value === '') continue;
     if (Array.isArray(value) && value.length === 0) continue;

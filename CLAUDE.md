@@ -101,7 +101,8 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 and tool policy mappings.
 
 Current modules include `auth`, `config`, `organization`, `projects`, `storage`,
-`code-report`, `vault`, `audit`, and `alerts`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
+`code-report`, `vault`, `audit`, `alerts`, and `notifications`. The `notifications` module handles
+external email recipient management (domains, verification tokens, unsubscribe tracking). Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
 their `index.ts`, not internal layers.
 
 GitDB is the single source of truth. Users, roles, API keys, organizations, projects, storage
@@ -117,7 +118,10 @@ Bitbucket, and GitLab; in production, ensure SSH authentication credentials are 
 
 `ORIGIN` environment variable pins the application's public origin (e.g., `http://localhost:3000`).
 SvelteKit's CSRF Origin check depends on this value instead of deriving it from the incoming Host
-header, preventing bypasses when running behind a proxy that rewrites Host headers.
+header, preventing bypasses when running behind a proxy that rewrites Host headers. It is also the
+origin of the absolute links in emails (`absoluteUrl()`); only under `vite dev` do those links use
+the origin of the requests the dev server receives instead (`rememberDevOrigin()` in
+`hooks.server.ts`), so they work on port 5173 whatever `ORIGIN` says.
 
 ## Domain events
 
@@ -199,8 +203,39 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
 - HTTP: `#lib/server/alerts` (`access.ts` for permissions/location/actor, `operations.ts` shared by
   the API and form actions). Routes: `GET /api/events/catalog`, `GET|POST /api/alerts`,
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
-  (dry runs: never send, never touch the throttle). Project API keys only reach their project.
+  (dry runs that never touch the throttle; with `send: true`, `AlertEngine.sendTest()` also emails
+  the recipients a real event would reach, members filtered by cancan and verified externals only,
+  with a `[Test]` subject; needs SMTP and is limited to 5 per caller every 10 minutes, in memory.
+  It also registers the draft's new external addresses, so they get the confirmation email and
+  receive the next test once confirmed, before the alert is saved).
+  Project API keys only reach their project.
 
+- External email recipients (`$modules/notifications`, #99): `recipients.externalEmails` holds
+  normalized addresses outside GitOps. Each address is an `ExternalRecipientEntity` (GitDB
+  `external_recipients`) shared by every alert of the organization: `pending` → `verified` (the
+  owner clicked the confirmation link) → `unsubscribed`, or `blocked` when its domain leaves
+  `allowedExternalEmailDomains` (`notification_settings`, one row per organization, empty by
+  default = no externals; exact domain match, `*.example.com` for subdomains, punycode).
+  `AlertService` rejects not allowed or invalid addresses (`domain_not_allowed`,
+  `invalid_email`) and requires `<scope>:notifications:update` to **add** addresses
+  (`forbidden_external`; keeping or removing existing ones does not need it); after the save,
+  `register()` creates them as pending and emails `external-recipient-verify` directly through
+  `notify()` (token in the link: random, stored hashed, 7 days, single use, rate limited 3/h per
+  address and 30/h per organization, per process). The engine sends to `deliverable()` addresses
+  only: verified, allowed domain and with an unsubscribe link, so nothing goes to externals
+  without `ORIGIN`. They skip the cancan filter (no account) and never get system notifications.
+  Their email is the reduced `alert` template: no `sensitive` catalog fields, no links into the
+  app, an unsubscribe footer link and a `List-Unsubscribe` header. The unsubscribe link is a
+  stateless HMAC token (`signToken`, `GITDB_ENCRYPTION_KEY`, 90 days) made single use by
+  `unsubscribeVersion`. Public pages `/notifications/verify` and `/notifications/unsubscribe`
+  (allowed without session in `hooks.server.ts`) only act on POST, so mail scanners opening the
+  link change nothing. `List-Unsubscribe-Post` (RFC 8058 one-click) is not sent: providers POST
+  without an `Origin` header and SvelteKit's CSRF check would reject it.
+- `/org/<org>/settings/notifications` (`#lib/server/notifications/settings.ts`): allowed domains
+  (read with `organization:settings:read` or `organization:notifications:read`, changed with
+  `organization:settings:update` or `organization:notifications:update`) and the external recipients
+  status (`organization:notifications:read`, resend confirmation with `organization:notifications:update`).
+  Notification channels (#95) will live on this page too.
 - UI: `/org/<org>/settings/alerts` and `/org/<org>/projects/<slug>/settings/alerts` (list, `new`,
   `[id]`), thin routes over `#lib/server/alerts/page.ts` (loaders and form actions `draft`, `save`,
   `test`, `toggle`, `delete`; everything works without JavaScript). Components live in
@@ -258,7 +293,7 @@ return { roles, canCreate };
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
 - **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
@@ -267,11 +302,13 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
-- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts
+- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts, notifications
 - **Organization Developer** — read/create/update projects only
-- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit, alerts; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
+- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit, alerts, notifications; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 - **Project Developer** — read/create/update project resources; no deletion or admin; granular module access; reads alerts
 - **Project Viewer** — read-only: project metadata, alerts, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
+
+`organization:notifications:read` and `organization:notifications:update` gate external email recipient management in settings.
 
 Module resources have granular sub-permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. These allow fine-grained access control within each module.
 
@@ -291,6 +328,11 @@ operations initialize their respective default roles. Keep authorization tests b
 Machine-to-machine requests authenticate with `Authorization: Bearer gvs_...`; `hooks.server.ts`
 resolves them into `locals.apiKey` and `cancanService.canApiKey()` confines a project key to its
 own project.
+
+Unauthenticated public routes for external alert recipients: `/notifications/verify` and
+`/notifications/unsubscribe` accept POST requests with HMAC tokens (verifying confirmations and
+one-click unsubscribes). These are allowed without a session in `hooks.server.ts` and validate
+their tokens rather than checking permissions.
 
 `locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or the `can*`
 helpers. Keep authorization tests beside changes to permission behavior.

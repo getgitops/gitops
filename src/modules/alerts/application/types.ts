@@ -59,7 +59,28 @@ export type ResolvedNames = {
   role?: string;
 };
 
-/** Who creates or edits an alert; `canRead` checks a grant in a context for that actor. */
+/** External email recipients as the alerts module sees them (`$modules/notifications`). */
+export interface ExternalRecipientsPort {
+  /** Normalized valid addresses, and `<input index>` → `invalid_email` | `domain_not_allowed`. */
+  check(
+    organizationId: string,
+    emails: readonly unknown[],
+  ): Promise<{ emails: string[]; errors: Record<number, string> }>;
+  /** Creates the missing addresses as pending and sends their confirmation email. */
+  register(organizationId: string, emails: readonly string[], actorUserId: string): Promise<void>;
+  /** The addresses that may get an email now, each with its unsubscribe link. */
+  deliverable(
+    organizationId: string,
+    emails: readonly string[],
+  ): Promise<Array<{ email: string; unsubscribeUrl: string }>>;
+  /** `pending` | `verified` | `unsubscribed` | `blocked` | `missing` per address. */
+  statuses(organizationId: string, emails: readonly string[]): Promise<Map<string, string>>;
+}
+
+/**
+ * Who creates or edits an alert; `canRead` checks any grant in a context for that actor (named
+ * after its first use, the anti-escalation read check).
+ */
 export type AlertActor = {
   userId: string;
   canRead(permission: PermissionGrant, context: PermissionContext): Promise<boolean>;

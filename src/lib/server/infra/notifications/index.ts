@@ -16,11 +16,22 @@ export {
   absoluteUrl,
   isSmtpConfigured,
   readPublicOrigin,
+  rememberDevOrigin,
+  resetDevOrigin,
   readSmtpConfig,
   requireSmtpConfig,
   type SmtpConfig,
 } from './config';
 export { withRetry, isRetryableMailError, type RetryOptions } from './retry';
+export {
+  DEFAULT_MAIL_LOCALE,
+  mailLocale,
+  translateKey,
+  translator,
+  type MailLocale,
+  type Translate,
+} from './i18n';
+export { emailButton, emailNote } from './email-parts';
 export { MailQueue, recipientHash, type MailContext, type MailQueueOptions } from './mail-queue';
 
 import { createLogger } from '#lib/server/logger';
@@ -29,7 +40,16 @@ import { notify as send } from './notify';
 
 const QUEUE_KEY = Symbol.for('gitops.mail.queue');
 const SHUTDOWN_KEY = Symbol.for('gitops.mail.shutdown');
-type GlobalWithQueue = typeof globalThis & { [QUEUE_KEY]?: Queue; [SHUTDOWN_KEY]?: boolean };
+const SEND_KEY = Symbol.for('gitops.mail.send');
+type GlobalWithQueue = typeof globalThis & {
+  [QUEUE_KEY]?: Queue;
+  [SHUTDOWN_KEY]?: boolean;
+  [SEND_KEY]?: typeof send;
+};
+
+// the queue outlives module reloads (dev HMR); it must send with the latest `notify`, whose
+// `instanceof Notification` check matches the classes the current code builds emails with
+(globalThis as GlobalWithQueue)[SEND_KEY] = send;
 
 /**
  * Process-wide queue for alert and system emails (3 at a time, 4 attempts with backoff). Kept on
@@ -37,7 +57,7 @@ type GlobalWithQueue = typeof globalThis & { [QUEUE_KEY]?: Queue; [SHUTDOWN_KEY]
  * their links carry tokens and are sent directly.
  */
 export const mailQueue: Queue = ((globalThis as GlobalWithQueue)[QUEUE_KEY] ??= new Queue({
-  send: (notification) => send(notification),
+  send: (notification) => ((globalThis as GlobalWithQueue)[SEND_KEY] ?? send)(notification),
   concurrency: 3,
   logger: createLogger('mail'),
 }));

@@ -63,7 +63,7 @@ export function summarizeConditions(
 
 /** "2 usuarios · Project Admin" */
 export function summarizeRecipients(
-  recipients: { userIds: string[]; roleIds: string[] },
+  recipients: { userIds: string[]; roleIds: string[]; externalEmails?: string[] },
   users: AlertOption[],
   roles: AlertOption[],
   t: Translate,
@@ -71,6 +71,7 @@ export function summarizeRecipients(
   const names = [
     ...recipients.roleIds.map((id) => roles.find((role) => role.id === id)?.label ?? id),
     ...recipients.userIds.map((id) => users.find((user) => user.id === id)?.label ?? id),
+    ...(recipients.externalEmails ?? []),
   ];
   return names.length > 0 ? names.join(', ') : t('alerts.summary.noRecipients');
 }

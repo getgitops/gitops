@@ -74,12 +74,34 @@ export function formatSender(config: SmtpConfig): string {
   return config.fromName ? `${config.fromName} <${config.from}>` : config.from;
 }
 
+const DEV_ORIGIN_KEY = Symbol.for('gitops.notifications.dev-origin');
+type GlobalWithDevOrigin = typeof globalThis & { [DEV_ORIGIN_KEY]?: string };
+
+/**
+ * Development only (`vite dev`): remembers the origin the app is really served from (e.g.
+ * `http://localhost:5173`), so email links work even when `ORIGIN` points at another port. Called
+ * by `hooks.server.ts` on every request; a no-op in production builds.
+ */
+export function rememberDevOrigin(origin: string): void {
+  if (!import.meta.env.DEV) return;
+  (globalThis as GlobalWithDevOrigin)[DEV_ORIGIN_KEY] = origin;
+}
+
+export function resetDevOrigin(): void {
+  delete (globalThis as GlobalWithDevOrigin)[DEV_ORIGIN_KEY];
+}
+
 /**
  * Public origin used for absolute links in emails (`ORIGIN`, e.g. `https://gitops.example.com`),
  * without a trailing slash. `null` when unset or not an http(s) URL: emails then go without links.
+ * In development the origin of the requests the dev server receives wins; in production only
+ * `ORIGIN` counts, never the `Host` header (it would let a request put its own host in emails).
  */
 export function readPublicOrigin(): string | null {
-  const raw = value('ORIGIN');
+  const devOrigin = import.meta.env.DEV
+    ? (globalThis as GlobalWithDevOrigin)[DEV_ORIGIN_KEY]
+    : undefined;
+  const raw = devOrigin ?? value('ORIGIN');
   if (!raw) return null;
   try {
     const url = new URL(raw);

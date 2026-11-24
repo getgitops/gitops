@@ -41,6 +41,7 @@ export const mailTransport: NotificationTransport<MailNotification> = {
       to: notification.to,
       subject: notification.subject,
       html: notification.content,
+      ...(Object.keys(notification.headers).length > 0 ? { headers: notification.headers } : {}),
     });
   },
 };

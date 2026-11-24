@@ -24,6 +24,12 @@ export type AlertCondition = {
 export type AlertRecipients = {
   userIds: string[];
   roleIds: string[];
+  /**
+   * Addresses outside GitOps (normalized). They belong to the organization's external recipients
+   * (`$modules/notifications`) and only get emails once verified; the cancan filter does not
+   * apply to them.
+   */
+  externalEmails: string[];
 };
 
 /** Where an alert lives: an organization alert has no project. */
@@ -110,6 +116,7 @@ export class AlertDomain implements AlertRow {
     this.recipients = {
       userIds: stringArray(row.recipients?.userIds),
       roleIds: stringArray(row.recipients?.roleIds),
+      externalEmails: stringArray(row.recipients?.externalEmails),
     };
     const channels = stringArray(row.channels).filter((channel): channel is AlertChannel =>
       (ALERT_CHANNELS as readonly string[]).includes(channel),
@@ -153,6 +160,7 @@ export class AlertDomain implements AlertRow {
       recipients: {
         userIds: [...this.recipients.userIds],
         roleIds: [...this.recipients.roleIds],
+        externalEmails: [...this.recipients.externalEmails],
       },
       channels: [...this.channels],
       throttleMinutes: this.throttleMinutes,

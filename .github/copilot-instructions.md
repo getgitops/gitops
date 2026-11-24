@@ -70,7 +70,17 @@ La logica vive en `src/modules/<module>/` con `domain/`, `application/`, `infras
 `index.ts` como composition root. El `domain/` contiene entidades (`*.domain.ts`) y datos
 centralizados (`*.data.ts`) para constantes: permisos de roles, defaults de proyecto, pesos de
 riesgo y mapeos de herramientas. Los modulos actuales son `auth`, `config`, `organization`,
-`projects`, `storage` y `code-report`. Las rutas deben importar desde el `index.ts` publico.
+`projects`, `storage`, `code-report`, `vault`, `audit`, `alerts` y `notifications`.
+
+**Destinatarios de email externo:** El módulo `notifications` gestiona acceso a personas sin
+cuenta GitOps (vendors, mailboxes). Cada dirección es un `ExternalRecipientEntity` con estados
+(`pending`, `verified`, `unsubscribed`, `blocked`). Las direcciones se confirman vía token HMAC
+(7 días, single-use, rate limited 3/h por dirección). Solo se envían a direcciones verificadas
+con dominio permitido (configurado en `/org/<org>/settings/notifications`). Las alertas omiten
+campos sensibles y links al app para externals. Rutas públicas sin sesión: `/notifications/verify`
+y `/notifications/unsubscribe` aceptan POST con tokens HMAC.
+
+Las rutas deben importar desde el `index.ts` publico.
 
 GitDB es la unica fuente de verdad para usuarios, roles, API keys, organizaciones, proyectos,
 metadata de storage y code reports. Se configura con `GITDB_REPOSITORY_URL` (URLs HTTPS o SSH
@@ -85,34 +95,43 @@ CSRF Origin check de SvelteKit no dependa del header Host, previniendo bypass en
 
 ## RBAC y seguridad
 
-Los permisos usan `section:action` con scope global, de organizacion o de proyecto. Usar siempre
-`can()` o `isAdmin()` desde `$modules/auth`; `locals.user.role` es un objeto, no el string
-`admin`.
+Los permisos usan `<scope>:<resource>:<action>` (ej: `organization:projects:read`, `project:vault:secrets:all`)
+con scope `cluster`, `organization` o `project`. Usar siempre `can()` o `isAdmin()` desde `$modules/auth`;
+`locals.user.role` es un objeto, no el string `admin`.
+
+**Permisos de org:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`,
+`organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`,
+`organization:audit:read`, `organization:events:read`, `organization:alerts:read`,
+`organization:notifications:read` (leer destinatarios externos y dominios permitidos),
+`organization:notifications:update` (añadir direcciones externas, cambiar dominios).
 
 **Gating de permisos en UI:** En loaders de rutas, usar `cancanService.canSessionUser()` para verificar
 permisos específicos y pasarlos a componentes como props (`canCreate`, `canUpdate`, `canDelete`) para
 ocultar acciones que el usuario no puede realizar. El layout raíz (`+layout.server.ts`) calcula permisos
-granulares de lectura para settings de org (proyectos, usuarios, roles, configuración global, backups, servidor-keys, audit)
-y módulos de proyecto (vault, codereport, stateiac) combinándolos con lógica OR (`canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-para obtener flags de lectura de alto nivel que se filtran en AppSidebar según acceso específico.
+granulares de lectura para settings de org (proyectos, usuarios, roles, configuración, backups, servidor-keys,
+audit, eventos, alertas, notificaciones) y módulos de proyecto (vault, codereport, stateiac) combinándolos
+con lógica OR para obtener flags de lectura de alto nivel que se filtran en AppSidebar según acceso específico.
 
 Roles por defecto en `src/modules/auth/domain/role-permissions.data.ts`. Los permisos incluyen scope
-como prefijo (ej: `organization:projects:read`, `project:vault:secrets:all`) y se almacenan verbatim sin
-transformaciones. Recursos de módulos tienen sub-permisos granulares (ej: `project:vault:secrets:read`, `project:vault:environments:read`):
-- **GitOps Admin** (`cluster-admin`) — vault, openreport, stateiac (todos)
+como prefijo y se almacenan verbatim sin transformaciones. Módulos tienen sub-permisos granulares
+(ej: `project:vault:secrets:read`, `project:codereport:reports:read`):
+- **GitOps Admin** (`cluster-admin`) — acceso total a vault, openreport, stateiac
 - **GitOps User** (`cluster-user`) — rol base sin permisos propios para acceso a nivel sistema
-- **Organization Admin** — todos los permisos de org (proyectos, usuarios, roles, configuración global, backups, server-access-keys, audit)
-- **Organization Developer** — solo read/create/update de proyectos
-- **Project Admin** — metadata/usuarios/roles/server-keys/audit plus todos los permisos de módulos (vault, codereport, stateiac)
-- **Project Developer/Viewer** — acceso granular a módulos con permisos diferenciados (solo lectura en Viewer)
+- **Organization Admin** — todos los permisos de org: proyectos, usuarios, roles, settings, backups,
+  server-keys, audit, eventos, alertas, notificaciones
+- **Organization Developer** — solo lectura/crear/actualizar proyectos
+- **Project Admin** — metadata/usuarios/roles/server-keys/audit/alertas/notificaciones; acceso total
+  a módulos (vault, codereport, stateiac)
+- **Project Developer** — lectura/crear/actualizar recursos; acceso granular a módulos; lee alertas
+- **Project Viewer** — solo lectura: metadata, alertas, módulos
 
-Los permisos de organización se propagan a sus proyectos solo cuando no hay un assignment explícito a nivel de
-proyecto. Un usuario con `organization:projects:read` puede satisfacer `project:project:read` en cualquier
-proyecto—pero si tiene un rol específico del proyecto, ese assignment es autoritario y los permisos de org no
-aplican (regla most-specific-wins). Permite delegación de autoridad granular con restricciones por-proyecto.
+Los permisos de organización se propagan a sus proyectos solo cuando no hay assignment explícito a nivel de
+proyecto (regla most-specific-wins). `canManageOrganization()` controla acceso al area `/settings`, mientras
+que `canViewOrganization()` incluye usuarios con acceso solo a proyectos.
 
-`canManageOrganization()` controla acceso al area `/settings`, mientras que `canViewOrganization()` incluye
-tambien usuarios con acceso solo a proyectos bajo la organización (ven el overview pero no pueden acciones de org-scope).
+**Rutas públicas de notificaciones:** `/notifications/verify` y `/notifications/unsubscribe` aceptan POST con
+tokens HMAC (permitidas sin sesión en `hooks.server.ts`) para confirmar direcciones y unsubscribirse de alertas
+externas. Usan tokens stateless HMAC (signToken con `GITDB_ENCRYPTION_KEY`, TTL 90 días).
 
 Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a

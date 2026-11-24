@@ -2,8 +2,18 @@
   import { untrack } from 'svelte';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
-  import { ArrowLeft, FlaskConical, Info, MailWarning, Save, Trash2 } from '@lucide/svelte';
+  import {
+    ArrowLeft,
+    FlaskConical,
+    Info,
+    Send,
+    MailWarning,
+    Save,
+    ShieldAlert,
+    Trash2,
+  } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
+  import { statusBadgeClass } from '#lib/notifications/status';
   import type {
     AlertEditorData,
     AlertFormResult,
@@ -29,7 +39,7 @@
   let message = $state(initial.message);
   let test = $state(initial.test);
   let droppedConditions = $state(0);
-  let busy = $state<'save' | 'test' | null>(null);
+  let busy = $state<'save' | 'test' | 'send' | null>(null);
   let sampleProjectId = $state('');
 
   let definition = $derived(data.catalog.find((entry) => entry.type === draft.eventType));
@@ -45,6 +55,26 @@
     data.scope === 'organization' && definition?.scope === 'project',
   );
   let projects = $derived(data.referenceOptions.project ?? []);
+  let externalText = $state(untrack(() => draft.recipients.externalEmails.join('\n')));
+  let externalEnabled = $derived(
+    data.external.allowedDomains.length > 0 || draft.recipients.externalEmails.length > 0,
+  );
+  let externalErrors = $derived(
+    Object.entries(errors)
+      .filter(([key]) => /^recipients\.externalEmails\.\d+$/.test(key))
+      .map(([key, code]) => ({
+        email: draft.recipients.externalEmails[Number(key.split('.').pop())] ?? '',
+        code,
+      })),
+  );
+
+  function updateExternal(text: string) {
+    externalText = text;
+    draft.recipients.externalEmails = text
+      .split(/[\n,;]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
 
   function compatible(entry: CatalogEntry | undefined, condition: DraftCondition) {
     const field = entry?.fields.find((candidate) => candidate.key === condition.field);
@@ -64,17 +94,24 @@
     return errors[key] ? $_(`alerts.errors.${errors[key]}`) : '';
   }
 
-  const submit: SubmitFunction = ({ action }) => {
+  // operation errors without field errors come as codes (`mail_not_configured`…)
+  const OPERATION_ERRORS = ['mail_not_configured', 'test_rate_limited'];
+
+  const submit: SubmitFunction = ({ action, submitter }) => {
+    const sending = submitter?.getAttribute('name') === 'send';
     const intent = action.search.includes('test') ? 'test' : 'save';
-    busy = intent;
+    busy = sending ? 'send' : intent;
     message = '';
     return async ({ result, update }) => {
       busy = null;
       if (result.type === 'failure') {
         errors = (result.data?.errors as Record<string, string>) ?? {};
+        const code = String(result.data?.error ?? '');
         message = result.data?.errors
           ? $_('alerts.editor.fixErrors')
-          : String(result.data?.error ?? '');
+          : OPERATION_ERRORS.includes(code)
+            ? $_(`alerts.errors.${code}`)
+            : code;
         if (intent === 'test') test = null;
         return;
       }
@@ -302,6 +339,75 @@
       </p>
     {/if}
 
+    <div class="flex flex-col gap-2" data-testid="alert-external-emails">
+      <label for="alert-external-emails" class="text-sm font-medium text-slate-700">
+        {$_('alerts.editor.externalEmails')}
+      </label>
+      {#if externalEnabled}
+        <p
+          class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        >
+          <ShieldAlert class="mt-0.5 h-4 w-4 shrink-0" />
+          {$_('alerts.editor.externalNotice')}
+        </p>
+        <textarea
+          id="alert-external-emails"
+          name="externalEmails"
+          rows="3"
+          class="field-input rounded-md border px-3 py-2 font-mono text-sm"
+          placeholder="ana@partner.com"
+          value={externalText}
+          oninput={(event) => updateExternal(event.currentTarget.value)}
+          readonly={!data.canSave || !data.external.canManage}
+          aria-invalid={Boolean(errors['recipients.externalEmails']) || undefined}
+          aria-describedby="alert-external-help{errors['recipients.externalEmails']
+            ? ' alert-external-error'
+            : ''}"></textarea>
+        <p id="alert-external-help" class="text-xs text-slate-500">
+          {#if data.external.canManage}
+            {$_('alerts.editor.externalHelp', {
+              values: {
+                domains: data.external.allowedDomains.join(', ') || '—',
+              },
+            })}
+          {:else}
+            {$_('alerts.editor.externalReadonly')}
+          {/if}
+        </p>
+        {#if errors['recipients.externalEmails']}
+          <div id="alert-external-error" class="text-xs text-red-600" role="alert">
+            {#if externalErrors.length > 0}
+              <ul class="list-disc pl-4">
+                {#each externalErrors as failure (failure.email + failure.code)}
+                  <li>{failure.email}: {$_(`alerts.errors.${failure.code}`)}</li>
+                {/each}
+              </ul>
+            {:else}
+              {errorFor('recipients.externalEmails')}
+            {/if}
+          </div>
+        {/if}
+        {#if Object.keys(data.external.statuses).length > 0}
+          <ul class="flex flex-wrap gap-2 text-xs" aria-label={$_('alerts.editor.externalStatus')}>
+            {#each Object.entries(data.external.statuses) as [email, status] (email)}
+              <li class="rounded-full border px-2 py-0.5 {statusBadgeClass(status)}">
+                {email} · {$_(`notifications.status.${status}`)}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {:else}
+        <p class="text-xs text-slate-500">
+          {$_('alerts.editor.externalDisabled')}
+          {#if data.external.settingsPath}
+            <a class="underline" href={data.external.settingsPath}>
+              {$_('alerts.editor.externalSettingsLink')}
+            </a>
+          {/if}
+        </p>
+      {/if}
+    </div>
+
     <fieldset class="space-y-2">
       <legend class="text-sm font-medium text-slate-700">{$_('alerts.editor.channels')}</legend>
       <label class="flex items-center gap-2 text-sm text-slate-700">
@@ -394,12 +500,35 @@
         {:else}
           <p class="mt-1">{$_('alerts.test.noRecipients')}</p>
         {/if}
+        {#if test.external.length > 0}
+          <ul class="mt-1 text-xs">
+            {#each test.external as recipient (recipient.email)}
+              <li>
+                {recipient.email}: {recipient.delivers
+                  ? $_('alerts.test.externalDelivers')
+                  : test.delivery && recipient.status === 'pending'
+                    ? $_('alerts.test.externalVerificationSent')
+                    : $_('alerts.test.externalSkipped', {
+                        values: { status: $_(`notifications.status.${recipient.status}`) },
+                      })}
+              </li>
+            {/each}
+          </ul>
+        {/if}
         {#if test.deniedCount > 0}
           <p class="mt-1 text-xs">
             {$_('alerts.test.denied', { values: { count: test.deniedCount } })}
           </p>
         {/if}
-        <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+        {#if test.delivery}
+          <p class="mt-1 font-medium" data-testid="alert-test-delivery">
+            {$_('alerts.test.delivered', {
+              values: { sent: test.delivery.sent, failed: test.delivery.failed },
+            })}
+          </p>
+        {:else}
+          <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+        {/if}
       </div>
     {/if}
 
@@ -413,6 +542,19 @@
         >
           <FlaskConical class="h-4 w-4" />
           {$_('alerts.editor.test')}
+        </button>
+        <button
+          type="submit"
+          formaction="?/test"
+          name="send"
+          value="true"
+          class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-300 hover:text-slate-900 disabled:opacity-50"
+          disabled={busy !== null || !data.mailConfigured}
+          title={$_('alerts.editor.sendTestHelp')}
+          data-testid="alert-send-test"
+        >
+          <Send class="h-4 w-4" />
+          {busy === 'send' ? $_('alerts.editor.sendingTest') : $_('alerts.editor.sendTest')}
         </button>
         <button
           type="submit"

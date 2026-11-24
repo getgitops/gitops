@@ -3,7 +3,8 @@ import { resolveLocation } from '#lib/server/alerts/access';
 import { readJson, toResponse } from '#lib/server/alerts/http';
 import { testDraftAlert } from '#lib/server/alerts/operations';
 
-// POST /api/alerts/test { organizationId | projectId, …alert, payload?, sampleProjectId? }: dry run of an unsaved alert
+// POST /api/alerts/test { organizationId | projectId, …alert, payload?, sampleProjectId?, send? }:
+// dry run of an unsaved alert; `send: true` also emails its recipients (see [id]/test)
 export async function POST({ request, locals }) {
   const body = await readJson(request);
   const lookup = await resolveLocation({

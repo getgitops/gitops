@@ -6,13 +6,10 @@ import { projectService } from '#modules/projects';
 import { registerAlertEngine } from '#modules/alerts';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
-import {
-  getServerReadyState,
-  markServerFailed,
-  markServerReady,
-} from '#lib/server/server-ready';
+import { getServerReadyState, markServerFailed, markServerReady } from '#lib/server/server-ready';
 import { renderStartingPage } from '#lib/server/starting-page';
 import { runWithActor } from '#lib/server/request-context';
+import { rememberDevOrigin } from '#lib/server/infra/notifications';
 import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
 const startupLog = createLogger('startup');
@@ -60,6 +57,8 @@ const requestLogger: Handle = async ({ event, resolve }) => {
 
 const authGuard: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
+  // dev only: email links use the port the dev server really answers on, whatever ORIGIN says
+  if (import.meta.env.DEV) rememberDevOrigin(event.url.origin);
   const isApiRequest = pathname.startsWith('/api/');
 
   if (pathname === '/health') {
@@ -115,9 +114,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return new Response(null, { status: 308, headers: { location } });
   }
 
-  // sign-in, sign-out, self-registration, password recovery, invitation acceptance and the Google
-  // SSO round trip must work without (or with a broken) session; each route re-checks what it needs
+  // sign-in, sign-out, self-registration, password recovery, invitation acceptance, the Google
+  // SSO round trip and the links emailed to external alert recipients (who have no account) must
+  // work without (or with a broken) session; each route re-checks what it needs (its token)
   if (
+    pathname === '/notifications/verify' ||
+    pathname === '/notifications/unsubscribe' ||
     pathname === '/auth/login' ||
     pathname === '/auth/sso/google/start' ||
     pathname === '/auth/sso/google/callback' ||

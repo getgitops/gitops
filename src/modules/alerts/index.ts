@@ -1,4 +1,4 @@
-import { eventBus } from '#lib/server/events';
+import { eventBus, type Unsubscribe } from '#lib/server/events';
 import {
   isSmtpConfigured,
   mailQueue,
@@ -8,10 +8,11 @@ import {
 import { createLogger } from '#lib/server/logger';
 import { cancanService, roleService, userAccessService, apiKeysService } from '../auth';
 import { codeReportSecurityPolicyService, codeReportService } from '../code-report';
+import { externalRecipientService } from '../notifications';
 import { organizationService } from '../organization';
 import { projectService } from '../projects';
 import { vaultService } from '../vault';
-import { AlertEngine } from './application/alert-engine';
+import { AlertEngine, type AlertEngineOptions } from './application/alert-engine';
 import { AlertService } from './application/alert.service';
 import { AlertThrottle } from './application/alert-throttle';
 import { RecipientResolver } from './application/recipient-resolver';
@@ -39,36 +40,93 @@ const recipientResolver = new RecipientResolver(alertDirectory, (userId, permiss
 );
 
 const ENGINE_KEY = Symbol.for('gitops.alerts.engine');
-type GlobalWithEngine = typeof globalThis & {
-  [ENGINE_KEY]?: { engine: AlertEngine; attached: boolean };
+type EngineDependencies = Pick<
+  AlertEngineOptions,
+  'repository' | 'directory' | 'recipients' | 'externalRecipients' | 'notifier'
+>;
+/** Bump when the way the engine is built changes, so a running dev server rebuilds it. */
+const ENGINE_WIRING = 2;
+
+type EngineSlot = {
+  engine: AlertEngine | null;
+  wiring?: number;
+  /** Kept apart from the engine so its windows survive an engine swap. */
+  throttle: AlertThrottle;
+  /** Bus subscription of the current engine. */
+  detach: Unsubscribe | null;
+  attached: boolean;
+  dependencies: EngineDependencies;
+};
+type GlobalWithEngine = typeof globalThis & { [ENGINE_KEY]?: EngineSlot };
+
+/** Calls go to whatever `get()` returns at call time. */
+function latest<T extends object>(get: () => T): T {
+  return new Proxy({} as T, {
+    get(_target, property) {
+      const target = get();
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+const dependencies: EngineDependencies = {
+  repository: alertRepository,
+  directory: alertDirectory,
+  recipients: recipientResolver,
+  externalRecipients: externalRecipientService,
+  notifier: new AlertMailNotifier(mailQueue),
 };
 
 // one engine per process: HMR re-evaluating this module must not subscribe a second one, and the
-// throttle windows must survive it
-const engineSlot = ((globalThis as GlobalWithEngine)[ENGINE_KEY] ??= {
-  engine: new AlertEngine({
-    repository: alertRepository,
-    directory: alertDirectory,
-    recipients: recipientResolver,
-    notifier: new AlertMailNotifier(mailQueue),
-    throttle: new AlertThrottle(),
+// throttle windows must survive it. Its collaborators are resolved on every call from the latest
+// evaluation: objects kept from an earlier one would run stale code and read a stale GitDB cache
+const engineSlot: EngineSlot = ((globalThis as GlobalWithEngine)[ENGINE_KEY] ??= {
+  engine: null,
+  throttle: new AlertThrottle(),
+  detach: null,
+  attached: false,
+  dependencies,
+});
+engineSlot.dependencies = dependencies;
+// slots created by an older version of this module lack it
+engineSlot.throttle ??= new AlertThrottle();
+
+function createEngine(): AlertEngine {
+  return new AlertEngine({
+    repository: latest(() => engineSlot.dependencies.repository),
+    directory: latest(() => engineSlot.dependencies.directory),
+    recipients: latest(() => engineSlot.dependencies.recipients),
+    externalRecipients: latest(() => engineSlot.dependencies.externalRecipients!),
+    notifier: latest(() => engineSlot.dependencies.notifier),
+    throttle: engineSlot.throttle,
     logger: log,
     // without SMTP there is nobody to tell: skip the work instead of logging a failure per event
     deliveryEnabled: () => isMailConfigured(),
-  }),
-  attached: false,
-});
+  });
+}
 
-export const alertEngine = engineSlot.engine;
+// in dev, a change to the engine's code (or to how it is wired) reloads it: swap the engine (same
+// throttle, same single bus subscription) instead of running stale code until a restart
+if (!(engineSlot.engine instanceof AlertEngine) || engineSlot.wiring !== ENGINE_WIRING) {
+  engineSlot.detach?.();
+  engineSlot.engine = createEngine();
+  engineSlot.wiring = ENGINE_WIRING;
+  engineSlot.detach = engineSlot.attached ? engineSlot.engine.attach(eventBus) : null;
+}
+
+export const alertEngine: AlertEngine = engineSlot.engine;
 
 export const alertService = new AlertService(alertRepository, alertDirectory, {
   onChange: () => alertEngine.invalidate(),
+  externalRecipients: externalRecipientService,
+  logger: log,
 });
 
 /** Subscribes the alert engine to the bus once per process (`hooks.server.ts`). */
 export function registerAlertEngine(): void {
   if (engineSlot.attached) return;
-  alertEngine.attach(eventBus);
+  engineSlot.detach = alertEngine.attach(eventBus);
   registerMailShutdown();
   engineSlot.attached = true;
   log.info('[alerts] engine registered');

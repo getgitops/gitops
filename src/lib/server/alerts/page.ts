@@ -6,6 +6,7 @@ import {
   type AlertLocation,
   type AlertRow,
 } from '#modules/alerts';
+import { externalRecipientService, notificationSettingsService } from '#modules/notifications';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import {
@@ -22,7 +23,7 @@ import type {
   AlertOption,
   DraftCondition,
 } from '#lib/alerts/types';
-import { canManageAlerts, type AlertLocals } from './access';
+import { callerCan, canManageAlerts, contextOf, type AlertLocals } from './access';
 import {
   createAlert,
   deleteAlert,
@@ -154,7 +155,7 @@ function emptyDraft(eventType: string | null): AlertDraft {
     eventType: eventType ?? '',
     match: 'all',
     conditions: [],
-    recipients: { userIds: [], roleIds: [] },
+    recipients: { userIds: [], roleIds: [], externalEmails: [] },
     throttleMinutes: 0,
   };
 }
@@ -171,8 +172,39 @@ function toDraft(alert: AlertRow): AlertDraft {
       operator: condition.operator,
       value: condition.value === undefined ? '' : condition.value,
     })),
-    recipients: { ...alert.recipients },
+    recipients: {
+      userIds: [...alert.recipients.userIds],
+      roleIds: [...alert.recipients.roleIds],
+      externalEmails: [...alert.recipients.externalEmails],
+    },
     throttleMinutes: alert.throttleMinutes,
+  };
+}
+
+async function externalRecipientsData(
+  locals: AlertLocals,
+  location: AlertLocation,
+  emails: string[],
+) {
+  const organizationContext = {
+    scope: 'organization' as const,
+    organizationId: location.organizationId,
+  };
+  const [canManage, settings, statuses, canOpenSettings, organization] = await Promise.all([
+    callerCan(locals, `${location.scope}:notifications:update`, contextOf(location)),
+    notificationSettingsService.get(location.organizationId).catch(() => null),
+    externalRecipientService
+      .statuses(location.organizationId, emails)
+      .catch(() => new Map<string, string>()),
+    callerCan(locals, 'organization:notifications:read', organizationContext),
+    organizationService.getOrganization(location.organizationId).catch(() => null),
+  ]);
+  return {
+    canManage,
+    allowedDomains: settings?.allowedExternalEmailDomains ?? [],
+    statuses: Object.fromEntries(statuses),
+    settingsPath:
+      canOpenSettings && organization ? `/org/${organization.slug}/settings/notifications` : null,
   };
 }
 
@@ -199,9 +231,10 @@ export async function loadAlertEditor(
   }
 
   const catalog = await listCatalog(locals, location);
-  const [references, recipients] = await Promise.all([
+  const [references, recipients, external] = await Promise.all([
     referenceOptions(catalog, location),
     recipientOptions(location),
+    externalRecipientsData(locals, location, alert?.recipients.externalEmails ?? []),
   ]);
 
   const draft = alert ? toDraft(alert) : emptyDraft(options.eventType ?? null);
@@ -218,6 +251,7 @@ export async function loadAlertEditor(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    external,
     mailConfigured: isMailConfigured(),
     canSave: alert ? allowed.canUpdate : allowed.canCreate,
     canDelete: Boolean(alert) && allowed.canDelete,
@@ -261,6 +295,12 @@ export function parseAlertForm(form: FormData): AlertDraft {
     recipients: {
       userIds: form.getAll('userIds').map(String),
       roleIds: form.getAll('roleIds').map(String),
+      // one address per line (or separated by commas) in a textarea; empty lines dropped
+      externalEmails: form
+        .getAll('externalEmails')
+        .flatMap((value) => String(value).split(/[\n,;]+/))
+        .map((value) => value.trim())
+        .filter(Boolean),
     },
     throttleMinutes: Number(form.get('throttleMinutes') ?? 0) || 0,
   };
@@ -335,6 +375,9 @@ export function alertActions(
       const result = await testDraftAlert(event.locals, context.location, {
         ...toInput(draft),
         sampleProjectId,
+        alertId: String(form.get('alertId') ?? '') || undefined,
+        // the "send test email" button posts `send=true`; "test alert" only dry-runs
+        send: form.get('send') === 'true',
       });
       if (!result.ok) {
         return fail(result.status, { draft, error: result.error, errors: result.errors ?? {} });

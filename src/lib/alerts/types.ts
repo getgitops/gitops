@@ -33,8 +33,20 @@ export type AlertDraft = {
   eventType: string;
   match: 'all' | 'any';
   conditions: DraftCondition[];
-  recipients: { userIds: string[]; roleIds: string[] };
+  recipients: { userIds: string[]; roleIds: string[]; externalEmails: string[] };
   throttleMinutes: number;
+};
+
+/** External email recipients as the editor needs them. */
+export type ExternalRecipientsEditorData = {
+  /** `<scope>:notifications:update`: needed to add addresses. */
+  canManage: boolean;
+  /** Allowed domains of the organization; empty = external recipients are off. */
+  allowedDomains: string[];
+  /** Status of the alert's current addresses (`pending`, `verified`…). */
+  statuses: Record<string, string>;
+  /** Where the allowed domains are managed, when the user can open it. */
+  settingsPath: string | null;
 };
 
 type Shared = {
@@ -61,6 +73,7 @@ export type AlertListData = Shared & {
 export type AlertEditorData = Shared & {
   alertId: string | null;
   draft: AlertDraft;
+  external: ExternalRecipientsEditorData;
   canSave: boolean;
   canDelete: boolean;
 };
@@ -69,6 +82,9 @@ export type AlertTestView = {
   matched: boolean;
   recipients: Array<{ userId: string; username: string }>;
   deniedCount: number;
+  external: Array<{ email: string; status: string; delivers: boolean }>;
+  /** Present when a real test email was sent. */
+  delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };
 };
 
