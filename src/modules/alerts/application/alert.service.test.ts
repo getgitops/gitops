@@ -105,7 +105,7 @@ describe('AlertService', () => {
     const errors = await validationErrors(
       service.create(
         projectLocation,
-        { name: ' ', match: 'some', recipients: {}, throttleMinutes: -1, channels: ['slack'] },
+        { name: ' ', match: 'some', recipients: {}, throttleMinutes: -1, channels: ['pigeon'] },
         actor(),
       ),
     );

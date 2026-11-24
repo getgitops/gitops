@@ -159,7 +159,10 @@
               >{conditionsOf(alert)}</td
             >
             <td class="px-4 py-3 text-slate-700">
-              {summarizeRecipients(alert.recipients, data.users, data.roles, t)}
+              {summarizeRecipients(alert.recipients, data.users, data.roles, t, {
+                ids: alert.channelIds ?? [],
+                options: data.channels,
+              })}
             </td>
             <td class="px-4 py-3">
               {#if !readonly && data.canUpdate}

@@ -408,22 +408,67 @@
       {/if}
     </div>
 
-    <fieldset class="space-y-2">
+    <fieldset class="space-y-2" data-testid="alert-channels">
       <legend class="text-sm font-medium text-slate-700">{$_('alerts.editor.channels')}</legend>
-      <label class="flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" checked disabled />
-        <input type="hidden" name="channels" value="mail" />
-        {$_('alerts.channels.mail')}
-      </label>
-      {#each ['in_app', 'slack'] as channel (channel)}
-        <label class="flex items-center gap-2 text-sm text-slate-400">
-          <input type="checkbox" disabled />
-          {$_(`alerts.channels.${channel}`)}
-          <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase">
-            {$_('alerts.channels.soon')}
-          </span>
-        </label>
-      {/each}
+      <p class="text-xs text-slate-500">{$_('alerts.editor.channelsHelp')}</p>
+      {#if data.channels.length === 0}
+        <p class="text-xs text-slate-500">
+          {$_('alerts.editor.noChannels')}
+          {#if data.external.settingsPath}
+            <a class="underline" href={data.external.settingsPath}>
+              {$_('alerts.editor.channelsSettingsLink')}
+            </a>
+          {/if}
+        </p>
+      {:else}
+        {#each data.channels as channel (channel.id)}
+          {@const selected = draft.channelIds.includes(channel.id)}
+          <label class="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="channelIds"
+              value={channel.id}
+              checked={selected}
+              disabled={!data.canSave || (!data.external.canManage && !selected)}
+              onchange={(event) => {
+                draft.channelIds = event.currentTarget.checked
+                  ? [...draft.channelIds, channel.id]
+                  : draft.channelIds.filter((id) => id !== channel.id);
+              }}
+            />
+            {channel.name}
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+              {$_(`notifications.channels.types.${channel.type}`)}
+            </span>
+            {#if channel.scope === 'organization' && data.scope === 'project'}
+              <span class="text-[10px] text-slate-500"
+                >{$_('alerts.editor.channelFromOrganization')}</span
+              >
+            {/if}
+            {#if !channel.enabled}
+              <span class="text-[10px] text-slate-500">{$_('notifications.channels.disabled')}</span
+              >
+            {/if}
+          </label>
+          {#if selected && !data.canSave}
+            <input type="hidden" name="channelIds" value={channel.id} />
+          {/if}
+        {/each}
+        {#if draft.channelIds.length > 0}
+          <p
+            class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          >
+            <ShieldAlert class="mt-0.5 h-4 w-4 shrink-0" />
+            {$_('alerts.editor.channelsNotice')}
+          </p>
+        {/if}
+        {#if !data.external.canManage}
+          <p class="text-xs text-slate-500">{$_('alerts.editor.channelsReadonly')}</p>
+        {/if}
+      {/if}
+      {#if errors.channelIds}
+        <p class="text-xs text-red-600" role="alert">{errorFor('channelIds')}</p>
+      {/if}
     </fieldset>
 
     <div class="flex flex-col gap-1 sm:max-w-sm">
@@ -499,6 +544,17 @@
           </p>
         {:else}
           <p class="mt-1">{$_('alerts.test.noRecipients')}</p>
+        {/if}
+        {#if test.channels?.length > 0}
+          <ul class="mt-1 text-xs">
+            {#each test.channels as channel (channel.id)}
+              <li>
+                {channel.name}: {channel.delivers
+                  ? $_('alerts.test.channelDelivers')
+                  : $_('alerts.test.channelSkipped')}
+              </li>
+            {/each}
+          </ul>
         {/if}
         {#if test.external.length > 0}
           <ul class="mt-1 text-xs">

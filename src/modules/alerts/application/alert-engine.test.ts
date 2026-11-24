@@ -111,6 +111,7 @@ function alertRow(overrides: Partial<AlertRow> = {}): AlertRow {
     conditions: [{ field: 'summary.critical', operator: 'gt', value: 0 }],
     recipients: { userIds: [], roleIds: ['project-reporter'], externalEmails: [] },
     channels: ['mail'],
+    channelIds: [],
     throttleMinutes: 0,
     createdByUserId: 'author',
     createdAt: TIMESTAMP,

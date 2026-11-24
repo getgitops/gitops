@@ -34,7 +34,17 @@ export type AlertDraft = {
   match: 'all' | 'any';
   conditions: DraftCondition[];
   recipients: { userIds: string[]; roleIds: string[]; externalEmails: string[] };
+  channelIds: string[];
   throttleMinutes: number;
+};
+
+/** A notification channel the alert can post to (its project's or its organization's). */
+export type AlertChannelOption = {
+  id: string;
+  name: string;
+  type: string;
+  scope: 'organization' | 'project';
+  enabled: boolean;
 };
 
 /** External email recipients as the editor needs them. */
@@ -57,6 +67,8 @@ type Shared = {
   referenceOptions: Record<string, AlertOption[]>;
   users: AlertOption[];
   roles: AlertOption[];
+  /** Channels alerts of the location can post to. */
+  channels: AlertChannelOption[];
   /** `false` when SMTP is not configured: alerts are saved but nothing is sent. */
   mailConfigured: boolean;
 };
@@ -83,6 +95,7 @@ export type AlertTestView = {
   recipients: Array<{ userId: string; username: string }>;
   deniedCount: number;
   external: Array<{ email: string; status: string; delivers: boolean }>;
+  channels: Array<{ id: string; name: string; type: string; delivers: boolean }>;
   /** Present when a real test email was sent. */
   delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };

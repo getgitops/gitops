@@ -7,6 +7,8 @@ export type RetryOptions = {
   /** ± fraction of each delay added at random, so retries of a burst don't line up. */
   jitter?: number;
   isRetryable?: (error: unknown) => boolean;
+  /** Wait the error asks for (an HTTP `Retry-After`), instead of the computed backoff. */
+  retryAfterMs?: (error: unknown) => number | null | undefined;
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
   onRetry?: (error: unknown, attempt: number, delayMs: number) => void;
@@ -33,7 +35,11 @@ export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions =
     } catch (error) {
       if (attempt >= attempts || !isRetryable(error)) throw error;
       const delay = baseDelayMs * factor ** (attempt - 1);
-      const delayMs = Math.max(0, Math.round(delay * (1 + jitter * (random() * 2 - 1))));
+      const requested = options.retryAfterMs?.(error);
+      const delayMs =
+        typeof requested === 'number' && requested >= 0
+          ? Math.round(requested)
+          : Math.max(0, Math.round(delay * (1 + jitter * (random() * 2 - 1))));
       options.onRetry?.(error, attempt, delayMs);
       await sleep(delayMs);
     }

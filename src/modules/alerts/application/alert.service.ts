@@ -28,7 +28,9 @@ import {
   type AlertActor,
   type AlertDirectory,
   type ExternalRecipientsPort,
+  type NotificationChannelsPort,
   type ReferenceOption,
+  type UsableChannel,
 } from './types';
 
 const MAX_NAME_LENGTH = 120;
@@ -37,6 +39,8 @@ const MAX_CONDITIONS = 20;
 const MAX_LIST_VALUES = 100;
 /** External addresses one alert may email. */
 export const MAX_EXTERNAL_EMAILS = 50;
+/** Notification channels one alert may post to. */
+export const MAX_ALERT_CHANNELS = 20;
 
 const VALUELESS_OPERATORS = new Set(['is_true', 'is_false', 'exists']);
 const LIST_OPERATORS = new Set(['in', 'not_in']);
@@ -48,6 +52,8 @@ export type AlertServiceOptions = {
   onChange?: () => void;
   /** Without it, alerts can't have external email recipients. */
   externalRecipients?: ExternalRecipientsPort;
+  /** Without it, alerts can't post to notification channels. */
+  channels?: Pick<NotificationChannelsPort, 'listUsable'>;
   logger?: { warn: (object: object, message: string) => void };
 };
 
@@ -65,6 +71,7 @@ export class AlertService {
   private readonly generateId: () => string;
   private readonly onChange: () => void;
   private readonly externalRecipients: ExternalRecipientsPort | null;
+  private readonly channelsPort: Pick<NotificationChannelsPort, 'listUsable'> | null;
   private readonly logger: AlertServiceOptions['logger'];
 
   constructor(
@@ -76,6 +83,7 @@ export class AlertService {
     this.generateId = options.generateId ?? (() => crypto.randomUUID());
     this.onChange = options.onChange ?? (() => {});
     this.externalRecipients = options.externalRecipients ?? null;
+    this.channelsPort = options.channels ?? null;
     this.logger = options.logger;
   }
 
@@ -121,15 +129,17 @@ export class AlertService {
 
   /**
    * Validates `input` for `location` and returns the normalized fields, without saving.
-   * `previousExternalEmails` are the external addresses the alert already had: keeping them does
+   * `previous` holds the external addresses and channels the alert already had: keeping them does
    * not need `<scope>:notifications:update`, adding new ones does.
    */
   async validate(
     location: AlertLocation,
     input: AlertInput,
     actor: AlertActor,
-    previousExternalEmails: readonly string[] = [],
+    previous: { externalEmails?: readonly string[]; channelIds?: readonly string[] } = {},
   ): Promise<AlertFields> {
+    const previousExternalEmails = previous.externalEmails ?? [];
+    const previousChannelIds = previous.channelIds ?? [];
     const errors: AlertValidationErrors = {};
     const references: ReferenceCache = new Map();
 
@@ -165,7 +175,25 @@ export class AlertService {
       errors,
     );
 
-    const channels = this.validateChannels(input.channels, errors);
+    this.validateChannels(input.channels, errors);
+    const { channelIds, selected } = await this.validateChannelIds(
+      location,
+      input.channelIds,
+      actor,
+      previousChannelIds,
+      errors,
+    );
+    const hasEmailRecipients =
+      recipients.userIds.length + recipients.roleIds.length + recipients.externalEmails.length > 0;
+    if (errors.recipients === 'required' && channelIds.length > 0) delete errors.recipients;
+    // what the alert really delivers through: email when it has email recipients, plus the types
+    // of its channels
+    const channels = [
+      ...new Set<AlertChannel>([
+        ...(hasEmailRecipients || channelIds.length === 0 ? (['mail'] as const) : []),
+        ...selected.map((channel) => channel.type as AlertChannel),
+      ]),
+    ].filter((channel) => (ALERT_CHANNELS as readonly string[]).includes(channel));
 
     const throttleMinutes = Number(input.throttleMinutes ?? 0);
     if (
@@ -189,6 +217,7 @@ export class AlertService {
       conditions,
       recipients,
       channels,
+      channelIds,
       throttleMinutes,
     };
   }
@@ -227,15 +256,14 @@ export class AlertService {
       conditions: current.conditions,
       recipients: current.recipients,
       channels: current.channels,
+      channelIds: current.channelIds,
       throttleMinutes: current.throttleMinutes,
       ...Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)),
     };
-    const fields = await this.validate(
-      current.location,
-      merged,
-      actor,
-      current.recipients.externalEmails,
-    );
+    const fields = await this.validate(current.location, merged, actor, {
+      externalEmails: current.recipients.externalEmails,
+      channelIds: current.channelIds,
+    });
     await this.repository.update(id, fields);
     this.onChange();
     await this.registerExternal(current.location, fields.recipients.externalEmails, actor);
@@ -522,6 +550,49 @@ export class AlertService {
       }
     }
     return emails;
+  }
+
+  /**
+   * Channels: usable from the location (a project channel only by its project's alerts), and
+   * only added by someone with `<scope>:notifications:update`: a chat channel is read by people
+   * who may not be allowed to see the event.
+   */
+  private async validateChannelIds(
+    location: AlertLocation,
+    value: unknown,
+    actor: AlertActor,
+    previous: readonly string[],
+    errors: AlertValidationErrors,
+  ): Promise<{ channelIds: string[]; selected: UsableChannel[] }> {
+    if (value === undefined || value === null) return { channelIds: [], selected: [] };
+    if (!Array.isArray(value)) {
+      errors.channelIds = 'invalid';
+      return { channelIds: [], selected: [] };
+    }
+    const channelIds = [
+      ...new Set(value.filter((id): id is string => typeof id === 'string' && !!id)),
+    ];
+    if (channelIds.length === 0) return { channelIds, selected: [] };
+    if (channelIds.length > MAX_ALERT_CHANNELS) {
+      errors.channelIds = 'too_many';
+      return { channelIds: [], selected: [] };
+    }
+    const usable = this.channelsPort ? await this.channelsPort.listUsable(location) : [];
+    const selected = channelIds
+      .map((id) => usable.find((channel) => channel.id === id))
+      .filter((channel): channel is UsableChannel => !!channel);
+    if (selected.length !== channelIds.length) {
+      errors.channelIds = 'unknown_channel';
+      return { channelIds, selected };
+    }
+    const known = new Set(previous);
+    if (channelIds.some((id) => !known.has(id))) {
+      const permission = `${location.scope}:notifications:update` as const;
+      if (!(await actor.canRead(permission, locationContext(location)))) {
+        errors.channelIds = 'forbidden_channel';
+      }
+    }
+    return { channelIds, selected };
   }
 
   private validateChannels(value: unknown, errors: AlertValidationErrors): AlertChannel[] {

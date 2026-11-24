@@ -1379,7 +1379,9 @@
       "domain_not_allowed": "The domain is not allowed for external recipients.",
       "forbidden_external": "You are not allowed to add external recipients.",
       "mail_not_configured": "SMTP is not configured: the test email can't be sent.",
-      "test_rate_limited": "You sent too many test emails. Wait a few minutes."
+      "test_rate_limited": "You sent too many test emails. Wait a few minutes.",
+      "unknown_channel": "Some channel does not exist or can't be used from here.",
+      "forbidden_channel": "You are not allowed to add channels to the alert."
     },
     "channels": {
       "mail": "Email",
@@ -1445,7 +1447,7 @@
       "roles": "Roles",
       "users": "Users",
       "recipientsNotice": "Only recipients allowed to view this event will get the email.",
-      "channels": "Channel",
+      "channels": "Channels",
       "throttle": "Send at most one email every (minutes)",
       "throttleHelp": "0 = no limit. Skipped events are summed up in the next email.",
       "sampleProject": "Project of the example event",
@@ -1463,7 +1465,13 @@
       "externalStatus": "Status of the external emails",
       "sendTest": "Send test email",
       "sendingTest": "Sending…",
-      "sendTestHelp": "Sends a real email with an example event to the alert's recipients that would get it (external ones only once confirmed)."
+      "sendTestHelp": "Sends a real email with an example event to the alert's recipients that would get it (external ones only once confirmed).",
+      "channelsHelp": "The email goes to the recipients above. You can also post the alert to chat channels or webhooks: one message per channel.",
+      "noChannels": "There are no channels for this scope.",
+      "channelsSettingsLink": "Configure channels",
+      "channelFromOrganization": "(from the organization)",
+      "channelsNotice": "A channel is read by people who may not be allowed to see this event. The message leaves out sensitive fields.",
+      "channelsReadonly": "Only people who manage notifications can add channels."
     },
     "test": {
       "matched": "The example event matches the conditions.",
@@ -1475,7 +1483,9 @@
       "externalDelivers": "would get it",
       "externalSkipped": "would not get it ({status})",
       "delivered": "Test email sent: {sent} sent, {failed} failed.",
-      "externalVerificationSent": "does not get the test until it confirms: the confirmation email was sent. Once confirmed, send the test again."
+      "externalVerificationSent": "does not get the test until it confirms: the confirmation email was sent. Once confirmed, send the test again.",
+      "channelDelivers": "would get the message",
+      "channelSkipped": "would not get it (disabled or deleted)"
     },
     "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent."
   },
@@ -1508,7 +1518,8 @@
       "lastSent": "Last confirmation email",
       "actions": "Actions",
       "resend": "Resend confirmation",
-      "resent": "Confirmation email sent again."
+      "resent": "Confirmation email sent again.",
+      "projectDescription": "Chat channels and webhooks this project's alerts can use."
     },
     "errors": {
       "invalid": "The value is not valid.",
@@ -1518,7 +1529,18 @@
       "invalid_status": "This recipient does not need a confirmation.",
       "rate_limited": "Too many confirmation emails were sent. Try again later.",
       "send_failed": "The confirmation email could not be sent.",
-      "Forbidden": "You are not allowed to do this."
+      "Forbidden": "You are not allowed to do this.",
+      "required": "This field is required.",
+      "too_long": "It is too long.",
+      "invalid_type": "Invalid channel type.",
+      "type_unavailable": "This channel type is not available yet.",
+      "invalid_url": "The URL is not valid.",
+      "not_https": "The URL must use https.",
+      "credentials": "The URL can't include a user or a password.",
+      "ip_address": "The URL can't point to an IP address.",
+      "port": "The URL can't use another port.",
+      "host_not_allowed": "That domain is not allowed for this channel type.",
+      "path_not_allowed": "The URL path does not match this channel type."
     },
     "link": {
       "invalid": "This link is not valid or has already been used.",
@@ -1546,6 +1568,46 @@
         "expiry": "This link expires on {date}.",
         "ignore": "If you did not expect this email, ignore it: you will not get anything.",
         "footer": "You receive this email because someone in a GitOps organization added your address to an alert."
+      }
+    },
+    "channels": {
+      "title": "Channels",
+      "descriptionOrganization": "Chat channels and webhooks the alerts of the organization and its projects can post to.",
+      "descriptionProject": "Channels only this project's alerts can use.",
+      "privacyNotice": "A channel is read by people who may have no GitOps account or permissions. The channel URL is stored encrypted and never shown in full again.",
+      "empty": "No channels yet.",
+      "types": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
+      },
+      "disabled": "Disabled",
+      "unavailable": "Type not available",
+      "lastDelivery": "Last delivery: {date}",
+      "lastError": "Last error: {error}",
+      "test": "Send test message",
+      "testSent": "Test message sent.",
+      "testFailed": "The test message could not be sent ({reason}).",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "confirmDelete": "Delete this channel? Alerts using it will stop posting to it.",
+      "edit": "Edit",
+      "name": "Name",
+      "newDestination": "New URL (empty keeps the current one)",
+      "save": "Save",
+      "inheritedTitle": "Organization channels",
+      "inheritedDescription": "This project's alerts can also use these channels. They are managed from the organization settings.",
+      "create": "Add channel",
+      "noTypes": "No channel type is available yet.",
+      "type": "Type",
+      "destination": "Webhook URL",
+      "testMessage": {
+        "title": "GitOps test message for {channel}",
+        "summary": "This channel will get the alerts of {where}.",
+        "event": "Test message",
+        "channel": "Channel",
+        "open": "Open in GitOps"
       }
     }
   }

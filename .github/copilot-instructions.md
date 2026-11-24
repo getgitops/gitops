@@ -80,6 +80,14 @@ con dominio permitido (configurado en `/org/<org>/settings/notifications`). Las 
 campos sensibles y links al app para externals. Rutas públicas sin sesión: `/notifications/verify`
 y `/notifications/unsubscribe` aceptan POST con tokens HMAC.
 
+**Canales de notificación:** Alertas también posean a canales (webhooks genéricos, Slack, Google
+Chat): un mensaje por canal, además de emails. Los canales se gestionan en Settings → Notifications
+de org o proyecto, con permisos `organization:notifications:*` o `project:notifications:*`. Las
+URLs se cifran (AES-GCM, nunca mostradas nuevamente) y solo se aceptan URLs `https` del host del
+proveedor (validadas al guardar y antes de cada envío). Los mensajes omiten campos sensibles y
+nunca van a canales (acceso diferente). Los reintentos solo aplican a errores de red, 429 y 5xx.
+Un error permanente (4xx, URL inválida) se muestra en el canal como `lastError`.
+
 Las rutas deben importar desde el `index.ts` publico.
 
 GitDB es la unica fuente de verdad para usuarios, roles, API keys, organizaciones, proyectos,
@@ -102,12 +110,13 @@ con scope `cluster`, `organization` o `project`. Usar siempre `can()` o `isAdmin
 **Permisos de org:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`,
 `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`,
 `organization:audit:read`, `organization:events:read`, `organization:alerts:read`,
-`organization:notifications:read` (leer destinatarios externos y dominios permitidos),
-`organization:notifications:update` (añadir direcciones externas, cambiar dominios).
+`organization:notifications:read` (leer destinatarios externos, dominios, canales),
+`organization:notifications:update` (añadir direcciones, canales, cambiar dominios).
 
 **Permisos de proyecto:** `project:project:read`, `project:users:read`, `project:roles:read`,
 `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`
-(leer destinatarios externos de alertas), `project:notifications:update` (añadir direcciones).
+(leer destinatarios externos y canales de alertas), `project:notifications:update` (añadir
+direcciones y canales).
 
 **Gating de permisos en UI:** En loaders de rutas, usar `cancanService.canSessionUser()` para verificar
 permisos específicos y pasarlos a componentes como props (`canCreate`, `canUpdate`, `canDelete`) para

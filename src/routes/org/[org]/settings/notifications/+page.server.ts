@@ -1,5 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
 import { organizationService } from '#modules/organization';
+import { channelActions, loadChannelsSection } from '#lib/server/notifications/channels-page';
 import {
   loadNotificationSettings,
   resendVerification,
@@ -10,10 +11,18 @@ export async function load({ parent, locals }) {
   const { organization } = await parent();
   const result = await loadNotificationSettings(locals, organization.id);
   if (!result.ok) throw error(result.status, result.error);
-  return result.data;
+  const channels = await loadChannelsSection(locals, organizationLocation(organization.id));
+  return { ...result.data, channels };
+}
+
+function organizationLocation(organizationId: string) {
+  return { scope: 'organization' as const, organizationId, projectId: null };
 }
 
 export const actions = {
+  ...channelActions(async ({ params }) =>
+    organizationLocation((await organizationOf(params.org)).id),
+  ),
   async domains({ request, locals, params }) {
     const organization = await organizationOf(params.org);
     const form = await request.formData();

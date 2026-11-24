@@ -1,4 +1,5 @@
-export type NotificationChannel = 'mail' | 'slack';
+/** `mail` sends emails; the others post to a chat or webhook destination (`ChatNotification`). */
+export type NotificationChannel = 'mail' | 'slack' | 'google-chat' | 'webhook';
 
 export abstract class Notification {
   abstract readonly channel: NotificationChannel;

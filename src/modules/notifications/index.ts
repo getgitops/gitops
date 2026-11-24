@@ -1,10 +1,25 @@
-import { absoluteUrl, notify } from '#lib/server/infra/notifications';
+import {
+  ChatNotification,
+  DeliveryQueue,
+  absoluteUrl,
+  availableChatTypes,
+  getChatTransport,
+  notify,
+  sendWithLatestNotify,
+} from '#lib/server/infra/notifications';
+import { isRetryableWebhookError, webhookRetryAfter } from '#lib/server/infra/http/webhook-request';
 import { RateLimiter } from '#lib/server/infra/rate-limit';
 import { createLogger } from '#lib/server/logger';
 import { passwordService } from '../auth';
 import { organizationService } from '../organization';
 import { ExternalRecipientService } from './application/external-recipient.service';
 import { NotificationSettingsService } from './application/notification-settings.service';
+import {
+  NotificationChannelService,
+  type ChannelDelivery,
+} from './application/notification-channel.service';
+import { createChannelCipher } from './infrastructure/crypto/channel-cipher';
+import { NotificationChannelRepository } from './infrastructure/repositories/notification-channel.repository';
 import { ExternalRecipientMailNotifier } from './infrastructure/external-recipient-mail.notifier';
 import { ExternalRecipientRepository } from './infrastructure/repositories/external-recipient.repository';
 import { NotificationSettingsRepository } from './infrastructure/repositories/notification-settings.repository';
@@ -46,6 +61,55 @@ export const notificationSettingsService = new NotificationSettingsService(
   externalRecipientService,
 );
 
+const CHANNEL_QUEUE_KEY = Symbol.for('gitops.notifications.channel-queue');
+const CHANNEL_SHUTDOWN_KEY = Symbol.for('gitops.notifications.channel-shutdown');
+type GlobalWithChannelQueue = typeof globalThis & {
+  [CHANNEL_QUEUE_KEY]?: DeliveryQueue<ChannelDelivery>;
+  [CHANNEL_SHUTDOWN_KEY]?: boolean;
+};
+
+/**
+ * Process-wide queue of channel messages (3 at a time; 4 attempts only on network errors, 429
+ * honoring `Retry-After`, and 5xx). Logs carry the channel id and type, never the URL nor the
+ * message. Kept on `globalThis` like the mail queue; it sends through the latest `notify`.
+ */
+export const channelQueue: DeliveryQueue<ChannelDelivery> = ((globalThis as GlobalWithChannelQueue)[
+  CHANNEL_QUEUE_KEY
+] ??= new DeliveryQueue<ChannelDelivery>({
+  send: (delivery) =>
+    sendWithLatestNotify(
+      new ChatNotification({
+        channel: delivery.type,
+        destination: delivery.destination,
+        message: delivery.message,
+      }),
+    ),
+  concurrency: 3,
+  retry: { isRetryable: isRetryableWebhookError, retryAfterMs: webhookRetryAfter },
+  logger: createLogger('channels'),
+  label: { prefix: '[channels]', noun: 'message', plural: 'messages' },
+  describe: (delivery) => ({ channelId: delivery.channelId, type: delivery.type }),
+  onSettled: (delivery, outcome) => delivery.report(outcome),
+}));
+
+export const notificationChannelService = new NotificationChannelService(
+  new NotificationChannelRepository(),
+  createChannelCipher(() => passwordService.ensureEncryptionKey()),
+  { get: (type) => getChatTransport(type), available: () => availableChatTypes() },
+  channelQueue,
+  { logger: log },
+);
+
+/** Drains the channel queue when adapter-node shuts down; registered once per process. */
+export function registerChannelShutdown(): void {
+  const scope = globalThis as GlobalWithChannelQueue;
+  if (scope[CHANNEL_SHUTDOWN_KEY]) return;
+  scope[CHANNEL_SHUTDOWN_KEY] = true;
+  process.once('sveltekit:shutdown' as never, () => {
+    void channelQueue.drain(10_000);
+  });
+}
+
 export {
   ExternalRecipientService,
   MAX_EXTERNAL_EMAILS,
@@ -66,4 +130,12 @@ export {
   type ExternalRecipientView,
 } from './domain/external-recipient.domain';
 export type { NotificationSettings } from './domain/notification-settings.domain';
+export {
+  NotificationChannelNotFoundError,
+  NotificationChannelValidationError,
+  type ChannelLocation,
+  type NotificationChannelView,
+} from './domain/notification-channel.domain';
+export type { ChannelInput } from './application/notification-channel.service';
+export { buildChannelTestMessage } from './infrastructure/channel-test-message';
 export { normalizeEmail } from './domain/email-address';

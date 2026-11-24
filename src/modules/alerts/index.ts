@@ -8,7 +8,11 @@ import {
 import { createLogger } from '#lib/server/logger';
 import { cancanService, roleService, userAccessService, apiKeysService } from '../auth';
 import { codeReportSecurityPolicyService, codeReportService } from '../code-report';
-import { externalRecipientService } from '../notifications';
+import {
+  externalRecipientService,
+  notificationChannelService,
+  registerChannelShutdown,
+} from '../notifications';
 import { organizationService } from '../organization';
 import { projectService } from '../projects';
 import { vaultService } from '../vault';
@@ -17,6 +21,8 @@ import { AlertService } from './application/alert.service';
 import { AlertThrottle } from './application/alert-throttle';
 import { RecipientResolver } from './application/recipient-resolver';
 import { AlertMailNotifier } from './infrastructure/alert-mail.notifier';
+import { buildAlertChannelMessage } from './infrastructure/alert-channel-message';
+import type { NotificationChannelsPort } from './application/types';
 import { PlatformDirectory } from './infrastructure/platform-directory';
 import { AlertRepository } from './infrastructure/repositories/alert.repository';
 
@@ -39,13 +45,35 @@ const recipientResolver = new RecipientResolver(alertDirectory, (userId, permiss
   cancanService.can(userId, permission, context),
 );
 
+/** The notifications module's channels, as the alerts module needs them. */
+const alertChannels: NotificationChannelsPort = {
+  async listUsable(location) {
+    const channels = await notificationChannelService.listUsable(location);
+    return channels.map((channel) => ({
+      id: channel.id,
+      name: channel.name,
+      type: channel.type,
+      scope: channel.scope,
+      enabled: channel.enabled,
+    }));
+  },
+  deliver: (channelId, message, context) =>
+    notificationChannelService.deliver(channelId, message, context),
+};
+
 const ENGINE_KEY = Symbol.for('gitops.alerts.engine');
 type EngineDependencies = Pick<
   AlertEngineOptions,
-  'repository' | 'directory' | 'recipients' | 'externalRecipients' | 'notifier'
+  | 'repository'
+  | 'directory'
+  | 'recipients'
+  | 'externalRecipients'
+  | 'notifier'
+  | 'channels'
+  | 'channelMessage'
 >;
 /** Bump when the way the engine is built changes, so a running dev server rebuilds it. */
-const ENGINE_WIRING = 2;
+const ENGINE_WIRING = 3;
 
 type EngineSlot = {
   engine: AlertEngine | null;
@@ -76,6 +104,8 @@ const dependencies: EngineDependencies = {
   recipients: recipientResolver,
   externalRecipients: externalRecipientService,
   notifier: new AlertMailNotifier(mailQueue),
+  channels: alertChannels,
+  channelMessage: buildAlertChannelMessage,
 };
 
 // one engine per process: HMR re-evaluating this module must not subscribe a second one, and the
@@ -99,6 +129,8 @@ function createEngine(): AlertEngine {
     recipients: latest(() => engineSlot.dependencies.recipients),
     externalRecipients: latest(() => engineSlot.dependencies.externalRecipients!),
     notifier: latest(() => engineSlot.dependencies.notifier),
+    channels: latest(() => engineSlot.dependencies.channels!),
+    channelMessage: (input) => engineSlot.dependencies.channelMessage!(input),
     throttle: engineSlot.throttle,
     logger: log,
     // without SMTP there is nobody to tell: skip the work instead of logging a failure per event
@@ -120,6 +152,7 @@ export const alertEngine: AlertEngine = engineSlot.engine;
 export const alertService = new AlertService(alertRepository, alertDirectory, {
   onChange: () => alertEngine.invalidate(),
   externalRecipients: externalRecipientService,
+  channels: alertChannels,
   logger: log,
 });
 
@@ -128,6 +161,7 @@ export function registerAlertEngine(): void {
   if (engineSlot.attached) return;
   engineSlot.detach = alertEngine.attach(eventBus);
   registerMailShutdown();
+  registerChannelShutdown();
   engineSlot.attached = true;
   log.info('[alerts] engine registered');
 

@@ -26,6 +26,20 @@ export { withRetry, isRetryableMailError, type RetryOptions } from './retry';
 // `./i18n` is not re-exported on purpose: it loads the paraglide messages, and this entry point is
 // imported by `$modules/auth`, which also runs outside Vite (the e2e seed). Import it directly
 export { emailButton, emailNote } from './email-parts';
+export {
+  CHAT_CHANNEL_TYPES,
+  ChatNotification,
+  availableChatTypes,
+  getChatTransport,
+  isChatChannelType,
+  registerChatTransport,
+  resetChatTransports,
+  type ChannelMessage,
+  type ChatChannelType,
+  type ChatNotificationInput,
+  type ChatTransport,
+} from './chat-notification';
+export { DeliveryQueue, defaultErrorCode, type DeliveryQueueOptions } from './delivery-queue';
 export { MailQueue, recipientHash, type MailContext, type MailQueueOptions } from './mail-queue';
 
 import { createLogger } from '#lib/server/logger';
@@ -41,9 +55,14 @@ type GlobalWithQueue = typeof globalThis & {
   [SEND_KEY]?: typeof send;
 };
 
-// the queue outlives module reloads (dev HMR); it must send with the latest `notify`, whose
-// `instanceof Notification` check matches the classes the current code builds emails with
+// queues outlive module reloads (dev HMR); they must send with the latest `notify`, whose
+// `instanceof Notification` check matches the classes the current code builds messages with
 (globalThis as GlobalWithQueue)[SEND_KEY] = send;
+
+/** `notify` of the latest evaluation of this module: what process-wide queues send with. */
+export function sendWithLatestNotify(notification: Parameters<typeof send>[0]): Promise<void> {
+  return ((globalThis as GlobalWithQueue)[SEND_KEY] ?? send)(notification);
+}
 
 /**
  * Process-wide queue for alert and system emails (3 at a time, 4 attempts with backoff). Kept on
@@ -51,7 +70,7 @@ type GlobalWithQueue = typeof globalThis & {
  * their links carry tokens and are sent directly.
  */
 export const mailQueue: Queue = ((globalThis as GlobalWithQueue)[QUEUE_KEY] ??= new Queue({
-  send: (notification) => ((globalThis as GlobalWithQueue)[SEND_KEY] ?? send)(notification),
+  send: (notification) => sendWithLatestNotify(notification),
   concurrency: 3,
   logger: createLogger('mail'),
 }));

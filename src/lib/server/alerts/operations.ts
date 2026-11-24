@@ -195,6 +195,8 @@ export type AlertTestResult = {
   deniedCount: number;
   /** External addresses, their status and whether they would get the email. */
   external: Array<{ email: string; status: string; delivers: boolean }>;
+  /** The alert's channels and whether they would get the message. */
+  channels: Array<{ id: string; name: string; type: string; delivers: boolean }>;
   /** Only when `send` was asked: emails really sent and failed. */
   delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };
@@ -218,6 +220,7 @@ async function dryRun(
     | 'conditions'
     | 'match'
     | 'recipients'
+    | 'channelIds'
     | 'location'
     | 'appliesTo'
   >,
@@ -297,6 +300,7 @@ async function dryRun(
       recipients: result.recipients.map(({ userId, username }) => ({ userId, username })),
       deniedCount: result.denied.length,
       external: result.external,
+      channels: result.channels,
       ...(delivery ? { delivery } : {}),
       event: { type: alert.eventType, payload: sample.payload, projectId },
     },
@@ -334,9 +338,11 @@ export async function testDraftAlert(
     existing &&
     existing.organizationId === location.organizationId &&
     existing.projectId === location.projectId;
-  const previousExternal = sameLocation ? existing.recipients.externalEmails : [];
+  const previous = sameLocation
+    ? { externalEmails: existing.recipients.externalEmails, channelIds: existing.channelIds }
+    : {};
   try {
-    const fields = await alertService.validate(location, input, actor, previousExternal);
+    const fields = await alertService.validate(location, input, actor, previous);
     // the stored id keeps the email's "manage the alert" link working
     const draft = new AlertDomain({
       id: sameLocation ? existing.id : 'draft',

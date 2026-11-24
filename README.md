@@ -182,6 +182,28 @@ sensitive fields and links into the app. Removing a domain blocks its addresses 
 them, and allowing it again restores them. `ORIGIN` must be set: without it, confirmation and
 unsubscribe links can't be built and nothing is sent to external addresses.
 
+#### Notification channels
+
+Alerts can also post to chat channels and webhooks: one message per channel, next to the emails.
+Channels are managed in **Settings → Notifications** of the organization (usable by the alerts of
+the organization and all its projects) or of a project (only that project's alerts), with
+`organization:notifications:*` or `project:notifications:*`. Each channel has a **Send test
+message** button, and the alert editor lists the channels the alert can use.
+
+- The channel URL is stored encrypted and never shown again in full. To change it, type it again.
+- Only `https` URLs of the provider's own host are accepted, checked when saving and before every
+  message.
+- A message never includes fields marked sensitive, since people reading the channel may not be
+  allowed to see the event. Access and role notices never go to channels.
+- Failed messages are retried on network errors, rate limits and server errors. A permanent error,
+  such as a deleted webhook, shows on the channel as its last error.
+
+The channel types (generic webhooks, Slack and Google Chat) become available as their transports
+are added; until then the page says that no type is available. Each one will need an incoming
+webhook created on the provider side: in Slack, an app with **Incoming Webhooks** enabled and a
+webhook for the target channel (`https://hooks.slack.com/services/...`); in Google Chat, the space's
+**Apps & integrations → Webhooks** (`https://chat.googleapis.com/v1/spaces/.../messages?...`).
+
 ### Email
 
 Invitations, password resets, alerts and access notices are sent by SMTP:

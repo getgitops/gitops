@@ -58,6 +58,7 @@
   export let canReadProjectServerKeys = false;
   export let canReadProjectAudit = false;
   export let canReadProjectAlerts = false;
+  export let canReadProjectNotifications = false;
   export let canReadProjectVault = false;
   export let canReadProjectCodeReport = false;
   export let canReadProjectStateIac = false;
@@ -239,6 +240,12 @@
               href: `${projectBase}/settings/alerts`,
               icon: BellRing,
               visible: canReadProjectAlerts,
+            },
+            {
+              label: $_('sidebar.items.notifications'),
+              href: `${projectBase}/settings/notifications`,
+              icon: Mail,
+              visible: canReadProjectNotifications,
             },
             {
               label: $_('sidebar.items.serverKeys'),

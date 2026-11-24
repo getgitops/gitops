@@ -4,8 +4,11 @@ import type { Operator } from '#lib/events/catalog';
 export type AlertScope = 'organization' | 'project';
 export type AlertMatch = 'all' | 'any';
 
-/** v1 only sends emails; the field is ready for in-app and Slack (#82). */
-export const ALERT_CHANNELS = ['mail'] as const;
+/**
+ * How an alert is delivered: `mail` to its users, roles and external addresses, the others to
+ * the notification channels in `channelIds`. Derived from the recipients on every save.
+ */
+export const ALERT_CHANNELS = ['mail', 'webhook', 'slack', 'google-chat'] as const;
 export type AlertChannel = (typeof ALERT_CHANNELS)[number];
 
 export const ALERT_MATCHES = ['all', 'any'] as const;
@@ -49,6 +52,7 @@ export type AlertInput = {
   conditions?: unknown;
   recipients?: unknown;
   channels?: unknown;
+  channelIds?: unknown;
   throttleMinutes?: unknown;
 };
 
@@ -62,6 +66,8 @@ export type AlertFields = {
   conditions: AlertCondition[];
   recipients: AlertRecipients;
   channels: AlertChannel[];
+  /** Notification channels (`$modules/notifications`) that get one message per firing. */
+  channelIds: string[];
   throttleMinutes: number;
 };
 
@@ -97,6 +103,7 @@ export class AlertDomain implements AlertRow {
   conditions: AlertCondition[];
   recipients: AlertRecipients;
   channels: AlertChannel[];
+  channelIds: string[];
   throttleMinutes: number;
   createdByUserId: string;
   createdAt: string;
@@ -122,6 +129,7 @@ export class AlertDomain implements AlertRow {
       (ALERT_CHANNELS as readonly string[]).includes(channel),
     );
     this.channels = channels.length > 0 ? channels : ['mail'];
+    this.channelIds = stringArray(row.channelIds);
     this.throttleMinutes = Number.isFinite(Number(row.throttleMinutes))
       ? Number(row.throttleMinutes)
       : 0;
@@ -163,6 +171,7 @@ export class AlertDomain implements AlertRow {
         externalEmails: [...this.recipients.externalEmails],
       },
       channels: [...this.channels],
+      channelIds: [...this.channelIds],
       throttleMinutes: this.throttleMinutes,
       createdByUserId: this.createdByUserId,
       createdAt: this.createdAt,

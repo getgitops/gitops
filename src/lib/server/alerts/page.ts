@@ -6,7 +6,11 @@ import {
   type AlertLocation,
   type AlertRow,
 } from '#modules/alerts';
-import { externalRecipientService, notificationSettingsService } from '#modules/notifications';
+import {
+  externalRecipientService,
+  notificationChannelService,
+  notificationSettingsService,
+} from '#modules/notifications';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import {
@@ -19,6 +23,7 @@ import {
 import type {
   AlertDraft,
   AlertEditorData,
+  AlertChannelOption,
   AlertListData,
   AlertOption,
   DraftCondition,
@@ -77,6 +82,18 @@ async function referenceOptions(
   );
 }
 
+/** Channels alerts of `location` can post to: its project's and its organization's. */
+async function channelOptions(location: AlertLocation): Promise<AlertChannelOption[]> {
+  const channels = await notificationChannelService.listUsable(location).catch(() => []);
+  return channels.map((channel) => ({
+    id: channel.id,
+    name: channel.name,
+    type: channel.type,
+    scope: channel.scope,
+    enabled: channel.enabled,
+  }));
+}
+
 async function recipientOptions(location: AlertLocation) {
   const [members, roles] = await Promise.all([
     alertDirectory.listMembers(location).catch(() => []),
@@ -113,10 +130,11 @@ export async function loadAlertList(
     scope: 'organization',
     projectId: null,
   };
-  const [references, own, organizationRecipients] = await Promise.all([
+  const [references, own, organizationRecipients, channels] = await Promise.all([
     referenceOptions([...catalog, ...inheritedCatalog], organizationLocation),
     recipientOptions(location),
     location.scope === 'project' ? recipientOptions(organizationLocation) : null,
+    channelOptions(location),
   ]);
   // names for the recipients of the location's alerts and of the inherited organization ones
   const merge = (a: AlertOption[], b: AlertOption[] = []) => [
@@ -140,6 +158,7 @@ export async function loadAlertList(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    channels,
     mailConfigured: isMailConfigured(),
     canCreate: allowed.canCreate,
     canUpdate: allowed.canUpdate,
@@ -156,6 +175,7 @@ function emptyDraft(eventType: string | null): AlertDraft {
     match: 'all',
     conditions: [],
     recipients: { userIds: [], roleIds: [], externalEmails: [] },
+    channelIds: [],
     throttleMinutes: 0,
   };
 }
@@ -177,6 +197,7 @@ function toDraft(alert: AlertRow): AlertDraft {
       roleIds: [...alert.recipients.roleIds],
       externalEmails: [...alert.recipients.externalEmails],
     },
+    channelIds: [...alert.channelIds],
     throttleMinutes: alert.throttleMinutes,
   };
 }
@@ -231,10 +252,11 @@ export async function loadAlertEditor(
   }
 
   const catalog = await listCatalog(locals, location);
-  const [references, recipients, external] = await Promise.all([
+  const [references, recipients, external, channels] = await Promise.all([
     referenceOptions(catalog, location),
     recipientOptions(location),
     externalRecipientsData(locals, location, alert?.recipients.externalEmails ?? []),
+    channelOptions(location),
   ]);
 
   const draft = alert ? toDraft(alert) : emptyDraft(options.eventType ?? null);
@@ -251,6 +273,7 @@ export async function loadAlertEditor(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    channels,
     external,
     mailConfigured: isMailConfigured(),
     canSave: alert ? allowed.canUpdate : allowed.canCreate,
@@ -302,6 +325,7 @@ export function parseAlertForm(form: FormData): AlertDraft {
         .map((value) => value.trim())
         .filter(Boolean),
     },
+    channelIds: form.getAll('channelIds').map(String).filter(Boolean),
     throttleMinutes: Number(form.get('throttleMinutes') ?? 0) || 0,
   };
 }

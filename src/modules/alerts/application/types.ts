@@ -77,6 +77,30 @@ export interface ExternalRecipientsPort {
   statuses(organizationId: string, emails: readonly string[]): Promise<Map<string, string>>;
 }
 
+/** A notification channel an alert may use, as the alerts module sees it. */
+export type UsableChannel = {
+  id: string;
+  name: string;
+  type: string;
+  scope: 'organization' | 'project';
+  enabled: boolean;
+};
+
+/** Notification channels (chat, webhooks) as the alerts module sees them. */
+export interface NotificationChannelsPort {
+  /** Channels an alert of `location` may use: its project's and its organization's. */
+  listUsable(location: {
+    organizationId: string;
+    projectId: string | null;
+  }): Promise<UsableChannel[]>;
+  /** Queues one message for the channel; `false` when it was skipped or definitively failed. */
+  deliver(
+    channelId: string,
+    message: import('#lib/server/infra/notifications/chat-notification').ChannelMessage,
+    context?: Record<string, unknown>,
+  ): Promise<boolean>;
+}
+
 /**
  * Who creates or edits an alert; `canRead` checks any grant in a context for that actor (named
  * after its first use, the anti-escalation read check).

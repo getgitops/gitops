@@ -67,11 +67,17 @@ export function summarizeRecipients(
   users: AlertOption[],
   roles: AlertOption[],
   t: Translate,
+  /** Channels of the alert, by id, with their names. */
+  channels: { ids: string[]; options: Array<{ id: string; name: string }> } = {
+    ids: [],
+    options: [],
+  },
 ): string {
   const names = [
     ...recipients.roleIds.map((id) => roles.find((role) => role.id === id)?.label ?? id),
     ...recipients.userIds.map((id) => users.find((user) => user.id === id)?.label ?? id),
     ...(recipients.externalEmails ?? []),
+    ...channels.ids.map((id) => channels.options.find((option) => option.id === id)?.name ?? id),
   ];
   return names.length > 0 ? names.join(', ') : t('alerts.summary.noRecipients');
 }

@@ -3,6 +3,8 @@
   import { Globe, MailCheck, MailWarning, RefreshCw, Save } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
   import { statusBadgeClass } from '#lib/notifications/status';
+  import ChannelsSection from '#lib/components/notifications/ChannelsSection.svelte';
+  import type { ChannelsFormResult } from '#lib/notifications/types';
   import type { ActionData, PageData } from './$types';
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -185,5 +187,9 @@
         </div>
       {/if}
     </section>
+  {/if}
+
+  {#if data.channels}
+    <ChannelsSection data={data.channels} form={form as ChannelsFormResult} />
   {/if}
 </div>

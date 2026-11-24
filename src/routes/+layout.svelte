@@ -69,6 +69,7 @@
           canReadOrgEvents={data.canReadOrgEvents}
           canReadOrganizationAlerts={data.canReadOrganizationAlerts}
           canReadOrgNotifications={data.canReadOrgNotifications}
+          canReadProjectNotifications={data.canReadProjectNotifications}
           canReadProjectInfo={data.canReadProjectInfo}
           canReadProjectUsers={data.canReadProjectUsers}
           canReadProjectRoles={data.canReadProjectRoles}

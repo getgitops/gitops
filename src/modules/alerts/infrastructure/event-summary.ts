@@ -1,4 +1,4 @@
-import { getFieldValue, type EventDefinition } from '#lib/events/catalog';
+import { getFieldValue, type EventDefinition, type EventMessage } from '#lib/events/catalog';
 import type { AnyDomainEvent } from '#lib/server/events';
 
 export type EventFieldLine = {
@@ -63,4 +63,49 @@ export function describeEventFields(
     });
   }
   return lines;
+}
+
+type Translate = (key: string, values?: Record<string, unknown>) => string;
+
+type DefinitionCallbacks = EventDefinition & {
+  link?: (context: unknown) => string | null;
+  mailSummary?: (payload: unknown) => EventMessage;
+};
+
+function safely<T>(run: () => T): T | undefined {
+  try {
+    return run();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * One-line summary of an event (`3 critical, 5 high`), or its label. A definition callback that
+ * chokes on the payload (an incomplete example event) falls back to the label.
+ */
+export function eventSummaryText(
+  event: Pick<AnyDomainEvent, 'payload'>,
+  definition: EventDefinition,
+  t: Translate,
+): string {
+  const message = safely(() => (definition as DefinitionCallbacks).mailSummary?.(event.payload));
+  return message ? t(message.key, message.values) : t(definition.label);
+}
+
+/** App path of the resource the event is about (`/org/…`), or `null`. */
+export function eventResourcePath(
+  event: Pick<AnyDomainEvent, 'payload'>,
+  definition: EventDefinition,
+  where: { organizationSlug?: string; projectSlug?: string },
+): string | null {
+  return (
+    safely(() =>
+      (definition as DefinitionCallbacks).link?.({
+        payload: event.payload,
+        organizationSlug: where.organizationSlug ?? null,
+        projectSlug: where.projectSlug ?? null,
+      }),
+    ) ?? null
+  );
 }

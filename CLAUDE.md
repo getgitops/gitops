@@ -199,7 +199,9 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   recipient hash, never the content or the address. `registerMailShutdown()` drains it on
   `sveltekit:shutdown` (10 s). Invitations and password resets call `notify()` directly: their
   tokens must not travel through the bus or the queue. Without SMTP (`isMailConfigured()`), the
-  engine skips events (debug log), warns once at startup and the alert pages show a banner.
+  engine skips emails and system notifications (debug log) but still posts to channels, warns once
+  at startup and the alert pages show a banner. `MailQueue` is a `DeliveryQueue`
+  (`#lib/server/infra/notifications/delivery-queue.ts`), the generic queue channels reuse.
 - HTTP: `#lib/server/alerts` (`access.ts` for permissions/location/actor, `operations.ts` shared by
   the API and form actions). Routes: `GET /api/events/catalog`, `GET|POST /api/alerts`,
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
@@ -235,7 +237,45 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (read with `organization:settings:read` or `organization:notifications:read`, changed with
   `organization:settings:update` or `organization:notifications:update`) and the external recipients
   status (`organization:notifications:read`, resend confirmation with `organization:notifications:update`).
-  Notification channels (#95) will live on this page too.
+  Its channels section is described below.
+- Notification channels (`$modules/notifications`, #95): `NotificationChannelEntity` (GitDB
+  `notification_channels`), owned by an organization (usable by alerts of the organization and of
+  all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
+  a type is available only once its transport is registered with `registerChatTransport()`
+  (`#lib/server/infra/notifications/chat-notification.ts`, it also calls `registerTransport`).
+  This base registers none: each transport sub-task (#96 webhook, #97 Slack, #98 Google Chat)
+  activates its own, and the tests use `FakeChatTransport`. A `ChatTransport` implements `send()`
+  and `validateDestination()`, the anti-SSRF check (`validateWebhookUrl()`: https, no credentials,
+  no IP literal, default port, allowed host and path) run before saving and again before every
+  send. The destination (`webhookUrl`) is encrypted with `GITDB_ENCRYPTION_KEY`
+  (`channel-cipher.ts`, AES-GCM bound to the channel id) and only ever leaves the server masked
+  (`https://hooks.slack.com/…/••••1a2b`); changing it means typing it again.
+- Channel delivery: alerts store `channelIds` (`ALERT_CHANNELS` is derived on save: `mail` when
+  there are email recipients, plus the channel types). Adding a channel needs
+  `<scope>:notifications:update` (`forbidden_channel`), and a channel must be usable from the
+  alert's location (`unknown_channel`). The engine's `deliver()` emails each recipient and posts
+  **one message per channel** in parallel; a failing channel never affects the emails or the other
+  channels, and system notifications never go to channels. The message is a provider-neutral
+  `ChannelMessage` (`buildAlertChannelMessage()`: default language, no `sensitive` fields, "View in
+  GitOps" link, throttled count); transports format it. Deliveries go through the process-wide
+  `channelQueue` (concurrency 3; `postJson()` from `#lib/server/infra/http/webhook-request.ts` with
+  a 5 s timeout and no redirects; `withRetry` only on network errors, 429 honoring `Retry-After`,
+  and 5xx). A permanent failure (4xx, invalid or undecryptable destination, type without transport)
+  sets `lastError`; a success clears it. `lastDeliveryAt` is only refreshed hourly, since each
+  write is a commit. Logs carry the channel id and type, never the URL nor the message.
+- Channels HTTP: `#lib/server/notifications/channels.ts` (permission-first, a channel the caller
+  can't read is a 404). Routes: `GET|POST /api/notification-channels` (`organizationId` or
+  `projectId`), `GET|PATCH|DELETE /api/notification-channels/[id]` and
+  `POST /api/notification-channels/[id]/test` (posts a test even to a disabled channel). UI: the
+  `ChannelsSection` component (`#lib/components/notifications/`) on
+  `/org/<org>/settings/notifications` and `/org/<org>/projects/<slug>/settings/notifications`
+  (form actions in `src/lib/server/notifications/channels-page.ts`, no JavaScript needed; project
+  pages list the inherited organization channels read-only), and a channel picker in the alert editor
+  that shows the alert's `channelIds`, loading channel options from the page loader's `data.channels`.
+- Dev reloads: the alert engine, the mail and channel queues and the verification limiters live on
+  `globalThis`. Their collaborators are resolved on every call (`latest()` and the engine slot's
+  `dependencies` in `alerts/index.ts`, `sendWithLatestNotify()` for the queues), and the engine is
+  rebuilt when its class or `ENGINE_WIRING` changes: bump it when the engine's wiring changes.
 - UI: `/org/<org>/settings/alerts` and `/org/<org>/projects/<slug>/settings/alerts` (list, `new`,
   `[id]`), thin routes over `#lib/server/alerts/page.ts` (loaders and form actions `draft`, `save`,
   `test`, `toggle`, `delete`; everything works without JavaScript). Components live in
@@ -292,8 +332,8 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
-- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`
+- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`, `project:notifications:update`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`, `organization:notifications:update`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
@@ -308,7 +348,7 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 - **Project Developer** — read/create/update project resources; no deletion or admin; granular module access; reads alerts
 - **Project Viewer** — read-only: project metadata, alerts, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 
-`organization:notifications:read` and `organization:notifications:update` gate external email recipient management at the organization level. At the project level, `project:notifications:read` and `project:notifications:update` control external recipients of project alerts (externals of alerts that scope to a project).
+`organization:notifications:read` and `organization:notifications:update` gate external email recipients and notification channels at the organization level. At the project level, `project:notifications:read` and `project:notifications:update` control external recipients and channels for project alerts.
 
 Module resources have granular sub-permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. These allow fine-grained access control within each module.
 
