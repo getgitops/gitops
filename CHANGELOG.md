@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 — 2026-11-24
 
 - Módulo Monitoring: monitores HTTP (método, headers y body cifrados) enlazados con servicios de
   Code Report, con botón de prueba y comprobación cada 60 s por defecto.
@@ -9,6 +9,8 @@
 - Workers sin estado y escalables (embebido o `bun run worker`) con una API interna de leases.
 - Métricas en GitDB como incidencias y agregados por hora y por día, opcionalmente en un
   repositorio dedicado (`MONITORING_GITDB_REPOSITORY_URL`).
+- Página «GitOps se está iniciando» mientras arranca el servidor, y correcciones en la vista de
+  CVEs y en la barra lateral.
 
 ## 1.3.6 — 2026-11-20
 
