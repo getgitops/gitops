@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Activity,
     ArrowRight,
     BarChart3,
     FolderKanban,
@@ -15,6 +16,7 @@
     vault: boolean;
     codereport: boolean;
     stateiac: boolean;
+    monitoring?: boolean;
   };
 
   type ProjectRow = {
@@ -56,6 +58,14 @@
       href: `/org/${orgSlug}/projects/${project.slug}/code-report`,
       guideHref: 'https://getgitops.com/docs/code-report',
       icon: BarChart3,
+    },
+    {
+      key: 'monitoring',
+      label: 'Monitoring',
+      description: $_('monitoring.moduleDescription'),
+      href: `/org/${orgSlug}/projects/${project.slug}/monitoring`,
+      guideHref: 'https://getgitops.com/docs/monitoring',
+      icon: Activity,
     },
     {
       key: 'stateiac',

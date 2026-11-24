@@ -75,6 +75,7 @@
           canReadProjectVault={data.canReadProjectVault}
           canReadProjectCodeReport={data.canReadProjectCodeReport}
           canReadProjectStateIac={data.canReadProjectStateIac}
+          canReadProjectMonitoring={data.canReadProjectMonitoring}
           currentProjectSlug={data.currentProjectSlug ?? null}
           bind:collapsed={sidebarCollapsed}
         />

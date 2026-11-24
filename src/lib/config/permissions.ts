@@ -150,6 +150,15 @@ const permissions = {
                 },
               },
             },
+            monitoring: {
+              resource: 'monitoring',
+              sections: {
+                monitors: {
+                  resource: 'monitors',
+                  permissions: grantsFor('project:monitoring', 'monitors', ['test']),
+                },
+              },
+            },
           },
         },
       },

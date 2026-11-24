@@ -210,6 +210,94 @@ export const CodeReportSecurityPolicyEntity = entity('code_report_security_polic
     .$defaultFn(() => new Date().toISOString()),
 });
 
+// HTTP monitor configuration (main GitDB: rarely written, audited). `secrets` is the encrypted
+// JSON of the header values and the body (`#modules/monitoring` crypto); `headerNames` lists the
+// header names only, so the UI can show them without decrypting anything
+export const MonitorEntity = entity('monitors', {
+  id: uuid().primaryKey(),
+  projectId: uuid().notNull(),
+  // optional code_report_services row of the same project the monitor checks
+  serviceId: uuid().$defaultFn(() => null),
+  name: text().notNull(),
+  url: text().notNull(),
+  method: text().notNull().default('GET'),
+  headerNames: json()
+    .notNull()
+    .$defaultFn(() => []),
+  secrets: text(),
+  intervalSeconds: integer().notNull().default(60),
+  timeoutMs: integer().notNull().default(10000),
+  expectedStatus: text().notNull().default('200-299'),
+  degradedThresholdMs: integer().notNull().default(2000),
+  // consecutive failing checks before the monitor is reported down/degraded
+  confirmations: integer().notNull().default(2),
+  followRedirects: bool().notNull().default(true),
+  enabled: bool().notNull().default(true),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+// Monitoring metrics (`monitoring_*`): written by the monitoring runtime to
+// MONITORING_GITDB_REPOSITORY_URL, or to the main repository when it is not set. Never one row
+// per check: incidents on every status change, hourly aggregates, and one row per day once an hour
+// is older than the retention window. The audit views skip these tables.
+
+// a period a monitor was down or degraded; `endedAt` null while it is still open
+export const MonitoringIncidentEntity = entity('monitoring_incidents', {
+  id: uuid().primaryKey(),
+  monitorId: uuid().notNull(),
+  projectId: uuid().notNull(),
+  status: text().notNull(),
+  cause: text(),
+  httpStatus: integer(),
+  error: text(),
+  startedAt: timestamp().notNull(),
+  endedAt: timestamp(),
+  failedChecks: integer().notNull().default(0),
+});
+
+const aggregateColumns = () => ({
+  monitorId: uuid().notNull(),
+  projectId: uuid().notNull(),
+  total: integer().notNull().default(0),
+  up: integer().notNull().default(0),
+  degraded: integer().notNull().default(0),
+  down: integer().notNull().default(0),
+  latencyAvg: integer(),
+  latencyP95: integer(),
+  latencyMax: integer(),
+});
+
+// one row per monitor and closed hour (`hour`: ISO start of the hour, UTC)
+export const MonitoringHourlyEntity = entity('monitoring_hourly', {
+  id: text().primaryKey(),
+  hour: timestamp().notNull(),
+  ...aggregateColumns(),
+});
+
+// the hour in progress, one row per monitor, rewritten on every flush (MONITORING_FLUSH_SECONDS);
+// `latencies` keeps the samples so the p95 survives a restart
+export const MonitoringCurrentEntity = entity('monitoring_current', {
+  id: uuid().primaryKey(),
+  hour: timestamp().notNull(),
+  latencies: json()
+    .notNull()
+    .$defaultFn(() => []),
+  lastCheck: json(),
+  ...aggregateColumns(),
+});
+
+// one row per monitor and day (`day`: YYYY-MM-DD, UTC), compacted from hours past the retention
+export const MonitoringDailyEntity = entity('monitoring_daily', {
+  id: text().primaryKey(),
+  day: text().notNull(),
+  ...aggregateColumns(),
+});
+
 export const VaultEnvironmentEntity = entity('vault_environments', {
   id: uuid().primaryKey(),
   projectId: uuid().notNull(),
@@ -352,6 +440,11 @@ relations.for(VaultSettingsEntity, ({ one }) => ({
 relations.for(CodeReportServiceEntity, ({ one, many }) => ({
   project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
   analyses: many(CodeReportAnalysisEntity, { fields: ['id'], references: ['serviceId'] }),
+}));
+
+relations.for(MonitorEntity, ({ one }) => ({
+  project: one(ProjectEntity, { fields: ['projectId'], references: ['id'] }),
+  service: one(CodeReportServiceEntity, { fields: ['serviceId'], references: ['id'] }),
 }));
 
 relations.for(CodeReportAnalysisEntity, ({ one }) => ({

@@ -15,6 +15,7 @@
     "gitdb:migrate-chunks": "node --env-file-if-exists=.env scripts/migrate-gitdb-chunks.mjs",
     "build": "vite build",
     "preview": "vite preview",
+    "worker": "node src/worker/monitoring-worker.ts",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint . --ext .js,.ts,.svelte",
     "test": "svelte-kit sync && vitest run",

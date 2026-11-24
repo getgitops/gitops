@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { codeReportService, codeReportAnalysisService } from '#modules/code-report';
 import { projectService } from '#modules/projects';
 import { cancanService } from '#modules/auth';
+import { loadServiceMonitors } from '#lib/server/monitoring/service-monitors';
 
 const CODE_REPORT_TOOLS = ['trivy', 'syft', 'sbom', 'gitleaks'];
 
@@ -47,9 +48,10 @@ export async function load({ parent, params, locals }) {
   }
   const analysesStartedAt = performance.now();
   try {
-    const [overview, riskWeights] = await Promise.all([
+    const [overview, riskWeights, monitoring] = await Promise.all([
       codeReportAnalysisService.getServiceOverview(service.id),
       codeReportService.getRiskWeightsByProjectId(project.id),
+      loadServiceMonitors(locals, project, service.id),
     ]);
     const { latestAnalysis, latestByTool, analysisHistory } = overview;
     for (const tool of [...(service.tools ?? []), ...CODE_REPORT_TOOLS]) {
@@ -73,6 +75,7 @@ export async function load({ parent, params, locals }) {
       riskWeights,
       canCreate,
       canDelete,
+      monitoring,
     };
   } catch (err) {
     locals.logger.error({ err, serviceId: service.id }, 'code report service detail failed');

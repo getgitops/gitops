@@ -4,6 +4,8 @@ import { apiKeysService, authService, cancanService, ensureAuthReady } from '#mo
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { registerAlertEngine } from '#modules/alerts';
+import { getMonitoringConfig, startMonitoring } from '#modules/monitoring';
+import { isInternalMonitoringRequest, verifyWorkerRequest } from '#lib/server/monitoring/internal-auth';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
 import {
@@ -25,6 +27,8 @@ const serverReady = (async () => {
   registerAlertEngine();
   await refreshBootstrapState();
   markServerReady();
+  // monitoring needs GitDB; if its repository or runtime can't start, the rest of the app still does
+  startMonitoring().catch((error) => startupLog.error(error, '[startup] monitoring failed to start'));
 })();
 
 serverReady.catch((error) => {
@@ -113,6 +117,14 @@ const authGuard: Handle = async ({ event, resolve }) => {
   if (pathname === '/cluster-settings' || pathname.startsWith('/cluster-settings/')) {
     const location = pathname.replace('/cluster-settings', '/gitops-settings') + event.url.search;
     return new Response(null, { status: 308, headers: { location } });
+  }
+
+  // internal worker API: its own shared secret (MONITORING_WORKER_TOKEN), never an API key or a
+  // session, and never an actor (its writes are system writes)
+  if (isInternalMonitoringRequest(pathname)) {
+    const denied = verifyWorkerRequest(event.request, getMonitoringConfig());
+    if (denied) return denied;
+    return resolve(event);
   }
 
   // sign-in, sign-out, self-registration, password recovery, invitation acceptance and the Google

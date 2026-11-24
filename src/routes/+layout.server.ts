@@ -129,6 +129,7 @@ export async function load({ locals, url }) {
     canReadProjectStateIacStacks,
     canReadProjectStateIacStates,
     canReadProjectStateIacHistory,
+    canReadProjectMonitoring,
   ] = await Promise.all([
     projectSectionPermission('project:project:read'),
     projectSectionPermission('project:users:read'),
@@ -144,6 +145,7 @@ export async function load({ locals, url }) {
     projectSectionPermission('project:stateiac:stacks:read'),
     projectSectionPermission('project:stateiac:states:read'),
     projectSectionPermission('project:stateiac:history:read'),
+    projectSectionPermission('project:monitoring:monitors:read'),
   ]);
 
   const canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments;
@@ -184,6 +186,7 @@ export async function load({ locals, url }) {
     canReadProjectVault,
     canReadProjectCodeReport,
     canReadProjectStateIac,
+    canReadProjectMonitoring,
     currentProjectSlug,
   };
 }

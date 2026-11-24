@@ -34,6 +34,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 # email templates are read from disk at runtime (src/lib/server/infra/notifications/template.ts)
 COPY --from=builder /app/src/notifications ./src/notifications
+# standalone monitoring worker (`node src/worker/monitoring-worker.ts`): plain Node, no build step
+# and no dependency, so the same image runs as a worker with another start command
+COPY --from=builder /app/src/worker ./src/worker
+COPY --from=builder /app/src/lib/monitoring ./src/lib/monitoring
 
 # Persistent data directory (SQLite DB + gitdb clone)
 # VOLUME ["/app/data"]

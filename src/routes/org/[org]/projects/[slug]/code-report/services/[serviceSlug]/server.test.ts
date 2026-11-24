@@ -16,6 +16,7 @@ vi.mock('#modules/code-report', () => ({
 }));
 vi.mock('#modules/projects', () => ({ projectService: {} }));
 vi.mock('#modules/auth', () => ({ cancanService: { canSessionUser: mocks.permission } }));
+vi.mock('#lib/server/monitoring/service-monitors', () => ({ loadServiceMonitors: async () => null }));
 
 const logger = { debug: vi.fn(), error: vi.fn() };
 const event = () =>

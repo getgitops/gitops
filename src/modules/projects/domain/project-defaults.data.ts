@@ -2,12 +2,14 @@ export interface ProjectModules {
   vault: boolean;
   codereport: boolean;
   stateiac: boolean;
+  monitoring: boolean;
 }
 
 export const DEFAULT_PROJECT_MODULES: ProjectModules = {
   vault: false,
   codereport: true,
   stateiac: false,
+  monitoring: false,
 };
 
 export interface ProjectSettings {

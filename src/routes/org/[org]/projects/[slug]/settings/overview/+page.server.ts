@@ -61,6 +61,7 @@ export const actions = {
           vault: form.get('moduleVault') === 'on',
           codereport: form.get('moduleCodeReport') === 'on',
           stateiac: form.get('moduleStateIac') === 'on',
+          monitoring: form.get('moduleMonitoring') === 'on',
         },
       });
     } catch (error: unknown) {
