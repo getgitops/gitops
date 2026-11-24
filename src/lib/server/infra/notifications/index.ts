@@ -23,14 +23,8 @@ export {
   type SmtpConfig,
 } from './config';
 export { withRetry, isRetryableMailError, type RetryOptions } from './retry';
-export {
-  DEFAULT_MAIL_LOCALE,
-  mailLocale,
-  translateKey,
-  translator,
-  type MailLocale,
-  type Translate,
-} from './i18n';
+// `./i18n` is not re-exported on purpose: it loads the paraglide messages, and this entry point is
+// imported by `$modules/auth`, which also runs outside Vite (the e2e seed). Import it directly
 export { emailButton, emailNote } from './email-parts';
 export { MailQueue, recipientHash, type MailContext, type MailQueueOptions } from './mail-queue';
 

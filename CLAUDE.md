@@ -292,7 +292,7 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
-- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
+- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
 - **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
@@ -308,7 +308,7 @@ Permissions always include their scope as a prefix (e.g., `organization:projects
 - **Project Developer** — read/create/update project resources; no deletion or admin; granular module access; reads alerts
 - **Project Viewer** — read-only: project metadata, alerts, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 
-`organization:notifications:read` and `organization:notifications:update` gate external email recipient management in settings.
+`organization:notifications:read` and `organization:notifications:update` gate external email recipient management at the organization level. At the project level, `project:notifications:read` and `project:notifications:update` control external recipients of project alerts (externals of alerts that scope to a project).
 
 Module resources have granular sub-permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. These allow fine-grained access control within each module.
 
@@ -357,6 +357,12 @@ generated files. Update `README.md`, `CONTRIBUTING.md`, and this file when archi
 commands change.
 
 ## Known behavior
+
+**i18n imports from notifications:** `#lib/server/infra/notifications/index.ts` does not re-export
+i18n functions (`DEFAULT_MAIL_LOCALE`, `mailLocale`, `translator`, etc.) despite using them internally.
+This is intentional: those functions load Paraglide messages (a Vite requirement), but the notifications
+index is imported by `$modules/auth` which runs outside Vite during e2e tests. When you need these
+functions, import them directly from `#lib/server/infra/notifications/i18n` instead of the main index.
 
 **Server startup and readiness:** The auth guard in `hooks.server.ts` checks readiness via
 `getServerReadyState()` before processing any request. During startup, browsers receive a

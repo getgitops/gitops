@@ -1,10 +1,5 @@
-import {
-  DEFAULT_MAIL_LOCALE,
-  MailNotification,
-  emailButton,
-  renderEmail,
-  translator,
-} from '#lib/server/infra/notifications';
+import { MailNotification, emailButton, renderEmail } from '#lib/server/infra/notifications';
+import { DEFAULT_MAIL_LOCALE, translator } from '#lib/server/infra/notifications/i18n';
 import type {
   ExternalRecipientNotifierPort,
   VerificationEmail,

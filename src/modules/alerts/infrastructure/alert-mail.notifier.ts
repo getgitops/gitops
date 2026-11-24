@@ -1,18 +1,20 @@
 import {
-  DEFAULT_MAIL_LOCALE,
   MailNotification,
   absoluteUrl,
   emailButton as button,
   emailNote as note,
-  mailLocale,
   renderEmail,
   renderTemplateString,
+  type MailContext,
+} from '#lib/server/infra/notifications';
+import {
+  DEFAULT_MAIL_LOCALE,
+  mailLocale,
   translateKey,
   translator,
-  type MailContext,
   type MailLocale,
   type Translate,
-} from '#lib/server/infra/notifications';
+} from '#lib/server/infra/notifications/i18n';
 import { getFieldValue, type EventDefinition, type EventMessage } from '#lib/events/catalog';
 import type { CodeReportAnalysisCompletedPayload } from '#lib/events/domain-events';
 import type { AlertEmail, AlertNotifierPort, SystemEmail } from '../application/alert-engine';

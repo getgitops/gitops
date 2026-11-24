@@ -105,6 +105,10 @@ con scope `cluster`, `organization` o `project`. Usar siempre `can()` o `isAdmin
 `organization:notifications:read` (leer destinatarios externos y dominios permitidos),
 `organization:notifications:update` (añadir direcciones externas, cambiar dominios).
 
+**Permisos de proyecto:** `project:project:read`, `project:users:read`, `project:roles:read`,
+`project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`
+(leer destinatarios externos de alertas), `project:notifications:update` (añadir direcciones).
+
 **Gating de permisos en UI:** En loaders de rutas, usar `cancanService.canSessionUser()` para verificar
 permisos específicos y pasarlos a componentes como props (`canCreate`, `canUpdate`, `canDelete`) para
 ocultar acciones que el usuario no puede realizar. El layout raíz (`+layout.server.ts`) calcula permisos
@@ -151,6 +155,12 @@ normalizan errores. Ejecutar `bun run check`, `bun run lint`, `bun run test` y
 `bun run format:check` antes de terminar cambios relevantes.
 
 ## Comportamiento conocido
+
+**Imports de i18n desde notificaciones:** `#lib/server/infra/notifications/index.ts` no re-exporta
+funciones i18n (`DEFAULT_MAIL_LOCALE`, `mailLocale`, `translator`, etc.) porque estas cargan
+mensajes de Paraglide (requiere Vite), pero el index se importa desde `$modules/auth` que se
+ejecuta fuera de Vite en tests e2e. Importar estas funciones directamente desde
+`#lib/server/infra/notifications/i18n` en lugar del index principal.
 
 **Startup y readiness del servidor:** El auth guard en `hooks.server.ts` verifica readiness via
 `getServerReadyState()` antes de procesar cualquier request. Durante startup, los navegadores
