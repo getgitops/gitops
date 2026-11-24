@@ -10,7 +10,16 @@
     "profile": "Profile",
     "changeOrganization": "Change Organization",
     "signOut": "Sign out",
-    "account": "Account"
+    "account": "Account",
+    "search": "Search",
+    "searchPlaceholder": "Search pages, projects, settings…",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "projects": "Projects",
+    "navigation": "Navigation",
+    "searchProjects": "Search project…",
+    "noProjectsFound": "No project matches.",
+    "noOrganization": "No organization"
   },
   "sidebar": {
     "organization": "Organization",
@@ -60,8 +69,10 @@
       "registration": "Registration",
       "events": "Events",
       "alerts": "Alerts",
-      "monitors": "Monitors"
-    }
+      "monitors": "Monitors",
+      "projectDashboard": "Dashboard"
+    },
+    "whatsNew": "What's new"
   },
   "footer": {
     "currentVersion": "Current Version",

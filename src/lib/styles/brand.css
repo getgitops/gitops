@@ -291,6 +291,8 @@
     background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
+    /* va dentro de un contenedor que ya marca el foco (paleta, selector, buscador del Select) */
+    outline: none;
   }
   .k-input:disabled {
     opacity: 0.5;

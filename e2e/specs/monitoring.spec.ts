@@ -74,10 +74,12 @@ test.describe('monitoring — access', () => {
     await expectDenied(page, `${base}/monitors/new`);
   });
 
-  test('the sidebar shows the Monitoring category', async ({ page, loginAs }) => {
+  test('the sidebar shows Monitoring as the current product', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     await page.goto(`${base}/dashboard`);
-    await expect(page.getByText('Monitorización', { exact: true })).toBeVisible();
+    const link = page.locator('aside').first().getByRole('link', { name: 'Monitoring' });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('aria-current', 'page');
   });
 });
 

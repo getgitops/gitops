@@ -10,7 +10,16 @@
     "profile": "Perfil",
     "changeOrganization": "Cambiar organización",
     "signOut": "Cerrar sesión",
-    "account": "Cuenta"
+    "account": "Cuenta",
+    "search": "Buscar",
+    "searchPlaceholder": "Busca páginas, proyectos, ajustes…",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "projects": "Proyectos",
+    "navigation": "Navegación",
+    "searchProjects": "Buscar proyecto…",
+    "noProjectsFound": "Ningún proyecto coincide.",
+    "noOrganization": "Sin organización"
   },
   "sidebar": {
     "organization": "Organización",
@@ -60,8 +69,10 @@
       "registration": "Registro",
       "events": "Eventos",
       "alerts": "Alertas",
-      "monitors": "Monitores"
-    }
+      "monitors": "Monitores",
+      "projectDashboard": "Dashboard"
+    },
+    "whatsNew": "Ver novedades"
   },
   "footer": {
     "currentVersion": "Versión actual",

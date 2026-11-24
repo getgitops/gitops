@@ -1,626 +1,214 @@
+<!--
+  Sidebar de la app (UI v3), igual que el mock de /brand: selector de contexto arriba, secciones
+  planas (Proyecto con sus productos, Organización) y pie con versión, GitDB y modo colapsado.
+  Las subpáginas de cada módulo van en pestañas encima del contenido (las pinta el layout).
+-->
 <script lang="ts">
-  import { createPageStore } from '#lib/page-store';
-  import {
-    Activity,
-    BellRing,
-    BarChart3,
-    Building2,
-    ChevronDown,
-    ChevronRight,
-    Database,
-    FolderKanban,
-    GitBranch,
-    Info,
-    KeyRound,
-    LayoutDashboard,
-    Lock,
-    PanelLeftClose,
-    PanelLeftOpen,
-    Plug,
-    ScrollText,
-    Settings,
-    Shield,
-    Users,
-    Layers,
-    ShieldAlert,
-  } from '@lucide/svelte';
+  import { ArrowRight, Building2, ChevronsUpDown, FolderKanban, Lock, Search } from '@lucide/svelte';
+  import { DropdownMenu, MenuItem } from '#lib/components/ui';
+  import SidebarFooter from '#lib/components/SidebarFooter.svelte';
+  import { isModuleActive, type NavCategory } from '#lib/navigation';
   import { _ } from '#lib/i18n';
 
-  type NavIcon = typeof Building2;
-  type NavItem = { label: string; href: string; icon: NavIcon };
-  // `base` is the URL namespace a module owns, used to keep it highlighted and open on any
-  // sub-route, including ones with no entry of their own
-  type NavModule = { name: string; icon: NavIcon; items: NavItem[]; base?: string };
-  type NavCategory = { name: string; modules: NavModule[] };
-
-  export let pathname = '/';
-  export let isConfigured = false;
-  export let collapsed = true;
-  export let organizationSlug: string | null = null;
-  export let organizationName: string | null = null;
-  export let canAccessClusterSettings = false;
-  export let canManageOrganization = false;
-  export let canManageProject = false;
-  export let canReadOrgProjects = false;
-  export let canReadOrgUsers = false;
-  export let canReadOrgRoles = false;
-  export let canReadOrgGlobal = false;
-  export let canReadOrgBackups = false;
-  export let canReadOrgServerKeys = false;
-  export let canReadOrgAudit = false;
-  export let canReadOrgEvents = false;
-  export let canReadOrganizationAlerts = false;
-  export let canReadProjectInfo = false;
-  export let canReadProjectUsers = false;
-  export let canReadProjectRoles = false;
-  export let canReadProjectServerKeys = false;
-  export let canReadProjectAudit = false;
-  export let canReadProjectAlerts = false;
-  export let canReadProjectVault = false;
-  export let canReadProjectCodeReport = false;
-  export let canReadProjectStateIac = false;
-  export let canReadProjectMonitoring = false;
-  export let currentProjectSlug: string | null = null;
-  export let projects: {
+  type SidebarProject = {
+    id: string;
+    name: string;
     slug: string;
-    modules?: { vault: boolean; codereport: boolean; stateiac: boolean; monitoring?: boolean };
-  }[] = [];
+    organization?: { id: string; name: string; slug: string } | null;
+  };
 
-  let currentPath = pathname;
-  let openModules: Record<string, boolean> = {};
-  let lastPath: string | null = null;
+  type Props = {
+    pathname: string;
+    categories: NavCategory[];
+    collapsed?: boolean;
+    isConfigured?: boolean;
+    organizationSlug?: string | null;
+    organizationName?: string | null;
+    projects?: SidebarProject[];
+    currentProjectSlug?: string | null;
+    showSyncStatus?: boolean;
+    syncStatusHref?: string | null;
+    ontogglecollapse?: () => void;
+  };
 
-  $: currentPath = $page?.url?.pathname || pathname;
-  // sourced from the server load (parsed from the URL), so it never lags behind or
-  // blanks out during client-side navigation like $page.params could
-  $: currentProjectOrgSlug = organizationSlug;
-  $: currentProject = projects.find((project) => project.slug === currentProjectSlug) ?? null;
+  let {
+    pathname,
+    categories,
+    collapsed = false,
+    isConfigured = true,
+    organizationSlug = null,
+    organizationName = null,
+    projects = [],
+    currentProjectSlug = null,
+    showSyncStatus = false,
+    syncStatusHref = null,
+    ontogglecollapse,
+  }: Props = $props();
 
-  $: projectBase = `/org/${currentProjectOrgSlug}/projects/${currentProjectSlug}`;
+  const currentProject = $derived(projects.find((p) => p.slug === currentProjectSlug) ?? null);
+  const sidebarCategories = $derived(categories.filter((c) => c.sidebar !== false));
 
-  // one JSON-like tree drives the whole sidebar: category > module > items
-  $: categories = [
-    {
-      name: $_('sidebar.categories.inicio'),
-      modules: [
-        {
-          name: $_('sidebar.modules.overview'),
-          icon: LayoutDashboard,
-          items: organizationSlug
-            ? [
-                {
-                  label: $_('sidebar.items.overview'),
-                  href: `/org/${organizationSlug}/overview`,
-                  icon: LayoutDashboard,
-                },
-                {
-                  label: $_('sidebar.items.cves'),
-                  href: `/org/${organizationSlug}/cves`,
-                  icon: ShieldAlert,
-                },
-              ]
-            : [
-                {
-                  label: $_('sidebar.items.selectOrganization'),
-                  href: '/gitops-settings/orgs',
-                  icon: Building2,
-                },
-              ],
-        },
-      ],
-    },
-    ...(currentProject?.modules?.vault && canReadProjectVault
-      ? [
-          {
-            name: $_('sidebar.categories.seguridad'),
-            modules: [
-              {
-                name: $_('sidebar.modules.vault'),
-                icon: Shield,
-                base: `${projectBase}/vault`,
-                items: [
-                  {
-                    label: 'Secrets',
-                    href: `${projectBase}/vault`,
-                    icon: Shield,
-                  },
-                  {
-                    label: 'Integrations',
-                    href: `${projectBase}/vault/integrations`,
-                    icon: Plug,
-                  },
-                  {
-                    label: 'Settings',
-                    href: `${projectBase}/vault/settings`,
-                    icon: Settings,
-                  },
-                ],
-              },
-            ],
-          },
-        ]
-      : []),
-    ...(currentProject?.modules?.codereport && canReadProjectCodeReport
-      ? [
-          {
-            name: $_('sidebar.categories.analisis'),
-            modules: [
-              {
-                name: $_('sidebar.modules.codeReport'),
-                icon: BarChart3,
-                base: `${projectBase}/code-report`,
-                items: [
-                  {
-                    label: $_('sidebar.items.dashboard'),
-                    href: `${projectBase}/code-report/dashboard`,
-                    icon: LayoutDashboard,
-                  },
-                  {
-                    label: $_('sidebar.items.services'),
-                    href: `${projectBase}/code-report/services`,
-                    icon: Layers,
-                  },
-                  {
-                    label: $_('sidebar.items.cves'),
-                    href: `/org/${currentProjectOrgSlug}/cves?project=${currentProjectSlug}`,
-                    icon: ShieldAlert,
-                  },
-                  {
-                    label: $_('sidebar.items.securityPolicies'),
-                    href: `${projectBase}/code-report/security-policy`,
-                    icon: Shield,
-                  },
-                  {
-                    label: $_('sidebar.items.history'),
-                    href: `${projectBase}/code-report/history`,
-                    icon: GitBranch,
-                  },
-                  {
-                    label: $_('sidebar.items.settings'),
-                    href: `${projectBase}/code-report/settings`,
-                    icon: Settings,
-                  },
-                ],
-              },
-            ],
-          },
-        ]
-      : []),
-    ...(currentProject?.modules?.monitoring && canReadProjectMonitoring
-      ? [
-          {
-            name: $_('sidebar.categories.monitoring'),
-            modules: [
-              {
-                name: $_('sidebar.modules.monitoring'),
-                icon: Activity,
-                base: `${projectBase}/monitoring`,
-                items: [
-                  {
-                    label: $_('sidebar.items.dashboard'),
-                    href: `${projectBase}/monitoring/dashboard`,
-                    icon: LayoutDashboard,
-                  },
-                  {
-                    label: $_('sidebar.items.monitors'),
-                    href: `${projectBase}/monitoring/monitors`,
-                    icon: Activity,
-                  },
-                ],
-              },
-            ],
-          },
-        ]
-      : []),
-    ...(currentProject?.modules?.stateiac && canReadProjectStateIac
-      ? [
-          {
-            name: $_('sidebar.categories.gitops'),
-            modules: [
-              {
-                name: $_('sidebar.modules.stateIac'),
-                icon: GitBranch,
-                items: [
-                  {
-                    label: $_('sidebar.modules.stateIac'),
-                    href: `${projectBase}/state-iac`,
-                    icon: GitBranch,
-                  },
-                ],
-              },
-            ],
-          },
-        ]
-      : []),
-    ...(currentProjectSlug && canManageProject
-      ? (() => {
-          const items = [
-            {
-              label: $_('sidebar.items.information'),
-              href: `${projectBase}/settings/overview`,
-              icon: Info,
-              visible: canReadProjectInfo,
-            },
-            {
-              label: $_('sidebar.items.accessControl'),
-              href: `${projectBase}/settings/access-control`,
-              icon: Users,
-              visible: canReadProjectUsers,
-            },
-            {
-              label: $_('sidebar.items.rolesAndPermissions'),
-              href: `${projectBase}/settings/roles-permissions`,
-              icon: Shield,
-              visible: canReadProjectRoles,
-            },
-            {
-              label: $_('sidebar.items.audit'),
-              href: `${projectBase}/settings/audit`,
-              icon: ScrollText,
-              visible: canReadProjectAudit,
-            },
-            {
-              label: $_('sidebar.items.alerts'),
-              href: `${projectBase}/settings/alerts`,
-              icon: BellRing,
-              visible: canReadProjectAlerts,
-            },
-            {
-              label: $_('sidebar.items.serverKeys'),
-              href: `${projectBase}/settings/server-access-keys`,
-              icon: Shield,
-              visible: canReadProjectServerKeys,
-            },
-          ]
-            .filter((item) => item.visible)
-            .map(({ visible, ...item }) => item);
+  // selector de contexto: proyectos agrupados por organización, la actual primero
+  let switcherOpen = $state(false);
+  let query = $state('');
+  $effect(() => {
+    if (!switcherOpen) query = '';
+  });
 
-          return items.length > 0
-            ? [
-                {
-                  name: $_('sidebar.categories.proyecto'),
-                  modules: [
-                    {
-                      name: $_('sidebar.modules.projectSettings'),
-                      icon: FolderKanban,
-                      base: `${projectBase}/settings`,
-                      items,
-                    },
-                  ],
-                },
-              ]
-            : [];
-        })()
-      : []),
-    {
-      name: $_('sidebar.categories.organization'),
-      modules: [
-        ...(organizationSlug && canManageOrganization
-          ? (() => {
-              const items = [
-                {
-                  label: $_('sidebar.items.projects'),
-                  href: `/org/${organizationSlug}/settings/projects`,
-                  icon: FolderKanban,
-                  visible: canReadOrgProjects,
-                },
-                {
-                  label: $_('sidebar.items.global'),
-                  href: `/org/${organizationSlug}/settings/global`,
-                  icon: Shield,
-                  visible: canReadOrgGlobal,
-                },
-                {
-                  label: $_('sidebar.items.accessControl'),
-                  href: `/org/${organizationSlug}/settings/access-control`,
-                  icon: Users,
-                  visible: canReadOrgUsers,
-                },
-                {
-                  label: $_('sidebar.items.rolesAndPermissions'),
-                  href: `/org/${organizationSlug}/settings/roles-permissions`,
-                  icon: Users,
-                  visible: canReadOrgRoles,
-                },
-                {
-                  label: $_('sidebar.items.systemAndBackup'),
-                  href: `/org/${organizationSlug}/settings/system-backup`,
-                  icon: Database,
-                  visible: canReadOrgBackups,
-                },
-                {
-                  label: $_('sidebar.items.serverAccessKeys'),
-                  href: `/org/${organizationSlug}/settings/server-access-keys`,
-                  icon: KeyRound,
-                  visible: canReadOrgServerKeys,
-                },
-                {
-                  label: $_('sidebar.items.audit'),
-                  href: `/org/${organizationSlug}/settings/audit`,
-                  icon: ScrollText,
-                  visible: canReadOrgAudit,
-                },
-                {
-                  label: $_('sidebar.items.events'),
-                  href: `/org/${organizationSlug}/settings/events`,
-                  icon: Activity,
-                  visible: canReadOrgEvents,
-                },
-                {
-                  label: $_('sidebar.items.alerts'),
-                  href: `/org/${organizationSlug}/settings/alerts`,
-                  icon: BellRing,
-                  visible: canReadOrganizationAlerts,
-                },
-              ]
-                .filter((item) => item.visible)
-                .map(({ visible, ...item }) => item);
+  const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-              return items.length > 0
-                ? [
-                    {
-                      name: $_('sidebar.modules.organizationSettings'),
-                      icon: Settings,
-                      base: `/org/${organizationSlug}/settings`,
-                      items,
-                    },
-                  ]
-                : [];
-            })()
-          : []),
-        ...(canAccessClusterSettings
-          ? [
-              {
-                name: $_('sidebar.modules.clusterSettings'),
-                icon: Building2,
-                base: '/gitops-settings',
-                items: [
-                  {
-                    label: $_('sidebar.items.organizations'),
-                    href: '/gitops-settings/orgs',
-                    icon: Building2,
-                  },
-                  {
-                    label: $_('sidebar.items.rolesAndPermissions'),
-                    href: '/gitops-settings/roles-permissions',
-                    icon: Shield,
-                  },
-                  {
-                    label: $_('sidebar.items.accessControl'),
-                    href: '/gitops-settings/access-control',
-                    icon: Users,
-                  },
-                  {
-                    label: $_('sidebar.items.registration'),
-                    href: '/gitops-settings/registration',
-                    icon: KeyRound,
-                  },
-                  {
-                    label: $_('sidebar.items.database'),
-                    href: '/gitops-settings/database',
-                    icon: Database,
-                  },
-                  {
-                    label: $_('sidebar.items.auditLog'),
-                    href: '/gitops-settings/audit',
-                    icon: ScrollText,
-                  },
-                ],
-              },
-            ]
-          : []),
-      ],
-    },
-  ].filter((category) => category.modules.length > 0) satisfies NavCategory[];
+  const projectGroups = $derived.by(() => {
+    const q = normalize(query.trim());
+    const groups = new Map<
+      string,
+      { slug: string | null; name: string; projects: SidebarProject[] }
+    >();
+    for (const project of projects) {
+      const org = project.organization;
+      const key = org?.id ?? '';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          slug: org?.slug ?? null,
+          name: org?.name ?? $_('nav.noOrganization'),
+          projects: [],
+        });
+      }
+      const haystack = normalize(`${project.name} ${project.slug} ${org?.name ?? ''}`);
+      if (!q || haystack.includes(q)) groups.get(key)!.projects.push(project);
+    }
+    return [...groups.values()]
+      .filter((group) => !q || group.projects.length > 0)
+      .sort((a, b) =>
+        a.slug === organizationSlug ? -1 : b.slug === organizationSlug ? 1 : a.name.localeCompare(b.name),
+      );
+  });
 
-  // navigating drops manual toggles, so the module owning the new route is the one left open
-  $: if (currentPath !== lastPath) {
-    lastPath = currentPath;
-    openModules = {};
-  }
-
-  $: moduleOpenState = Object.fromEntries(
-    categories.flatMap((category) =>
-      category.modules.map((navModule) => [
-        navModule.name,
-        openModules[navModule.name] ?? isModuleActive(navModule),
-      ]),
-    ),
-  ) as Record<string, boolean>;
-
-  function isItemActive(href: string) {
-    return currentPath.startsWith(href);
-  }
-
-  function isModuleActive(navModule: NavModule) {
-    if (navModule.base && currentPath.startsWith(navModule.base)) return true;
-    return navModule.items.some((item) => isItemActive(item.href));
-  }
-
-  function toggleModule(navModule: NavModule) {
-    openModules = { ...openModules, [navModule.name]: !moduleOpenState[navModule.name] };
-  }
-
-  function toggleCollapsed() {
-    collapsed = !collapsed;
-  }
-  const page = createPageStore();
+  const projectHref = (project: SidebarProject) =>
+    `/org/${project.organization?.slug ?? organizationSlug}/projects/${project.slug}/overview`;
 </script>
 
-<aside class="flex h-full flex-col gap-5">
-  <div class="border-b border-[#101e31] px-1 pb-5">
-    <div class="flex items-center justify-between gap-3">
-      {#if !collapsed && organizationName}
-        <div class="min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#647189]">
-            {$_('sidebar.organization')}
-          </p>
-          <h2 class="mt-2 truncate text-base font-semibold text-white">{organizationName}</h2>
-        </div>
-      {/if}
-
+<aside class="flex h-full flex-col p-3">
+  <!-- Selector de contexto -->
+  <DropdownMenu
+    label={$_('nav.selectProject')}
+    class="w-72 overflow-hidden p-0"
+    initialFocus="input"
+    block
+    bind:open={switcherOpen}
+  >
+    {#snippet trigger(props)}
       <button
-        type="button"
-        class="btn-secondary inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-300"
-        on:click={toggleCollapsed}
-        aria-label={collapsed ? $_('sidebar.expandSidebar') : $_('sidebar.collapseSidebar')}
-        title={collapsed ? $_('sidebar.expandSidebar') : $_('sidebar.collapseSidebar')}
+        {...props}
+        class="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/2 p-2 text-left transition-colors hover:border-white/20 aria-expanded:border-white/20"
+        title={collapsed ? (currentProject?.name ?? organizationName ?? undefined) : undefined}
       >
-        {#if collapsed}
-          <PanelLeftOpen class="h-4 w-4" />
-        {:else}
-          <PanelLeftClose class="h-4 w-4" />
+        <span
+          class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500/15 text-sm"
+          aria-hidden="true">🦊</span
+        >
+        {#if !collapsed}
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-xs text-fg-subtle"
+              >{organizationName ?? $_('nav.noOrganizationSelected')}</span
+            >
+            <span class="block truncate text-sm font-medium text-white"
+              >{currentProject?.name ?? $_('nav.selectProject')}</span
+            >
+          </span>
+          <ChevronsUpDown class="h-4 w-4 shrink-0 text-fg-subtle" />
         {/if}
       </button>
+    {/snippet}
+
+    <div class="relative border-b border-white/8">
+      <Search
+        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+      />
+      <input
+        class="k-input-bare h-10 w-full pl-9 pr-3 text-sm"
+        placeholder={$_('nav.searchProjects')}
+        aria-label={$_('nav.searchProjects')}
+        bind:value={query}
+      />
     </div>
-  </div>
+
+    <div class="max-h-80 overflow-y-auto p-1.5">
+      {#each projectGroups as group (group.slug ?? '')}
+        <div class="mb-1">
+          <p class="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-xs font-medium text-fg-subtle">
+            <Building2 class="h-3 w-3" />{group.name}
+          </p>
+          {#each group.projects as project (project.id)}
+            <MenuItem
+              icon={FolderKanban}
+              tone={project.id === currentProject?.id ? 'brand' : 'default'}
+              href={projectHref(project)}
+            >
+              <span class="truncate">{project.name}</span>
+            </MenuItem>
+          {/each}
+        </div>
+      {:else}
+        <p class="px-2.5 py-6 text-center text-sm text-fg-subtle">
+          {query ? $_('nav.noProjectsFound') : $_('nav.noActiveProjects')}
+        </p>
+      {/each}
+    </div>
+
+    {#if organizationSlug}
+      <!-- proyectos de la organización seleccionada -->
+      <div class="border-t border-white/8 bg-ink-900/60 p-1.5">
+        <MenuItem icon={ArrowRight} href={`/org/${organizationSlug}/overview`}
+          >{$_('nav.viewAllProjects')}</MenuItem
+        >
+      </div>
+    {/if}
+  </DropdownMenu>
 
   {#if !isConfigured}
     <a
       href={organizationSlug
         ? `/org/${organizationSlug}/settings/storage`
         : '/gitops-settings/orgs'}
-      class="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950 transition-colors hover:border-amber-300 hover:bg-amber-100 {collapsed
+      class="mt-3 flex items-center gap-2.5 rounded-xl border border-warn/30 bg-warn/8 p-2.5 text-sm font-medium text-amber-200 transition-colors hover:border-warn/50 {collapsed
         ? 'justify-center'
-        : 'items-start'}"
-      title="Configure a storage backend"
+        : ''}"
+      title={$_('sidebar.setupPending')}
       data-sveltekit-preload-data
     >
-      <div class="flex h-8 w-8 items-center justify-center rounded-md bg-amber-200 text-amber-900">
-        <Lock class="h-3.5 w-3.5" />
-      </div>
-      {#if !collapsed}
-        <div class="min-w-0">
-          <p class="text-sm font-medium">{$_('sidebar.setupPending')}</p>
-        </div>
-      {/if}
+      <Lock class="h-4 w-4 shrink-0 text-warn" />
+      {#if !collapsed}<span class="truncate">{$_('sidebar.setupPending')}</span>{/if}
     </a>
   {/if}
 
-  <div class="space-y-5">
-    {#each categories as category, categoryIndex (category.name)}
-      <section
-        class:border-t={categoryIndex === categories.length - 1}
-        class:pt-4={categoryIndex === categories.length - 1}
-        class="border-[#101e31]"
-      >
+  <nav class="-mx-3 mt-6 flex-1 space-y-6 overflow-y-auto px-3" aria-label={$_('nav.navigation')}>
+    {#each sidebarCategories as category, index (category.name)}
+      <div>
         {#if !collapsed}
-          <div class="mb-2 px-1">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#647189]">
-              {category.name}
-            </p>
-          </div>
+          <p class="k-nav-heading">{category.name}</p>
+        {:else if index > 0}
+          <div class="k-divider mx-2 mb-3"></div>
         {/if}
-
-        <div class="space-y-2">
-          {#each category.modules as navModule (navModule.name)}
-            {#if navModule.items.length === 1}
-              {@const item = navModule.items[0]}
-              <a
-                href={item.href}
-                aria-current={isItemActive(item.href) ? 'page' : undefined}
-                class="group flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors {collapsed
-                  ? 'justify-center'
-                  : 'items-center'} {isItemActive(item.href)
-                  ? 'border-[#14305c] bg-[#0e1c31] font-semibold text-white shadow-[inset_0_0_24px_rgba(36,87,255,0.12)]'
-                  : 'border-[#142236] bg-[#071323]/65 text-slate-200 hover:border-[#263b58] hover:bg-[#0e1c31]'}"
-                title={navModule.name}
-                data-sveltekit-preload-data
-              >
-                <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {isItemActive(
-                    item.href,
-                  )
-                    ? 'bg-[#082862] text-[#1875ff]'
-                    : 'bg-transparent text-slate-300'}"
-                >
-                  <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
-                </div>
-
-                {#if !collapsed}
-                  <p class="min-w-0 flex-1 truncate text-sm font-medium">{navModule.name}</p>
-                {/if}
-              </a>
-            {:else if collapsed}
-              <a
-                href={navModule.items[0].href}
-                data-sveltekit-preload-data
-                class="group flex items-center justify-center rounded-lg border px-3 py-2.5 transition-colors {isModuleActive(
-                  navModule,
-                )
-                  ? 'border-[#14305c] bg-[#0e1c31] text-white'
-                  : 'border-[#142236] bg-[#071323]/65 text-slate-200 hover:border-[#263b58] hover:bg-[#0e1c31]'}"
-                title={navModule.name}
-              >
-                <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {isModuleActive(
-                    navModule,
-                  )
-                    ? 'bg-[#082862] text-[#1875ff]'
-                    : 'bg-transparent text-slate-300'}"
-                >
-                  <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
-                </div>
-              </a>
-            {:else}
-              <div class="space-y-2">
-                <button
-                  type="button"
-                  class="group flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors {isModuleActive(
-                    navModule,
-                  )
-                    ? 'border-[#14305c] bg-[#0e1c31] text-white shadow-[inset_0_0_24px_rgba(36,87,255,0.12)]'
-                    : 'border-[#142236] bg-[#071323]/65 text-slate-200 hover:border-[#263b58] hover:bg-[#0e1c31]'}"
-                  on:click={() => toggleModule(navModule)}
-                  aria-expanded={moduleOpenState[navModule.name]}
-                >
-                  <div
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {isModuleActive(
-                      navModule,
-                    )
-                      ? 'bg-transparent text-slate-300'
-                      : 'bg-transparent text-slate-300'}"
-                  >
-                    <svelte:component this={navModule.icon} class="h-3.5 w-3.5" />
-                  </div>
-                  <p class="min-w-0 flex-1 truncate text-sm font-medium">{navModule.name}</p>
-                  {#if moduleOpenState[navModule.name]}
-                    <ChevronDown class="h-4 w-4 shrink-0" />
-                  {:else}
-                    <ChevronRight class="h-4 w-4 shrink-0" />
-                  {/if}
-                </button>
-
-                {#if moduleOpenState[navModule.name]}
-                  <div class="ml-5 border-l border-[#142236] pl-3">
-                    <div class="space-y-1">
-                      {#each navModule.items as item (item.href)}
-                        <a
-                          href={item.href}
-                          aria-current={isItemActive(item.href) ? 'page' : undefined}
-                          class="group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors {isItemActive(
-                            item.href,
-                          )
-                            ? 'bg-[#062059] font-semibold text-[#0d7dff] before:absolute before:-right-1 before:top-1/2 before:h-1 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-[#0d7dff]'
-                            : 'text-slate-300 hover:bg-[#0e1c31] hover:text-white'}"
-                        >
-                          <svelte:component
-                            this={item.icon}
-                            class="h-3.5 w-3.5 shrink-0 {isItemActive(item.href)
-                              ? 'text-[color:var(--primary)]'
-                              : ''}"
-                          />
-                          <span class="truncate">{item.label}</span>
-                        </a>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            {/if}
+        <div class="space-y-0.5">
+          {#each category.modules as navModule (navModule.id)}
+            <a
+              href={navModule.items[0].href}
+              class="k-nav-item {collapsed ? 'justify-center px-0' : ''}"
+              aria-current={isModuleActive(pathname, navModule) ? 'page' : undefined}
+              title={collapsed ? navModule.name : undefined}
+              aria-label={collapsed ? navModule.name : undefined}
+              data-sveltekit-preload-data
+            >
+              <navModule.icon class="h-4 w-4 shrink-0" />
+              {#if !collapsed}<span class="flex-1 truncate">{navModule.name}</span>{/if}
+            </a>
           {/each}
         </div>
-      </section>
+      </div>
     {/each}
+  </nav>
+
+  <div class="mt-3 space-y-3">
+    <SidebarFooter {collapsed} {showSyncStatus} {syncStatusHref} {ontogglecollapse} />
   </div>
 </aside>

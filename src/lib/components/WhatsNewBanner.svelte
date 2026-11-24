@@ -31,21 +31,21 @@
 </script>
 
 {#if visible && entry && content}
-  <aside
-    class="border-b border-[#2457ff]/30 bg-[#0b1830]"
+  <section
+    class="mb-6 rounded-xl border border-brand-500/25 bg-brand-500/6"
     aria-label={$_('whatsNew.title', { values: { version: packageJson.version } })}
   >
-    <div class="mx-auto flex w-full max-w-[1600px] items-start gap-4 px-6 py-3 sm:px-8">
+    <div class="flex items-start gap-3 px-4 py-3">
       <div
-        class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#2457ff] shadow-[0_0_12px_rgba(36,87,255,.8)]"
+        class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500 shadow-[0_0_12px_rgba(249,93,17,.7)]"
       ></div>
       <div class="min-w-0 flex-1">
         <p class="text-sm font-semibold text-white">
           {$_('whatsNew.title', { values: { version: packageJson.version } })}
         </p>
-        <p class="mt-0.5 text-sm text-slate-300">
+        <p class="mt-0.5 text-sm text-fg-muted">
           {content.summary}
-          <a href="/changelog" class="ml-1 font-medium text-[#8aa7ff] hover:text-white">
+          <a href="/changelog" class="ml-1 font-medium text-brand-400 hover:text-brand-300">
             {$_('whatsNew.viewChangelog')}
           </a>
         </p>
@@ -53,11 +53,11 @@
       <button
         type="button"
         on:click={closeBanner}
-        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+        class="k-btn k-btn-ghost k-btn-icon k-btn-sm shrink-0"
         aria-label={$_('whatsNew.close')}
       >
         <X class="h-4 w-4" />
       </button>
     </div>
-  </aside>
+  </section>
 {/if}

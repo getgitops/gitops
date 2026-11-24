@@ -1,178 +1,134 @@
+<!-- Barra superior de la app (UI v3): logo, búsqueda ⌘K, documentación y menú de cuenta. -->
 <script lang="ts">
-  import { Building2, ChevronDown, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
+  import { onMount } from 'svelte';
+  import {
+    BookOpen,
+    Building2,
+    ChevronDown,
+    LogOut,
+    Menu,
+    Search,
+    Settings,
+    UserRound,
+    X,
+  } from '@lucide/svelte';
+  import { DropdownMenu, MenuItem } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
 
   type NavbarUser = { username: string; role: { name: string } | string | null };
 
-  export let user: NavbarUser | null = null;
-  export let projects: { id: string; name: string; slug: string }[] = [];
-  export let organizationSlug: string | null = 'gitops';
-  export let projectSlug = '';
+  type Props = {
+    user?: NavbarUser | null;
+    /** Ajustes de GitOps (solo administradores). */
+    settingsHref?: string | null;
+    /** Abre la búsqueda global. */
+    onsearch?: () => void;
+    /** Menú lateral en móvil. */
+    menuOpen?: boolean;
+    onmenu?: () => void;
+  };
 
-  let showUserDropdown = false;
-  let showProjectDropdown = false;
+  let { user = null, settingsHref = null, onsearch, menuOpen = false, onmenu }: Props = $props();
 
-  let userMenuRef: HTMLDivElement | undefined;
-  let projectMenuRef: HTMLDivElement | undefined;
+  const roleName = $derived(typeof user?.role === 'string' ? user.role : user?.role?.name);
 
-  function toggleUserDropdown() {
-    showUserDropdown = !showUserDropdown;
-  }
-
-  function closeUserDropdown() {
-    showUserDropdown = false;
-  }
-
-  function toggleProjectDropdown() {
-    showProjectDropdown = !showProjectDropdown;
-  }
-
-  function closeProjectDropdown() {
-    showProjectDropdown = false;
-  }
-
-  // header uses backdrop-blur, which traps fixed-position overlays inside it, so a viewport-wide
-  // backdrop can't be used to detect outside clicks — listen on the window instead.
-  function handleWindowClick(event: MouseEvent) {
-    const target = event.target as Node;
-
-    if (showUserDropdown && userMenuRef && !userMenuRef.contains(target)) {
-      showUserDropdown = false;
-    }
-
-    if (showProjectDropdown && projectMenuRef && !projectMenuRef.contains(target)) {
-      showProjectDropdown = false;
-    }
-  }
-
-  $: currentProject = projects.find((project) => project.slug === projectSlug) ?? null;
-  $: roleName = typeof user?.role === 'string' ? user.role : user?.role?.name;
+  // en el servidor no sabemos la plataforma: se pinta ⌘ y se corrige al montar
+  let modKey = $state('⌘');
+  onMount(() => {
+    if (!/Mac|iPhone|iPad/.test(navigator.platform)) modKey = 'Ctrl';
+  });
 </script>
 
-<svelte:window on:click={handleWindowClick} />
+<header
+  class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-white/8 bg-ink-950/80 px-3 backdrop-blur-xl sm:gap-4 sm:px-5"
+>
+  {#if onmenu}
+    <button
+      type="button"
+      class="k-btn k-btn-ghost k-btn-icon md:hidden"
+      aria-label={menuOpen ? $_('nav.closeMenu') : $_('nav.openMenu')}
+      aria-expanded={menuOpen}
+      aria-controls="app-sidebar"
+      onclick={onmenu}
+    >
+      {#if menuOpen}<X class="h-4 w-4" />{:else}<Menu class="h-4 w-4" />{/if}
+    </button>
+  {/if}
 
-<header class="sticky top-0 z-30 border-b border-[#142236] bg-[#020813]/95 backdrop-blur-xl">
-  <div class="mx-auto flex h-[84px] w-full items-center gap-6 px-6 sm:px-8">
-    <a href="/" class="flex items-center">
-      <img src="/gitops_logo_white.png" alt="GitOps" class="h-8 w-auto" />
+  <a href="/" class="flex shrink-0 items-center">
+    <img src="/brand/gitops-logo-dark.svg" alt="GitOps" class="h-6 w-auto" />
+  </a>
+
+  {#if user && onsearch}
+    <div class="mx-auto hidden w-full max-w-md md:block">
+      <button
+        type="button"
+        class="k-input flex h-9 items-center gap-2.5 text-left text-fg-subtle"
+        aria-label={$_('nav.search')}
+        aria-keyshortcuts="Meta+K Control+K"
+        onclick={onsearch}
+      >
+        <Search class="h-4 w-4 shrink-0" />
+        <span class="flex-1 truncate">{$_('nav.searchPlaceholder')}</span>
+        <span class="flex gap-1"
+          ><span class="k-kbd">{modKey}</span><span class="k-kbd">K</span></span
+        >
+      </button>
+    </div>
+  {/if}
+
+  <div class="ml-auto flex items-center gap-1.5 md:ml-0">
+    {#if user && onsearch}
+      <button
+        type="button"
+        class="k-btn k-btn-ghost k-btn-icon md:hidden"
+        aria-label={$_('nav.search')}
+        onclick={onsearch}
+      >
+        <Search class="h-4 w-4" />
+      </button>
+    {/if}
+
+    <a
+      href="https://getgitops.com/docs"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="k-btn k-btn-ghost k-btn-sm hidden sm:inline-flex"
+    >
+      <BookOpen class="h-4 w-4" />
+      {$_('nav.howTo')}
     </a>
 
     {#if user}
-      <div class="relative hidden md:block" bind:this={projectMenuRef}>
-        <button
-          type="button"
-          on:click={toggleProjectDropdown}
-          class="btn-secondary flex max-w-56 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-100"
-        >
-          <FolderKanban class="h-4 w-4 shrink-0 text-slate-400" />
-          <span class="truncate">{currentProject ? currentProject.name : $_('nav.selectProject')}</span>
-          <ChevronDown class="h-3.5 w-3.5 shrink-0 text-slate-400" />
-        </button>
-
-        {#if showProjectDropdown}
-          <div
-            class="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-[#1b2b42] bg-[#081526] shadow-2xl shadow-black/30"
-          >
-            {#if !organizationSlug}
-              <p class="px-4 py-3 text-sm text-slate-400">
-                {$_('nav.noOrganizationSelected')} <a href="/gitops-settings/orgs" class="underline"
-                  >{$_('nav.chooseOne')}</a
-                >.
-              </p>
-            {:else if projects.length === 0}
-              <p class="px-4 py-3 text-sm text-slate-400">{$_('nav.noActiveProjects')}</p>
-            {:else}
-              <div class="max-h-72 overflow-y-auto py-1">
-                {#each projects as project (project.id)}
-                  <a
-                    href={`/org/${organizationSlug}/projects/${project.slug}/overview`}
-                    on:click={closeProjectDropdown}
-                    class="flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#102139] {currentProject?.id ===
-                    project.id
-                      ? 'text-white'
-                      : 'text-slate-300'}"
-                  >
-                    <FolderKanban class="h-3.5 w-3.5 shrink-0" />
-                    <span class="truncate">{project.name}</span>
-                  </a>
-                {/each}
-              </div>
-            {/if}
-
-            {#if organizationSlug}
-              <a
-                href={`/org/${organizationSlug}/overview`}
-                on:click={closeProjectDropdown}
-                class="block border-t border-[#142236] bg-[#071323] px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-[#102139]"
-              >
-                {$_('nav.viewAllProjects')}
-              </a>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    {/if}
-
-    <div class="ml-auto flex items-center gap-3 sm:gap-4">
-      <a
-        href="https://getgitops.com/docs"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="hidden rounded-lg border border-[#1b2b42] bg-[#071323]/70 px-3.5 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-[#294467] hover:text-white md:inline-flex"
-      >
-        {$_('nav.howTo')}
-      </a>
-
-      {#if user}
-        <div class="relative ml-1" bind:this={userMenuRef}>
+      <DropdownMenu label={$_('nav.account')} align="end" class="w-60 p-1.5">
+        {#snippet trigger(props)}
           <button
-            on:click={toggleUserDropdown}
-            class="btn-secondary flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-left"
+            {...props}
+            class="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-white/5 aria-expanded:bg-white/6"
+            aria-label={$_('nav.account')}
           >
-            <div
-              class="flex h-9 w-9 items-center justify-center rounded-full bg-[#202945] text-xs font-bold uppercase text-white ring-1 ring-white/10"
+            <span
+              class="grid h-7 w-7 place-items-center rounded-full bg-linear-to-br from-brand-400 to-brand-700 text-xs font-semibold uppercase text-white"
+              >{user.username.slice(0, 2)}</span
             >
-              {user.username.slice(0, 2)}
-            </div>
-            <ChevronDown class="h-3.5 w-3.5 text-slate-400" />
+            <ChevronDown class="h-3.5 w-3.5 text-fg-subtle" />
           </button>
-
-          {#if showUserDropdown}
-            <div
-              class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#1b2b42] bg-[#081526] shadow-2xl shadow-black/30"
-            >
-              <div class="border-b border-[#142236] bg-[#071323] px-4 py-3">
-                <p class="truncate text-sm font-semibold text-white">{user.username}</p>
-                <p class="truncate text-xs text-slate-400 capitalize">{roleName} {$_('nav.account')}</p>
-              </div>
-              <a
-                href="/profile"
-                on:click={closeUserDropdown}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-[#102139]"
-              >
-                <UserRound class="h-4 w-4" />
-                {$_('nav.profile')}
-              </a>
-              <a
-                href="/org"
-                on:click={closeUserDropdown}
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-[#102139]"
-              >
-                <Building2 class="h-4 w-4" />
-                {$_('nav.changeOrganization')}
-              </a>
-              <a
-                href="/auth/logout"
-                on:click={closeUserDropdown}
-                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10"
-              >
-                <LogOut class="h-4 w-4" />
-                {$_('nav.signOut')}
-              </a>
-            </div>
-          {/if}
+        {/snippet}
+        <div class="px-2.5 py-2">
+          <p class="truncate text-sm font-medium text-white">{user.username}</p>
+          {#if roleName}<p class="truncate text-xs capitalize text-fg-subtle">{roleName}</p>{/if}
         </div>
-      {/if}
-    </div>
+        <div class="k-divider my-1" role="separator"></div>
+        <MenuItem icon={UserRound} href="/profile">{$_('nav.profile')}</MenuItem>
+        <MenuItem icon={Building2} href="/org">{$_('nav.changeOrganization')}</MenuItem>
+        {#if settingsHref}
+          <MenuItem icon={Settings} href={settingsHref}
+            >{$_('sidebar.modules.clusterSettings')}</MenuItem
+          >
+        {/if}
+        <div class="k-divider my-1" role="separator"></div>
+        <MenuItem icon={LogOut} tone="danger" href="/auth/logout">{$_('nav.signOut')}</MenuItem>
+      </DropdownMenu>
+    {/if}
   </div>
 </header>

@@ -778,33 +778,3 @@ html.dark .btn-danger {
   box-sizing: border-box;
 }
 
-.app-shell-sidebar {
-  width: 100%;
-}
-
-html.dark .app-shell-sidebar {
-  background-color: #0e0f14 !important;
-  border-color: #34373d !important;
-}
-
-.app-shell-main {
-  padding-left: 0;
-}
-
-.app-shell-footer {
-  padding-left: 0;
-}
-
-@media (min-width: 768px) {
-  .app-shell-sidebar {
-    width: var(--sidebar-width);
-  }
-
-  .app-shell-main {
-    padding-left: calc(var(--sidebar-width) + 24px);
-  }
-
-  .app-shell-footer {
-    padding-left: calc(var(--sidebar-width) + 24px);
-  }
-}

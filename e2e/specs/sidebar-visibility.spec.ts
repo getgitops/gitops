@@ -5,7 +5,7 @@ const seed = getSeed();
 const org = seed.primaryOrgSlug;
 const project = seed.primaryProjectSlug;
 
-test('org developer only has a sidebar link into "Proyectos", nothing else', async ({
+test('org developer only has a link into "Proyectos", nothing else', async ({
   page,
   loginAs,
 }) => {
@@ -16,15 +16,18 @@ test('org developer only has a sidebar link into "Proyectos", nothing else', asy
   await expect(sidebar.locator(`a[href="/org/${org}/settings/global"]`)).toHaveCount(0);
   await expect(sidebar.locator(`a[href="/org/${org}/settings/access-control"]`)).toHaveCount(0);
   await expect(sidebar.locator(`a[href="/org/${org}/settings/audit"]`)).toHaveCount(0);
+  // con un solo recurso no hay pestañas de sección
+  await expect(page.locator('#section-nav')).toHaveCount(0);
 });
 
-test('org admin has sidebar links into every organization settings resource', async ({
+test('org admin has links into every organization settings resource', async ({
   page,
   loginAs,
 }) => {
   await loginAs('orgAdmin');
   await page.goto(`/org/${org}/settings/projects`);
-  const sidebar = page.locator('aside').first();
+  // el sidebar enlaza el módulo; cada recurso está en las pestañas de sección
+  const sectionNav = page.locator('#section-nav');
   for (const path of [
     'projects',
     'global',
@@ -34,7 +37,7 @@ test('org admin has sidebar links into every organization settings resource', as
     'server-access-keys',
     'audit',
   ]) {
-    await expect(sidebar.locator(`a[href="/org/${org}/settings/${path}"]`)).toBeVisible();
+    await expect(sectionNav.locator(`a[href="/org/${org}/settings/${path}"]`)).toBeVisible();
   }
 });
 
@@ -56,11 +59,9 @@ test('project admin has a sidebar link into Code Report', async ({ page, loginAs
   await page.goto(`/org/${org}/projects/${project}/settings/overview`);
   const sidebar = page.locator('aside').first();
   const base = `/org/${org}/projects/${project}`;
-  // Code Report has multiple sub-items, so it renders as a collapsible group (button, not a
-  // direct link) — its label being present is enough to prove the module itself is visible.
   await expect(sidebar.getByText('Code Report', { exact: true })).toBeVisible();
-  // Vault and State IaC are "coming soon": the service forces both modules off, so they never
-  // reach the sidebar regardless of permissions.
-  await expect(sidebar.locator(`a[href="${base}/vault"]`)).toHaveCount(0);
+  // Vault is enabled for the seeded project, so the admin gets it too. State IaC is "coming soon":
+  // the service forces it off, so it never reaches the sidebar regardless of permissions.
+  await expect(sidebar.locator(`a[href="${base}/vault"]`)).toBeVisible();
   await expect(sidebar.locator(`a[href^="${base}/state-iac"]`)).toHaveCount(0);
 });

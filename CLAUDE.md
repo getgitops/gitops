@@ -118,9 +118,22 @@ session like any other page. Check it there before inventing a new style.
   `series-1…5` in that fixed order. Use `bg-snow` for pure white: legacy `app.css` overrides
   `.bg-white`, `.bg-white/15|70|80|90`, `.border-white/15|60`, `.text-slate-*`, `.shadow-sm|md|xl`
   with `!important`, so avoid those classes in v3 code.
+- **App shell (migrated to v3):** `+layout.svelte` renders `AppNavbar` (logo, ⌘K search, docs,
+  account menu with "Ajustes de GitOps" for cluster admins) and `AppSidebar` as in the `/brand` mock:
+  context switcher (projects grouped by organization, with search, and one "Ver todos los proyectos"
+  link for the selected organization), flat sections (Proyecto:
+  Dashboard + each enabled product + Ajustes; Organización), and `SidebarFooter` (version, GitDB
+  status, collapse). There is no page footer. A module with several pages shows them as tabs
+  (`#section-nav`) above the content. The tree lives in `#lib/navigation.ts` (`buildNavigation`) and
+  feeds the sidebar, the tabs and the search: add new routes there with their permission flag
+  (`sidebar: false` keeps a category out of the sidebar). The layout mounts `CommandPalette` and
+  `Toaster` once; do not add another in a page. Collapsed mode is stored in `localStorage`
+  (`gitops-sidebar-collapsed`); below `md` the sidebar is off-canvas. Auth, bootstrap and `/brand`
+  keep the bare layout. The sidebar must stay the first `<aside>` in the DOM
+  (`sidebar-visibility.spec.ts`). Pages inside the shell are still v2 until migrated one by one.
 - Logo files are in `static/brand/` (`gitops-logo-dark|light.svg`, `gitops-mark-*.svg`,
-  `gitops-icon.svg` and PNGs). The old `gitops_logo*.png`, `icono_*.png` and `favicon.png` are
-  still used by the v2 layout.
+  `gitops-icon.svg` and PNGs). The navbar uses the new logo; the old `gitops_logo*.png`,
+  `icono_*.png` and `favicon.png` are still used elsewhere (favicon, auth pages).
 - Legacy: `#lib/components/Dropdown.svelte` and the `btn-*` / `field-input` classes are v2; replace
   them with the v3 equivalents when a screen is migrated, not piecemeal.
 - `e2e/specs/brand-ui.spec.ts` covers keyboard, focus and closing behavior of the UI components;
