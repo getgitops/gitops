@@ -3,7 +3,7 @@
   import { onMount, type Snippet } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { BookOpen, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
+  import { BookOpen, ChevronRight, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
   import AppNavbar from '#lib/components/AppNavbar.svelte';
   import AppSidebar from '#lib/components/AppSidebar.svelte';
   import WhatsNewBanner from '#lib/components/WhatsNewBanner.svelte';
@@ -77,6 +77,32 @@
       null,
   );
   const sectionItem = $derived(sectionModule ? activeItem(pathname, sectionModule) : null);
+
+  // migas de pan: organización › proyecto › módulo › página del módulo
+  const crumbs = $derived.by(() => {
+    const list: { label: string; href: string }[] = [];
+    const navModule =
+      categories
+        .flatMap((category) => category.modules)
+        .find((candidate) => isModuleActive(pathname, candidate)) ?? null;
+    const org = data.organization as { name: string; slug: string } | null;
+    if (org && navModule?.id !== 'cluster-settings') {
+      list.push({ label: org.name, href: `/org/${org.slug}/overview` });
+    }
+    const project = projects.find((p) => p.slug === data.currentProjectSlug);
+    if (org && project) {
+      list.push({
+        label: project.name,
+        href: `/org/${org.slug}/projects/${project.slug}/overview`,
+      });
+    }
+    if (navModule && navModule.id !== 'project-dashboard' && navModule.id !== 'org-overview') {
+      list.push({ label: navModule.name, href: navModule.items[0].href });
+      const item = navModule.items.length > 1 ? activeItem(pathname, navModule) : null;
+      if (item) list.push({ label: item.label, href: item.href });
+    }
+    return list;
+  });
 
   const searchGroups: CommandGroup[] = $derived.by(() => {
     const orgSlug = data.organization?.slug;
@@ -184,6 +210,23 @@
     <main class="min-w-0 flex-1 transition-[padding] duration-200 md:pl-(--sidebar-width)">
       <div class="px-4 py-6 sm:px-6">
         <WhatsNewBanner />
+        {#if crumbs.length > 1}
+          <nav aria-label={$_('nav.breadcrumbs')} class="mb-4">
+            <ol class="flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
+              {#each crumbs as crumb, index (index)}
+                {@const last = index === crumbs.length - 1}
+                <li class="flex min-w-0 items-center gap-1.5">
+                  {#if index > 0}<ChevronRight class="h-3 w-3 shrink-0" aria-hidden="true" />{/if}
+                  <a
+                    href={crumb.href}
+                    class="truncate transition-colors hover:text-white {last ? 'text-fg' : ''}"
+                    aria-current={crumb.href === pathname ? 'page' : undefined}>{crumb.label}</a
+                  >
+                </li>
+              {/each}
+            </ol>
+          </nav>
+        {/if}
         {#if sectionModule}
           <nav
             id="section-nav"

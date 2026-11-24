@@ -103,7 +103,7 @@ session like any other page. Check it there before inventing a new style.
   They live in `@layer components`, so Tailwind utilities can adjust them (`k-input h-9 pl-9`).
 - **Anything with behavior, focus or ARIA → `#lib/components/ui`** (import from the index):
   `Modal`, `Drawer`, `DropdownMenu` + `MenuItem`, `Select`, `Field`, `Switch`, `Tabs`
-  (`underline` / `segmented`), `CommandPalette`, `toast` + `Toaster`. Never hand-roll outside
+  (`underline` / `segmented`), `TagInput`, `CommandPalette`, `toast` + `Toaster`. Never hand-roll outside
   click, Esc, focus trapping or scroll locking in a page; `ui/overlay.ts` already does it (Esc only
   closes the top-most overlay).
 - Every form control goes inside `Field` (label, help and error wired with `aria-describedby` /
@@ -112,6 +112,20 @@ session like any other page. Check it there before inventing a new style.
   button `form="that-id"`. Put `data-autofocus` on the field that should get the initial focus.
 - `Select` and `Switch` accept `name` and add a hidden input, but they need JavaScript. Forms that
   must work without JS keep a native `<select class="k-input">` / `<input type="checkbox" class="k-checkbox">`.
+- Creating something from a list opens a `Modal` instead of navigating; keep the `/new` route for
+  direct links and no-JS, and post the modal form to that route's actions with local result
+  handling (see `monitoring/NewMonitorModal.svelte` + `MonitorForm` `variant="modal"`).
+- Page pattern (see project settings): `<header>` with `h1.text-2xl` + `text-fg-muted` description
+  and the primary action on the right; content in `k-card`s; success/error feedback with `toast`,
+  not inline banners; every destructive action (delete, revoke, rotate, remove access) confirms in
+  a `Modal` (`role="alertdialog"`), and deleting a top-level entity asks to type its name.
+- Floating panels (`DropdownMenu`, `Select`, `TagInput` suggestions) render in `<body>` through
+  `floating` in `ui/overlay.ts`, so no `overflow` (tables, modal bodies) clips them.
+- Alerts: one alert notifies several channels (`mail`, `slack`, `google_chat`, `webhook`), one
+  message each; targets live in `recipients` (`userIds`/`roleIds`/`emails`, `slackChannels`,
+  `googleChatSpaces`, `webhookUrls`). Only `mail` is delivered (`DELIVERED_CHANNELS`); the rest are
+  stored and validated. Create/edit happens in `AlertWizard` (modal); the `/new` and `/[id]` pages
+  keep the no-JS editor (`AlertEditor`), so new alert fields must be added to both.
 - `toast.*` is client-only (module state): call it from event handlers, never during SSR.
 - Tokens: `bg-ink-950…500`, `brand-50…900`, text `text-fg|fg-muted|fg-subtle`, status
   `ok|warn|danger|info` (always with an icon or text, never as a chart series), chart series
@@ -126,7 +140,8 @@ session like any other page. Check it there before inventing a new style.
   status, collapse). There is no page footer. A module with several pages shows them as tabs
   (`#section-nav`) above the content. The tree lives in `#lib/navigation.ts` (`buildNavigation`) and
   feeds the sidebar, the tabs and the search: add new routes there with their permission flag
-  (`sidebar: false` keeps a category out of the sidebar). The layout mounts `CommandPalette` and
+  (`sidebar: false` keeps a category out of the sidebar). The same tree builds the breadcrumbs above the tabs
+  (org › project › module › page); project pages have no header of their own. The layout mounts `CommandPalette` and
   `Toaster` once; do not add another in a page. Collapsed mode is stored in `localStorage`
   (`gitops-sidebar-collapsed`); below `md` the sidebar is off-canvas. Auth, bootstrap and `/brand`
   keep the bare layout. The sidebar must stay the first `<aside>` in the DOM

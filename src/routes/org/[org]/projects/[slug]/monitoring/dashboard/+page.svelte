@@ -5,11 +5,21 @@
   import { _ } from '#lib/i18n';
   import { formatLatency, formatUptime, secondsSince, uptimeTone } from '#lib/monitoring/format';
   import MonitorRow from '#lib/components/monitoring/MonitorRow.svelte';
+  import { Tabs, tabId, tabPanelId } from '#lib/components/ui';
   import StatusDot from '#lib/components/monitoring/StatusDot.svelte';
   import type { MonitorRowData, ServiceOption } from '#lib/components/monitoring/types';
+  import NewMonitorModal from '#lib/components/monitoring/NewMonitorModal.svelte';
   import type { PageData } from './$types';
 
   let { data }: { data: PageData } = $props();
+
+  let newOpen = $state(false);
+  // el enlace sigue llevando a /monitors/new (nueva pestaña, sin JavaScript); un clic normal abre el modal
+  function openNew(event: MouseEvent) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    newOpen = true;
+  }
 
   const REFRESH_MS = 30_000;
   let range = $state<'hour' | 'day'>('day');
@@ -72,39 +82,43 @@
   let updatedAgo = $derived(Math.round(secondsSince(data.loadedAt, now) ?? 0));
 
   const filters = ['all', 'down', 'degraded', 'up', 'paused'] as const;
+  let filterTabs = $derived(
+    filters.map((option) => ({
+      value: option,
+      label: option === 'all' ? $_('monitoring.dashboard.all') : $_(`monitoring.status.${option}`),
+    })),
+  );
+  let rangeTabs = $derived([
+    { value: 'hour', label: '24 h' },
+    { value: 'day', label: $_('monitoring.dashboard.days', { values: { count: 60 } }) },
+  ]);
+
+  const glow: Record<string, string> = {
+    down: 'bg-danger/20',
+    degraded: 'bg-warn/15',
+    up: 'bg-ok/10',
+    none: 'bg-brand-500/10',
+  };
 </script>
 
 <svelte:head><title>{$_('monitoring.dashboard.title')} - {data.project.name}</title></svelte:head>
 
 <div class="space-y-6">
   <!-- hero -->
-  <section
-    class="relative overflow-hidden rounded-3xl border p-6 sm:p-8 {overall === 'down'
-      ? 'border-rose-500/30 bg-gradient-to-br from-rose-500/15 via-[var(--surface)] to-[var(--surface)]'
-      : overall === 'degraded'
-        ? 'border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-[var(--surface)] to-[var(--surface)]'
-        : 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-[var(--surface)] to-[var(--surface)]'}"
-  >
+  <section class="k-card relative overflow-hidden p-6 sm:p-8">
     <div
-      class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl {overall ===
-      'down'
-        ? 'bg-rose-500/20'
-        : overall === 'degraded'
-          ? 'bg-amber-500/20'
-          : 'bg-emerald-500/10'}"
+      class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full blur-3xl {glow[
+        overall
+      ]}"
     ></div>
     <div class="relative flex flex-wrap items-start justify-between gap-6">
       <div class="flex items-center gap-4">
-        <div
-          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-black/20"
-        >
+        <div class="grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-ink-900">
           <StatusDot status={overall === 'none' ? 'pending' : overall} size="lg" />
         </div>
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-            {$_('monitoring.dashboard.eyebrow')}
-          </p>
-          <h1 class="mt-1 text-2xl font-bold text-white sm:text-3xl">
+          <p class="k-nav-heading mb-0 px-0">{$_('monitoring.dashboard.eyebrow')}</p>
+          <h1 class="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             {#if overall === 'down'}
               {$_('monitoring.dashboard.headlineDown', { values: { count: counts.down } })}
             {:else if overall === 'degraded'}
@@ -115,7 +129,7 @@
               {$_('monitoring.dashboard.headlineEmpty')}
             {/if}
           </h1>
-          <p class="mt-1 text-sm text-slate-400">
+          <p class="mt-1 text-sm text-fg-subtle">
             {$_('monitoring.dashboard.updated', { values: { seconds: updatedAgo } })}
           </p>
         </div>
@@ -123,7 +137,8 @@
       {#if data.monitoringPermissions.canCreate}
         <a
           href={`${data.monitoringBase}/monitors/new`}
-          class="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+          onclick={openNew}
+          class="k-btn k-btn-primary"
         >
           <Plus class="h-4 w-4" />{$_('monitoring.newMonitor')}
         </a>
@@ -132,63 +147,53 @@
 
     <!-- kpis -->
     <div class="relative mt-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
-      <div class="rounded-2xl border border-white/5 bg-black/20 p-4">
-        <p
-          class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
-        >
+      <div class="rounded-xl border border-white/8 bg-ink-900/60 p-4">
+        <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
           <Activity class="h-3.5 w-3.5" />{$_('monitoring.dashboard.monitors')}
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums text-white">{data.monitors.length}</p>
-        <p class="mt-1 flex flex-wrap gap-x-2 text-[11px] text-slate-500">
-          <span class="text-emerald-400">{counts.up} up</span>
-          {#if counts.degraded}<span class="text-amber-400"
+        <p class="mt-2 text-2xl font-semibold tabular-nums text-white">{data.monitors.length}</p>
+        <p class="mt-1 flex flex-wrap gap-x-2 text-[11px] text-fg-subtle">
+          <span class="text-ok">{counts.up} up</span>
+          {#if counts.degraded}<span class="text-warn"
               >{counts.degraded} {$_('monitoring.status.degraded').toLowerCase()}</span
             >{/if}
-          {#if counts.down}<span class="text-rose-400">{counts.down} down</span>{/if}
+          {#if counts.down}<span class="text-red-400">{counts.down} down</span>{/if}
           {#if counts.paused}<span
               >{counts.paused} {$_('monitoring.status.paused').toLowerCase()}</span
             >{/if}
         </p>
       </div>
-      <div class="rounded-2xl border border-white/5 bg-black/20 p-4">
-        <p
-          class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
-        >
+      <div class="rounded-xl border border-white/8 bg-ink-900/60 p-4">
+        <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
           <Gauge class="h-3.5 w-3.5" />{$_('monitoring.uptime.h24')}
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums {uptimeTone(uptime24)}">
+        <p class="mt-2 text-2xl font-semibold tabular-nums {uptimeTone(uptime24)}">
           {formatUptime(uptime24)}
         </p>
       </div>
-      <div class="rounded-2xl border border-white/5 bg-black/20 p-4">
-        <p
-          class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
-        >
+      <div class="rounded-xl border border-white/8 bg-ink-900/60 p-4">
+        <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
           <Timer class="h-3.5 w-3.5" />{$_('monitoring.uptime.d30')}
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums {uptimeTone(uptime30)}">
+        <p class="mt-2 text-2xl font-semibold tabular-nums {uptimeTone(uptime30)}">
           {formatUptime(uptime30)}
         </p>
       </div>
-      <div class="rounded-2xl border border-white/5 bg-black/20 p-4">
-        <p
-          class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
-        >
+      <div class="rounded-xl border border-white/8 bg-ink-900/60 p-4">
+        <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
           <Zap class="h-3.5 w-3.5" />{$_('monitoring.dashboard.avgLatency')}
         </p>
-        <p class="mt-2 text-2xl font-bold tabular-nums text-white">
+        <p class="mt-2 text-2xl font-semibold tabular-nums text-white">
           {formatLatency(latency === null ? null : Math.round(latency))}
         </p>
       </div>
-      <div class="col-span-2 rounded-2xl border border-white/5 bg-black/20 p-4 lg:col-span-1">
-        <p
-          class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500"
-        >
+      <div class="col-span-2 rounded-xl border border-white/8 bg-ink-900/60 p-4 lg:col-span-1">
+        <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
           <CircleAlert class="h-3.5 w-3.5" />{$_('monitoring.dashboard.openIncidents')}
         </p>
         <p
-          class="mt-2 text-2xl font-bold tabular-nums {counts.down + counts.degraded
-            ? 'text-rose-400'
+          class="mt-2 text-2xl font-semibold tabular-nums {counts.down + counts.degraded
+            ? 'text-red-400'
             : 'text-white'}"
         >
           {counts.down + counts.degraded}
@@ -199,95 +204,85 @@
 
   <!-- toolbar -->
   <div class="flex flex-wrap items-center gap-3">
-    <div class="relative min-w-[14rem] flex-1">
-      <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+    <label class="relative min-w-56 flex-1">
+      <span class="sr-only">{$_('monitoring.dashboard.search')}</span>
+      <Search
+        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+      />
       <input
         bind:value={query}
         placeholder={$_('monitoring.dashboard.search')}
-        class="field-input w-full rounded-xl border py-2.5 pl-10 pr-4 text-sm"
+        class="k-input h-9 pl-9"
       />
-    </div>
-    <div
-      class="flex flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 text-xs font-semibold"
-    >
-      {#each filters as option (option)}
-        <button
-          type="button"
-          class="rounded-lg px-3 py-1.5 transition {filter === option
-            ? 'bg-[#16294a] text-white'
-            : 'text-slate-400 hover:text-slate-200'}"
-          onclick={() => (filter = option)}
-        >
-          {option === 'all' ? $_('monitoring.dashboard.all') : $_(`monitoring.status.${option}`)}
-        </button>
-      {/each}
-    </div>
-    <div
-      class="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 text-xs font-semibold"
-    >
-      <button
-        type="button"
-        class="rounded-lg px-3 py-1.5 transition {range === 'hour'
-          ? 'bg-[#16294a] text-white'
-          : 'text-slate-400 hover:text-slate-200'}"
-        onclick={() => (range = 'hour')}>24 h</button
-      >
-      <button
-        type="button"
-        class="rounded-lg px-3 py-1.5 transition {range === 'day'
-          ? 'bg-[#16294a] text-white'
-          : 'text-slate-400 hover:text-slate-200'}"
-        onclick={() => (range = 'day')}
-        >{$_('monitoring.dashboard.days', { values: { count: 60 } })}</button
-      >
-    </div>
+    </label>
+    <Tabs
+      variant="segmented"
+      label={$_('monitoring.dashboard.filterLabel')}
+      idPrefix="monitor-filter"
+      items={filterTabs}
+      bind:value={() => filter, (next) => (filter = next as typeof filter)}
+    />
+    <Tabs
+      variant="segmented"
+      label={$_('monitoring.dashboard.rangeLabel')}
+      idPrefix="monitor-range"
+      items={rangeTabs}
+      bind:value={() => range, (next) => (range = next as typeof range)}
+    />
   </div>
 
   <!-- monitors -->
-  {#if data.monitors.length === 0}
-    <div
-      class="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-12 text-center"
-    >
-      <Activity class="mx-auto h-10 w-10 text-slate-600" />
-      <p class="mt-4 text-base font-semibold text-slate-200">
-        {$_('monitoring.dashboard.emptyTitle')}
-      </p>
-      <p class="mx-auto mt-1 max-w-md text-sm text-slate-500">
-        {$_('monitoring.dashboard.emptyDescription')}
-      </p>
-      {#if data.monitoringPermissions.canCreate}
-        <a
-          href={`${data.monitoringBase}/monitors/new`}
-          class="btn-primary mt-6 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+  <div
+    role="tabpanel"
+    id={tabPanelId('monitor-filter', filter)}
+    aria-labelledby={tabId('monitor-filter', filter)}
+  >
+    {#if data.monitors.length === 0}
+      <div class="k-card border-dashed p-12 text-center">
+        <span
+          class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-brand-500/10 text-brand-400"
         >
-          <Plus class="h-4 w-4" />{$_('monitoring.newMonitor')}
-        </a>
-      {/if}
-    </div>
-  {:else if visible.length === 0}
-    <p
-      class="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 text-center text-sm text-slate-500"
-    >
-      {$_('monitoring.dashboard.noMatches')}
-    </p>
-  {:else}
-    <div class="space-y-2">
-      {#each visible as row (row.monitor.id)}
-        <MonitorRow
-          {row}
-          {range}
-          href={`${data.monitoringBase}/monitors/${row.monitor.id}`}
-          serviceName={row.monitor.serviceId
-            ? (serviceNames.get(row.monitor.serviceId) ?? null)
-            : null}
-        />
-      {/each}
-    </div>
-  {/if}
+          <Activity class="h-6 w-6" />
+        </span>
+        <p class="mt-4 text-base font-semibold text-white">
+          {$_('monitoring.dashboard.emptyTitle')}
+        </p>
+        <p class="mx-auto mt-1 max-w-md text-sm text-fg-muted">
+          {$_('monitoring.dashboard.emptyDescription')}
+        </p>
+        {#if data.monitoringPermissions.canCreate}
+          <a
+            href={`${data.monitoringBase}/monitors/new`}
+            onclick={openNew}
+            class="k-btn k-btn-primary mt-6"
+          >
+            <Plus class="h-4 w-4" />{$_('monitoring.newMonitor')}
+          </a>
+        {/if}
+      </div>
+    {:else if visible.length === 0}
+      <p class="k-card p-8 text-center text-sm text-fg-subtle">
+        {$_('monitoring.dashboard.noMatches')}
+      </p>
+    {:else}
+      <div class="space-y-2">
+        {#each visible as row (row.monitor.id)}
+          <MonitorRow
+            {row}
+            {range}
+            href={`${data.monitoringBase}/monitors/${row.monitor.id}`}
+            serviceName={row.monitor.serviceId
+              ? (serviceNames.get(row.monitor.serviceId) ?? null)
+              : null}
+          />
+        {/each}
+      </div>
+    {/if}
+  </div>
 
   <!-- runtime -->
-  <footer
-    class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3 text-xs text-slate-500"
+  <div
+    class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-white/8 px-4 py-3 text-xs text-fg-subtle"
   >
     <span class="inline-flex items-center gap-1.5">
       <Cpu class="h-3.5 w-3.5" />
@@ -304,7 +299,7 @@
       })}</span
     >
     {#if data.info.scheduler.overdue > 0}
-      <span class="text-amber-400"
+      <span class="text-warn"
         >{$_('monitoring.dashboard.overdue', {
           values: { count: data.info.scheduler.overdue },
         })}</span
@@ -315,5 +310,17 @@
         ? $_('monitoring.dashboard.dedicatedRepo')
         : $_('monitoring.dashboard.sharedRepo')}</span
     >
-  </footer>
+  </div>
 </div>
+
+{#if data.monitoringPermissions.canCreate}
+  <NewMonitorModal
+    bind:open={newOpen}
+    monitoringBase={data.monitoringBase}
+    services={data.services}
+    methods={data.newMonitor.methods}
+    intervals={data.newMonitor.intervals}
+    values={data.newMonitor.values}
+    canTest={data.monitoringPermissions.canTest}
+  />
+{/if}

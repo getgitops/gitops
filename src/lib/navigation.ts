@@ -26,7 +26,13 @@ export type NavIcon = Component<any>;
 export type NavItem = { label: string; href: string; icon: NavIcon };
 // Un módulo es una entrada del sidebar. Si tiene varios `items`, el layout los pinta como pestañas
 // encima del contenido. `base` es su espacio de URLs: lo mantiene activo en cualquier subruta.
-export type NavModule = { id: string; name: string; icon: NavIcon; items: NavItem[]; base?: string };
+export type NavModule = {
+  id: string;
+  name: string;
+  icon: NavIcon;
+  items: NavItem[];
+  base?: string;
+};
 // `sidebar: false`: solo en la búsqueda y en las pestañas (p. ej. ajustes de GitOps, que van en el
 // menú de cuenta)
 export type NavCategory = { name: string; modules: NavModule[]; sidebar?: boolean };
@@ -118,7 +124,7 @@ export function buildNavigation(
           },
           {
             label: t('sidebar.items.cves'),
-            href: `/org/${organizationSlug}/cves?project=${currentProjectSlug}`,
+            href: `${projectBase}/code-report/cves`,
             icon: ShieldAlert,
           },
           {
@@ -266,7 +272,11 @@ export function buildNavigation(
         name: t('sidebar.items.cves'),
         icon: ShieldAlert,
         items: [
-          { label: t('sidebar.items.cves'), href: `/org/${organizationSlug}/cves`, icon: ShieldAlert },
+          {
+            label: t('sidebar.items.cves'),
+            href: `/org/${organizationSlug}/cves`,
+            icon: ShieldAlert,
+          },
         ],
       },
     );
@@ -415,7 +425,8 @@ export function isItemActive(pathname: string, href: string) {
 export function activeItem(pathname: string, navModule: NavModule): NavItem | null {
   let best: NavItem | null = null;
   for (const item of navModule.items) {
-    if (isItemActive(pathname, item.href) && item.href.length > (best?.href.length ?? -1)) best = item;
+    if (isItemActive(pathname, item.href) && item.href.length > (best?.href.length ?? -1))
+      best = item;
   }
   return best;
 }

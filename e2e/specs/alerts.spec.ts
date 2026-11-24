@@ -31,39 +31,56 @@ test.describe('project alerts', () => {
       'href',
       `${alertsUrl}/new`,
     );
-    await openEditor(page, `${alertsUrl}/new`);
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('link', { name: 'Crear alerta' }).first().click();
+    const wizard = page.getByRole('dialog', { name: 'Nueva alerta' });
+    await expect(wizard).toBeVisible();
+    // the wizard is a modal: the URL does not change
+    await expect(page).toHaveURL(new RegExp(`${alertsUrl}$`));
 
     // step 1: event
-    await page.getByLabel('Nombre', { exact: true }).fill(GUIDED_NAME);
-    await page.getByLabel('Evento', { exact: true }).selectOption({ label: 'Análisis completado' });
+    await wizard.getByRole('radio', { name: /^Análisis completado/ }).click();
+    await wizard.getByRole('button', { name: 'Siguiente' }).click();
 
     // step 2: Servicio es <seeded service> · Vulnerabilidades críticas mayor que 0
-    const builder = page.getByTestId('condition-builder');
+    const builder = wizard.getByTestId('condition-builder');
     await builder.getByRole('button', { name: 'Añadir condición' }).click();
     const first = builder.getByTestId('condition-row').nth(0);
-    await first.getByLabel('Campo').selectOption({ label: 'Servicio' });
-    await first.getByLabel('Operador').selectOption({ label: 'es' });
+    await first.getByLabel('Campo').click();
+    await page.getByRole('option', { name: 'Servicio', exact: true }).click();
+    await first.getByLabel('Operador').click();
+    await page.getByRole('option', { name: 'es', exact: true }).click();
     await first.getByRole('radio', { name: 'E2E Seeded Service' }).check();
 
     await builder.getByRole('button', { name: 'Añadir condición' }).click();
     const second = builder.getByTestId('condition-row').nth(1);
-    await second.getByLabel('Campo').selectOption({ label: 'Vulnerabilidades críticas' });
-    await second.getByLabel('Operador').selectOption({ label: 'mayor que' });
+    await second.getByLabel('Campo').click();
+    await page.getByRole('option', { name: 'Vulnerabilidades críticas', exact: true }).click();
+    await second.getByLabel('Operador').click();
+    await page.getByRole('option', { name: 'mayor que', exact: true }).click();
     await second.getByLabel('Valor').fill('0');
+    await wizard.getByRole('button', { name: 'Siguiente' }).click();
 
-    // step 3: recipients and throttle
-    await page.getByRole('checkbox', { name: 'Project Admin' }).check();
-    await page.getByLabel('No enviar más de un email cada (minutos)').fill('30');
+    // step 3: email is on by default; a role from the suggestions plus an external address
+    const targets = wizard.getByLabel('Destinatarios');
+    await targets.fill('Project Ad');
+    await page.getByRole('option', { name: 'Project Admin', exact: true }).click();
+    await targets.fill('oncall@example.com');
+    await targets.press('Enter');
+    await wizard.getByRole('radio', { name: '1 hora' }).click();
+    await wizard.getByRole('button', { name: 'Siguiente' }).click();
 
-    // step 4: dry run, nothing is sent
-    await page.getByRole('button', { name: 'Probar alerta' }).click();
-    const result = page.getByTestId('alert-test-result');
+    // step 4: name, dry run (nothing is sent) and create
+    await wizard.getByLabel('Nombre', { exact: true }).fill(GUIDED_NAME);
+    await wizard.getByRole('button', { name: 'Probar alerta' }).click();
+    const result = wizard.getByTestId('alert-test-result');
     await expect(result).toContainText('El evento de ejemplo cumple las condiciones.');
     await expect(result).toContainText(seed.personas.projectAdmin.username);
+    await expect(result).toContainText('oncall@example.com');
     await expect(result).toContainText('no se ha enviado ningún email');
 
-    await page.getByRole('button', { name: 'Crear alerta' }).click();
-    await expect(page).toHaveURL(new RegExp(`${alertsUrl}\\?saved=`));
+    await wizard.getByRole('button', { name: 'Crear alerta' }).click();
+    await expect(wizard).toBeHidden();
 
     const row = page.getByTestId('alert-row').filter({ hasText: GUIDED_NAME });
     await expect(row).toBeVisible();
@@ -71,8 +88,44 @@ test.describe('project alerts', () => {
       'Servicio es E2E Seeded Service y Vulnerabilidades críticas mayor que 0',
     );
     await expect(row).toContainText('Project Admin');
-    await expect(row).toContainText('Máx. un email cada 30 min');
+    await expect(row).toContainText('oncall@example.com');
+    await expect(row).toContainText('Máx. un email cada 60 min');
     await expect(row.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('an alert can notify several channels and is edited in the same wizard', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('projectAdmin');
+    await page.goto(alertsUrl);
+    await page.waitForLoadState('networkidle');
+    const row = page.getByTestId('alert-row').filter({ hasText: GUIDED_NAME });
+    await row.getByRole('link', { name: 'Editar' }).click();
+    const wizard = page.getByRole('dialog', { name: 'Editar alerta' });
+    await expect(wizard.getByLabel('Nombre', { exact: true })).toHaveValue(GUIDED_NAME);
+
+    await wizard.getByRole('button', { name: /Destinos/ }).click();
+    await wizard.getByRole('checkbox', { name: /^Slack/ }).click();
+    await wizard.getByRole('checkbox', { name: /^Webhook/ }).click();
+    // a destination without targets keeps "Next" disabled
+    await expect(wizard.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+    const slack = wizard.getByLabel('Canales de Slack');
+    await slack.fill('Alertas Prod');
+    await slack.press('Enter');
+    await expect(wizard.getByText('Usa nombres de canal de Slack como #alertas.')).toBeVisible();
+    await slack.fill('alertas-prod');
+    await slack.press('Enter');
+    const webhook = wizard.getByLabel('URLs');
+    await webhook.fill('https://hooks.example.com/gitops');
+    await webhook.press('Enter');
+    await wizard.getByRole('button', { name: 'Siguiente' }).click();
+    await wizard.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(wizard).toBeHidden();
+
+    await expect(row).toContainText('#alertas-prod');
+    await expect(row).toContainText('https://hooks.example.com/gitops');
+    await expect(row).toContainText('oncall@example.com');
   });
 
   test('server validation errors show next to their field', async ({ page, loginAs }) => {

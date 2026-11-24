@@ -23,6 +23,8 @@ export async function load({ parent, params, locals }) {
     service,
     analysis,
     riskWeights,
-    analysisHistory: await codeReportAnalysisService.listByService(service.id),
+    // solo resúmenes: la gráfica de evolución no necesita el resultado completo de cada análisis
+    analysisHistory: (await codeReportAnalysisService.getServiceOverview(service.id))
+      .analysisHistory,
   };
 }

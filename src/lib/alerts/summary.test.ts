@@ -105,5 +105,8 @@ describe('summarizeRecipients', () => {
       ),
     ).toBe('Project Admin, ana, ghost');
     expect(summarizeRecipients({ userIds: [], roleIds: [] }, [], [], t)).toBe('Nadie');
+    expect(
+      summarizeRecipients({ userIds: [], roleIds: [], emails: ['ops@example.com'] }, [], [], t),
+    ).toBe('ops@example.com');
   });
 });

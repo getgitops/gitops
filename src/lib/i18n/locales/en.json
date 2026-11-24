@@ -19,7 +19,8 @@
     "navigation": "Navigation",
     "searchProjects": "Search project…",
     "noProjectsFound": "No project matches.",
-    "noOrganization": "No organization"
+    "noOrganization": "No organization",
+    "breadcrumbs": "Breadcrumbs"
   },
   "sidebar": {
     "organization": "Organization",
@@ -404,6 +405,135 @@
       "infoMessage": "This list aggregates CVEs from all organization projects using the latest completed analysis for each service.",
       "emptyMessage": "No CVEs have been detected in this organization yet."
     },
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Health of every project in the organization and what needs your attention.",
+      "updatedAt": "Updated at {time}",
+      "kpisLabel": "Key metrics",
+      "noAccess": "No access",
+      "kpi": {
+        "projects": "Active projects",
+        "projectsDetail": "{critical} critical · {warning} with warnings · {ok} healthy",
+        "security": "Security score",
+        "criticalCount": "{count} critical",
+        "highCount": "{count} high",
+        "uptime": "Uptime 24 h",
+        "noMonitors": "No monitors configured",
+        "monitorsFailing": "{count} failing",
+        "monitorsTotal": "{count} monitors",
+        "users": "Users",
+        "usersDetail": "{active} active · {invited} invited",
+        "usersDisabled": "{count} disabled",
+        "keys": "Keys at risk",
+        "keysAtRiskOf": "of {count} keys",
+        "secrets": "{count} secrets in the vault"
+      },
+      "severity": {
+        "critical": "critical",
+        "warning": "warnings",
+        "info": "to review"
+      },
+      "attention": {
+        "title": "What to review",
+        "description": "Most urgent first, across every project you can access.",
+        "emptyTitle": "All clear",
+        "emptyDescription": "Nothing critical or pending in the projects you can see.",
+        "showAll": "Show all ({count})",
+        "showLess": "Show less",
+        "kinds": {
+          "monitorsDown": {
+            "title": "Monitors down",
+            "description": "Services that are not responding right now."
+          },
+          "exposedSecrets": {
+            "title": "Secrets exposed in code",
+            "description": "Gitleaks found credentials in the latest scan."
+          },
+          "criticalVulns": {
+            "title": "Critical vulnerabilities",
+            "description": "Open in the latest scan of each service."
+          },
+          "keysExpired": {
+            "title": "Expired keys",
+            "description": "Still registered but no longer valid: revoke or regenerate them."
+          },
+          "monitorsDegraded": {
+            "title": "Degraded monitors",
+            "description": "Responding, but slow or with intermittent errors."
+          },
+          "keysExpiring": {
+            "title": "Keys expiring soon",
+            "description": "Expire in less than {days} days."
+          },
+          "keysNotRotated": {
+            "title": "Keys not rotated",
+            "description": "Not regenerated for more than {days} days."
+          },
+          "keysNoExpiry": {
+            "title": "Keys without expiry",
+            "description": "They have no expiration date."
+          },
+          "keysUnused": {
+            "title": "Unused keys",
+            "description": "Not used for more than {days} days."
+          },
+          "staleScans": {
+            "title": "Services not scanned",
+            "description": "No scan for more than {days} days."
+          },
+          "vaultMissing": {
+            "title": "Empty vault values",
+            "description": "Secrets without a value in some environment."
+          },
+          "vaultStale": {
+            "title": "Old secrets",
+            "description": "Unchanged for more than {days} days."
+          },
+          "invitedUsers": {
+            "title": "Pending invitations",
+            "description": "Invited users who haven't signed in yet."
+          },
+          "pendingEvents": {
+            "title": "Unreviewed events",
+            "description": "Organization activity waiting for review."
+          }
+        }
+      },
+      "keys": {
+        "title": "Key risk",
+        "description": "Server access keys across all projects. Rotate them at least every {days} days.",
+        "empty": "No active server access keys."
+      },
+      "activity": "Activity",
+      "pendingEvents": "Unreviewed events",
+      "pendingEventsDescription": "Recent activity waiting for review",
+      "alerts": "Active alerts",
+      "alertsDescription": "{total} organization alerts",
+      "cves": "Organization CVEs",
+      "cvesDescription": "Vulnerabilities grouped across projects",
+      "status": {
+        "critical": "Critical",
+        "warning": "Warnings",
+        "ok": "Healthy",
+        "unknown": "No data"
+      },
+      "projects": {
+        "title": "Project health",
+        "description": "Sorted by severity.",
+        "archived": "{count} archived not shown",
+        "filterLabel": "Filter by status",
+        "all": "All",
+        "score": "Score",
+        "critical": "Critical",
+        "uptime": "Uptime",
+        "monitorsFailing": "{count} monitors failing",
+        "exposedSecrets": "{count} exposed secrets",
+        "keysAtRisk": "{count} keys at risk",
+        "vaultMissing": "{count} empty values",
+        "allGood": "No issues",
+        "noData": "No active products or no access to their data"
+      }
+    },
     "events": {
       "title": "Events",
       "description": "What happened in the organization and its projects. Mark each event as reviewed once you have dealt with it.",
@@ -429,6 +559,14 @@
       "ack": "Mark as reviewed",
       "ackedBy": "Reviewed by {name} · {date}",
       "ackFailed": "The event could not be marked as reviewed.",
+      "yesterday": "Yesterday",
+      "acked": "Reviewed",
+      "pending": "Pending",
+      "actor": "Actor",
+      "scope": "Scope",
+      "fieldsTitle": "Details",
+      "noFields": "This event has no further details.",
+      "ackedByShort": "Reviewed by {name}",
       "modules": {
         "code_report": "Code Report",
         "vault": "Vault",
@@ -541,7 +679,22 @@
       "days7": "7 days",
       "days30": "30 days",
       "days90": "90 days",
-      "days365": "365 days"
+      "days365": "365 days",
+      "failed": "The action could not be completed.",
+      "revokedToast": "Key revoked",
+      "emptyHelp": "Create a key so your CI/CD can send Code Report analyses to this project.",
+      "createDescription": "The key only sees this project and has the permissions of the role you pick.",
+      "neverWarning": "A key that never expires is a risk if it leaks. Rotate it from time to time.",
+      "tokenTitle": "Your new key",
+      "token": "Token",
+      "usage": "Usage example",
+      "done": "Done, I've copied it",
+      "rotateTitle": "Rotate the key?",
+      "rotateDescription": "A new token will be generated for “{name}” and the current one stops working immediately.",
+      "rotateConfirm": "Rotate key",
+      "revokeTitle": "Revoke the key?",
+      "revokeDescription": "“{name}” stops working immediately. This can't be undone.",
+      "revokeConfirm": "Revoke key"
     },
     "overview": {
       "codeReport": "Code Report",
@@ -598,8 +751,21 @@
       "copyProjectSlug": "Copy project slug",
       "optionalDescription": "Optional description",
       "comingSoon": "Coming soon",
-      "transferSoon": "Coming soon"
-    }
+      "transferSoon": "Coming soon",
+      "subtitle": "General details, enabled modules and integrations of the project.",
+      "general": "General",
+      "generalDescription": "Project name, slug and description.",
+      "slugHelp": "Used in URLs and the CLI. Changing it breaks old links.",
+      "noDescription": "No description.",
+      "moduleCodeReport": "Vulnerabilities, dependencies and security policies.",
+      "moduleVault": "Encrypted secrets and credentials per environment.",
+      "moduleMonitoring": "HTTP monitors with uptime, latency and incidents.",
+      "moduleStateIac": "Pulumi state and storage backends.",
+      "unsaved": "You have unsaved changes.",
+      "discard": "Discard",
+      "typeToConfirm": "Type {name} to confirm"
+    },
+    "title": "Project settings"
   },
   "codeReport": {
     "dashboard": {
@@ -764,7 +930,7 @@
       "soon": "Soon",
       "comingSoon": "Coming soon",
       "generalTitle": "General",
-      "generalDescription": "Module-wide parameters to score risk and classify findings in this project.",
+      "generalDescription": "How risk is scored and which analysis tools this project uses.",
       "riskMultipliers": "Security Risk Multipliers",
       "formulaDescription": "Formula applied in service detail: (Critical × M_c) + (High × M_h) + (Medium × M_m) + (Low × M_l).",
       "critical": "Critical",
@@ -859,7 +1025,50 @@
       "descriptionPlaceholder": "Optional description",
       "deleteConfirmTitle": "Delete project",
       "deleteConfirmStart": "Are you sure you want to delete ",
-      "deleteConfirmEnd": "? This action cannot be undone."
+      "deleteConfirmEnd": "? This action cannot be undone.",
+      "clearSearch": "Clear search",
+      "clearFilters": "Clear filters",
+      "filterLabel": "Filter by status",
+      "filterAll": "All",
+      "filterActive": "Active",
+      "filterArchived": "Archived",
+      "archived": "Archived",
+      "actionsFor": "Actions for {name}",
+      "projectSettings": "Project settings",
+      "noDescription": "No description",
+      "noModules": "No modules enabled",
+      "createdOn": "Created {date}",
+      "emptyDescription": "Create the organization's first project to start using Code Report, Vault or Monitoring.",
+      "createModalDescription": "The project is created with its default roles.",
+      "slugHelp": "Identifier used in URLs and the CLI. Leave it empty to generate it from the name."
+    },
+    "security": {
+      "title": "Security",
+      "description": "How people access this organization and how its data is protected. Identity providers are configured at the GitOps level; this page shows their status.",
+      "postureTitle": "Security posture",
+      "postureHint": "Access and data protection controls that apply to every project in the organization.",
+      "postureSummary": "of {total} controls enabled",
+      "checkLocal": "Username and password",
+      "checkGoogle": "Google Workspace SSO",
+      "checkSaml": "SAML SSO",
+      "checkEncryption": "Managed encryption",
+      "on": "Enabled",
+      "off": "Disabled",
+      "identityTitle": "Identity providers",
+      "alwaysOn": "Always on",
+      "localTitle": "Username and password",
+      "localFootnote": "It can't be disabled: it is the organization's fallback access.",
+      "allowedDomains": "Allowed domains",
+      "anyDomain": "No domain restriction",
+      "autoProvision": "Auto-provisioning",
+      "autoProvisionOn": "New accounts from allowed domains are created on first sign-in.",
+      "autoProvisionOff": "Only existing or invited users can sign in.",
+      "keyRotation": "Key rotation",
+      "keyRotationDescription": "Rotate the organization's encryption keys without downtime.",
+      "encryptionPolicy": "Encryption policy",
+      "encryptionPolicyDescription": "Set the minimum encryption requirements for the organization's data.",
+      "scopedSecrets": "Scoped secrets",
+      "scopedSecretsDescription": "Protect secrets with separate keys per organization and project."
     },
     "serverAccessKeys": {
       "title": "Server Access Keys",
@@ -918,13 +1127,27 @@
     "removeModalDescriptionStart": "Remove access for",
     "removeModalDescriptionEnd": "? This will revoke this scope assignment.",
     "removing": "Removing...",
-    "adding": "Adding..."
+    "adding": "Adding...",
+    "count": "{count} user(s)",
+    "changeRole": "Change {name}'s role",
+    "addProjectDescription": "Give an organization user access to this project.",
+    "newUserDescription": "Create the account and assign a role.",
+    "noAssignableUsers": "Every organization user already has access to this project.",
+    "chooseUser": "Choose a user"
   },
   "rolePermissions": {
     "defaultTitle": "Roles & Permissions",
     "defaultDescription": "Manage user roles and granular access policies.",
     "addRole": "Add role",
-    "empty": "No roles found."
+    "empty": "No roles found.",
+    "clusterAdminDescription": "Full access to GitOps and every organization.",
+    "clusterUserDescription": "Read access and limited resource management.",
+    "permissionCount": "{count} permission(s) configured.",
+    "search": "Search roles",
+    "count": "{count} role(s)",
+    "noMatches": "No role matches the search.",
+    "system": "System",
+    "users": "Users with this role"
   },
   "roleDetail": {
     "edit": "Edit",
@@ -954,7 +1177,20 @@
     "sectionGroup": "Section group",
     "addClusterRole": "Add GitOps Role",
     "addOrganizationRole": "Add Organization Role",
-    "addProjectRole": "Add Project Role"
+    "addProjectRole": "Add Project Role",
+    "defaultTitle": "Role",
+    "nameRequired": "Name and slug are required.",
+    "deleted": "Role deleted",
+    "backToRoles": "Back to roles",
+    "createRole": "Create role",
+    "slugHelp": "Generated from the name. It can't be changed later.",
+    "slugLocked": "The slug can't be changed.",
+    "permissionsHelp": "Choose the access level for each resource. “Custom” lets you pick single actions.",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "inherited": "Inherited",
+    "deleteTitle": "Delete the role?",
+    "deleteDescription": "“{name}” will be deleted. {count} user(s) have this role."
   },
   "auditLog": {
     "defaultTitle": "Audit Log",
@@ -989,6 +1225,9 @@
     "noChanges": "No changes detected.",
     "before": "Before",
     "after": "After",
+    "changesTitle": "Changes",
+    "previousChange": "Previous change",
+    "nextChange": "Next change",
     "actions": {
       "insert": "insert",
       "update": "update",
@@ -996,7 +1235,9 @@
       "other": "other"
     },
     "actionsLabel": "Action",
-    "entity": "Entity"
+    "entity": "Entity",
+    "period": "Period",
+    "pagination": "Pagination"
   },
   "subNavbar": {
     "defaultLabel": "State",
@@ -1437,13 +1678,18 @@
       "too_many": "There are too many items.",
       "unknown_user": "Some user does not belong to this scope.",
       "unknown_role": "Some role does not belong to this scope.",
-      "invalid_channel": "Channel not available."
+      "invalid_channel": "Channel not available.",
+      "invalid_email": "Some email is not valid.",
+      "invalid_slack_channel": "Use Slack channel names like #alerts.",
+      "invalid_url": "Use a valid http(s) URL."
     },
     "channels": {
       "mail": "Email",
       "in_app": "In-app notification",
       "slack": "Slack",
-      "soon": "Coming soon"
+      "soon": "Coming soon",
+      "google_chat": "Google Chat",
+      "webhook": "Webhook"
     },
     "list": {
       "title": "Alerts",
@@ -1468,7 +1714,10 @@
       "confirmDelete": "Delete this alert? This cannot be undone.",
       "throttle": "At most one email every {minutes} min",
       "inheritedTitle": "Organization alerts",
-      "inheritedDescription": "These alerts are defined in the organization and also fire for this project’s events. They can only be changed from the organization settings."
+      "inheritedDescription": "These alerts are defined in the organization and also fire for this project’s events. They can only be changed from the organization settings.",
+      "deleted": "Alert deleted",
+      "deleteTitle": "Delete the alert?",
+      "channelsColumn": "Destinations"
     },
     "editor": {
       "newTitle": "New alert",
@@ -1511,7 +1760,13 @@
       "test": "Test alert",
       "create": "Create alert",
       "saveChanges": "Save changes",
-      "fixErrors": "Check the highlighted fields."
+      "fixErrors": "Check the highlighted fields.",
+      "externalEmails": "External emails (optional, comma-separated)",
+      "targets": {
+        "slack": "Slack channels, e.g. #alerts",
+        "google_chat": "Google Chat spaces",
+        "webhook": "Webhook URLs"
+      }
     },
     "test": {
       "matched": "The example event matches the conditions.",
@@ -1521,7 +1776,53 @@
       "denied": "{count} recipients would not get it because they cannot view this event.",
       "nothingSent": "This is a test: no email was sent."
     },
-    "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent."
+    "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent.",
+    "wizard": {
+      "subtitle": "Pick an event, filter it if you like and decide where to notify.",
+      "steps": "Steps",
+      "step": {
+        "event": "Event",
+        "conditions": "Conditions",
+        "channels": "Destinations",
+        "review": "Review"
+      },
+      "searchEvents": "Search events…",
+      "noEvents": "No event matches the search.",
+      "conditionsIntro": "Optional: the alert only fires when “{event}” meets these conditions.",
+      "channelsTitle": "Channels",
+      "channelsHelp": "Pick one or more: one notification is sent per channel.",
+      "mailDescription": "Users, roles or external addresses",
+      "slackDescription": "Posts to one or more channels",
+      "googleChatDescription": "Posts to Google Chat spaces",
+      "webhookDescription": "POST with the event as JSON",
+      "groupRoles": "Roles",
+      "groupUsers": "Users",
+      "mailTargets": "Recipients",
+      "mailTargetsHelp": "Search users or roles, or type an email and press Enter.",
+      "mailPlaceholder": "User, role or email…",
+      "slackTargets": "Slack channels",
+      "slackTargetsHelp": "Type the channel name and press Enter.",
+      "googleChatTargets": "Google Chat spaces",
+      "googleChatTargetsHelp": "Name of the space to post to.",
+      "googleChatPlaceholder": "Space name…",
+      "webhookTargets": "URLs",
+      "webhookTargetsHelp": "They receive a POST with the event as JSON.",
+      "throttle": "Maximum frequency",
+      "throttle_0": "Every event",
+      "throttle_15": "15 min",
+      "throttle_60": "1 hour",
+      "throttle_1440": "1 day",
+      "throttleCustom": "or every",
+      "enabledHelp": "Turn it off to pause it without deleting it.",
+      "summary": "Summary",
+      "stepOf": "Step {current} of {total}",
+      "back": "Back",
+      "next": "Next",
+      "skipConditions": "No conditions",
+      "created": "Alert created",
+      "saved": "Alert saved",
+      "failed": "Could not complete it. Try again."
+    }
   },
   "monitoring": {
     "title": "Monitoring",
@@ -1592,7 +1893,9 @@
       "scheduled": "{count} scheduled monitors",
       "overdue": "{count} checks running late",
       "dedicatedRepo": "Metrics in a dedicated GitDB repository",
-      "sharedRepo": "Metrics in the main GitDB repository"
+      "sharedRepo": "Metrics in the main GitDB repository",
+      "filterLabel": "Filter by status",
+      "rangeLabel": "Bar period"
     },
     "table": {
       "monitor": "Monitor",
@@ -1610,7 +1913,8 @@
     },
     "delete": {
       "title": "Delete monitor",
-      "description": "“{name}” will be deleted with its uptime history and incidents. This can't be undone."
+      "description": "“{name}” will be deleted with its uptime history and incidents. This can't be undone.",
+      "done": "Monitor deleted"
     },
     "detail": {
       "since": "for {duration}",
@@ -1707,6 +2011,7 @@
       "recentHelp": "Every check of the last hour (in memory), colored by status.",
       "aggregateHelp": "Average and p95 of the stored aggregates.",
       "noData": "No response times in this period yet."
-    }
+    },
+    "created": "Monitor created"
   }
 }

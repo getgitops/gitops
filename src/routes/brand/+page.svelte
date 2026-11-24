@@ -444,12 +444,6 @@
 <svelte:head>
   <title>Brand · GitOps</title>
   <meta name="robots" content="noindex" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-    rel="stylesheet"
-  />
 </svelte:head>
 
 {#snippet sectionTitle(id: string, title: string, desc: string, uso: string[] = [])}

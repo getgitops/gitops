@@ -3,7 +3,12 @@
  * components (`#lib/components/alerts`). Type-only: safe to import from the client.
  */
 import type { EventDefinition, Operator } from '#lib/events/catalog';
-import type { AlertRow, AlertScope } from '#modules/alerts/domain/alert.domain';
+import type {
+  AlertChannel,
+  AlertRecipients,
+  AlertRow,
+  AlertScope,
+} from '#modules/alerts/domain/alert.domain';
 
 /** An alertable event as plain data: `derive` functions are dropped, `derived` marks them. */
 export type CatalogField = Omit<EventDefinition['fields'][number], 'derive'> & {
@@ -17,7 +22,7 @@ export type CatalogEntry = Omit<
   fields: CatalogField[];
 };
 
-export type AlertOption = { id: string; label: string };
+export type AlertOption = { id: string; label: string; hint?: string };
 
 export type DraftCondition = {
   field: string;
@@ -33,7 +38,8 @@ export type AlertDraft = {
   eventType: string;
   match: 'all' | 'any';
   conditions: DraftCondition[];
-  recipients: { userIds: string[]; roleIds: string[] };
+  channels: AlertChannel[];
+  recipients: AlertRecipients;
   throttleMinutes: number;
 };
 
@@ -45,6 +51,10 @@ type Shared = {
   referenceOptions: Record<string, AlertOption[]>;
   users: AlertOption[];
   roles: AlertOption[];
+  /** Users and roles that can be picked as recipients here (`users`/`roles` may also hold
+   * organization ones, only to name the recipients of inherited alerts). */
+  recipientUsers: AlertOption[];
+  recipientRoles: AlertOption[];
   /** `false` when SMTP is not configured: alerts are saved but nothing is sent. */
   mailConfigured: boolean;
 };
@@ -80,4 +90,4 @@ export type AlertFormResult = {
   test?: AlertTestView;
 } | null;
 
-export type { AlertRow, AlertScope };
+export type { AlertChannel, AlertRecipients, AlertRow, AlertScope };

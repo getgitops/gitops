@@ -1,35 +1,34 @@
 <script lang="ts">
-  import CveListView from '#lib/components/code-report/CveListView.svelte';
+  import CveListView, { type CveListItem } from '#lib/components/code-report/CveListView.svelte';
   import { _ } from '#lib/i18n';
 
-  export let data: {
-    orgSlug: string;
-    cves: {
-      id: string;
-      title: string;
-      severity: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
-      cvssScore: number | null;
-      affectedServiceCount: number;
-      occurrenceCount: number;
-      projectSlugs: string[];
-    }[];
-    projects: { slug: string; name: string }[];
-    initialProjectFilter: string;
-  };
-
-  $: baseHref = `/org/${data.orgSlug}/cves`;
+  let {
+    data,
+  }: {
+    data: {
+      orgSlug: string;
+      cves: CveListItem[];
+      projects: { slug: string; name: string }[];
+      initialProject: string;
+    };
+  } = $props();
 </script>
 
 <svelte:head>
   <title>{$_('org.cves.title')} - GitOps</title>
 </svelte:head>
 
-<CveListView
-  cves={data.cves}
-  {baseHref}
-  showProjectFilter={true}
-  projectOptions={data.projects}
-  initialProjectFilter={data.initialProjectFilter}
-  infoMessage={$_('org.cves.infoMessage')}
-  emptyMessage={$_('org.cves.emptyMessage')}
-/>
+<div class="space-y-6">
+  <header class="max-w-2xl">
+    <h1 class="text-2xl font-semibold tracking-tight text-white">{$_('org.cves.title')}</h1>
+    <p class="mt-1 text-sm text-fg-muted">{$_('org.cves.infoMessage')}</p>
+  </header>
+
+  <CveListView
+    cves={data.cves}
+    cveHref={(id) => `/org/${data.orgSlug}/cves/${encodeURIComponent(id)}`}
+    projects={data.projects}
+    initialProject={data.initialProject}
+    emptyMessage={$_('org.cves.emptyMessage')}
+  />
+</div>

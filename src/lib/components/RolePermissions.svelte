@@ -1,12 +1,7 @@
+<!-- Lista de roles (GitOps, organización o proyecto). Cada fila abre el editor del rol. -->
 <script lang="ts">
-  import { Pencil, Plus, Shield, Users } from '@lucide/svelte';
+  import { ChevronRight, Lock, Plus, Search, Shield, Users } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
-
-  export let initialRoles: RoleRow[] = [];
-  export let title = '';
-  export let description = '';
-  export let baseHref = 'roles-permissions';
-  export let canCreate = true;
 
   type RoleRow = {
     id: string;
@@ -19,9 +14,21 @@
     updatedAt: string;
   };
 
-  $: roles = initialRoles;
-  $: resolvedTitle = title || $_('rolePermissions.defaultTitle');
-  $: resolvedDescription = description || $_('rolePermissions.defaultDescription');
+  type Props = {
+    initialRoles?: RoleRow[];
+    title?: string;
+    description?: string;
+    baseHref?: string;
+    canCreate?: boolean;
+  };
+
+  let {
+    initialRoles = [],
+    title = '',
+    description = '',
+    baseHref = 'roles-permissions',
+    canCreate = true,
+  }: Props = $props();
 
   const systemRoleSlugs = new Set([
     'admin',
@@ -34,25 +41,25 @@
     'project-viewer',
   ]);
 
-  function roleHref(role: RoleRow): string {
-    return `${baseHref}/${role.id}`;
-  }
+  let query = $state('');
+  const resolvedTitle = $derived(title || $_('rolePermissions.defaultTitle'));
+  const isSystem = (role: RoleRow) => systemRoleSlugs.has(role.slug);
+
+  // primero los de sistema, después los personalizados; cada grupo por nombre
+  const roles = $derived(
+    [...initialRoles]
+      .filter((role) => {
+        const q = query.trim().toLowerCase();
+        return !q || role.name.toLowerCase().includes(q) || role.slug.toLowerCase().includes(q);
+      })
+      .sort((a, b) => Number(isSystem(b)) - Number(isSystem(a)) || a.name.localeCompare(b.name)),
+  );
 
   function roleDescription(role: RoleRow): string {
     if (role.description) return role.description;
-    if (role.slug === 'cluster-admin') return 'Acceso completo a GitOps y a todas las organizaciones.';
-    if (role.slug === 'cluster-user') return 'Acceso de lectura y gestión de recursos limitados.';
-    return `${role.permissions.length} permisos configurados.`;
-  }
-
-  function roleAccent(index: number) {
-    return index % 2 === 0
-      ? 'border-violet-500/25 bg-violet-500/10 text-violet-300 shadow-[0_0_22px_rgba(124,58,237,0.16)]'
-      : 'border-teal-500/25 bg-teal-500/10 text-teal-300 shadow-[0_0_22px_rgba(20,184,166,0.16)]';
-  }
-
-  function isSystemRole(role: RoleRow): boolean {
-    return systemRoleSlugs.has(role.slug);
+    if (role.slug === 'cluster-admin') return $_('rolePermissions.clusterAdminDescription');
+    if (role.slug === 'cluster-user') return $_('rolePermissions.clusterUserDescription');
+    return $_('rolePermissions.permissionCount', { values: { count: role.permissions.length } });
   }
 </script>
 
@@ -61,86 +68,84 @@
 </svelte:head>
 
 <div class="space-y-6">
-  <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <header class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h3 class="text-[26px] font-bold tracking-tight text-white">{resolvedTitle}</h3>
-      <p class="mt-2 text-sm text-slate-400">{resolvedDescription}</p>
+      <h1 class="text-2xl font-semibold tracking-tight text-white">{resolvedTitle}</h1>
+      <p class="mt-1 text-sm text-fg-muted">
+        {description || $_('rolePermissions.defaultDescription')}
+      </p>
     </div>
     {#if canCreate}
-      <a
-        href={`${baseHref}/new`}
-        class="btn-primary inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold shadow-[0_12px_30px_rgba(36,87,255,0.26)]"
-      >
-        <Plus class="h-5 w-5" />
-        {$_('rolePermissions.addRole')}
+      <a href={`${baseHref}/new`} class="k-btn k-btn-primary">
+        <Plus class="h-4 w-4" />{$_('rolePermissions.addRole')}
       </a>
     {/if}
-  </section>
+  </header>
 
-  {#if roles.length === 0}
-    <div
-      class="rounded-lg border border-dashed border-[#243651] bg-[#071323]/70 px-4 py-5 text-sm text-slate-400"
-    >
-      {$_('rolePermissions.empty')}
+  <div class="k-card overflow-hidden">
+    <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
+      <label class="relative w-full sm:w-72">
+        <span class="sr-only">{$_('rolePermissions.search')}</span>
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+        />
+        <input
+          class="k-input h-9 pl-9"
+          placeholder={$_('rolePermissions.search')}
+          bind:value={query}
+        />
+      </label>
+      <span class="ml-auto text-xs text-fg-subtle">
+        {$_('rolePermissions.count', { values: { count: initialRoles.length } })}
+      </span>
     </div>
-  {:else}
-    <section class="overflow-x-auto rounded-lg border border-[#142236] bg-[#06111f]/72">
-      <table class="w-full min-w-[760px] text-sm">
-        <thead>
-          <tr
-            class="border-b border-[#101e31] text-left text-xs font-semibold uppercase tracking-[0.06em] text-[#8a96aa]"
-          >
-            <th class="px-6 py-4">{$_('common.name')}</th>
-            <th class="px-6 py-4">{$_('common.slug')}</th>
-            <th class="px-6 py-4">Descripción</th>
-            <th class="px-6 py-4">Usuarios</th>
-            <th class="px-6 py-4 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each roles as role, index (role.id)}
-            <tr class="border-b border-[#101e31] transition-colors last:border-0 hover:bg-[#0a1829]">
-              <td class="px-6 py-5">
-                <a
-                  href={roleHref(role)}
-                  class="inline-flex items-center gap-4 font-semibold text-white"
-                >
-                  <span class={`flex h-12 w-12 items-center justify-center rounded-lg border ${roleAccent(index)}`}>
-                    <Shield class="h-6 w-6" />
-                  </span>
-                  <span class="inline-flex items-center gap-3">
-                    {role.name}
-                    {#if isSystemRole(role)}
-                      <span class="rounded-md bg-[#082057] px-2 py-1 text-xs font-medium text-[#8ea8ff]">Sistema</span>
-                    {/if}
-                  </span>
-                </a>
-              </td>
-              <td class="px-6 py-5 text-slate-300">
-                <a href={roleHref(role)}>{role.slug}</a>
-              </td>
-              <td class="max-w-[300px] px-6 py-5 leading-6 text-slate-300">{roleDescription(role)}</td>
-              <td class="px-6 py-5 text-white">
-                <span class="inline-flex items-center gap-2">
-                  <Users class="h-4 w-4 text-slate-400" />
-                  {role.userCount ?? 0}
+
+    {#if roles.length === 0}
+      <p class="px-5 py-12 text-center text-sm text-fg-subtle">
+        {initialRoles.length === 0 ? $_('rolePermissions.empty') : $_('rolePermissions.noMatches')}
+      </p>
+    {:else}
+      <ul class="divide-y divide-white/5">
+        {#each roles as role (role.id)}
+          <li>
+            <a
+              href={`${baseHref}/${role.id}`}
+              class="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-white/2.5"
+            >
+              <span
+                class="grid h-9 w-9 shrink-0 place-items-center rounded-lg {isSystem(role)
+                  ? 'bg-white/5 text-fg-muted'
+                  : 'bg-brand-500/12 text-brand-400'}"
+              >
+                <Shield class="h-4 w-4" />
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-white">{role.name}</span>
+                  <span class="font-mono text-xs text-fg-subtle">{role.slug}</span>
+                  {#if isSystem(role)}
+                    <span class="k-badge h-5 gap-1 px-2 text-[11px]"
+                      ><Lock class="h-3 w-3" />{$_('rolePermissions.system')}</span
+                    >
+                  {/if}
                 </span>
-              </td>
-              <td class="px-6 py-5">
-                <div class="flex justify-end gap-3">
-                  <a
-                    href={roleHref(role)}
-                    class="btn-secondary inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-200"
-                    aria-label={`Editar ${role.name}`}
-                  >
-                    <Pencil class="h-5 w-5" />
-                  </a>
-                </div>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </section>
-  {/if}
+                <span class="mt-0.5 block truncate text-xs text-fg-subtle"
+                  >{roleDescription(role)}</span
+                >
+              </span>
+              <span
+                class="hidden items-center gap-1.5 text-xs text-fg-muted sm:inline-flex"
+                title={$_('rolePermissions.users')}
+              >
+                <Users class="h-3.5 w-3.5" />{role.userCount ?? 0}
+              </span>
+              <ChevronRight
+                class="h-4 w-4 shrink-0 text-fg-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-white"
+              />
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
 </div>

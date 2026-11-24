@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 import { getEventDefinition, isEventType, type EventDefinition } from '#lib/events/catalog';
 import type { AnyDomainEvent, EventBus, Unsubscribe } from '#lib/server/events';
-import type { AlertDomain } from '../domain/alert.domain';
+import { DELIVERED_CHANNELS, type AlertDomain } from '../domain/alert.domain';
 import { matches } from '../domain/condition-evaluator';
 import {
   getSystemNotification,
@@ -158,6 +158,14 @@ export class AlertEngine {
     const log = this.options.logger;
     const context = eventContext(event.scope);
     if (!context) return;
+
+    const pending = alert.channels.filter((channel) => !DELIVERED_CHANNELS.includes(channel));
+    if (pending.length > 0) {
+      log.debug(
+        { alertId: alert.id, channels: pending },
+        '[alerts] channels without a notifier yet are skipped',
+      );
+    }
 
     const decision = this.throttle.acquire(alert.id, alert.throttleMinutes);
     if (!decision.send) {

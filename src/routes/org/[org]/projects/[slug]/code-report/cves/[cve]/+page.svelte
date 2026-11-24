@@ -1,48 +1,23 @@
 <script lang="ts">
-  import { _ } from '#lib/i18n';
-  import { createPageStore } from '#lib/page-store';
-  import CveDetailView from '#lib/components/code-report/CveDetailView.svelte';
+  import CveDetailView, {
+    type CveAffected,
+    type CveDetail,
+    type CveRemediation,
+  } from '#lib/components/code-report/CveDetailView.svelte';
 
-  export let data: {
-    cve: {
-      id: string;
-      title: string;
-      description: string;
-      severity: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
-      cvssScore: number | null;
-      epssScore: number | null;
-      epssPercentile: number | null;
-      primaryUrl: string;
-      cveUrl: string;
-      cweIds: string[];
-      references: string[];
-      publishedDate: string | null;
-      lastModifiedDate: string | null;
+  let {
+    data,
+  }: {
+    data: {
+      cve: CveDetail;
+      remediations: CveRemediation[];
+      affected: CveAffected[];
+      project: { slug: string; organization?: { slug?: string | null } | null };
     };
-    remediations: {
-      packageName: string;
-      installedVersion: string;
-      fixedVersion: string;
-      status: string;
-    }[];
-    affectedServices: {
-      serviceId: string;
-      serviceSlug: string;
-      serviceName: string;
-      packageName: string;
-      installedVersion: string;
-      fixedVersion: string;
-      target: string;
-      severity: string;
-      status: string;
-      scannedAt: string | null;
-    }[];
-  };
+  } = $props();
 
-  $: orgSlug = $page?.params?.org ?? '';
-  $: projectSlug = $page?.params?.slug ?? '';
-  $: cvesHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/cves`;
-  const page = createPageStore();
+  const orgSlug = $derived(data.project.organization?.slug ?? '');
+  const base = $derived(`/org/${orgSlug}/projects/${data.project.slug}/code-report`);
 </script>
 
 <svelte:head>
@@ -52,8 +27,8 @@
 <CveDetailView
   cve={data.cve}
   remediations={data.remediations}
-  affectedServices={data.affectedServices}
-  {cvesHref}
-  {orgSlug}
-  defaultProjectSlug={projectSlug}
+  affected={data.affected}
+  backHref={`${base}/cves`}
+  serviceHref={(service) =>
+    `/org/${orgSlug}/projects/${service.projectSlug}/code-report/services/${service.serviceSlug}`}
 />

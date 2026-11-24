@@ -21,6 +21,7 @@ import {
   type AlertMatch,
   type AlertRecipients,
   type AlertValidationErrors,
+  emptyRecipients,
 } from '../domain/alert.domain';
 import type { AlertRepositoryPort } from '../infrastructure/repositories/alert.repository';
 import {
@@ -34,6 +35,11 @@ const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_CONDITIONS = 20;
 const MAX_LIST_VALUES = 100;
+const MAX_TARGETS = 50;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SLACK_CHANNEL_PATTERN = /^#[a-z0-9][a-z0-9._-]{0,79}$/;
+const MAX_SPACE_LENGTH = 128;
 
 const VALUELESS_OPERATORS = new Set(['is_true', 'is_false', 'exists']);
 const LIST_OPERATORS = new Set(['in', 'not_in']);
@@ -142,9 +148,9 @@ export class AlertService {
       ? await this.validateConditions(location, definition, input.conditions, errors, references)
       : [];
 
-    const recipients = await this.validateRecipients(location, input.recipients, errors);
-
     const channels = this.validateChannels(input.channels, errors);
+
+    const recipients = await this.validateRecipients(location, input.recipients, channels, errors);
 
     const throttleMinutes = Number(input.throttleMinutes ?? 0);
     if (
@@ -392,34 +398,87 @@ export class AlertService {
     }
   }
 
+  /**
+   * Targets of every enabled channel; those of disabled channels are dropped. Each enabled
+   * channel needs at least one target (`recipients` keeps its historical key for mail).
+   */
   private async validateRecipients(
     location: AlertLocation,
     value: unknown,
+    channels: AlertChannel[],
     errors: AlertValidationErrors,
   ): Promise<AlertRecipients> {
     const raw = (value ?? {}) as Record<string, unknown>;
-    const ids = (list: unknown) =>
-      Array.isArray(list)
-        ? [...new Set(list.filter((id): id is string => typeof id === 'string' && !!id))]
+    const list = (key: string, normalize: (item: string) => string = (item) => item.trim()) =>
+      Array.isArray(raw[key])
+        ? [
+            ...new Set(
+              (raw[key] as unknown[])
+                .filter((item): item is string => typeof item === 'string')
+                .map(normalize)
+                .filter(Boolean),
+            ),
+          ]
         : [];
-    const userIds = ids(raw.userIds);
-    const roleIds = ids(raw.roleIds);
+    const recipients = emptyRecipients();
+    const tooMany = (key: string, items: string[]) => {
+      if (items.length > MAX_TARGETS) errors[`recipients.${key}`] = 'too_many';
+    };
 
-    if (userIds.length === 0 && roleIds.length === 0) {
-      errors.recipients = 'required';
-      return { userIds, roleIds };
+    if (channels.includes('mail')) {
+      recipients.userIds = list('userIds');
+      recipients.roleIds = list('roleIds');
+      recipients.emails = list('emails', (item) => item.trim().toLowerCase());
+      const { userIds, roleIds, emails } = recipients;
+      if (userIds.length === 0 && roleIds.length === 0 && emails.length === 0) {
+        errors.recipients = 'required';
+      }
+      if (userIds.length > 0) {
+        const members = new Set((await this.directory.listMembers(location)).map((m) => m.userId));
+        if (userIds.some((id) => !members.has(id))) errors['recipients.userIds'] = 'unknown_user';
+      }
+      if (roleIds.length > 0) {
+        const roles = new Set((await this.directory.listRoles(location)).map((role) => role.id));
+        if (roleIds.some((id) => !roles.has(id))) errors['recipients.roleIds'] = 'unknown_role';
+      }
+      if (emails.some((email) => !EMAIL_PATTERN.test(email))) {
+        errors['recipients.emails'] = 'invalid_email';
+      }
+      tooMany('emails', emails);
     }
 
-    if (userIds.length > 0) {
-      const members = new Set((await this.directory.listMembers(location)).map((m) => m.userId));
-      if (userIds.some((id) => !members.has(id))) errors['recipients.userIds'] = 'unknown_user';
-    }
-    if (roleIds.length > 0) {
-      const roles = new Set((await this.directory.listRoles(location)).map((role) => role.id));
-      if (roleIds.some((id) => !roles.has(id))) errors['recipients.roleIds'] = 'unknown_role';
+    if (channels.includes('slack')) {
+      recipients.slackChannels = list('slackChannels', (item) => {
+        const name = item.trim().toLowerCase();
+        return name && !name.startsWith('#') ? `#${name}` : name;
+      });
+      if (recipients.slackChannels.length === 0) errors['recipients.slackChannels'] = 'required';
+      else if (recipients.slackChannels.some((name) => !SLACK_CHANNEL_PATTERN.test(name))) {
+        errors['recipients.slackChannels'] = 'invalid_slack_channel';
+      }
+      tooMany('slackChannels', recipients.slackChannels);
     }
 
-    return { userIds, roleIds };
+    if (channels.includes('google_chat')) {
+      recipients.googleChatSpaces = list('googleChatSpaces');
+      if (recipients.googleChatSpaces.length === 0) {
+        errors['recipients.googleChatSpaces'] = 'required';
+      } else if (recipients.googleChatSpaces.some((space) => space.length > MAX_SPACE_LENGTH)) {
+        errors['recipients.googleChatSpaces'] = 'too_long';
+      }
+      tooMany('googleChatSpaces', recipients.googleChatSpaces);
+    }
+
+    if (channels.includes('webhook')) {
+      recipients.webhookUrls = list('webhookUrls');
+      if (recipients.webhookUrls.length === 0) errors['recipients.webhookUrls'] = 'required';
+      else if (recipients.webhookUrls.some((url) => !isHttpUrl(url))) {
+        errors['recipients.webhookUrls'] = 'invalid_url';
+      }
+      tooMany('webhookUrls', recipients.webhookUrls);
+    }
+
+    return recipients;
   }
 
   private validateChannels(value: unknown, errors: AlertValidationErrors): AlertChannel[] {
@@ -431,5 +490,14 @@ export class AlertService {
       return ['mail'];
     }
     return [...new Set(list as AlertChannel[])];
+  }
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
   }
 }

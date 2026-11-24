@@ -18,12 +18,12 @@
   <div>
     <a
       href={`${data.monitoringBase}/monitors`}
-      class="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200"
+      class="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-white"
     >
       <ArrowLeft class="h-3.5 w-3.5" />{$_('monitoring.backToMonitors')}
     </a>
-    <h1 class="mt-3 text-2xl font-bold text-white">{$_('monitoring.newMonitor')}</h1>
-    <p class="mt-1 text-sm text-slate-400">{$_('monitoring.form.intro')}</p>
+    <h1 class="mt-3 text-2xl font-semibold tracking-tight text-white">{$_('monitoring.newMonitor')}</h1>
+    <p class="mt-1 text-sm text-fg-muted">{$_('monitoring.form.intro')}</p>
   </div>
 
   <MonitorForm

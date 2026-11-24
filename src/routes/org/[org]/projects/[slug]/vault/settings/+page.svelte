@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { enhance } from '$app/forms';
+  import { tick } from 'svelte';
+  import { deserialize, enhance } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import type { SubmitFunction } from '$app/forms';
-  import { CheckCircle, ChevronDown, ChevronUp, Edit3, Plus, Trash2 } from '@lucide/svelte';
-  import Dropdown from '#lib/components/Dropdown.svelte';
+  import { ArrowDown, ArrowUp, Layers, LockKeyhole, Pencil, Plus, Trash2 } from '@lucide/svelte';
+  import { Field, Modal, Switch, toast } from '#lib/components/ui';
 
   type VaultEnvironment = {
     id: string;
@@ -14,348 +15,446 @@
     createdAt: string;
   };
 
-  export let data: {
-    settings: { capitalizeSecrets: boolean; encryptionProvider: string };
-    encryptionProviders: { value: string; label: string }[];
-    canManageSettings: boolean;
-    environments: VaultEnvironment[];
-    canManageEnvironments: boolean;
-    canDeleteEnvironments: boolean;
+  let {
+    data,
+  }: {
+    data: {
+      settings: { capitalizeSecrets: boolean; encryptionProvider: string };
+      encryptionProviders: { value: string; label: string }[];
+      canManageSettings: boolean;
+      environments: VaultEnvironment[];
+      canManageEnvironments: boolean;
+      canDeleteEnvironments: boolean;
+    };
+  } = $props();
+
+  // ---------- ajustes generales ----------
+
+  // valor optimista: se reescribe al volver los datos del servidor
+  let capitalizeSecrets = $derived(data.settings.capitalizeSecrets);
+  let savingSettings = $state(false);
+  let settingsForm = $state<HTMLFormElement>();
+
+  async function submitSettings() {
+    // el Switch actualiza su input oculto en el siguiente render
+    await tick();
+    settingsForm?.requestSubmit();
+  }
+
+  const submitSettingsForm: SubmitFunction = () => {
+    savingSettings = true;
+    return async ({ result, update }) => {
+      savingSettings = false;
+      if (result.type === 'success') {
+        toast.success(
+          'Ajustes guardados',
+          capitalizeSecrets
+            ? 'Las claves se guardarán en mayúsculas.'
+            : 'Las claves se guardan tal cual.',
+        );
+      } else if (result.type === 'failure') {
+        capitalizeSecrets = data.settings.capitalizeSecrets;
+        toast.error(
+          'No se pudieron guardar los ajustes',
+          result.data?.error ? String(result.data.error) : undefined,
+        );
+      }
+      await update({ reset: false });
+    };
   };
 
-  let capitalizeSecrets = data.settings.capitalizeSecrets;
-  let encryptionProvider = data.settings.encryptionProvider;
-  let formError = '';
-  let success = '';
-  let submitting = false;
-  let moving = false;
+  // ---------- entornos ----------
 
-  let createEnvironmentOpen = false;
-  let editingEnvironment: VaultEnvironment | null = null;
-  let deletingEnvironment: VaultEnvironment | null = null;
-  let environmentName = '';
-  let environmentSlug = '';
-  let environmentDescription = '';
+  let environmentOpen = $state(false);
+  let deleteOpen = $state(false);
+  let submitting = $state(false);
+  let moving = $state(false);
 
-  function flashSuccess(message: string) {
-    success = message;
-    setTimeout(() => {
-      success = '';
-    }, 2500);
+  let editingEnvironment = $state<VaultEnvironment | null>(null);
+  let deletingEnvironment = $state<VaultEnvironment | null>(null);
+  let environmentName = $state('');
+  let environmentSlug = $state('');
+  let environmentDescription = $state('');
+  let slugTouched = $state(false);
+  let confirmText = $state('');
+
+  function slugify(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   function openCreateEnvironment() {
-    formError = '';
+    editingEnvironment = null;
     environmentName = '';
     environmentSlug = '';
     environmentDescription = '';
-    createEnvironmentOpen = true;
+    slugTouched = false;
+    environmentOpen = true;
   }
 
   function openEditEnvironment(environment: VaultEnvironment) {
-    formError = '';
     editingEnvironment = environment;
     environmentName = environment.name;
     environmentSlug = environment.slug;
     environmentDescription = environment.description ?? '';
+    slugTouched = true;
+    environmentOpen = true;
   }
 
-  const handleSubmit: SubmitFunction = () => {
-    formError = '';
-    submitting = true;
-    return async ({ result, update }) => {
-      await update();
-      submitting = false;
+  function openDeleteEnvironment(environment: VaultEnvironment) {
+    deletingEnvironment = environment;
+    confirmText = '';
+    deleteOpen = true;
+  }
 
-      if (result.type === 'success') {
-        createEnvironmentOpen = false;
-        editingEnvironment = null;
-        deletingEnvironment = null;
-        flashSuccess('Cambios guardados');
-        return;
-      }
-
-      formError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : 'No se pudieron guardar los cambios';
+  const submitWith =
+    (success: () => [string, string?]): SubmitFunction =>
+    () => {
+      submitting = true;
+      const [title, description] = success();
+      return async ({ result, update }) => {
+        submitting = false;
+        if (result.type === 'success') {
+          environmentOpen = false;
+          deleteOpen = false;
+          toast.success(title, description);
+          await update();
+        } else if (result.type === 'failure') {
+          toast.error(
+            'No se pudieron guardar los cambios',
+            result.data?.error ? String(result.data.error) : undefined,
+          );
+        } else {
+          await update();
+        }
+      };
     };
-  };
 
   async function moveEnvironment(environment: VaultEnvironment, direction: 'up' | 'down') {
     if (moving) return;
     moving = true;
-    formError = '';
 
     const body = new FormData();
     body.set('id', environment.id);
     body.set('direction', direction);
 
-    const response = await fetch('?/moveEnvironment', { method: 'POST', body });
+    const response = await fetch('?/moveEnvironment', {
+      method: 'POST',
+      headers: { 'x-sveltekit-action': 'true' },
+      body,
+    });
+    const result = deserialize(await response.text());
     moving = false;
 
-    if (!response.ok) {
-      formError = 'No se pudo reordenar el entorno';
+    if (result.type !== 'success') {
+      toast.error(
+        'No se pudo reordenar el entorno',
+        result.type === 'failure' && result.data?.error ? String(result.data.error) : undefined,
+      );
       return;
     }
 
     await invalidateAll();
   }
+
+  const providerLabel = $derived(
+    data.encryptionProviders.find((provider) => provider.value === data.settings.encryptionProvider)
+      ?.label ?? data.settings.encryptionProvider,
+  );
 </script>
 
 <svelte:head>
-  <title>Vault settings - GitOps</title>
+  <title>Ajustes del vault - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">
-  <section>
-    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Vault</p>
-    <h2 class="mt-1 text-2xl font-semibold text-slate-950">Settings</h2>
-    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-      Configura el comportamiento general del vault de este proyecto.
+  <header class="max-w-2xl">
+    <h1 class="text-2xl font-semibold tracking-tight text-white">Ajustes del vault</h1>
+    <p class="mt-1 text-sm text-fg-muted">
+      Comportamiento de los secretos, entornos y cifrado de este proyecto.
     </p>
+  </header>
+
+  <!-- General -->
+  <section class="k-card p-6">
+    <form
+      bind:this={settingsForm}
+      method="POST"
+      action="?/updateSettings"
+      class="flex items-start justify-between gap-6"
+      use:enhance={submitSettingsForm}
+    >
+      <input type="hidden" name="encryptionProvider" value={data.settings.encryptionProvider} />
+      <div>
+        <h2 class="font-semibold text-white" id="capitalize-label">Claves en mayúsculas</h2>
+        <p class="mt-1 text-sm text-fg-muted" id="capitalize-help">
+          Fuerza que las claves de los secretos se guarden siempre en mayúsculas (<span
+            class="font-mono text-xs">database_url</span
+          >
+          →
+          <span class="font-mono text-xs">DATABASE_URL</span>).
+        </p>
+      </div>
+      <Switch
+        name="capitalizeSecrets"
+        label="Claves en mayúsculas"
+        aria-describedby="capitalize-help"
+        bind:checked={capitalizeSecrets}
+        disabled={!data.canManageSettings || savingSettings}
+        onchange={submitSettings}
+      />
+    </form>
   </section>
 
-  {#if success}
+  <!-- Entornos -->
+  <section class="k-card overflow-hidden">
     <div
-      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+      class="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 px-6 py-4"
     >
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {success}</span>
+      <div>
+        <h2 class="font-semibold text-white">Entornos</h2>
+        <p class="mt-0.5 text-sm text-fg-muted">
+          Cada secreto tiene un valor por entorno. El orden es el de las pestañas de Secretos.
+        </p>
+      </div>
+      {#if data.canManageEnvironments}
+        <button
+          type="button"
+          class="k-btn k-btn-secondary k-btn-sm"
+          onclick={openCreateEnvironment}
+        >
+          <Plus class="h-3.5 w-3.5" />Nuevo entorno
+        </button>
+      {/if}
     </div>
-  {/if}
 
-  {#if formError}
-    <p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>
-  {/if}
-
-  <div class="flex w-full flex-col gap-6">
-    <!-- Capitalize -->
-    <section class="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-      <form
-        method="POST"
-        action="?/updateSettings"
-        use:enhance={handleSubmit}
-        class="flex items-center justify-between gap-4"
-      >
-        <input type="hidden" name="encryptionProvider" value={encryptionProvider} />
-        <div>
-          <h3 class="text-sm font-semibold text-slate-900">Capitalize all secrets</h3>
-          <p class="mt-1 text-sm text-slate-500">
-            Fuerza que las keys de los secretos se guarden siempre en mayusculas.
-          </p>
-        </div>
-        <label class="relative inline-flex shrink-0 cursor-pointer items-center">
-          <input
-            type="checkbox"
-            name="capitalizeSecrets"
-            bind:checked={capitalizeSecrets}
-            disabled={!data.canManageSettings || submitting}
-            on:change={(event) => event.currentTarget.form?.requestSubmit()}
-            class="peer sr-only"
-          />
-          <span
-            class="h-6 w-11 rounded-full bg-slate-300 transition-colors peer-checked:bg-emerald-500 peer-disabled:opacity-50"
-          ></span>
-          <span
-            class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5"
-          ></span>
-        </label>
-      </form>
-    </section>
-
-    <!-- Environments -->
-    <section class="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex items-center justify-between gap-4">
-        <div>
-          <h3 class="text-sm font-semibold text-slate-900">Environments</h3>
-          <p class="mt-1 text-sm text-slate-500">
-            Gestiona los entornos que aparecen como columnas de valores en la tabla de secretos.
-          </p>
-        </div>
-        {#if data.canManageEnvironments}
-          <button
-            type="button"
-            on:click={openCreateEnvironment}
-            class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Plus class="h-4 w-4" /> Nuevo
-          </button>
-        {/if}
-      </div>
-
-      <div class="mt-4 overflow-hidden rounded-md border border-slate-200">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <tbody>
-              {#each data.environments as environment, index (environment.id)}
-                <tr class="border-t border-slate-100 first:border-t-0">
-                  <td class="w-10 px-3 py-2">
-                    {#if data.canManageEnvironments}
-                      <div class="flex flex-col gap-0.5">
-                        <button
-                          type="button"
-                          disabled={moving || index === 0}
-                          on:click={() => moveEnvironment(environment, 'up')}
-                          class="rounded border border-slate-200 p-0.5 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Subir entorno"><ChevronUp class="h-3.5 w-3.5" /></button
-                        >
-                        <button
-                          type="button"
-                          disabled={moving || index === data.environments.length - 1}
-                          on:click={() => moveEnvironment(environment, 'down')}
-                          class="rounded border border-slate-200 p-0.5 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Bajar entorno"><ChevronDown class="h-3.5 w-3.5" /></button
-                        >
-                      </div>
-                    {/if}
-                  </td>
-                  <td class="px-3 py-2">
-                    <p class="font-medium text-slate-900">{environment.name}</p>
-                    <p class="font-mono text-xs text-slate-500">{environment.slug}</p>
-                  </td>
-                  <td class="px-3 py-2 text-right">
-                    {#if data.canManageEnvironments}
-                      <button
-                        type="button"
-                        on:click={() => openEditEnvironment(environment)}
-                        class="rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                        aria-label="Editar entorno"><Edit3 class="h-4 w-4" /></button
-                      >
-                    {/if}
-                    {#if data.canDeleteEnvironments}
-                      <button
-                        type="button"
-                        on:click={() => (deletingEnvironment = environment)}
-                        class="ml-2 rounded-md border border-red-200 p-2 text-red-600 hover:bg-red-50"
-                        aria-label="Borrar entorno"><Trash2 class="h-4 w-4" /></button
-                      >
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- Encryption -->
-    <section class="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex items-center gap-2">
-        <h3 class="text-sm font-semibold text-slate-900">Encryption</h3>
-        <span
-          class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500"
-        >
-          Soon
+    {#if data.environments.length === 0}
+      <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
+        <span class="grid h-12 w-12 place-items-center rounded-xl bg-brand-500/10 text-brand-400">
+          <Layers class="h-6 w-6" />
         </span>
+        <p class="text-sm font-medium text-white">Aún no hay entornos</p>
       </div>
-      <p class="mt-1 text-sm text-slate-500">Proveedor usado para cifrar los secretos en reposo.</p>
-      <form
-        method="POST"
-        action="?/updateSettings"
-        use:enhance={handleSubmit}
-        class="mt-4 flex items-center gap-3"
+    {:else}
+      <ul class="divide-y divide-white/6">
+        {#each data.environments as environment, index (environment.id)}
+          <li class="flex items-center gap-4 px-6 py-3.5">
+            {#if data.canManageEnvironments}
+              <div class="flex flex-col">
+                <button
+                  type="button"
+                  class="k-btn k-btn-ghost k-btn-icon h-6 w-6"
+                  disabled={moving || index === 0}
+                  onclick={() => moveEnvironment(environment, 'up')}
+                  aria-label="Subir {environment.name}"><ArrowUp class="h-3.5 w-3.5" /></button
+                >
+                <button
+                  type="button"
+                  class="k-btn k-btn-ghost k-btn-icon h-6 w-6"
+                  disabled={moving || index === data.environments.length - 1}
+                  onclick={() => moveEnvironment(environment, 'down')}
+                  aria-label="Bajar {environment.name}"><ArrowDown class="h-3.5 w-3.5" /></button
+                >
+              </div>
+            {/if}
+            <div class="min-w-0 flex-1">
+              <p class="flex items-center gap-2 text-sm font-medium text-white">
+                {environment.name}
+                <span class="k-badge font-mono">{environment.slug}</span>
+                {#if /^prod/i.test(environment.slug)}
+                  <span class="k-badge k-badge-warn">Producción</span>
+                {/if}
+              </p>
+              {#if environment.description}
+                <p class="mt-0.5 truncate text-xs text-fg-subtle">{environment.description}</p>
+              {/if}
+            </div>
+            <div class="flex items-center gap-1">
+              {#if data.canManageEnvironments}
+                <button
+                  type="button"
+                  class="k-btn k-btn-ghost k-btn-sm"
+                  onclick={() => openEditEnvironment(environment)}
+                  ><Pencil class="h-3.5 w-3.5" />Editar</button
+                >
+              {/if}
+              {#if data.canDeleteEnvironments}
+                <button
+                  type="button"
+                  class="k-btn k-btn-ghost k-btn-icon k-btn-sm hover:text-red-400"
+                  disabled={data.environments.length <= 1}
+                  title={data.environments.length <= 1
+                    ? 'Debe existir al menos un entorno'
+                    : undefined}
+                  onclick={() => openDeleteEnvironment(environment)}
+                  aria-label="Borrar {environment.name}"><Trash2 class="h-3.5 w-3.5" /></button
+                >
+              {/if}
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  <!-- Cifrado -->
+  <section class="k-card p-6">
+    <div class="flex items-start gap-4">
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-brand-500/30 bg-brand-500/10 text-brand-400"
+        ><LockKeyhole class="h-5 w-5" /></span
       >
-        <input type="hidden" name="capitalizeSecrets" value={capitalizeSecrets ? 'on' : ''} />
-        <input type="hidden" name="encryptionProvider" value={encryptionProvider} />
-        <Dropdown
-          options={data.encryptionProviders.map((provider) => ({
-            id: provider.value,
-            name: provider.label,
-          }))}
-          value={encryptionProvider}
-          disabled
-          ariaLabel="Encryption provider"
-          on:change={(event) => (encryptionProvider = event.detail.id)}
-        />
-        <button disabled class="btn-primary shrink-0 rounded-md px-4 py-2 text-sm font-medium"
-          >Guardar</button
-        >
-      </form>
-    </section>
-  </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <h2 class="font-semibold text-white">Cifrado</h2>
+          <span class="k-badge k-badge-brand">Pronto</span>
+        </div>
+        <p class="mt-1 text-sm text-fg-muted">
+          Proveedor con el que se cifran los secretos en reposo. De momento solo está disponible
+          <span class="text-fg">{providerLabel}</span>.
+        </p>
+        <div class="mt-4 max-w-sm">
+          <Field label="Proveedor">
+            {#snippet children(control)}
+              <select class="k-input" disabled {...control}>
+                {#each data.encryptionProviders as provider (provider.value)}
+                  <option
+                    value={provider.value}
+                    selected={provider.value === data.settings.encryptionProvider}
+                    >{provider.label}</option
+                  >
+                {/each}
+              </select>
+            {/snippet}
+          </Field>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
-{#if createEnvironmentOpen || editingEnvironment}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action={editingEnvironment ? '?/updateEnvironment' : '?/createEnvironment'}
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
-    >
-      {#if editingEnvironment}<input type="hidden" name="id" value={editingEnvironment.id} />{/if}
-      <h3 class="text-lg font-semibold text-slate-900">
-        {editingEnvironment ? 'Editar entorno' : 'Crear entorno'}
-      </h3>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <div class="mt-5 space-y-4">
-        <label class="block text-sm font-medium text-slate-700"
-          >Nombre<input
-            name="name"
-            bind:value={environmentName}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"
-          /></label
-        >
-        <label class="block text-sm font-medium text-slate-700"
-          >Slug<input
-            name="slug"
-            bind:value={environmentSlug}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"
-          /></label
-        >
-        <label class="block text-sm font-medium text-slate-700"
-          >Descripcion<textarea
-            name="description"
-            bind:value={environmentDescription}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"></textarea></label
-        >
-      </div>
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => {
-            createEnvironmentOpen = false;
-            editingEnvironment = null;
+<Modal
+  bind:open={environmentOpen}
+  title={editingEnvironment ? 'Editar entorno' : 'Nuevo entorno'}
+  description={editingEnvironment
+    ? 'El slug se usa en la URL de los secretos, en la CLI y en la API.'
+    : 'Los secretos existentes tendrán este entorno sin valor hasta que lo rellenes.'}
+  dismissible={!submitting}
+>
+  <form
+    id="form-entorno"
+    method="POST"
+    action={editingEnvironment ? '?/updateEnvironment' : '?/createEnvironment'}
+    class="space-y-5"
+    use:enhance={submitWith(() => [
+      editingEnvironment ? 'Entorno guardado' : 'Entorno creado',
+      `${environmentName} · ${environmentSlug}`,
+    ])}
+  >
+    {#if editingEnvironment}<input type="hidden" name="id" value={editingEnvironment.id} />{/if}
+    <Field label="Nombre" required>
+      {#snippet children(control)}
+        <input
+          class="k-input"
+          name="name"
+          placeholder="Staging"
+          autocomplete="off"
+          data-autofocus
+          bind:value={environmentName}
+          oninput={() => {
+            if (!slugTouched) environmentSlug = slugify(environmentName);
           }}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button disabled={submitting} class="btn-primary rounded-md px-3 py-2 text-sm"
-          >Guardar</button
-        >
-      </div>
-    </form>
-  </div>
-{/if}
-
-{#if deletingEnvironment}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action="?/deleteEnvironment"
-      use:enhance={handleSubmit}
-      class="w-full max-w-md rounded-md bg-white p-6 shadow-xl"
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    <Field label="Slug" help="Se usa en la URL, la CLI y la API. Por ejemplo: staging" required>
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          name="slug"
+          placeholder="staging"
+          autocomplete="off"
+          spellcheck="false"
+          bind:value={environmentSlug}
+          oninput={() => (slugTouched = true)}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    <Field label="Descripción">
+      {#snippet aside()}Opcional{/snippet}
+      {#snippet children(control)}
+        <textarea
+          class="k-input"
+          name="description"
+          rows="3"
+          bind:value={environmentDescription}
+          {...control}></textarea>
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (environmentOpen = false)}
+      >Cancelar</button
     >
-      <input type="hidden" name="id" value={deletingEnvironment.id} />
-      <h3 class="text-lg font-semibold text-slate-900">Borrar entorno</h3>
-      <p class="mt-2 text-sm leading-6 text-slate-600">
-        Se borrara <strong>{deletingEnvironment.name}</strong> de la configuracion del vault.
-      </p>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (deletingEnvironment = null)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button
-          disabled={submitting}
-          class="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
-          >Borrar</button
-        >
-      </div>
-    </form>
-  </div>
-{/if}
+    <button
+      type="submit"
+      form="form-entorno"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !environmentName.trim() || !environmentSlug.trim()}
+      >{editingEnvironment ? 'Guardar cambios' : 'Crear entorno'}</button
+    >
+  {/snippet}
+</Modal>
+
+<Modal
+  bind:open={deleteOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!submitting}
+  title="¿Borrar el entorno?"
+  description="Se quitará {deletingEnvironment?.name ??
+    ''} del vault y sus valores dejarán de mostrarse. Quedará un commit en GitDB, pero no se puede deshacer desde la interfaz."
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  <form
+    id="form-borrar-entorno"
+    method="POST"
+    action="?/deleteEnvironment"
+    use:enhance={submitWith(() => ['Entorno borrado', deletingEnvironment?.name])}
+  >
+    <input type="hidden" name="id" value={deletingEnvironment?.id ?? ''} />
+    <Field label="Escribe {deletingEnvironment?.slug ?? ''} para confirmar">
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          autocomplete="off"
+          spellcheck="false"
+          data-autofocus
+          bind:value={confirmText}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteOpen = false)}
+      >Cancelar</button
+    >
+    <button
+      type="submit"
+      form="form-borrar-entorno"
+      class="k-btn k-btn-danger"
+      disabled={submitting || confirmText !== deletingEnvironment?.slug}>Borrar entorno</button
+    >
+  {/snippet}
+</Modal>

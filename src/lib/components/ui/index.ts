@@ -15,6 +15,8 @@ export { default as Modal } from './Modal.svelte';
 export { default as Select } from './Select.svelte';
 export type { SelectOption } from './Select.svelte';
 export { default as Switch } from './Switch.svelte';
+export { default as TagInput } from './TagInput.svelte';
+export type { TagSuggestion, TagView } from './TagInput.svelte';
 export { default as Tabs, tabId, tabPanelId } from './Tabs.svelte';
 export type { TabItem } from './Tabs.svelte';
 export { default as Toaster } from './Toaster.svelte';

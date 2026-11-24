@@ -74,6 +74,8 @@ export type ApiKeyView = {
   expiresAt: string | null;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /** Última rotación del secreto (regenerar); null si nunca se ha rotado. */
+  rotatedAt?: string | null;
   createdAt: string;
 };
 

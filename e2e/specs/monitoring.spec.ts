@@ -165,7 +165,7 @@ test.describe('monitoring — monitors', () => {
     // the confirmation dialog is client-side: wait for the page to hydrate
     await page.waitForLoadState('networkidle');
     await page.getByTitle('Eliminar').click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Eliminar' }).click();
     await expect(page).toHaveURL(new RegExp(`${base}/monitors$`));
     await expect(page.getByText('E2E to delete')).toHaveCount(0);
   });

@@ -31,7 +31,7 @@
   import { setContext, tick, type Snippet } from 'svelte';
   import { fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { overlayLayer } from './overlay';
+  import { floating, overlayLayer } from './overlay';
 
   type Props = {
     open?: boolean;
@@ -119,7 +119,9 @@
   });
 
   function onWindowPointerdown(event: PointerEvent) {
-    if (open && root && !root.contains(event.target as Node)) setOpen(false);
+    const target = event.target as Node;
+    // el panel vive en <body> (ver `floating`), fuera de `root`
+    if (open && root && !root.contains(target) && !panel?.contains(target)) setOpen(false);
   }
 
   function onPanelKeydown(event: KeyboardEvent) {
@@ -155,9 +157,12 @@
       {role}
       aria-label={label}
       tabindex="-1"
-      class="k-popover absolute top-full z-40 mt-1.5 outline-none {align === 'end'
-        ? 'right-0'
-        : 'left-0'} {panelClass}"
+      class="k-popover z-80 overflow-y-auto outline-none {panelClass}"
+      use:floating={{
+        anchor: root?.querySelector<HTMLElement>(`#${CSS.escape(triggerId)}`) ?? root,
+        align,
+        matchWidth: block,
+      }}
       use:overlayLayer={() => close()}
       onkeydown={onPanelKeydown}
       transition:fly={{ y: -4, duration: 120, easing: cubicOut }}

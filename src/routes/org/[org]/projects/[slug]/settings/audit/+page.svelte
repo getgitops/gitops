@@ -8,16 +8,23 @@
 </svelte:head>
 
 <div class="space-y-6">
-  <section>
-    <h3 class="text-xl font-semibold text-slate-900">{$_('projectSettings.audit.title')}</h3>
-    <p class="mt-2 text-sm text-slate-600">{$_('projectSettings.audit.description')}</p>
-  </section>
+  <header>
+    <h1 class="text-2xl font-semibold tracking-tight text-white">
+      {$_('projectSettings.audit.title')}
+    </h1>
+    <p class="mt-1 text-sm text-fg-muted">{$_('projectSettings.audit.description')}</p>
+  </header>
 
-  <div
-    class="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-16 text-center"
-  >
-    <ScrollText class="h-8 w-8 text-slate-400" />
-    <p class="text-sm font-medium text-slate-700">{$_('projectSettings.audit.comingSoon')}</p>
-    <p class="max-w-sm text-sm text-slate-500">{$_('projectSettings.audit.comingSoonDescription')}</p>
+  <div class="k-card flex flex-col items-center gap-3 border-dashed px-6 py-16 text-center">
+    <span class="grid h-12 w-12 place-items-center rounded-xl bg-brand-500/10 text-brand-400">
+      <ScrollText class="h-6 w-6" />
+    </span>
+    <p class="flex items-center gap-2 text-sm font-medium text-white">
+      {$_('projectSettings.audit.comingSoon')}
+      <span class="k-badge h-5 px-2 text-[11px]">{$_('common.comingSoon')}</span>
+    </p>
+    <p class="max-w-sm text-sm text-fg-muted">
+      {$_('projectSettings.audit.comingSoonDescription')}
+    </p>
   </div>
 </div>

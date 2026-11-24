@@ -1,7 +1,7 @@
 <script lang="ts">
   import VaultPage from '../../+page.svelte';
 
-  export let data: any;
+  let { data } = $props();
 </script>
 
 <VaultPage {data} />

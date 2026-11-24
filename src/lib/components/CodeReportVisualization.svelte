@@ -1,431 +1,331 @@
+<!--
+  Informe de Code Report de un servicio.
+  - mode="latest" (detalle del servicio): combina el último análisis de cada herramienta.
+  - mode="analysis" (historial): muestra solo el análisis recibido, sin mezclarlo con otros.
+  Las pestañas van arriba; `aside` permite añadir tarjetas en la columna lateral del resumen.
+-->
 <script lang="ts">
-  import { onDestroy } from 'svelte';
-  import { X } from '@lucide/svelte';
+  import type { Snippet } from 'svelte';
   import {
     extractSbomComponents,
     extractSecrets,
     extractVulnerabilities,
     summarizeAnalysisResult,
-    type VulnerabilityFinding,
+    type AnalysisSummary,
   } from '#lib/code-report/analysis-summary';
   import type { PolicyComplianceReport } from '#lib/code-report/policy-evaluation';
   import { mergeComplianceReports } from '#lib/code-report/policy-evaluation';
-  import CodeReportFiles from './code-report/CodeReportFiles.svelte';
+  import { riskLevel, SEVERITY_RANK } from '#lib/code-report/severity-ui';
+  import { Tabs, tabId, tabPanelId } from '#lib/components/ui';
   import CodeReportSbom from './code-report/CodeReportSbom.svelte';
   import CodeReportSecrets from './code-report/CodeReportSecrets.svelte';
   import CodeReportSummary from './code-report/CodeReportSummary.svelte';
   import CodeReportVulnerabilities from './code-report/CodeReportVulnerabilities.svelte';
-  import SecurityPolicyComplianceCard from './code-report/SecurityPolicyComplianceCard.svelte';
+
+  type GitInfo = {
+    repositoryUrl?: string | null;
+    branch?: string | null;
+    commit?: string | null;
+    commitMessage?: string | null;
+    author?: string | null;
+    committer?: string | null;
+    scannedAt?: string | null;
+    artifactName?: string | null;
+    artifactType?: string | null;
+  } | null;
 
   type AnalysisData = {
     id: string;
     tool: string;
     status: 'in_progress' | 'completed' | 'failed';
     result: unknown;
-    summary?: unknown;
-    visualizationSummary?: ReturnType<typeof summarizeAnalysisResult>;
+    visualizationSummary?: AnalysisSummary;
     securityPolicies?: PolicyComplianceReport | null;
     error?: string | null;
-    gitInfo?: {
-      repositoryUrl?: string | null;
-      branch?: string | null;
-      commit?: string | null;
-      commitMessage?: string | null;
-      author?: string | null;
-      committer?: string | null;
-      scannedAt?: string | null;
-      artifactName?: string | null;
-      artifactType?: string | null;
-    } | null;
+    gitInfo?: GitInfo;
     createdAt: string;
-    updatedAt: string;
+    updatedAt?: string;
   };
-  type Analysis = AnalysisData | null;
-  type ServiceData = {
-    id?: string;
-    name: string;
-    slug: string;
-    description?: string | null;
-    tags?: string[];
-  } | null;
-  export let analysis: Analysis;
-  export let analysisHistory: AnalysisData[] = [];
-  export let latestByTool: Record<string, AnalysisData | null | undefined> = {};
-  export let service: ServiceData = null;
-  export let securityPoliciesHref: string | null = null;
-  let activeTab = 'summary';
-  let activeVulnerabilityTab = 'cve';
-  let riskInfoModalOpen = false;
-  let fileQuery = '';
-  let vulnerabilityQuery = '';
-  let secretQuery = '';
-  let sbomQuery = '';
-  let sbomTypeFilter = 'all';
-  let severityFilter = 'all';
-  let selectedFilePath = '';
-  let chart: { destroy: () => void } | null = null;
-  export let riskWeights = { critical: 10, high: 6, medium: 3, low: 1 };
 
-  const severityStyles: Record<string, string> = {
-    critical: 'bg-red-50 text-red-700 border-red-200',
-    high: 'bg-orange-50 text-orange-700 border-orange-200',
-    medium: 'bg-amber-50 text-amber-700 border-amber-200',
-    low: 'bg-slate-50 text-slate-600 border-slate-200',
-    unknown: 'bg-slate-50 text-slate-600 border-slate-200',
-  };
-  const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
-  const severityKeys = ['critical', 'high', 'medium', 'low', 'unknown'] as const;
-  const fileSeverityOrder = ['critical', 'high', 'medium', 'low'] as const;
-  const knownTools = ['trivy', 'sbom', 'gitleaks'];
-  $: resolvedLatestByTool = resolveLatestByTool(latestByTool, analysisHistory, analysis);
-  // manual uploads are stored under other tool names, so fall back to the latest analysis
-  $: trivyAnalysis = resolvedLatestByTool.trivy ?? analysis;
-  $: gitleaksAnalysis = resolvedLatestByTool.gitleaks ?? null;
-  $: sbomAnalysis = resolvedLatestByTool.syft ?? resolvedLatestByTool.sbom ?? null;
-  $: summary = trivyAnalysis ? summarizeAnalysisResult(trivyAnalysis.result) : null;
-  $: summaryAnalysis = trivyAnalysis ? withDerivedGitInfo(trivyAnalysis) : null;
-  $: vulnerabilities = trivyAnalysis ? extractVulnerabilities(trivyAnalysis.result) : [];
-  $: secrets = gitleaksAnalysis ? extractSecrets(gitleaksAnalysis.result) : [];
-  $: sbomComponents = sbomAnalysis ? extractSbomComponents(sbomAnalysis.result) : [];
-  $: complianceReport = mergeComplianceReports([
-    trivyAnalysis?.securityPolicies,
-    gitleaksAnalysis?.securityPolicies,
-    sbomAnalysis?.securityPolicies,
-    analysis?.securityPolicies,
-  ]);
-  $: fileGroups = groupByFile(vulnerabilities);
-  $: selectedFile = fileGroups.find((file) => file.path === selectedFilePath) ?? null;
-  $: historyPoints = analysisHistory
-    .filter(
-      (item) =>
-        item.status === 'completed' &&
-        item.tool !== 'gitleaks' &&
-        item.tool !== 'syft' &&
-        item.tool !== 'sbom',
-    )
-    .slice()
-    .reverse()
-    .map((item) => ({
-      date: new Date(item.createdAt).toLocaleDateString(),
-      summary: item.visualizationSummary ?? summarizeAnalysisResult(item.result),
-    }));
-  $: riskScore = summary ? calculateRiskScore(summary) : 0;
-  $: riskLevel =
-    !summary || riskScore === 0
-      ? { label: 'Sin riesgo', className: 'safe' }
-      : summary.vulnerabilities.critical > 0 || riskScore >= 40
-        ? { label: 'Riesgo crítico', className: 'critical' }
-        : riskScore >= 20
-          ? { label: 'Riesgo alto', className: 'high' }
-          : riskScore >= 8
-            ? { label: 'Riesgo medio', className: 'medium' }
-            : { label: 'Riesgo bajo', className: 'low' };
-  $: filteredVulnerabilities = vulnerabilities
-    .filter((finding) => {
-      const query = vulnerabilityQuery.trim().toLowerCase();
-      return (
-        (!query ||
-          [finding.id, finding.packageName, finding.target, finding.title].some((value) =>
-            value.toLowerCase().includes(query),
-          )) &&
-        (severityFilter === 'all' || finding.severity === severityFilter)
-      );
-    })
-    .sort(
-      (left, right) => (severityRank[right.severity] ?? 0) - (severityRank[left.severity] ?? 0),
-    );
-  $: filteredFileGroups = fileGroups.filter((file) =>
-    getFileName(file.path).toLowerCase().includes(fileQuery.trim().toLowerCase()),
-  );
-  $: tabs = [
-    { id: 'summary', label: 'Resumen' },
-    { id: 'vulnerabilities', label: 'Vulnerabilidades', count: vulnerabilities.length },
-    { id: 'sbom', label: 'Inventario', count: sbomComponents.length },
-    { id: 'secrets', label: 'Secretos Expuestos', count: secrets.length },
-  ] as { id: string; label: string; count?: number }[];
-  $: vulnerabilitySubTabs = [
-    { id: 'cve', label: 'CVE', count: vulnerabilities.length },
-    { id: 'files', label: 'Archivos', count: fileGroups.length },
-  ];
-  $: toolRuns = knownTools.map((tool) => {
-    const run = tool === 'sbom'
-      ? (resolvedLatestByTool.syft ?? resolvedLatestByTool.sbom)
-      : resolvedLatestByTool[tool];
-    return {
-      tool,
-      status: run?.status ?? null,
-      createdAt: run?.createdAt ?? null,
-    };
-  });
-  function resolveLatestByTool(
-    explicitLatest: Record<string, AnalysisData | null | undefined>,
-    history: AnalysisData[],
-    fallback: Analysis,
-  ) {
-    const resolved: Record<string, AnalysisData> = {};
-    const addAnalysis = (item: AnalysisData | null | undefined) => {
-      if (!item?.tool) return;
-      const tool = item.tool.toLowerCase();
-      const current = resolved[tool];
-      if (!current || new Date(item.createdAt).getTime() > new Date(current.createdAt).getTime()) {
-        resolved[tool] = item;
-      }
-    };
+  type Kind = 'vulnerabilities' | 'secrets' | 'sbom';
+  type TabKey = 'summary' | Kind;
 
-    Object.values(explicitLatest).forEach(addAnalysis);
-    history.forEach(addAnalysis);
-    addAnalysis(fallback);
+  let {
+    analysis,
+    analysisHistory = [],
+    latestByTool = {},
+    service = null,
+    securityPoliciesHref = null,
+    riskWeights = { critical: 10, high: 6, medium: 3, low: 1 },
+    mode = 'latest',
+    aside,
+  }: {
+    analysis: AnalysisData | null;
+    analysisHistory?: AnalysisData[];
+    latestByTool?: Record<string, AnalysisData | null | undefined>;
+    service?: { id?: string; name: string; slug: string } | null;
+    securityPoliciesHref?: string | null;
+    riskWeights?: { critical: number; high: number; medium: number; low: number };
+    mode?: 'latest' | 'analysis';
+    aside?: Snippet;
+  } = $props();
 
-    return resolved;
+  function kindOf(tool: string | null | undefined): Kind {
+    const name = (tool ?? '').toLowerCase();
+    if (name === 'gitleaks') return 'secrets';
+    if (name === 'syft' || name === 'sbom') return 'sbom';
+    // trivy, y también subidas manuales o por API con formato Trivy
+    return 'vulnerabilities';
   }
-  function withDerivedGitInfo(item: AnalysisData): AnalysisData {
-    if (item.gitInfo?.repositoryUrl) return item;
-    if (!item.result || typeof item.result !== 'object' || Array.isArray(item.result)) return item;
 
-    const metadata = (item.result as Record<string, unknown>).Metadata;
-    if (!metadata || typeof metadata !== 'object') return item;
-
-    const row = metadata as Record<string, unknown>;
-    const repositoryUrl = row.RepoURL ? String(row.RepoURL) : null;
-    if (!repositoryUrl) return item;
-
-    return {
-      ...item,
-      gitInfo: {
-        ...item.gitInfo,
-        repositoryUrl,
-        commit: row.Commit ? String(row.Commit) : (item.gitInfo?.commit ?? null),
-        commitMessage: row.CommitMsg ? String(row.CommitMsg) : (item.gitInfo?.commitMessage ?? null),
-        author: row.Author ? String(row.Author) : (item.gitInfo?.author ?? null),
-        committer: row.Committer ? String(row.Committer) : (item.gitInfo?.committer ?? null),
-        scannedAt: (item.result as Record<string, unknown>).CreatedAt
-          ? String((item.result as Record<string, unknown>).CreatedAt)
-          : (item.gitInfo?.scannedAt ?? null),
-        artifactName: (item.result as Record<string, unknown>).ArtifactName
-          ? String((item.result as Record<string, unknown>).ArtifactName)
-          : (item.gitInfo?.artifactName ?? null),
-        artifactType: (item.result as Record<string, unknown>).ArtifactType
-          ? String((item.result as Record<string, unknown>).ArtifactType)
-          : (item.gitInfo?.artifactType ?? null),
-      },
-    };
-  }
-  function calculateRiskScore(value: ReturnType<typeof summarizeAnalysisResult>) {
-    return (
-      value.vulnerabilities.critical * riskWeights.critical +
-      value.vulnerabilities.high * riskWeights.high +
-      value.vulnerabilities.medium * riskWeights.medium +
-      value.vulnerabilities.low * riskWeights.low
-    );
-  }
-  function setupChart(canvas: HTMLCanvasElement) {
-    let disposed = false;
-    import('chart.js').then(({ Chart, registerables }) => {
-      if (disposed || historyPoints.length === 0) return;
-      Chart.register(...registerables);
-      chart = new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels: historyPoints.map((point) => point.date),
-          datasets: [
-            {
-              label: 'Riesgo ponderado',
-              data: historyPoints.map((point) => calculateRiskScore(point.summary)),
-              borderColor: '#ef4444',
-              backgroundColor: 'rgba(239, 68, 68, 0.12)',
-              fill: true,
-              tension: 0.35,
-            },
-            {
-              label: 'Vulnerabilidades',
-              data: historyPoints.map((point) => point.summary.totalVulnerabilities),
-              borderColor: '#2457ff',
-              fill: false,
-              tension: 0.35,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { position: 'bottom' } },
-          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-        },
-      });
-    });
-    return {
-      destroy: () => {
-        disposed = true;
-        chart?.destroy();
-        chart = null;
-      },
-    };
-  }
-  onDestroy(() => chart?.destroy());
-  function groupByFile(findings: VulnerabilityFinding[]) {
-    const groups = new Map<string, VulnerabilityFinding[]>();
-    for (const finding of findings) {
-      const group = groups.get(finding.packagePath);
-      if (group) group.push(finding);
-      else groups.set(finding.packagePath, [finding]);
+  // último análisis de cada tipo (modo latest) o solo el recibido (modo analysis)
+  const byKind = $derived.by(() => {
+    const picked: Partial<Record<Kind, AnalysisData>> = {};
+    if (mode === 'analysis') {
+      if (analysis) picked[kindOf(analysis.tool)] = analysis;
+      return picked;
     }
-    return [...groups.entries()]
-      .map(([path, groupedFindings]) => ({ path, vulnerabilities: groupedFindings }))
-      .sort((a, b) => b.vulnerabilities.length - a.vulnerabilities.length);
+    const candidates = [
+      ...Object.values(latestByTool),
+      ...analysisHistory.filter((item) => item.result !== null && item.result !== undefined),
+      analysis,
+    ].filter((item): item is AnalysisData => Boolean(item?.tool));
+    for (const item of candidates) {
+      const kind = kindOf(item.tool);
+      const current = picked[kind];
+      // Trivy manda sobre subidas manuales para las vulnerabilidades
+      const preferTrivy =
+        kind === 'vulnerabilities' &&
+        current &&
+        (current.tool === 'trivy') !== (item.tool === 'trivy');
+      if (
+        !current ||
+        (preferTrivy
+          ? item.tool === 'trivy'
+          : new Date(item.createdAt).getTime() > new Date(current.createdAt).getTime())
+      ) {
+        picked[kind] = item;
+      }
+    }
+    return picked;
+  });
+
+  const vulnAnalysis = $derived(byKind.vulnerabilities ?? null);
+  const secretsAnalysis = $derived(byKind.secrets ?? null);
+  const sbomAnalysis = $derived(byKind.sbom ?? null);
+
+  const completed = (item: AnalysisData | null) => (item?.status === 'completed' ? item : null);
+
+  const summary = $derived(
+    completed(vulnAnalysis) ? summarizeAnalysisResult(vulnAnalysis!.result) : null,
+  );
+  const vulnerabilities = $derived(
+    completed(vulnAnalysis) ? extractVulnerabilities(vulnAnalysis!.result) : [],
+  );
+  const secrets = $derived(
+    completed(secretsAnalysis) ? extractSecrets(secretsAnalysis!.result) : [],
+  );
+  const components = $derived(
+    completed(sbomAnalysis) ? extractSbomComponents(sbomAnalysis!.result) : [],
+  );
+
+  const riskScore = $derived(
+    summary
+      ? summary.vulnerabilities.critical * riskWeights.critical +
+          summary.vulnerabilities.high * riskWeights.high +
+          summary.vulnerabilities.medium * riskWeights.medium +
+          summary.vulnerabilities.low * riskWeights.low
+      : 0,
+  );
+  const level = $derived(riskLevel(riskScore, summary?.vulnerabilities.critical ?? 0));
+
+  const complianceReport = $derived(
+    mergeComplianceReports([
+      vulnAnalysis?.securityPolicies,
+      secretsAnalysis?.securityPolicies,
+      sbomAnalysis?.securityPolicies,
+    ]),
+  );
+
+  const priorities = $derived(
+    vulnerabilities
+      .filter((finding) => finding.severity === 'critical' || finding.severity === 'high')
+      .sort(
+        (left, right) =>
+          (SEVERITY_RANK[right.severity] ?? 0) - (SEVERITY_RANK[left.severity] ?? 0) ||
+          Number(Boolean(right.fixedVersion)) - Number(Boolean(left.fixedVersion)) ||
+          (right.cvssScore ?? 0) - (left.cvssScore ?? 0),
+      )
+      .slice(0, 6),
+  );
+
+  const weightOf = (severity: string) =>
+    severity in riskWeights ? riskWeights[severity as keyof typeof riskWeights] : 0;
+  const fixable = $derived(vulnerabilities.filter((finding) => finding.fixedVersion).length);
+  const riskWithoutFixable = $derived(
+    vulnerabilities
+      .filter((finding) => !finding.fixedVersion)
+      .reduce((sum, finding) => sum + weightOf(finding.severity), 0),
+  );
+
+  const fileCount = $derived(new Set(vulnerabilities.map((finding) => finding.packagePath)).size);
+
+  const trendPoints = $derived(
+    analysisHistory
+      .filter((item) => item.status === 'completed' && kindOf(item.tool) === 'vulnerabilities')
+      .map((item) => {
+        const itemSummary = item.visualizationSummary ?? summarizeAnalysisResult(item.result);
+        const v = itemSummary.vulnerabilities;
+        return {
+          id: item.id,
+          createdAt: item.createdAt,
+          critical: v.critical,
+          high: v.high,
+          medium: v.medium,
+          low: v.low,
+          score:
+            v.critical * riskWeights.critical +
+            v.high * riskWeights.high +
+            v.medium * riskWeights.medium +
+            v.low * riskWeights.low,
+        };
+      })
+      .sort(
+        (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+      ),
+  );
+
+  const toolRuns = $derived(
+    mode === 'analysis'
+      ? []
+      : [
+          { tool: 'trivy', run: vulnAnalysis },
+          { tool: 'sbom', run: sbomAnalysis },
+          { tool: 'gitleaks', run: secretsAnalysis },
+        ].map(({ tool, run }) => ({
+          tool: run?.tool && run.tool !== 'syft' ? run.tool : tool,
+          status: run?.status ?? null,
+          createdAt: run?.createdAt ?? null,
+          error: run?.error ?? null,
+        })),
+  );
+
+  const primary = $derived(mode === 'analysis' ? analysis : (vulnAnalysis ?? analysis));
+  const gitInfo = $derived(primary ? deriveGitInfo(primary) : null);
+
+  function deriveGitInfo(item: AnalysisData): GitInfo {
+    if (item.gitInfo?.repositoryUrl || !item.result || typeof item.result !== 'object')
+      return item.gitInfo ?? null;
+    const result = item.result as Record<string, unknown>;
+    const metadata = (result.Metadata ?? {}) as Record<string, unknown>;
+    if (!metadata.RepoURL) return item.gitInfo ?? null;
+    const text = (value: unknown, fallback?: string | null) =>
+      value ? String(value) : (fallback ?? null);
+    return {
+      ...item.gitInfo,
+      repositoryUrl: String(metadata.RepoURL),
+      branch: text(metadata.Branch, item.gitInfo?.branch),
+      commit: text(metadata.Commit, item.gitInfo?.commit),
+      commitMessage: text(metadata.CommitMsg, item.gitInfo?.commitMessage),
+      author: text(metadata.Author, item.gitInfo?.author),
+      artifactName: text(result.ArtifactName, item.gitInfo?.artifactName),
+      artifactType: text(result.ArtifactType, item.gitInfo?.artifactType),
+    };
   }
-  function getFileName(path: string) {
-    return path.split(/[\\/]/).pop() || path;
-  }
-  function countSeverity(findings: VulnerabilityFinding[], severity: string) {
-    return findings.filter((finding) => finding.severity === severity).length;
-  }
-  function severityLabel(severity: string) {
-    return severity.charAt(0).toUpperCase() + severity.slice(1);
-  }
-  function findingStatus(finding: VulnerabilityFinding) {
-    return finding.status === 'fixed' || finding.fixedVersion
-      ? 'Actualizar'
-      : finding.status === 'will_not_fix'
-        ? 'Excepción'
-        : finding.status === 'unknown'
-          ? 'Revisar'
-          : 'Afectada';
+
+  // ---------- pestañas ----------
+
+  let active = $state<TabKey>('summary');
+  let severity = $state('all');
+
+  const visibleKinds = $derived<Kind[]>(
+    mode === 'analysis' && analysis
+      ? [kindOf(analysis.tool)]
+      : ['vulnerabilities', 'sbom', 'secrets'],
+  );
+
+  const tabs = $derived([
+    { value: 'summary', label: 'Resumen' },
+    ...visibleKinds.map((kind) => ({
+      value: kind,
+      label:
+        kind === 'vulnerabilities'
+          ? 'Vulnerabilidades'
+          : kind === 'sbom'
+            ? 'Inventario'
+            : 'Secretos expuestos',
+      count:
+        kind === 'vulnerabilities'
+          ? vulnerabilities.length
+          : kind === 'sbom'
+            ? components.length
+            : secrets.length,
+    })),
+  ]);
+
+  function openTab(tab: Kind, withSeverity?: string) {
+    if (!visibleKinds.includes(tab)) return;
+    severity = withSeverity ?? 'all';
+    active = tab;
+    document.getElementById('report-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 </script>
 
-<div class="space-y-6">
-  {#if analysis && complianceReport}
-    <SecurityPolicyComplianceCard
-      report={complianceReport}
-      policiesHref={securityPoliciesHref}
-    />
-  {/if}
-  <div class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Vista del reporte">
-    {#each tabs as tab}<button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === tab.id}
-        on:click={() => (activeTab = tab.id)}
-        class={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === tab.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
-        >{tab.label}{#if tab.count !== undefined}<span
-            class="ml-1 text-xs font-normal text-slate-400">{tab.count}</span
-          >{/if}</button
-      >{/each}
+{#if !analysis}
+  <div class="k-card flex flex-col items-center gap-3 px-6 py-14 text-center">
+    <span class="grid h-12 w-12 place-items-center rounded-full bg-white/4 text-2xl">🦊</span>
+    <p class="text-sm font-medium text-white">Todavía no se ha ejecutado ningún análisis</p>
+    <p class="max-w-md text-sm text-fg-muted">
+      Envía el resultado de Trivy, Syft o Gitleaks desde tu pipeline a la API de scan y aparecerá
+      aquí.
+    </p>
   </div>
-  {#if !analysis}<div
-      class="rounded-2xl border border-slate-200 bg-white p-8 text-sm text-slate-600"
-    >
-      Todavía no se ha ejecutado ningún análisis.
-    </div>{:else if activeTab === 'summary'}<CodeReportSummary
-      analysis={summaryAnalysis}
-      analysisHistoryLength={analysisHistory.length}
-      {toolRuns}
-      {service}
-      {summary}
-      fileCount={fileGroups.length}
-      {historyPoints}
-      {riskScore}
-      {riskLevel}
-      {severityKeys}
-      {setupChart}
-      onShowRiskInfo={() => (riskInfoModalOpen = true)}
-    />{:else if activeTab === 'vulnerabilities'}<div class="space-y-4">
-      <div
-        class="flex gap-1 overflow-x-auto rounded-full bg-slate-100 p-1"
-        role="tablist"
-        aria-label="Vista de vulnerabilidades"
-      >
-        {#each vulnerabilitySubTabs as subTab}<button
-            type="button"
-            role="tab"
-            aria-selected={activeVulnerabilityTab === subTab.id}
-            on:click={() => (activeVulnerabilityTab = subTab.id)}
-            class={`shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold ${activeVulnerabilityTab === subTab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
-            >{subTab.label}<span class="ml-1 text-xs font-normal text-slate-400">{subTab.count}</span
-            ></button
-          >{/each}
-      </div>
-      {#if activeVulnerabilityTab === 'cve'}<CodeReportVulnerabilities
-          analysis={trivyAnalysis}
-          {vulnerabilities}
-          {filteredVulnerabilities}
-          {severityStyles}
-          bind:vulnerabilityQuery
-          bind:severityFilter
-          {findingStatus}
-        />{:else}<CodeReportFiles
-          {fileGroups}
-          {filteredFileGroups}
-          {selectedFile}
-          bind:selectedFilePath
-          bind:fileQuery
-          {severityStyles}
-          {fileSeverityOrder}
-          {getFileName}
-          {countSeverity}
-          {severityLabel}
-        />{/if}
-    </div>{:else if activeTab === 'secrets'}<CodeReportSecrets
-      analysis={gitleaksAnalysis}
-      {secrets}
-      {severityStyles}
-      bind:secretQuery
-    />{:else}<CodeReportSbom
-      analysis={sbomAnalysis}
-      components={sbomComponents}
-      bind:sbomQuery
-      bind:sbomTypeFilter
-    />{/if}
-</div>
-
-{#if riskInfoModalOpen}<div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
-    role="presentation"
-    on:click={(event) => event.currentTarget === event.target && (riskInfoModalOpen = false)}
-  >
-    <div
-      class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="risk-info-title"
-    >
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Método de evaluación
-          </p>
-          <h2 id="risk-info-title" class="mt-1 text-xl font-bold text-slate-900">
-            ¿Cómo se calcula este riesgo?
-          </h2>
-        </div>
-        <button
-          type="button"
-          on:click={() => (riskInfoModalOpen = false)}
-          aria-label="Cerrar información del riesgo"
-          class="text-slate-400 hover:text-slate-700"><X class="h-5 w-5" /></button
-        >
-      </div>
-      <p class="mt-4 text-sm leading-6 text-slate-600">
-        La puntuación suma el peso de cada vulnerabilidad encontrada en el último análisis. Cuanto
-        mayor sea el resultado, mayor es la prioridad de remediación.
-      </p>
-      <div class="mt-5 grid grid-cols-2 gap-2">
-        {#each [{ name: 'Critical', weight: riskWeights.critical, count: summary?.vulnerabilities.critical ?? 0, style: 'border-red-200 bg-red-50 text-red-700' }, { name: 'High', weight: riskWeights.high, count: summary?.vulnerabilities.high ?? 0, style: 'border-orange-200 bg-orange-50 text-orange-700' }, { name: 'Medium', weight: riskWeights.medium, count: summary?.vulnerabilities.medium ?? 0, style: 'border-amber-200 bg-amber-50 text-amber-700' }, { name: 'Low', weight: riskWeights.low, count: summary?.vulnerabilities.low ?? 0, style: 'border-slate-200 bg-slate-50 text-slate-700' }] as item}<div
-            class={`rounded-xl border p-3 ${item.style}`}
-          >
-            <p class="text-sm font-bold">{item.name} × {item.weight}</p>
-            <p class="mt-1 text-xs">{item.count} detectadas</p>
-          </div>{/each}
-      </div>
-      <div class="mt-5 border-t border-slate-100 pt-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fórmula aplicada</p>
-        <p class="mt-2 rounded-lg bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100">
-          (Critical × {riskWeights.critical}) + (High × {riskWeights.high}) + (Medium × {riskWeights.medium}) + (Low × {riskWeights.low}) = {riskScore} puntos
-        </p>
-        <p class="mt-3 text-xs leading-5 text-slate-500">
-          Riesgo bajo: 1-7 · medio: 8-19 · alto: 20-39 · crítico: 40+ o cualquier Critical.
-        </p>
-      </div>
+  {#if aside}
+    <div class="mt-4 max-w-xl">{@render aside()}</div>
+  {/if}
+{:else}
+  <div class="space-y-5">
+    <div id="report-tabs" class="scroll-mt-4 overflow-x-auto">
+      <Tabs label="Secciones del informe" idPrefix="report" items={tabs} bind:value={active} />
     </div>
-  </div>{/if}
+
+    <div
+      id={tabPanelId('report', active)}
+      role="tabpanel"
+      aria-labelledby={tabId('report', active)}
+    >
+      {#if active === 'summary'}
+        <CodeReportSummary
+          {summary}
+          {riskScore}
+          {level}
+          {riskWeights}
+          {gitInfo}
+          analyzedAt={primary?.createdAt ?? null}
+          {toolRuns}
+          {complianceReport}
+          policiesHref={securityPoliciesHref}
+          {trendPoints}
+          selectedId={mode === 'analysis' ? analysis.id : null}
+          {priorities}
+          {fixable}
+          {riskWithoutFixable}
+          {fileCount}
+          dependencyCount={completed(sbomAnalysis)
+            ? components.length
+            : (summary?.dependencies ?? null)}
+          secretCount={completed(secretsAnalysis) ? secrets.length : null}
+          onOpenTab={openTab}
+          available={visibleKinds}
+          {aside}
+        />
+      {:else if active === 'vulnerabilities'}
+        <CodeReportVulnerabilities analysis={vulnAnalysis} {vulnerabilities} bind:severity />
+      {:else if active === 'sbom'}
+        <CodeReportSbom analysis={sbomAnalysis} {components} />
+      {:else}
+        <CodeReportSecrets analysis={secretsAnalysis} {secrets} />
+      {/if}
+    </div>
+  </div>
+{/if}

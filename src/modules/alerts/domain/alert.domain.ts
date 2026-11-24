@@ -4,9 +4,15 @@ import type { Operator } from '#lib/events/catalog';
 export type AlertScope = 'organization' | 'project';
 export type AlertMatch = 'all' | 'any';
 
-/** v1 only sends emails; the field is ready for in-app and Slack (#82). */
-export const ALERT_CHANNELS = ['mail'] as const;
+/**
+ * Where an alert is delivered. An alert can use several channels at once and sends one message to
+ * each. Only `mail` is delivered today; the others are stored and validated so the UI and the API
+ * are ready when their notifiers land (#82).
+ */
+export const ALERT_CHANNELS = ['mail', 'slack', 'google_chat', 'webhook'] as const;
 export type AlertChannel = (typeof ALERT_CHANNELS)[number];
+/** Channels with a notifier: the rest are skipped by the engine. */
+export const DELIVERED_CHANNELS: readonly AlertChannel[] = ['mail'];
 
 export const ALERT_MATCHES = ['all', 'any'] as const;
 
@@ -21,10 +27,32 @@ export type AlertCondition = {
   value?: string | number | string[];
 };
 
+/** Targets per channel; only the arrays of the alert's enabled channels are kept. */
 export type AlertRecipients = {
+  /** mail: platform users */
   userIds: string[];
+  /** mail: every member holding one of these roles */
   roleIds: string[];
+  /** mail: addresses outside the platform */
+  emails: string[];
+  /** slack: channel names, stored with their `#` */
+  slackChannels: string[];
+  /** google_chat: space names */
+  googleChatSpaces: string[];
+  /** webhook: http(s) URLs that receive a JSON POST */
+  webhookUrls: string[];
 };
+
+export function emptyRecipients(): AlertRecipients {
+  return {
+    userIds: [],
+    roleIds: [],
+    emails: [],
+    slackChannels: [],
+    googleChatSpaces: [],
+    webhookUrls: [],
+  };
+}
 
 /** Where an alert lives: an organization alert has no project. */
 export type AlertLocation = {
@@ -110,6 +138,10 @@ export class AlertDomain implements AlertRow {
     this.recipients = {
       userIds: stringArray(row.recipients?.userIds),
       roleIds: stringArray(row.recipients?.roleIds),
+      emails: stringArray(row.recipients?.emails),
+      slackChannels: stringArray(row.recipients?.slackChannels),
+      googleChatSpaces: stringArray(row.recipients?.googleChatSpaces),
+      webhookUrls: stringArray(row.recipients?.webhookUrls),
     };
     const channels = stringArray(row.channels).filter((channel): channel is AlertChannel =>
       (ALERT_CHANNELS as readonly string[]).includes(channel),
@@ -153,6 +185,10 @@ export class AlertDomain implements AlertRow {
       recipients: {
         userIds: [...this.recipients.userIds],
         roleIds: [...this.recipients.roleIds],
+        emails: [...this.recipients.emails],
+        slackChannels: [...this.recipients.slackChannels],
+        googleChatSpaces: [...this.recipients.googleChatSpaces],
+        webhookUrls: [...this.recipients.webhookUrls],
       },
       channels: [...this.channels],
       throttleMinutes: this.throttleMinutes,

@@ -38,40 +38,40 @@ export const STATUS_STYLES: Record<
   { dot: string; text: string; badge: string; bar: string }
 > = {
   up: {
-    dot: 'bg-emerald-400',
-    text: 'text-emerald-400',
-    badge: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-    bar: 'bg-emerald-500 hover:bg-emerald-400',
+    dot: 'bg-ok',
+    text: 'text-ok',
+    badge: 'k-badge-ok',
+    bar: 'bg-ok/75 hover:bg-ok',
   },
   degraded: {
-    dot: 'bg-amber-400',
-    text: 'text-amber-400',
-    badge: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-    bar: 'bg-amber-500 hover:bg-amber-400',
+    dot: 'bg-warn',
+    text: 'text-warn',
+    badge: 'k-badge-warn',
+    bar: 'bg-warn/80 hover:bg-warn',
   },
   down: {
-    dot: 'bg-rose-500',
-    text: 'text-rose-400',
-    badge: 'border-rose-500/30 bg-rose-500/10 text-rose-300',
-    bar: 'bg-rose-500 hover:bg-rose-400',
+    dot: 'bg-danger',
+    text: 'text-red-400',
+    badge: 'k-badge-danger',
+    bar: 'bg-danger/85 hover:bg-danger',
   },
   pending: {
-    dot: 'bg-sky-400',
-    text: 'text-sky-300',
-    badge: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
-    bar: 'bg-slate-700 hover:bg-slate-600',
+    dot: 'bg-info',
+    text: 'text-info',
+    badge: 'k-badge-info',
+    bar: 'bg-white/8 hover:bg-white/14',
   },
   paused: {
-    dot: 'bg-slate-500',
-    text: 'text-slate-400',
-    badge: 'border-slate-500/30 bg-slate-500/10 text-slate-300',
-    bar: 'bg-slate-700 hover:bg-slate-600',
+    dot: 'bg-fg-subtle',
+    text: 'text-fg-muted',
+    badge: '',
+    bar: 'bg-white/8 hover:bg-white/14',
   },
   none: {
-    dot: 'bg-slate-600',
-    text: 'text-slate-500',
-    badge: 'border-slate-600/30 bg-slate-600/10 text-slate-400',
-    bar: 'bg-slate-800 hover:bg-slate-700',
+    dot: 'bg-ink-500',
+    text: 'text-fg-subtle',
+    badge: '',
+    bar: 'bg-white/5 hover:bg-white/10',
   },
 };
 
@@ -81,8 +81,8 @@ export function statusStyle(status: string | null | undefined) {
 
 /** Text color for an uptime figure: green from the SLO, amber close to it, red below. */
 export function uptimeTone(ratio: number | null | undefined): string {
-  if (ratio === null || ratio === undefined) return 'text-slate-500';
-  if (ratio >= 0.999) return 'text-emerald-400';
-  if (ratio >= 0.99) return 'text-amber-400';
-  return 'text-rose-400';
+  if (ratio === null || ratio === undefined) return 'text-fg-subtle';
+  if (ratio >= 0.999) return 'text-ok';
+  if (ratio >= 0.99) return 'text-warn';
+  return 'text-red-400';
 }

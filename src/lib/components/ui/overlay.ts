@@ -105,3 +105,67 @@ export function focusTrap(node: HTMLElement) {
     },
   };
 }
+
+// ---------- Paneles flotantes: fuera del flujo para que ningún overflow los recorte ----------
+
+export type FloatingOptions = {
+  /** Elemento al que se ancla el panel (el botón que lo abre). */
+  anchor: HTMLElement | null | undefined;
+  align?: 'start' | 'end';
+  /** El panel mide al menos lo mismo que el ancla (selects). */
+  matchWidth?: boolean;
+  offset?: number;
+};
+
+const VIEWPORT_MARGIN = 8;
+
+/**
+ * Mueve el panel a <body> y lo coloca con `position: fixed` junto a su ancla. Así no lo recorta
+ * el `overflow` de una tabla con scroll ni el cuerpo de un modal. Si no cabe debajo, se abre
+ * hacia arriba; se recoloca al hacer scroll (en cualquier contenedor) o al redimensionar.
+ */
+export function floating(node: HTMLElement, initial: FloatingOptions) {
+  let options = initial;
+  document.body.appendChild(node);
+  node.style.position = 'fixed';
+  node.style.top = '0px';
+  node.style.left = '0px';
+
+  function place() {
+    const anchor = options.anchor;
+    if (!anchor || !anchor.isConnected) return;
+    const gap = options.offset ?? 6;
+    const rect = anchor.getBoundingClientRect();
+    if (options.matchWidth) node.style.minWidth = `${rect.width}px`;
+    const width = node.offsetWidth;
+    const height = node.offsetHeight;
+    const below = window.innerHeight - rect.bottom - gap - VIEWPORT_MARGIN;
+    const above = rect.top - gap - VIEWPORT_MARGIN;
+    const top = height > below && above > below ? rect.top - gap - height : rect.bottom + gap;
+    let left = options.align === 'end' ? rect.right - width : rect.left;
+    left = Math.min(Math.max(left, VIEWPORT_MARGIN), window.innerWidth - width - VIEWPORT_MARGIN);
+    node.style.top = `${Math.max(top, VIEWPORT_MARGIN)}px`;
+    node.style.left = `${left}px`;
+    // si tampoco cabe arriba, el panel se acorta y hace scroll
+    node.style.maxHeight = `${Math.max(below, above, 160)}px`;
+  }
+
+  place();
+  const observer = new ResizeObserver(place);
+  observer.observe(node);
+  window.addEventListener('scroll', place, true);
+  window.addEventListener('resize', place);
+
+  return {
+    update(next: FloatingOptions) {
+      options = next;
+      place();
+    },
+    destroy() {
+      observer.disconnect();
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+      node.remove();
+    },
+  };
+}

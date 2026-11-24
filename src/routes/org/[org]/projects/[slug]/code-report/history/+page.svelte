@@ -1,242 +1,252 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { createPageStore } from '#lib/page-store';
-  import { ArrowLeft, Check, ChevronDown, Clock, Search } from '@lucide/svelte';
+  import { ChevronRight, Clock, FileSearch, Search, X } from '@lucide/svelte';
   import { summarizeAnalysisResult } from '#lib/code-report/analysis-summary';
   import CodeReportToolBadge from '#lib/components/code-report/CodeReportToolBadge.svelte';
-  import { _ } from '#lib/i18n';
+  import { Select } from '#lib/components/ui';
+  import { _, locale } from '#lib/i18n';
+
+  type RiskWeights = { critical: number; high: number; medium: number; low: number };
+
+  let {
+    data,
+  }: {
+    data: {
+      services: { id: string; slug: string; name: string }[];
+      analyses: any[];
+      riskWeights: RiskWeights;
+      project?: { slug?: string; organization?: { slug?: string | null } | null };
+    };
+  } = $props();
 
   const page = createPageStore();
-
-  export let data: {
-    services: { id: string; slug: string; name: string }[];
-    analyses: any[];
-    riskWeights: { critical: number; high: number; medium: number; low: number };
-    project?: { slug?: string; organization?: { slug?: string | null } | null };
-  };
-  let serviceFilter = $page?.url?.searchParams?.get('service') ?? 'all';
-  let statusFilter = 'all';
-  let dateFilter = '';
-  let query = '';
-  let openDropdown = '';
-  $: riskWeights = data.riskWeights;
-
-  const statusOptions = [
-    { value: 'all', label: 'Todos los estados' },
-    { value: 'completed', label: 'Completado' },
-    { value: 'in_progress', label: 'En progreso' },
-    { value: 'failed', label: 'Fallido' },
-  ];
-
-  function riskScore(analysis: any) {
-    const summary = summarizeAnalysisResult(analysis.result);
-    return (
-      summary.vulnerabilities.critical * riskWeights.critical +
-      summary.vulnerabilities.high * riskWeights.high +
-      summary.vulnerabilities.medium * riskWeights.medium +
-      summary.vulnerabilities.low * riskWeights.low
-    );
-  }
-
-  function riskLabel(analysis: any) {
-    const summary = summarizeAnalysisResult(analysis.result);
-    const score = riskScore(analysis);
-    if (summary.vulnerabilities.critical > 0 || score >= 40) return 'Crítico';
-    if (score >= 20) return 'Alto';
-    if (score >= 8) return 'Medio';
-    if (score > 0) return 'Bajo';
-    return 'Sin riesgo';
-  }
-
-  function riskClass(analysis: any) {
-    const label = riskLabel(analysis);
-    return label === 'Crítico'
-      ? 'bg-red-50 text-red-700'
-      : label === 'Alto'
-        ? 'bg-orange-50 text-orange-700'
-        : label === 'Medio'
-          ? 'bg-amber-50 text-amber-700'
-          : 'bg-emerald-50 text-emerald-700';
-  }
-
-  function serviceLabel() {
-    return (
-      data.services.find((service) => service.slug === serviceFilter)?.name ?? 'Todos los servicios'
-    );
-  }
-
-  function statusLabel() {
-    return (
-      statusOptions.find((option) => option.value === statusFilter)?.label ?? 'Todos los estados'
-    );
-  }
-
-  function selectFilter(filter: 'service' | 'status', value: string) {
-    if (filter === 'service') serviceFilter = value;
-    else statusFilter = value;
-    openDropdown = '';
-  }
-
-  function analysisSummary(analysis: any) {
-    return summarizeAnalysisResult(analysis.result);
-  }
-  $: filteredAnalyses = data.analyses.filter(
-    (analysis) =>
-      (!query ||
-        `${analysis.tool} ${analysis.service?.name ?? ''}`
-          .toLowerCase()
-          .includes(query.toLowerCase())) &&
-      (serviceFilter === 'all' || analysis.service?.slug === serviceFilter) &&
-      (statusFilter === 'all' || analysis.status === statusFilter) &&
-      (!dateFilter || analysis.createdAt.slice(0, 10) === dateFilter),
+  const base = $derived(
+    `/org/${data.project?.organization?.slug ?? $page.params.org ?? ''}/projects/${data.project?.slug ?? $page.params.slug ?? ''}/code-report`,
   );
-  $: base = `/org/${data.project?.organization?.slug ?? $page?.params?.org ?? ''}/projects/${data.project?.slug ?? $page?.params?.slug ?? ''}/code-report`;
+
+  let serviceFilter = $state(untrack(() => $page.url.searchParams.get('service') ?? 'all'));
+  let statusFilter = $state('all');
+  let dateFilter = $state('');
+  let query = $state('');
+
+  const hasFilters = $derived(
+    serviceFilter !== 'all' || statusFilter !== 'all' || !!dateFilter || !!query.trim(),
+  );
+
+  function clearFilters() {
+    serviceFilter = 'all';
+    statusFilter = 'all';
+    dateFilter = '';
+    query = '';
+  }
+
+  const serviceOptions = $derived([
+    { value: 'all', label: $_('codeReport.history.allServices') },
+    ...data.services.map((service) => ({ value: service.slug, label: service.name })),
+  ]);
+
+  const statusOptions = $derived([
+    { value: 'all', label: $_('codeReport.history.allStatuses') },
+    { value: 'completed', label: $_('codeReport.history.completed') },
+    { value: 'in_progress', label: $_('codeReport.history.inProgress') },
+    { value: 'failed', label: $_('codeReport.history.failed') },
+  ]);
+
+  type Risk = 'critical' | 'high' | 'medium' | 'low' | 'noRisk';
+
+  const riskBadge: Record<Risk, string> = {
+    critical: 'k-badge-danger',
+    high: 'k-badge-brand',
+    medium: 'k-badge-warn',
+    low: '',
+    noRisk: 'k-badge-ok',
+  };
+
+  const statusBadge: Record<string, { className: string; dot: string; key: string }> = {
+    completed: { className: 'k-badge-ok', dot: 'bg-ok', key: 'completed' },
+    in_progress: { className: 'k-badge-info', dot: 'bg-info', key: 'inProgress' },
+    failed: { className: 'k-badge-danger', dot: 'bg-danger', key: 'failed' },
+  };
+
+  // resumen y riesgo calculados una vez por análisis
+  const rows = $derived(
+    data.analyses.map((analysis) => {
+      const summary = summarizeAnalysisResult(analysis.result);
+      const v = summary.vulnerabilities;
+      const w = data.riskWeights;
+      const score = v.critical * w.critical + v.high * w.high + v.medium * w.medium + v.low * w.low;
+      const risk: Risk =
+        v.critical > 0 || score >= 40
+          ? 'critical'
+          : score >= 20
+            ? 'high'
+            : score >= 8
+              ? 'medium'
+              : score > 0
+                ? 'low'
+                : 'noRisk';
+      return { analysis, summary, score, risk };
+    }),
+  );
+
+  const filteredRows = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter(
+      ({ analysis }) =>
+        (!q || `${analysis.tool} ${analysis.service?.name ?? ''}`.toLowerCase().includes(q)) &&
+        (serviceFilter === 'all' || analysis.service?.slug === serviceFilter) &&
+        (statusFilter === 'all' || analysis.status === statusFilter) &&
+        (!dateFilter || analysis.createdAt.slice(0, 10) === dateFilter),
+    );
+  });
+
+  function formatDate(value: string) {
+    return new Intl.DateTimeFormat($locale ?? 'es', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+  }
 </script>
 
 <svelte:head><title>{$_('codeReport.history.title')} - GitOps</title></svelte:head>
+
 <div class="space-y-6">
-  <a href={`${base}/services`} class="inline-flex items-center gap-1.5 text-sm text-slate-600"
-    ><ArrowLeft class="h-3.5 w-3.5" />{$_('codeReport.history.backToServices')}</a
-  >
-  <div>
-    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Code Report</p>
-    <h1 class="mt-2 text-3xl font-bold text-slate-950">Histórico de análisis</h1>
-    <p class="mt-2 text-sm text-slate-600">
-      Consulta todos los informes del proyecto y abre cualquier ejecución.
-    </p>
-  </div>
-  <section
-    class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
-  >
-    <label class="relative"
-      ><Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input
-        bind:value={query}
-        placeholder="Buscar servicio o herramienta..."
-        class="w-full rounded-xl border border-slate-200 py-2.5 pl-9 pr-3 text-sm"
-      /></label
-    >
-    <div class="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={openDropdown === 'service'}
-        on:click={() => (openDropdown = openDropdown === 'service' ? '' : 'service')}
-        class="inline-flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 md:min-w-52"
-      >
-        <span class="truncate">{serviceLabel()}</span>
-        <ChevronDown class="h-4 w-4 shrink-0 text-slate-400" />
-      </button>
-      {#if openDropdown === 'service'}
-        <div
-          class="absolute left-0 top-full z-20 mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
-          role="listbox"
-        >
-          <button
-            type="button"
-            on:click={() => selectFilter('service', 'all')}
-            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
-          >
-            Todos los servicios
-            {#if serviceFilter === 'all'}<Check class="h-4 w-4 text-blue-600" />{/if}
+  <header class="max-w-2xl">
+    <h1 class="text-2xl font-semibold tracking-tight text-white">
+      {$_('codeReport.history.title')}
+    </h1>
+    <p class="mt-1 text-sm text-fg-muted">{$_('codeReport.history.description')}</p>
+  </header>
+
+  <div class="k-card overflow-hidden">
+    <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
+      <label class="relative w-full sm:w-64">
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+        />
+        <input
+          type="search"
+          bind:value={query}
+          placeholder={$_('codeReport.history.searchPlaceholder')}
+          aria-label={$_('codeReport.history.searchPlaceholder')}
+          class="k-input h-9 pl-9"
+        />
+      </label>
+      <div class="w-full sm:w-52">
+        <label for="history-service" class="sr-only">{$_('codeReport.history.serviceLabel')}</label>
+        <Select
+          id="history-service"
+          options={serviceOptions}
+          bind:value={serviceFilter}
+          searchable
+        />
+      </div>
+      <div class="w-full sm:w-44">
+        <label for="history-status" class="sr-only">{$_('common.status')}</label>
+        <Select id="history-status" options={statusOptions} bind:value={statusFilter} />
+      </div>
+      <input
+        type="date"
+        bind:value={dateFilter}
+        aria-label={$_('codeReport.history.filterByDate')}
+        class="k-input h-9 w-full sm:w-44"
+      />
+      {#if hasFilters}
+        <button type="button" class="k-btn k-btn-ghost k-btn-sm" onclick={clearFilters}>
+          <X class="h-3.5 w-3.5" />Limpiar
+        </button>
+      {/if}
+      <span class="ml-auto text-xs text-fg-subtle tabular-nums">
+        {filteredRows.length}
+        {filteredRows.length === 1
+          ? $_('codeReport.history.reportSingular')
+          : $_('codeReport.history.reportPlural')}
+      </span>
+    </div>
+
+    {#if filteredRows.length === 0}
+      <div class="flex flex-col items-center gap-3 px-6 py-14 text-center">
+        <span class="grid h-12 w-12 place-items-center rounded-xl bg-white/4 text-fg-subtle">
+          <FileSearch class="h-6 w-6" />
+        </span>
+        {#if data.analyses.length === 0}
+          <p class="text-sm font-medium text-white">Aún no hay análisis</p>
+          <p class="max-w-sm text-sm text-fg-muted">
+            Aparecerán aquí cuando tu pipeline envíe el primer resultado a la API de scan.
+          </p>
+        {:else}
+          <p class="text-sm font-medium text-white">{$_('codeReport.history.noReports')}</p>
+        {/if}
+        {#if hasFilters}
+          <button type="button" class="k-btn k-btn-secondary k-btn-sm" onclick={clearFilters}>
+            <X class="h-3.5 w-3.5" />Limpiar filtros
           </button>
-          {#each data.services as service}
-            <button
-              type="button"
-              on:click={() => selectFilter('service', service.slug)}
-              class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
+        {/if}
+      </div>
+    {:else}
+      <ul class="divide-y divide-white/6">
+        {#each filteredRows as { analysis, summary, score, risk } (analysis.id)}
+          {@const status = statusBadge[analysis.status]}
+          <li>
+            <a
+              href={`${base}/history/${analysis.id}`}
+              class="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-white/2.5 lg:flex-row lg:items-center"
             >
-              <span class="truncate">{service.name}</span>
-              {#if serviceFilter === service.slug}<Check class="h-4 w-4 text-blue-600" />{/if}
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
-    <div class="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={openDropdown === 'status'}
-        on:click={() => (openDropdown = openDropdown === 'status' ? '' : 'status')}
-        class="inline-flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 md:min-w-44"
-      >
-        <span>{statusLabel()}</span>
-        <ChevronDown class="h-4 w-4 shrink-0 text-slate-400" />
-      </button>
-      {#if openDropdown === 'status'}
-        <div
-          class="absolute left-0 top-full z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
-          role="listbox"
-        >
-          {#each statusOptions as option}
-            <button
-              type="button"
-              on:click={() => selectFilter('status', option.value)}
-              class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50"
-            >
-              {option.label}
-              {#if statusFilter === option.value}<Check class="h-4 w-4 text-blue-600" />{/if}
-            </button>
-          {/each}
-        </div>
-      {/if}
-    </div>
-    <input
-      type="date"
-      bind:value={dateFilter}
-      aria-label="Filtrar por fecha"
-      class="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-    />
-  </section>
-  <p class="text-sm text-slate-500">
-    {filteredAnalyses.length} informe{filteredAnalyses.length === 1 ? '' : 's'}
-  </p>
-  <div
-    class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white"
-  >
-    {#if filteredAnalyses.length === 0}<p class="p-8 text-center text-sm text-slate-500">
-        No hay informes que coincidan con los filtros.
-      </p>{:else}{#each filteredAnalyses as analysis}<a
-          href={`${base}/history/${analysis.id}`}
-          class="block p-5 transition hover:bg-slate-50"
-          ><div class="flex flex-col gap-4 lg:flex-row lg:items-center">
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2 text-sm">
-                <span class="font-semibold text-slate-900"
-                  >Servicio: {analysis.service?.name ?? 'Servicio eliminado'}</span
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-white">
+                    {analysis.service?.name ?? $_('codeReport.history.serviceDeleted')}
+                  </span>
+                  <CodeReportToolBadge tool={analysis.tool} size="sm" />
+                </div>
+                <div
+                  class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle"
                 >
-                <span class="text-slate-400">·</span>
-                <span class="font-mono text-xs text-slate-500">ID: {analysis.id.slice(0, 8)}</span>
+                  <span class="inline-flex items-center gap-1"
+                    ><Clock class="h-3.5 w-3.5" />{formatDate(analysis.createdAt)}</span
+                  >
+                  <span class="font-mono">{analysis.id.slice(0, 8)}</span>
+                </div>
               </div>
-              <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <CodeReportToolBadge tool={analysis.tool} size="sm" />
-                <span class="inline-flex items-center gap-1"
-                  ><Clock class="h-3.5 w-3.5" />{new Date(
-                    analysis.createdAt,
-                  ).toLocaleString()}</span
-                >
+
+              <div class="flex flex-wrap items-center gap-2">
+                {#if summary.totalVulnerabilities > 0}
+                  <span class="k-badge k-badge-danger font-semibold tabular-nums"
+                    >C · {summary.vulnerabilities.critical}</span
+                  >
+                  <span class="k-badge k-badge-brand font-semibold tabular-nums"
+                    >H · {summary.vulnerabilities.high}</span
+                  >
+                  <span class="k-badge k-badge-warn font-semibold tabular-nums"
+                    >M · {summary.vulnerabilities.medium}</span
+                  >
+                  <span class="k-badge font-semibold tabular-nums"
+                    >L · {summary.vulnerabilities.low}</span
+                  >
+                  <span class="mx-1 hidden h-5 w-px bg-white/10 sm:block"></span>
+                {/if}
+                <span class="k-badge {riskBadge[risk]} font-semibold">
+                  {$_('codeReport.history.risk')}
+                  {$_(`codeReport.history.${risk}`)} · {score}
+                </span>
+                {#if status}
+                  <span class="k-badge {status.className}"
+                    ><span class="h-1.5 w-1.5 rounded-full {status.dot}"></span>{$_(
+                      `codeReport.history.${status.key}`,
+                    )}</span
+                  >
+                {:else}
+                  <span class="k-badge">{analysis.status}</span>
+                {/if}
+                <ChevronRight
+                  class="hidden h-4 w-4 text-fg-subtle transition group-hover:translate-x-0.5 group-hover:text-brand-400 lg:block"
+                />
               </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <span class={`rounded-full px-2.5 py-1 text-xs font-semibold ${riskClass(analysis)}`}>
-                Riesgo {riskLabel(analysis)} · {riskScore(analysis)}
-              </span>
-              <span
-                class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
-                >{analysis.status}</span
-              >
-              <span class="text-xs text-slate-500">
-                {analysisSummary(analysis).totalVulnerabilities} vulnerabilidades
-                <span class="mx-1">·</span>
-                {analysisSummary(analysis).vulnerabilities.critical} Critical
-                <span class="mx-1">·</span>
-                {analysisSummary(analysis).vulnerabilities.high} High
-                <span class="mx-1">·</span>
-                {analysisSummary(analysis).vulnerabilities.medium} Medium
-                <span class="mx-1">·</span>
-                {analysisSummary(analysis).vulnerabilities.low} Low
-              </span>
-            </div>
-          </div></a
-        >{/each}{/if}
+            </a>
+          </li>
+        {/each}
+      </ul>
+    {/if}
   </div>
 </div>

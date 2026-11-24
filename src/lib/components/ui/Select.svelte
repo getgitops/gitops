@@ -84,7 +84,7 @@
   label={placeholder}
   block
   {triggerId}
-  class="w-full min-w-56 p-1.5"
+  class="min-w-56 p-1.5"
   initialFocus={searchable ? '[data-select-search]' : '[aria-selected="true"]'}
 >
   {#snippet trigger(props)}

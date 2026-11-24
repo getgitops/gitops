@@ -8,9 +8,9 @@
   }: { values: (number | null)[]; status?: string; width?: number; height?: number } = $props();
 
   const colors: Record<string, string> = {
-    up: '#34d399',
-    degraded: '#fbbf24',
-    down: '#fb7185',
+    up: '#22c55e',
+    degraded: '#f59e0b',
+    down: '#ef4444',
   };
   // stable between SSR and hydration
   const uid = $props.id();
@@ -39,7 +39,7 @@
       ? `${line} L${points.at(-1)![0].toFixed(1)},${height} L${points[0][0].toFixed(1)},${height} Z`
       : '',
   );
-  let color = $derived(colors[status] ?? '#64748b');
+  let color = $derived(colors[status] ?? '#72727e');
 </script>
 
 <svg {width} {height} viewBox="0 0 {width} {height}" class="overflow-visible" aria-hidden="true">
@@ -66,7 +66,7 @@
       x2={width}
       y1={height / 2}
       y2={height / 2}
-      stroke="#1e2f47"
+      stroke="rgba(255,255,255,0.12)"
       stroke-dasharray="3 3"
     />
   {/if}

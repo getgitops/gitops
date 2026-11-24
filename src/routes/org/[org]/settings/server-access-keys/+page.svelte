@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { KeyRound } from '@lucide/svelte';
   import { _ } from '#lib/i18n';
 </script>
 
@@ -7,12 +8,23 @@
 </svelte:head>
 
 <div class="space-y-6">
-  <section>
-    <h3 class="text-xl font-semibold text-slate-900">{$_('orgSettings.serverAccessKeys.title')}</h3>
-    <p class="mt-2 text-sm text-slate-600">{$_('orgSettings.serverAccessKeys.description')}</p>
-  </section>
+  <header>
+    <h1 class="text-2xl font-semibold tracking-tight text-white">
+      {$_('orgSettings.serverAccessKeys.title')}
+    </h1>
+    <p class="mt-1 text-sm text-fg-muted">{$_('orgSettings.serverAccessKeys.description')}</p>
+  </header>
 
-  <section class="rounded-md border border-slate-200 bg-slate-50 p-4">
-    <p class="text-sm text-slate-600">{$_('orgSettings.serverAccessKeys.comingSoonDescription')}</p>
-  </section>
+  <div class="k-card flex flex-col items-center gap-3 border-dashed px-6 py-16 text-center">
+    <span class="grid h-12 w-12 place-items-center rounded-xl bg-brand-500/10 text-brand-400">
+      <KeyRound class="h-6 w-6" />
+    </span>
+    <p class="flex items-center gap-2 text-sm font-medium text-white">
+      {$_('orgSettings.serverAccessKeys.title')}
+      <span class="k-badge h-5 px-2 text-[11px]">{$_('common.comingSoon')}</span>
+    </p>
+    <p class="max-w-sm text-sm text-fg-muted">
+      {$_('orgSettings.serverAccessKeys.comingSoonDescription')}
+    </p>
+  </div>
 </div>

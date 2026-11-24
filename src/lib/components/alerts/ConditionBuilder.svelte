@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { Plus, Trash2 } from '@lucide/svelte';
+  import { Select } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
   import type { Operator } from '#lib/events/catalog';
   import { LIST_OPERATORS, VALUELESS_OPERATORS } from '#lib/alerts/summary';
@@ -32,6 +34,25 @@
   }: Props = $props();
 
   let fields = $derived(definition?.fields ?? []);
+
+  // Sin JavaScript (y en el HTML del servidor) se pintan <select> nativos para que el formulario
+  // siga funcionando; al hidratar se cambian por el Select de la marca, que envía el mismo `name`.
+  let hydrated = $state(false);
+  onMount(() => (hydrated = true));
+
+  function fieldOptions(current: string) {
+    const options = fields.map((option) => ({ value: option.key, label: $_(option.label) }));
+    return fieldOf(current) || !current
+      ? options
+      : [{ value: current, label: current, disabled: true }, ...options];
+  }
+
+  function operatorOptions(field: CatalogField | undefined) {
+    return (field?.operators ?? []).map((operator) => ({
+      value: operator,
+      label: $_(`alerts.operators.${operator}`),
+    }));
+  }
 
   function fieldOf(key: string): CatalogField | undefined {
     return fields.find((field) => field.key === key);
@@ -98,21 +119,32 @@
 </script>
 
 <div class="space-y-3" data-testid="condition-builder">
-  <fieldset class="flex flex-wrap items-center gap-3 text-sm text-slate-700" {disabled}>
-    <legend class="mb-1 text-sm font-medium text-slate-900">{$_('alerts.editor.matchLabel')}</legend
-    >
+  <fieldset class="flex flex-wrap items-center gap-4 text-sm text-fg" {disabled}>
+    <legend class="mb-1 text-sm font-medium text-white">{$_('alerts.editor.matchLabel')}</legend>
     <label class="inline-flex items-center gap-2">
-      <input type="radio" name="match" value="all" bind:group={match} />
+      <input
+        type="radio"
+        name="match"
+        value="all"
+        class="k-checkbox rounded-full"
+        bind:group={match}
+      />
       {$_('alerts.editor.matchAll')}
     </label>
     <label class="inline-flex items-center gap-2">
-      <input type="radio" name="match" value="any" bind:group={match} />
+      <input
+        type="radio"
+        name="match"
+        value="any"
+        class="k-checkbox rounded-full"
+        bind:group={match}
+      />
       {$_('alerts.editor.matchAny')}
     </label>
   </fieldset>
 
   {#if conditions.length === 0}
-    <p class="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+    <p class="rounded-lg border border-dashed border-white/10 px-3 py-3 text-xs text-fg-subtle">
       {$_('alerts.editor.noConditions')}
     </p>
   {/if}
@@ -121,64 +153,97 @@
     {#each conditions as condition, index (index)}
       {@const field = fieldOf(condition.field)}
       <li
-        class="grid gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]"
+        class="grid gap-3 rounded-xl border border-white/8 bg-ink-900/50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]"
         data-testid="condition-row"
       >
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-slate-600" for="condition-{index}-field">
+          <label class="text-xs font-medium text-fg-muted" for="condition-{index}-field">
             {$_('alerts.editor.field')}
           </label>
-          <select
-            id="condition-{index}-field"
-            name="conditions.{index}.field"
-            class="field-input rounded-md border px-2 py-1.5 text-sm"
-            value={condition.field}
-            aria-invalid={Boolean(errors[`conditions.${index}.field`]) || undefined}
-            aria-describedby={errorId(index, 'field')}
-            {disabled}
-            onchange={(event) => selectField(index, event.currentTarget.value)}
-          >
-            {#if !field}
-              <option value={condition.field} disabled>{condition.field || '—'}</option>
-            {/if}
-            {#each fields as option (option.key)}
-              <option value={option.key}>{$_(option.label)}</option>
-            {/each}
-          </select>
+          {#if hydrated}
+            <div class="**:[[role=combobox]]:h-9">
+              <Select
+                id="condition-{index}-field"
+                name="conditions.{index}.field"
+                options={fieldOptions(condition.field)}
+                value={condition.field}
+                placeholder="—"
+                searchable={fields.length > 8}
+                aria-invalid={Boolean(errors[`conditions.${index}.field`]) || undefined}
+                aria-describedby={errorId(index, 'field')}
+                {disabled}
+                onchange={(value) => selectField(index, value)}
+              />
+            </div>
+          {:else}
+            <select
+              id="condition-{index}-field"
+              name="conditions.{index}.field"
+              class="k-input h-9 py-0"
+              value={condition.field}
+              aria-invalid={Boolean(errors[`conditions.${index}.field`]) || undefined}
+              aria-describedby={errorId(index, 'field')}
+              {disabled}
+              onchange={(event) => selectField(index, event.currentTarget.value)}
+            >
+              {#if !field}
+                <option value={condition.field} disabled>{condition.field || '—'}</option>
+              {/if}
+              {#each fields as option (option.key)}
+                <option value={option.key}>{$_(option.label)}</option>
+              {/each}
+            </select>
+          {/if}
           {#if errors[`conditions.${index}.field`]}
-            <p id="condition-{index}-field-error" class="text-xs text-red-600" role="alert">
+            <p id="condition-{index}-field-error" class="text-xs text-red-300" role="alert">
               {$_(`alerts.errors.${errors[`conditions.${index}.field`]}`)}
             </p>
           {/if}
         </div>
 
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-slate-600" for="condition-{index}-operator">
+          <label class="text-xs font-medium text-fg-muted" for="condition-{index}-operator">
             {$_('alerts.editor.operator')}
           </label>
-          <select
-            id="condition-{index}-operator"
-            name="conditions.{index}.operator"
-            class="field-input rounded-md border px-2 py-1.5 text-sm"
-            value={condition.operator}
-            aria-invalid={Boolean(errors[`conditions.${index}.operator`]) || undefined}
-            aria-describedby={errorId(index, 'operator')}
-            {disabled}
-            onchange={(event) => selectOperator(index, event.currentTarget.value as Operator)}
-          >
-            {#each field?.operators ?? [] as operator (operator)}
-              <option value={operator}>{$_(`alerts.operators.${operator}`)}</option>
-            {/each}
-          </select>
+          {#if hydrated}
+            <div class="**:[[role=combobox]]:h-9">
+              <Select
+                id="condition-{index}-operator"
+                name="conditions.{index}.operator"
+                options={operatorOptions(field)}
+                value={condition.operator}
+                placeholder="—"
+                aria-invalid={Boolean(errors[`conditions.${index}.operator`]) || undefined}
+                aria-describedby={errorId(index, 'operator')}
+                disabled={disabled || !field}
+                onchange={(value) => selectOperator(index, value as Operator)}
+              />
+            </div>
+          {:else}
+            <select
+              id="condition-{index}-operator"
+              name="conditions.{index}.operator"
+              class="k-input h-9 py-0"
+              value={condition.operator}
+              aria-invalid={Boolean(errors[`conditions.${index}.operator`]) || undefined}
+              aria-describedby={errorId(index, 'operator')}
+              {disabled}
+              onchange={(event) => selectOperator(index, event.currentTarget.value as Operator)}
+            >
+              {#each field?.operators ?? [] as operator (operator)}
+                <option value={operator}>{$_(`alerts.operators.${operator}`)}</option>
+              {/each}
+            </select>
+          {/if}
           {#if errors[`conditions.${index}.operator`]}
-            <p id="condition-{index}-operator-error" class="text-xs text-red-600" role="alert">
+            <p id="condition-{index}-operator-error" class="text-xs text-red-300" role="alert">
               {$_(`alerts.errors.${errors[`conditions.${index}.operator`]}`)}
             </p>
           {/if}
         </div>
 
         <div class="flex min-w-0 flex-col gap-1">
-          <span class="text-xs font-medium text-slate-600" id="condition-{index}-value-label">
+          <span class="text-xs font-medium text-fg-muted" id="condition-{index}-value-label">
             {$_('alerts.editor.value')}
           </span>
           <input
@@ -187,7 +252,7 @@
             value={isList(condition.operator) ? 'true' : 'false'}
           />
           {#if !field || !needsValue(condition.operator)}
-            <p class="py-1.5 text-xs text-slate-400" data-input="none">—</p>
+            <p class="py-1.5 text-xs text-fg-subtle" data-input="none">—</p>
           {:else if field.type === 'enum' || field.type === 'reference'}
             <OptionPicker
               id="condition-{index}-value"
@@ -211,7 +276,7 @@
               type="number"
               step="any"
               name="conditions.{index}.value"
-              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              class="k-input h-9 py-0"
               aria-labelledby="condition-{index}-value-label"
               aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
               aria-describedby={errorId(index, 'value')}
@@ -223,7 +288,7 @@
             <input
               type="date"
               name="conditions.{index}.value"
-              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              class="k-input h-9 py-0"
               aria-labelledby="condition-{index}-value-label"
               aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
               aria-describedby={errorId(index, 'value')}
@@ -235,7 +300,7 @@
             <input
               type="text"
               name="conditions.{index}.value"
-              class="field-input rounded-md border px-2 py-1.5 text-sm"
+              class="k-input h-9 py-0"
               aria-labelledby="condition-{index}-value-label"
               aria-invalid={Boolean(errors[`conditions.${index}.value`]) || undefined}
               aria-describedby={errorId(index, 'value')}
@@ -245,7 +310,7 @@
             />
           {/if}
           {#if errors[`conditions.${index}.value`]}
-            <p id="condition-{index}-value-error" class="text-xs text-red-600" role="alert">
+            <p id="condition-{index}-value-error" class="text-xs text-red-300" role="alert">
               {$_(`alerts.errors.${errors[`conditions.${index}.value`]}`)}
             </p>
           {/if}
@@ -257,7 +322,7 @@
             formaction="?/draft"
             name="intent"
             value="remove_condition:{index}"
-            class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-600 hover:border-red-200 hover:text-red-600"
+            class="k-btn k-btn-ghost k-btn-icon hover:text-red-400"
             aria-label={$_('alerts.editor.removeCondition', { values: { index: index + 1 } })}
             {disabled}
             onclick={(event) => remove(event, index)}
@@ -270,7 +335,7 @@
   </ol>
 
   {#if errors.conditions}
-    <p class="text-xs text-red-600" role="alert">{$_(`alerts.errors.${errors.conditions}`)}</p>
+    <p class="text-xs text-red-300" role="alert">{$_(`alerts.errors.${errors.conditions}`)}</p>
   {/if}
 
   <button
@@ -278,7 +343,7 @@
     formaction="?/draft"
     name="intent"
     value="add_condition"
-    class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:border-slate-300 hover:text-slate-900 disabled:opacity-50"
+    class="k-btn k-btn-secondary k-btn-sm"
     disabled={disabled || fields.length === 0}
     onclick={add}
   >
