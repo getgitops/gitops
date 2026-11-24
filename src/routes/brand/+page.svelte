@@ -56,10 +56,25 @@
     PanelRight,
     UserPlus,
   } from '@lucide/svelte';
-  import { fade, fly, scale } from 'svelte/transition';
-  import { cubicOut } from 'svelte/easing';
+  import { onMount } from 'svelte';
   import BrandCharts from './BrandCharts.svelte';
-  import CommandPalette, { type CommandGroup } from './CommandPalette.svelte';
+  import {
+    CommandPalette,
+    Drawer,
+    DropdownMenu,
+    Field,
+    MenuItem,
+    Modal,
+    Select,
+    Switch,
+    Tabs,
+    Toaster,
+    tabId,
+    tabPanelId,
+    toast,
+    type CommandGroup,
+    type SelectOption,
+  } from '#lib/components/ui';
 
   const sections = [
     { id: 'logo', label: 'Logo', icon: Sparkles },
@@ -111,6 +126,12 @@
   ] as const;
   const seriesTokens = ['#e14607', '#3b82f6', '#0d9488', '#a855f7', '#b8860b'];
 
+  // Marca para los tests e2e: la página ya es interactiva
+  let hydrated = $state(false);
+  onMount(() => {
+    hydrated = true;
+  });
+
   // ---------- Estado de demos ----------
   let copied = $state<string | null>(null);
   function copy(hex: string) {
@@ -130,22 +151,13 @@
   let tab = $state('resumen');
   let periodo = $state('24h');
   let page = $state(2);
-  let toastVisible = $state(false);
-  let toastText = $state({
-    title: 'Secreto guardado',
-    body: 'DATABASE_URL · prod · commit a1b2c3d',
-  });
   let collapsed = $state(false);
 
-  function showToast(title: string, body: string) {
-    toastText = { title, body };
-    toastVisible = true;
-    setTimeout(() => (toastVisible = false), 3000);
-  }
-
   // ---------- Modales ----------
-  type ModalId = 'confirm' | 'form' | 'detalle' | 'drawer' | null;
-  let modal = $state<ModalId>(null);
+  let confirmOpen = $state(false);
+  let formOpen = $state(false);
+  let detalleOpen = $state(false);
+  let drawerOpen = $state(false);
   let paletteOpen = $state(false);
 
   let confirmText = $state('');
@@ -153,39 +165,35 @@
   let secretValue = $state('');
   let secretEnv = $state('prod');
   let secretVisible = $state(false);
-  let secretNameInvalid = $derived(secretName.length > 0 && !/^[A-Z][A-Z0-9_]*$/.test(secretName));
+  let secretNameError = $derived(
+    secretName.length > 0 && !/^[A-Z][A-Z0-9_]*$/.test(secretName)
+      ? 'Solo mayúsculas, números y guiones bajos, empezando por letra.'
+      : null,
+  );
   let detalleTab = $state('descripcion');
 
-  function openModal(id: Exclude<ModalId, null>) {
-    openDropdown = null;
+  function openConfirm() {
     confirmText = '';
+    confirmOpen = true;
+  }
+  function openForm() {
     secretName = '';
     secretValue = '';
     secretVisible = false;
+    secretEnv = 'prod';
+    formOpen = true;
+  }
+  function openDetalle() {
     detalleTab = 'descripcion';
-    modal = id;
+    detalleOpen = true;
   }
 
   function saveSecret(e: SubmitEvent) {
     e.preventDefault();
-    if (!secretName || secretNameInvalid) return;
-    modal = null;
-    showToast('Secreto guardado', `${secretName} · ${secretEnv} · commit 9f2e41b`);
+    if (!secretName || secretNameError || !secretValue) return;
+    formOpen = false;
+    toast.success('Secreto guardado', `${secretName} · ${secretEnv} · commit 9f2e41b`);
   }
-
-  function autofocus(node: HTMLElement) {
-    node.focus();
-  }
-
-  // Bloquea el scroll del fondo mientras hay un modal abierto
-  $effect(() => {
-    if (!modal && !paletteOpen) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  });
 
   // ---------- Notificaciones ----------
   type Notificacion = {
@@ -244,7 +252,7 @@
       unread: false,
     },
   ]);
-  let notifTab = $state<'todas' | 'no-leidas'>('todas');
+  let notifTab = $state('todas');
   let unreadCount = $derived(notificaciones.filter((n) => n.unread).length);
   let notifVisibles = $derived(
     notifTab === 'todas' ? notificaciones : notificaciones.filter((n) => n.unread),
@@ -257,40 +265,19 @@
     neutral: 'bg-white/5 text-fg-muted',
   } as const;
 
-  // Dropdowns
-  type DropdownId = 'select' | 'menu' | 'switcher' | 'user' | 'filtro' | 'notif' | null;
-  let openDropdown = $state<DropdownId>(null);
-  function toggleDropdown(id: Exclude<DropdownId, null>) {
-    openDropdown = openDropdown === id ? null : id;
-  }
-  function onWindowClick(e: MouseEvent) {
-    if (!(e.target as HTMLElement).closest('[data-dropdown]')) openDropdown = null;
-  }
-  function onKeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      openDropdown = null;
-      modal = null;
-      paletteOpen = !paletteOpen;
-      return;
-    }
-    if (e.key === 'Escape' && !paletteOpen) {
-      openDropdown = null;
-      modal = null;
-    }
-  }
-
-  const regiones = [
-    { id: 'europe-west1', name: 'europe-west1', hint: 'Bélgica' },
-    { id: 'europe-southwest1', name: 'europe-southwest1', hint: 'Madrid' },
-    { id: 'us-central1', name: 'us-central1', hint: 'Iowa' },
-    { id: 'asia-northeast1', name: 'asia-northeast1', hint: 'Tokio', disabled: true },
+  const regiones: SelectOption[] = [
+    { value: 'europe-west1', label: 'europe-west1', hint: 'Bélgica' },
+    { value: 'europe-southwest1', label: 'europe-southwest1', hint: 'Madrid' },
+    { value: 'us-central1', label: 'us-central1', hint: 'Iowa' },
+    { value: 'asia-northeast1', label: 'asia-northeast1', hint: 'Tokio', disabled: true },
   ];
   let region = $state('europe-southwest1');
-  let regionQuery = $state('');
-  let regionesFiltradas = $derived(
-    regiones.filter((r) => `${r.name} ${r.hint}`.toLowerCase().includes(regionQuery.toLowerCase())),
-  );
+  let plan = $state('');
+  const planes: SelectOption[] = [
+    { value: 'starter', label: 'Starter', hint: '3 proyectos' },
+    { value: 'team', label: 'Team', hint: '20 proyectos' },
+    { value: 'enterprise', label: 'Enterprise', hint: 'Ilimitado' },
+  ];
 
   const orgs = [
     { slug: 'kettu', name: 'Kettu Studio', projects: ['kettu-web', 'gitops-cloud', 'papers'] },
@@ -388,20 +375,20 @@
           hint: 'Vault',
           icon: KeyRound,
           shortcut: ['N'],
-          run: () => openModal('form'),
+          run: openForm,
         },
         {
           id: 'analyze',
           label: 'Lanzar análisis de seguridad',
           hint: 'Open Report',
           icon: ShieldCheck,
-          run: () => showToast('Análisis en cola', 'gitops-cloud · main'),
+          run: () => toast.info('Análisis en cola', 'gitops-cloud · main'),
         },
         {
           id: 'invite',
           label: 'Invitar a un miembro',
           icon: UserPlus,
-          run: () => showToast('Invitación enviada', 'ana@kettu.studio · Developer'),
+          run: () => toast.success('Invitación enviada', 'ana@kettu.studio · Developer'),
         },
         {
           id: 'delete',
@@ -409,7 +396,7 @@
           hint: 'gitops-cloud',
           icon: Trash,
           keywords: 'borrar',
-          run: () => openModal('confirm'),
+          run: openConfirm,
         },
       ],
     },
@@ -424,7 +411,7 @@
           run: () => {
             orgActual = o.slug;
             proyectoActual = p;
-            showToast('Proyecto cambiado', `${o.name} · ${p}`);
+            toast.info('Proyecto cambiado', `${o.name} · ${p}`);
           },
         })),
       ),
@@ -465,16 +452,28 @@
   />
 </svelte:head>
 
-<svelte:window onclick={onWindowClick} onkeydown={onKeydown} />
-
-{#snippet sectionTitle(id: string, title: string, desc: string)}
+{#snippet sectionTitle(id: string, title: string, desc: string, uso: string[] = [])}
   <div {id} class="scroll-mt-24">
     <h2 class="text-2xl font-semibold tracking-tight text-white">{title}</h2>
     <p class="mt-1 max-w-2xl text-sm text-fg-muted">{desc}</p>
+    {#if uso.length}
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        {#each uso as u}
+          <code
+            class="rounded-md border px-1.5 py-0.5 font-mono text-[11px] {u.startsWith('<')
+              ? 'border-brand-500/30 bg-brand-500/8 text-brand-300'
+              : 'border-white/10 bg-white/3 text-fg-muted'}">{u}</code
+          >
+        {/each}
+      </div>
+    {/if}
   </div>
 {/snippet}
 
-<div class="brand-root min-h-screen bg-ink-950 font-sans text-fg antialiased">
+<div
+  class="brand-root min-h-screen bg-ink-950 font-sans text-fg antialiased"
+  data-hydrated={hydrated ? 'true' : undefined}
+>
   <!-- Topbar -->
   <header
     class="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-white/8 bg-ink-950/80 px-4 backdrop-blur-xl sm:px-6"
@@ -504,140 +503,123 @@
       >
         <Search class="h-4 w-4" />
       </button>
-      <div class="relative" data-dropdown>
-        <button
-          class="k-btn k-btn-ghost k-btn-icon relative {openDropdown === 'notif'
-            ? 'bg-white/6 text-white'
-            : ''}"
-          aria-label="Notificaciones ({unreadCount} sin leer)"
-          aria-haspopup="dialog"
-          aria-expanded={openDropdown === 'notif'}
-          onclick={() => toggleDropdown('notif')}
-        >
-          <Bell class="h-4 w-4" />
-          {#if unreadCount > 0}
-            <span
-              class="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-ink-950"
-              >{unreadCount}</span
-            >
-          {/if}
-        </button>
-        {#if openDropdown === 'notif'}
-          <div
-            class="k-popover fixed inset-x-3 top-17 z-40 overflow-hidden sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-95"
-            role="dialog"
-            aria-label="Notificaciones"
-            transition:fly={{ y: -6, duration: 140, easing: cubicOut }}
+
+      <!-- Notificaciones: DropdownMenu con role="dialog" (panel, no menú) -->
+      <DropdownMenu
+        label="Notificaciones"
+        role="dialog"
+        align="end"
+        class="w-[min(380px,calc(100vw-2rem))] overflow-hidden"
+      >
+        {#snippet trigger(props)}
+          <button
+            {...props}
+            class="k-btn k-btn-ghost k-btn-icon relative aria-expanded:bg-white/6 aria-expanded:text-white"
+            aria-label="Notificaciones ({unreadCount} sin leer)"
           >
-            <div class="flex items-center justify-between px-4 pb-2 pt-3.5">
-              <p class="text-sm font-semibold text-white">Notificaciones</p>
-              <button
-                class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-400 hover:text-brand-300 disabled:cursor-default disabled:text-fg-subtle"
-                disabled={unreadCount === 0}
-                onclick={() => notificaciones.forEach((n) => (n.unread = false))}
+            <Bell class="h-4 w-4" />
+            {#if unreadCount > 0}
+              <span
+                class="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-ink-950"
+                >{unreadCount}</span
               >
-                <CheckCheck class="h-3.5 w-3.5" />Marcar todo como leído
-              </button>
-            </div>
-            <div class="flex gap-4 border-b border-white/8 px-4" role="tablist">
-              {#each [['todas', 'Todas'], ['no-leidas', `No leídas · ${unreadCount}`]] as [id, label]}
-                <button
-                  role="tab"
-                  aria-selected={notifTab === id}
-                  class="-mb-px border-b-2 pb-2 text-xs font-medium transition-colors {notifTab ===
-                  id
-                    ? 'border-brand-500 text-white'
-                    : 'border-transparent text-fg-subtle hover:text-fg'}"
-                  onclick={() => (notifTab = id as typeof notifTab)}>{label}</button
+            {/if}
+          </button>
+        {/snippet}
+
+        <div class="flex items-center justify-between px-4 pb-2 pt-3.5">
+          <p class="text-sm font-semibold text-white">Notificaciones</p>
+          <button
+            class="inline-flex items-center gap-1.5 text-xs font-medium text-brand-400 hover:text-brand-300 disabled:cursor-default disabled:text-fg-subtle"
+            disabled={unreadCount === 0}
+            onclick={() => notificaciones.forEach((n) => (n.unread = false))}
+          >
+            <CheckCheck class="h-3.5 w-3.5" />Marcar todo como leído
+          </button>
+        </div>
+        <div class="px-4">
+          <Tabs
+            label="Filtrar notificaciones"
+            size="sm"
+            bind:value={notifTab}
+            items={[
+              { value: 'todas', label: 'Todas' },
+              { value: 'no-leidas', label: 'No leídas', count: unreadCount },
+            ]}
+          />
+        </div>
+        <ul class="max-h-90 divide-y divide-white/5 overflow-y-auto">
+          {#each notifVisibles as n (n.id)}
+            <li>
+              <button
+                class="flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/3 {n.unread
+                  ? 'bg-brand-500/3'
+                  : ''}"
+                onclick={() => (n.unread = false)}
+              >
+                <span
+                  class="grid h-8 w-8 shrink-0 place-items-center rounded-lg {toneClass[n.tone]}"
+                  ><n.icon class="h-4 w-4" /></span
                 >
-              {/each}
-            </div>
-            <ul class="max-h-90 divide-y divide-white/5 overflow-y-auto">
-              {#each notifVisibles as n (n.id)}
-                <li>
-                  <button
-                    class="flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/3 {n.unread
-                      ? 'bg-brand-500/3'
-                      : ''}"
-                    onclick={() => (n.unread = false)}
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm {n.unread ? 'font-medium text-white' : 'text-fg'}"
+                    >{n.title}</span
                   >
-                    <span
-                      class="grid h-8 w-8 shrink-0 place-items-center rounded-lg {toneClass[
-                        n.tone
-                      ]}"><n.icon class="h-4 w-4" /></span
-                    >
-                    <span class="min-w-0 flex-1">
-                      <span class="block text-sm {n.unread ? 'font-medium text-white' : 'text-fg'}"
-                        >{n.title}</span
-                      >
-                      <span class="mt-0.5 block text-xs text-fg-muted">{n.body}</span>
-                      <span class="mt-1 flex items-center gap-1 text-[11px] text-fg-subtle"
-                        ><Clock class="h-3 w-3" />{n.time}</span
-                      >
-                    </span>
-                    {#if n.unread}<span
-                        class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500"
-                        aria-label="Sin leer"
-                      ></span>{/if}
-                  </button>
-                </li>
-              {:else}
-                <li class="px-4 py-10 text-center">
-                  <BellOff class="mx-auto h-5 w-5 text-fg-subtle" />
-                  <p class="mt-2 text-sm text-fg">Estás al día</p>
-                  <p class="mt-0.5 text-xs text-fg-subtle">No tienes notificaciones sin leer.</p>
-                </li>
-              {/each}
-            </ul>
-            <div
-              class="flex items-center justify-between border-t border-white/8 bg-ink-900/60 px-4 py-2.5"
-            >
-              <a
-                href="#modales"
-                class="text-xs font-medium text-fg-muted hover:text-white"
-                onclick={() => (openDropdown = null)}>Ver todas</a
-              >
-              <button
-                class="k-btn k-btn-ghost k-btn-sm k-btn-icon"
-                aria-label="Ajustes de notificaciones"><Settings class="h-3.5 w-3.5" /></button
-              >
-            </div>
-          </div>
-        {/if}
-      </div>
-      <div class="relative" data-dropdown>
-        <button
-          class="flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-white/5"
-          aria-haspopup="menu"
-          aria-expanded={openDropdown === 'user'}
-          onclick={() => toggleDropdown('user')}
+                  <span class="mt-0.5 block text-xs text-fg-muted">{n.body}</span>
+                  <span class="mt-1 flex items-center gap-1 text-[11px] text-fg-subtle"
+                    ><Clock class="h-3 w-3" />{n.time}</span
+                  >
+                </span>
+                {#if n.unread}<span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500"
+                  ></span><span class="sr-only">Sin leer</span>{/if}
+              </button>
+            </li>
+          {:else}
+            <li class="px-4 py-10 text-center">
+              <BellOff class="mx-auto h-5 w-5 text-fg-subtle" />
+              <p class="mt-2 text-sm text-fg">Estás al día</p>
+              <p class="mt-0.5 text-xs text-fg-subtle">No tienes notificaciones sin leer.</p>
+            </li>
+          {/each}
+        </ul>
+        <div
+          class="flex items-center justify-between border-t border-white/8 bg-ink-900/60 px-4 py-2.5"
         >
-          <span
-            class="grid h-7 w-7 place-items-center rounded-full bg-linear-to-br from-brand-400 to-brand-700 text-xs font-semibold text-white"
-            >CL</span
+          <a href="#feedback" class="text-xs font-medium text-fg-muted hover:text-white"
+            >Ver todas</a
           >
-          <ChevronDown class="h-3.5 w-3.5 text-fg-subtle" />
-        </button>
-        {#if openDropdown === 'user'}
-          <div class="k-popover absolute right-0 top-full mt-2 w-60 p-1.5" role="menu">
-            <div class="px-2.5 py-2">
-              <p class="text-sm font-medium text-white">Carlos López</p>
-              <p class="text-xs text-fg-subtle">GitOps Admin</p>
-            </div>
-            <div class="k-divider my-1"></div>
-            <button class="k-menu-item" role="menuitem"
-              ><User class="h-4 w-4 text-fg-subtle" />Perfil</button
+          <button
+            class="k-btn k-btn-ghost k-btn-sm k-btn-icon"
+            aria-label="Ajustes de notificaciones"><Settings class="h-3.5 w-3.5" /></button
+          >
+        </div>
+      </DropdownMenu>
+
+      <!-- Menú de usuario -->
+      <DropdownMenu label="Cuenta" align="end" class="w-60 p-1.5">
+        {#snippet trigger(props)}
+          <button
+            {...props}
+            class="flex items-center gap-2 rounded-lg p-1 pr-2 hover:bg-white/5"
+            aria-label="Cuenta"
+          >
+            <span
+              class="grid h-7 w-7 place-items-center rounded-full bg-linear-to-br from-brand-400 to-brand-700 text-xs font-semibold text-white"
+              >CL</span
             >
-            <button class="k-menu-item" role="menuitem"
-              ><Settings class="h-4 w-4 text-fg-subtle" />Ajustes de GitOps</button
-            >
-            <div class="k-divider my-1"></div>
-            <button class="k-menu-item text-red-300" role="menuitem"
-              ><LogOut class="h-4 w-4" />Cerrar sesión</button
-            >
-          </div>
-        {/if}
-      </div>
+            <ChevronDown class="h-3.5 w-3.5 text-fg-subtle" />
+          </button>
+        {/snippet}
+        <div class="px-2.5 py-2">
+          <p class="text-sm font-medium text-white">Carlos López</p>
+          <p class="text-xs text-fg-subtle">GitOps Admin</p>
+        </div>
+        <div class="k-divider my-1" role="separator"></div>
+        <MenuItem icon={User}>Perfil</MenuItem>
+        <MenuItem icon={Settings} shortcut={['⌘', ',']}>Ajustes de GitOps</MenuItem>
+        <div class="k-divider my-1" role="separator"></div>
+        <MenuItem icon={LogOut} tone="danger">Cerrar sesión</MenuItem>
+      </DropdownMenu>
     </div>
   </header>
 
@@ -939,6 +921,7 @@
             'tipografia',
             'Tipografía',
             'Inter para la interfaz, JetBrains Mono para código, IDs y hashes. Titulares con tracking ajustado.',
+            ['.k-text-gradient', '.k-text-gradient-brand', 'font-mono'],
           )}
           <div class="k-card divide-y divide-white/6">
             {#each [['Display · 48/700', 'text-5xl font-bold tracking-tight k-text-gradient', 'Infraestructura en Git'], ['H1 · 36/700', 'text-4xl font-bold tracking-tight text-white', 'Proyectos de la organización'], ['H2 · 24/600', 'text-2xl font-semibold tracking-tight text-white', 'Secretos del entorno prod'], ['H3 · 18/600', 'text-lg font-semibold text-white', 'Última analítica de seguridad'], ['Body · 15/400', 'text-[15px] text-fg-muted', 'Cada cambio queda registrado como un commit auditable en tu repositorio GitDB.'], ['Small · 13/400', 'text-[13px] text-fg-subtle', 'Actualizado hace 3 minutos por carlos@kettu.studio'], ['Overline · 11/600', 'text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-400', 'Organización'], ['Mono · 13/400', 'font-mono text-[13px] text-fg', 'gvs_7f3a…c91e  ·  a1b2c3d']] as [meta, cls, sample]}
@@ -964,6 +947,17 @@
             'botones',
             'Botones',
             'Primario naranja para la acción principal (una por vista). Secundario para el resto; ghost en barras y tablas.',
+            [
+              '.k-btn',
+              '.k-btn-primary',
+              '.k-btn-secondary',
+              '.k-btn-outline-brand',
+              '.k-btn-ghost',
+              '.k-btn-danger',
+              '.k-btn-sm',
+              '.k-btn-lg',
+              '.k-btn-icon',
+            ],
           )}
           <div class="k-card space-y-6 p-6">
             <div class="flex flex-wrap items-center gap-3">
@@ -1022,6 +1016,15 @@
             'badges',
             'Badges y estados',
             'Pastillas redondeadas con fondo al 8 % del color. Un punto o icono acompaña siempre al estado.',
+            [
+              '.k-badge',
+              '.k-badge-brand',
+              '.k-badge-ok',
+              '.k-badge-warn',
+              '.k-badge-danger',
+              '.k-badge-info',
+              '.k-kbd',
+            ],
           )}
           <div class="k-card space-y-6 p-6">
             <div class="flex flex-wrap items-center gap-2">
@@ -1079,45 +1082,72 @@
           {@render sectionTitle(
             'formularios',
             'Formularios',
-            'Campos sobre ink-900 con foco naranja. Etiqueta arriba, ayuda o error debajo.',
+            'Campos sobre ink-900 con foco naranja. Field pone la etiqueta, la ayuda y el error, y los enlaza por aria con el control.',
+            ['<Field>', '<Select>', '<Switch>', '.k-input', '.k-checkbox', '.k-label'],
           )}
           <div class="grid gap-4 lg:grid-cols-2">
             <div class="k-card space-y-5 p-6">
-              <div>
-                <label class="k-label" for="f-nombre">Nombre del proyecto</label>
-                <input
-                  id="f-nombre"
-                  class="k-input"
-                  placeholder="checkout-api"
-                  value="gitops-cloud"
-                />
-                <p class="k-help">Se usará como slug en la URL.</p>
+              <Field label="Nombre del proyecto" help="Se usará como slug en la URL." required>
+                {#snippet children(control)}
+                  <input
+                    class="k-input"
+                    placeholder="checkout-api"
+                    value="gitops-cloud"
+                    {...control}
+                  />
+                {/snippet}
+              </Field>
+              <Field
+                label="Repositorio GitDB"
+                error="No se puede acceder al repositorio con la clave SSH actual."
+              >
+                {#snippet children(control)}
+                  <input
+                    class="k-input font-mono text-[13px]"
+                    value="git@github.com:kettu/db"
+                    {...control}
+                  />
+                {/snippet}
+              </Field>
+              <Field label="Descripción">
+                {#snippet aside()}Opcional{/snippet}
+                {#snippet children(control)}
+                  <textarea
+                    class="k-input"
+                    rows="3"
+                    placeholder="¿Para qué es este proyecto?"
+                    {...control}></textarea>
+                {/snippet}
+              </Field>
+              <div class="grid gap-5 sm:grid-cols-2">
+                <Field label="Región">
+                  {#snippet children(control)}
+                    <Select
+                      {...control}
+                      options={regiones}
+                      bind:value={region}
+                      searchable
+                      mono
+                      searchPlaceholder="Buscar región…"
+                    />
+                  {/snippet}
+                </Field>
+                <Field label="Plan" help="Select sin búsqueda, con placeholder.">
+                  {#snippet children(control)}
+                    <Select
+                      {...control}
+                      options={planes}
+                      bind:value={plan}
+                      placeholder="Elige un plan"
+                    />
+                  {/snippet}
+                </Field>
               </div>
-              <div>
-                <label class="k-label" for="f-repo">Repositorio GitDB</label>
-                <input
-                  id="f-repo"
-                  class="k-input font-mono text-[13px]"
-                  aria-invalid="true"
-                  value="git@github.com:kettu/db"
-                />
-                <p class="mt-1.5 flex items-center gap-1.5 text-xs text-red-300">
-                  <CircleX class="h-3.5 w-3.5" />No se puede acceder al repositorio con la clave SSH
-                  actual.
-                </p>
-              </div>
-              <div>
-                <label class="k-label" for="f-desc">Descripción</label>
-                <textarea
-                  id="f-desc"
-                  class="k-input"
-                  rows="3"
-                  placeholder="¿Para qué es este proyecto?"></textarea>
-              </div>
-              <div>
-                <label class="k-label" for="f-dis">Organización</label>
-                <input id="f-dis" class="k-input" value="Kettu Studio" disabled />
-              </div>
+              <Field label="Organización" help="Deshabilitado: lo fija la organización actual.">
+                {#snippet children(control)}
+                  <input class="k-input" value="Kettu Studio" disabled {...control} />
+                {/snippet}
+              </Field>
             </div>
 
             <div class="k-card space-y-6 p-6">
@@ -1128,31 +1158,19 @@
                   <div
                     class="flex items-center justify-between gap-4 rounded-xl border border-white/8 bg-white/1.5 p-3"
                   >
-                    <div>
-                      <p class="text-sm font-medium text-white">{label}</p>
-                      <p class="text-xs text-fg-subtle">{desc}</p>
-                    </div>
-                    <button
-                      role="switch"
-                      aria-checked={toggles[k]}
-                      aria-label={label}
-                      onclick={() => (toggles[k] = !toggles[k])}
-                      class="relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-500/35 {toggles[
-                        k
-                      ]
-                        ? 'bg-brand-500'
-                        : 'bg-ink-600'}"
-                    >
-                      <span
-                        class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform {toggles[
-                          k
-                        ]
-                          ? 'translate-x-5'
-                          : ''}"
-                      ></span>
-                    </button>
+                    <label for="switch-{key}" class="cursor-pointer">
+                      <span class="block text-sm font-medium text-white">{label}</span>
+                      <span class="block text-xs text-fg-subtle">{desc}</span>
+                    </label>
+                    <Switch id="switch-{key}" name={key} bind:checked={toggles[k]} />
                   </div>
                 {/each}
+                <div class="flex items-center gap-3 px-1">
+                  <Switch size="sm" label="Modo compacto" />
+                  <span class="text-sm text-fg-muted">Tamaño pequeño</span>
+                  <Switch size="sm" label="Deshabilitado" disabled checked />
+                  <span class="text-sm text-fg-subtle">Deshabilitado</span>
+                </div>
               </div>
               <div class="grid gap-6 sm:grid-cols-2">
                 <fieldset class="space-y-2.5">
@@ -1189,201 +1207,119 @@
           {@render sectionTitle(
             'dropdowns',
             'Dropdowns',
-            'Popovers sobre ink-800 con sombra profunda. Se cierran con Esc o clic fuera.',
+            'Popovers sobre ink-800. Se cierran con Esc (devolviendo el foco) o con clic fuera, y se recorren con ↑ ↓ Inicio Fin.',
+            ['<DropdownMenu>', '<MenuItem>', '<Select>'],
           )}
           <div class="k-card grid gap-8 p-6 sm:grid-cols-2 lg:grid-cols-4">
-            <!-- Select con búsqueda -->
-            <div>
-              <p class="k-label">Select con búsqueda</p>
-              <div class="relative" data-dropdown>
-                <button
-                  class="k-input flex items-center justify-between gap-2 text-left"
-                  aria-haspopup="listbox"
-                  aria-expanded={openDropdown === 'select'}
-                  onclick={() => toggleDropdown('select')}
-                >
-                  <span class="truncate font-mono text-[13px]">{region}</span>
-                  <ChevronsUpDown class="h-4 w-4 shrink-0 text-fg-subtle" />
-                </button>
-                {#if openDropdown === 'select'}
-                  <div class="k-popover absolute left-0 top-full z-20 mt-1.5 w-72 p-1.5">
-                    <label class="relative mb-1 block">
-                      <Search
-                        class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-subtle"
-                      />
-                      <input
-                        class="k-input k-input-bare h-8 pl-8"
-                        placeholder="Buscar región…"
-                        bind:value={regionQuery}
-                      />
-                    </label>
-                    <div class="k-divider mb-1"></div>
-                    <ul role="listbox" class="max-h-60 overflow-y-auto">
-                      {#each regionesFiltradas as r}
-                        <li>
-                          <button
-                            class="k-menu-item {r.disabled ? 'cursor-not-allowed opacity-40' : ''}"
-                            role="option"
-                            aria-selected={region === r.id}
-                            disabled={r.disabled}
-                            onclick={() => {
-                              region = r.id;
-                              openDropdown = null;
-                            }}
-                          >
-                            <span class="flex-1"
-                              ><span class="font-mono text-[13px]">{r.name}</span>
-                              <span class="text-xs text-fg-subtle">· {r.hint}</span></span
-                            >
-                            {#if region === r.id}<Check class="h-4 w-4 text-brand-400" />{/if}
-                          </button>
-                        </li>
-                      {:else}
-                        <li class="px-2.5 py-3 text-sm text-fg-subtle">Sin resultados</li>
-                      {/each}
-                    </ul>
-                  </div>
-                {/if}
-              </div>
-            </div>
-
-            <!-- Menú de acciones -->
             <div>
               <p class="k-label">Menú de acciones</p>
-              <div class="relative" data-dropdown>
-                <button
-                  class="k-btn k-btn-secondary"
-                  aria-haspopup="menu"
-                  aria-expanded={openDropdown === 'menu'}
-                  onclick={() => toggleDropdown('menu')}
-                >
-                  Acciones <ChevronDown class="h-4 w-4" />
-                </button>
-                {#if openDropdown === 'menu'}
-                  <div
-                    class="k-popover absolute left-0 top-full z-20 mt-1.5 w-56 p-1.5"
-                    role="menu"
+              <DropdownMenu label="Acciones del proyecto">
+                {#snippet trigger(props)}
+                  <button {...props} class="k-btn k-btn-secondary"
+                    >Acciones <ChevronDown class="h-4 w-4" /></button
                   >
-                    <button class="k-menu-item" role="menuitem"
-                      ><Pencil class="h-4 w-4 text-fg-subtle" />Editar<span class="k-kbd ml-auto"
-                        >E</span
-                      ></button
-                    >
-                    <button class="k-menu-item" role="menuitem"
-                      ><Copy class="h-4 w-4 text-fg-subtle" />Duplicar<span class="k-kbd ml-auto"
-                        >D</span
-                      ></button
-                    >
-                    <button class="k-menu-item" role="menuitem"
-                      ><Download class="h-4 w-4 text-fg-subtle" />Exportar JSON</button
-                    >
-                    <div class="k-divider my-1"></div>
-                    <button class="k-menu-item text-red-300 hover:bg-red-500/10!" role="menuitem"
-                      ><Trash class="h-4 w-4" />Eliminar</button
-                    >
-                  </div>
-                {/if}
-              </div>
+                {/snippet}
+                <MenuItem icon={Pencil} shortcut={['E']} onclick={() => toast.info('Editar')}
+                  >Editar</MenuItem
+                >
+                <MenuItem
+                  icon={Copy}
+                  shortcut={['D']}
+                  onclick={() => toast.success('Proyecto duplicado')}>Duplicar</MenuItem
+                >
+                <MenuItem icon={Download} href="#dropdowns">Exportar JSON</MenuItem>
+                <MenuItem icon={Rocket} disabled>Desplegar (sin permisos)</MenuItem>
+                <div class="k-divider my-1" role="separator"></div>
+                <MenuItem icon={Trash} tone="danger" onclick={openConfirm}>Eliminar</MenuItem>
+              </DropdownMenu>
             </div>
 
-            <!-- Selector org / proyecto -->
+            <div>
+              <p class="k-label">Acciones de fila</p>
+              <DropdownMenu label="Acciones de checkout-api" align="start" class="w-48 p-1.5">
+                {#snippet trigger(props)}
+                  <button {...props} class="k-btn k-btn-ghost k-btn-icon" aria-label="Más acciones"
+                    ><Ellipsis class="h-4 w-4" /></button
+                  >
+                {/snippet}
+                <MenuItem icon={PanelRight} onclick={() => (drawerOpen = true)}
+                  >Ver detalle</MenuItem
+                >
+                <MenuItem icon={ExternalLink} href="#dropdowns">Abrir URL</MenuItem>
+                <div class="k-divider my-1" role="separator"></div>
+                <MenuItem icon={Trash} tone="danger" onclick={openConfirm}>Eliminar</MenuItem>
+              </DropdownMenu>
+            </div>
+
             <div>
               <p class="k-label">Selector de contexto</p>
-              <div class="relative" data-dropdown>
-                <button
-                  class="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/2 p-2 text-left hover:border-white/20"
-                  aria-haspopup="listbox"
-                  aria-expanded={openDropdown === 'switcher'}
-                  onclick={() => toggleDropdown('switcher')}
-                >
-                  <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-500/15 text-sm"
-                    >🦊</span
+              <DropdownMenu label="Cambiar de proyecto" block class="w-64 p-1.5">
+                {#snippet trigger(props)}
+                  <button
+                    {...props}
+                    class="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/2 p-2 text-left hover:border-white/20"
                   >
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate text-xs text-fg-subtle"
-                      >{orgs.find((o) => o.slug === orgActual)?.name}</span
+                    <span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-500/15 text-sm"
+                      >🦊</span
                     >
-                    <span class="block truncate text-sm font-medium text-white"
-                      >{proyectoActual}</span
-                    >
-                  </span>
-                  <ChevronsUpDown class="h-4 w-4 text-fg-subtle" />
-                </button>
-                {#if openDropdown === 'switcher'}
-                  <div class="k-popover absolute left-0 top-full z-20 mt-1.5 w-64 p-1.5">
-                    {#each orgs as o, oi}
-                      {#if oi > 0}<div class="k-divider my-1"></div>{/if}
-                      <p
-                        class="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-xs text-fg-subtle"
+                        >{orgs.find((o) => o.slug === orgActual)?.name}</span
                       >
-                        <Building class="h-3 w-3" />{o.name}
-                      </p>
-                      {#each o.projects as p}
-                        <button
-                          class="k-menu-item"
-                          role="option"
-                          aria-selected={orgActual === o.slug && proyectoActual === p}
-                          onclick={() => {
-                            orgActual = o.slug;
-                            proyectoActual = p;
-                            openDropdown = null;
-                          }}
-                        >
-                          <FolderGit2 class="h-4 w-4 text-fg-subtle" /><span class="flex-1"
-                            >{p}</span
-                          >
-                          {#if orgActual === o.slug && proyectoActual === p}<Check
-                              class="h-4 w-4 text-brand-400"
-                            />{/if}
-                        </button>
-                      {/each}
-                    {/each}
-                    <div class="k-divider my-1"></div>
-                    <button class="k-menu-item text-brand-300"
-                      ><Plus class="h-4 w-4" />Nuevo proyecto</button
+                      <span class="block truncate text-sm font-medium text-white"
+                        >{proyectoActual}</span
+                      >
+                    </span>
+                    <ChevronsUpDown class="h-4 w-4 text-fg-subtle" />
+                  </button>
+                {/snippet}
+                {#each orgs as o, oi}
+                  {#if oi > 0}<div class="k-divider my-1" role="separator"></div>{/if}
+                  <p
+                    class="flex items-center gap-1.5 px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+                  >
+                    <Building class="h-3 w-3" />{o.name}
+                  </p>
+                  {#each o.projects as p}
+                    <MenuItem
+                      icon={orgActual === o.slug && proyectoActual === p ? Check : FolderGit2}
+                      onclick={() => {
+                        orgActual = o.slug;
+                        proyectoActual = p;
+                      }}>{p}</MenuItem
                     >
-                  </div>
-                {/if}
-              </div>
+                  {/each}
+                {/each}
+                <div class="k-divider my-1" role="separator"></div>
+                <MenuItem icon={Plus} tone="brand">Nuevo proyecto</MenuItem>
+              </DropdownMenu>
             </div>
 
-            <!-- Filtro multiselección -->
             <div>
               <p class="k-label">Filtro multiselección</p>
-              <div class="relative" data-dropdown>
-                <button
-                  class="k-btn k-btn-secondary"
-                  aria-haspopup="listbox"
-                  aria-expanded={openDropdown === 'filtro'}
-                  onclick={() => toggleDropdown('filtro')}
-                >
-                  <Funnel class="h-4 w-4" />Severidad
-                  <span class="k-badge k-badge-brand h-5 px-1.5"
-                    >{Object.values(filtros).filter(Boolean).length}</span
-                  >
-                </button>
-                {#if openDropdown === 'filtro'}
-                  <div class="k-popover absolute left-0 top-full z-20 mt-1.5 w-52 p-1.5">
-                    {#each Object.keys(filtros) as f}
-                      {@const key = f as keyof typeof filtros}
-                      <label class="k-menu-item capitalize"
-                        ><input
-                          type="checkbox"
-                          class="k-checkbox"
-                          bind:checked={filtros[key]}
-                        />{f}</label
-                      >
-                    {/each}
-                    <div class="k-divider my-1"></div>
-                    <button
-                      class="k-menu-item text-fg-muted"
-                      onclick={() =>
-                        (filtros = { critical: false, high: false, medium: false, low: false })}
-                      >Limpiar filtros</button
+              <DropdownMenu label="Filtrar por severidad" class="w-52 p-1.5">
+                {#snippet trigger(props)}
+                  <button {...props} class="k-btn k-btn-secondary">
+                    <Funnel class="h-4 w-4" />Severidad
+                    <span class="k-badge k-badge-brand h-5 px-1.5"
+                      >{Object.values(filtros).filter(Boolean).length}</span
                     >
-                  </div>
-                {/if}
-              </div>
+                  </button>
+                {/snippet}
+                {#each Object.keys(filtros) as f}
+                  {@const key = f as keyof typeof filtros}
+                  <MenuItem checked={filtros[key]} onclick={() => (filtros[key] = !filtros[key])}
+                    ><span class="capitalize">{f}</span></MenuItem
+                  >
+                {/each}
+                <div class="k-divider my-1" role="separator"></div>
+                <MenuItem
+                  keepOpen
+                  onclick={() =>
+                    (filtros = { critical: false, high: false, medium: false, low: false })}
+                  >Limpiar filtros</MenuItem
+                >
+              </DropdownMenu>
             </div>
           </div>
         </section>
@@ -1394,6 +1330,7 @@
             'cards',
             'Cards',
             'rounded-2xl, borde white/10 y fondo white/2, como en kettu.studio. Hover con borde naranja en las navegables.',
+            ['.k-card', '.k-card-hover', '.k-panel', '.k-divider'],
           )}
 
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1473,7 +1410,7 @@
             </div>
 
             <div
-              class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 p-6 text-center"
+              class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/16 p-6 text-center"
             >
               <span class="grid h-11 w-11 place-items-center rounded-full bg-white/4 text-xl"
                 >🦊</span
@@ -1583,7 +1520,8 @@
           {@render sectionTitle(
             'navegacion',
             'Navegación',
-            'Tabs con subrayado naranja, control segmentado para periodos, breadcrumbs y paginación.',
+            'Tabs con subrayado naranja y control segmentado (se recorren con ← →), breadcrumbs, paginación y pasos.',
+            ['<Tabs>', '<Tabs variant="segmented">'],
           )}
           <div class="k-card space-y-8 p-6">
             <nav class="flex items-center gap-1.5 text-sm text-fg-subtle" aria-label="Breadcrumb">
@@ -1596,42 +1534,37 @@
               <span class="text-white">Vault</span>
             </nav>
 
-            <div class="border-b border-white/8">
-              <div class="-mb-px flex gap-6 overflow-x-auto" role="tablist">
-                {#each [['resumen', 'Resumen'], ['dependencias', 'Dependencias'], ['vulnerabilidades', 'Vulnerabilidades', '41'], ['historial', 'Historial']] as [id, label, count]}
-                  <button
-                    role="tab"
-                    aria-selected={tab === id}
-                    onclick={() => (tab = id)}
-                    class="flex items-center gap-2 whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition-colors {tab ===
-                    id
-                      ? 'border-brand-500 text-white'
-                      : 'border-transparent text-fg-subtle hover:text-fg'}"
-                  >
-                    {label}{#if count}<span class="k-badge h-5 px-1.5 text-[11px]">{count}</span
-                      >{/if}
-                  </button>
-                {/each}
+            <div>
+              <Tabs
+                label="Secciones del informe"
+                idPrefix="informe"
+                bind:value={tab}
+                items={[
+                  { value: 'resumen', label: 'Resumen' },
+                  { value: 'dependencias', label: 'Dependencias' },
+                  { value: 'vulnerabilidades', label: 'Vulnerabilidades', count: 41 },
+                  { value: 'historial', label: 'Historial' },
+                  { value: 'licencias', label: 'Licencias', disabled: true },
+                ]}
+              />
+              <div
+                id={tabPanelId('informe', tab)}
+                role="tabpanel"
+                aria-labelledby={tabId('informe', tab)}
+                class="pt-4 text-sm text-fg-muted"
+              >
+                Panel de <span class="font-medium text-white">{tab}</span>. Los paneles los pinta la
+                página; Tabs solo gestiona la selección, el teclado y los ids.
               </div>
             </div>
 
             <div class="flex flex-wrap items-center justify-between gap-4">
-              <div
-                class="inline-flex rounded-[0.625rem] border border-white/10 bg-ink-900 p-1"
-                role="radiogroup"
-                aria-label="Periodo"
-              >
-                {#each ['1h', '24h', '7d', '30d', '90d'] as p}
-                  <button
-                    role="radio"
-                    aria-checked={periodo === p}
-                    onclick={() => (periodo = p)}
-                    class="h-7 rounded-md px-3 text-xs font-medium transition-colors {periodo === p
-                      ? 'bg-white/10 text-white shadow-sm'
-                      : 'text-fg-subtle hover:text-fg'}">{p}</button
-                  >
-                {/each}
-              </div>
+              <Tabs
+                variant="segmented"
+                label="Periodo"
+                bind:value={periodo}
+                items={['1h', '24h', '7d', '30d', '90d'].map((p) => ({ value: p, label: p }))}
+              />
 
               <div class="flex items-center gap-1">
                 <button
@@ -1681,7 +1614,7 @@
                     </span>
                     {label}
                   </span>
-                  {#if i < 3}<span class="mx-3 h-px w-8 {done ? 'bg-brand-500' : 'bg-white/15'}"
+                  {#if i < 3}<span class="mx-3 h-px w-8 {done ? 'bg-brand-500' : 'bg-white/16'}"
                     ></span>{/if}
                 </div>
               {/each}
@@ -1695,6 +1628,7 @@
             'feedback',
             'Feedback',
             'Banners, toasts, progreso, skeletons y modal.',
+            ['toast.success()', 'toast.error()', '<Toaster>'],
           )}
           <div class="grid gap-3 md:grid-cols-2">
             {#each banners as { icon: Icon, title, body, box, iconCls }}
@@ -1740,11 +1674,36 @@
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-3">
+          <div class="k-card flex flex-wrap items-center gap-3 p-5">
+            <span class="mr-auto text-sm text-fg-muted"
+              >Toasts: <code class="font-mono text-xs text-brand-300"
+                >toast.success(título, descripción)</code
+              ></span
+            >
             <button
-              class="k-btn k-btn-secondary"
-              onclick={() => showToast('Secreto guardado', 'DATABASE_URL · prod · commit a1b2c3d')}
-              >Mostrar toast</button
+              class="k-btn k-btn-secondary k-btn-sm"
+              onclick={() =>
+                toast.success('Secreto guardado', 'DATABASE_URL · prod · commit a1b2c3d')}
+              ><CircleCheck class="h-3.5 w-3.5 text-green-400" />Éxito</button
+            >
+            <button
+              class="k-btn k-btn-secondary k-btn-sm"
+              onclick={() =>
+                toast.error(
+                  'No se pudo sincronizar',
+                  'GitDB rechazó el push. Reintenta en unos segundos.',
+                )}><CircleX class="h-3.5 w-3.5 text-red-400" />Error</button
+            >
+            <button
+              class="k-btn k-btn-secondary k-btn-sm"
+              onclick={() =>
+                toast.warning('Cuota casi agotada', 'Has usado el 92 % de las API keys.')}
+              ><TriangleAlert class="h-3.5 w-3.5 text-amber-400" />Aviso</button
+            >
+            <button
+              class="k-btn k-btn-secondary k-btn-sm"
+              onclick={() => toast.info('Análisis en cola', 'gitops-cloud · main')}
+              ><Info class="h-3.5 w-3.5 text-blue-300" />Info</button
             >
           </div>
         </section>
@@ -1754,16 +1713,14 @@
           {@render sectionTitle(
             'modales',
             'Modales',
-            'Fondo negro al 60 % con blur, panel sobre ink-800. Se cierran con Esc, con clic fuera o con Cancelar, y bloquean el scroll del fondo.',
+            'Fondo negro al 60 % con blur y panel sobre ink-800. Se cierran con Esc, clic fuera o Cancelar; bloquean el scroll, atrapan el foco y lo devuelven al cerrar.',
+            ['<Modal>', '<Drawer>', '<CommandPalette>'],
           )}
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {#each [{ id: 'confirm', icon: Trash, title: 'Confirmación destructiva', desc: 'Hay que escribir el nombre para habilitar el botón.', tone: 'bg-red-500/10 text-red-400' }, { id: 'form', icon: KeyRound, title: 'Formulario', desc: 'Crear un secreto, con validación en vivo.', tone: 'bg-brand-500/10 text-brand-400' }, { id: 'detalle', icon: MessageSquareText, title: 'Detalle grande', desc: 'Cabecera, tabs, cuerpo con scroll y pie fijo.', tone: 'bg-blue-400/10 text-blue-300' }, { id: 'drawer', icon: PanelRight, title: 'Drawer lateral', desc: 'Panel desde la derecha para ver detalles sin salir de la lista.', tone: 'bg-teal-500/10 text-teal-300' }, { id: 'palette', icon: Command, title: 'Búsqueda ⌘K', desc: 'Paleta de comandos con teclado.', tone: 'bg-white/6 text-fg' }] as m}
+            {#each [{ run: openConfirm, icon: Trash, title: 'Confirmación destructiva', desc: 'role="alertdialog". Hay que escribir el nombre para habilitar el botón.', tone: 'bg-red-500/10 text-red-400' }, { run: openForm, icon: KeyRound, title: 'Formulario', desc: 'Field + validación en vivo. El submit del footer usa form="…".', tone: 'bg-brand-500/10 text-brand-400' }, { run: openDetalle, icon: MessageSquareText, title: 'Detalle grande', desc: 'Cabecera a medida con Tabs, cuerpo con scroll y pie fijo.', tone: 'bg-blue-400/10 text-blue-300' }, { run: () => (drawerOpen = true), icon: PanelRight, title: 'Drawer lateral', desc: 'Detalle sin salir de la lista.', tone: 'bg-teal-500/10 text-teal-300' }, { run: () => (paletteOpen = true), icon: Command, title: 'Búsqueda ⌘K', desc: 'Paleta de comandos con teclado.', tone: 'bg-white/6 text-fg' }] as m}
               <button
                 class="k-card k-card-hover flex flex-col items-start p-5 text-left"
-                onclick={() =>
-                  m.id === 'palette'
-                    ? (paletteOpen = true)
-                    : openModal(m.id as Exclude<ModalId, null>)}
+                onclick={m.run}
               >
                 <span class="grid h-9 w-9 place-items-center rounded-lg {m.tone}"
                   ><m.icon class="h-4 w-4" /></span
@@ -1776,7 +1733,7 @@
               </button>
             {/each}
           </div>
-          <p class="flex items-center gap-2 text-xs text-fg-subtle">
+          <p class="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
             También puedes pulsar <span class="k-kbd">⌘</span><span class="k-kbd">K</span> (o
             <span class="k-kbd">Ctrl</span><span class="k-kbd">K</span>) desde cualquier punto de la
             página.
@@ -1799,6 +1756,7 @@
             'sidebar',
             'Sidebar',
             'Propuesta para la navegación de la app: selector de contexto arriba, secciones agrupadas y modo colapsado.',
+            ['.k-nav-item', '.k-nav-heading', 'aria-current="page"'],
           )}
           <div class="k-card overflow-hidden">
             <div class="flex h-140">
@@ -1941,406 +1899,296 @@
     </main>
   </div>
 
-  <!-- ================= MODALES ================= -->
-  {#snippet backdrop()}
-    <button
-      class="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      aria-label="Cerrar"
-      onclick={() => (modal = null)}
-      transition:fade={{ duration: 120 }}
-    ></button>
-  {/snippet}
+  <!-- ================= OVERLAYS ================= -->
 
   <!-- Confirmación destructiva -->
-  {#if modal === 'confirm'}
-    <div class="fixed inset-0 z-50 grid place-items-center p-4">
-      {@render backdrop()}
-      <div
-        class="k-popover relative w-full max-w-md p-6"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-title"
-        transition:scale={{ start: 0.96, duration: 150, easing: cubicOut }}
+  <Modal
+    bind:open={confirmOpen}
+    role="alertdialog"
+    size="sm"
+    title="¿Eliminar el proyecto?"
+    description="Se borrarán sus secretos, roles y monitores. Quedará un commit en GitDB, pero no se puede deshacer desde la interfaz."
+  >
+    {#snippet icon()}
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+        ><Trash class="h-5 w-5" /></span
       >
-        <div class="flex items-start gap-4">
-          <span
-            class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
-            ><Trash class="h-5 w-5" /></span
-          >
-          <div>
-            <h3 id="confirm-title" class="text-lg font-semibold text-white">
-              ¿Eliminar el proyecto?
-            </h3>
-            <p class="mt-1 text-sm text-fg-muted">
-              Se borrarán sus secretos, roles y monitores. Quedará un commit en GitDB, pero no se
-              puede deshacer desde la interfaz.
-            </p>
-          </div>
-        </div>
-        <div class="mt-5">
-          <label class="k-label" for="confirm"
-            >Escribe <span class="font-mono text-brand-300">gitops-cloud</span> para confirmar</label
-          >
-          <input
-            id="confirm"
-            class="k-input font-mono text-[13px]"
-            autocomplete="off"
-            bind:value={confirmText}
-            use:autofocus
-          />
-        </div>
-        <div class="mt-6 flex justify-end gap-2">
-          <button class="k-btn k-btn-secondary" onclick={() => (modal = null)}>Cancelar</button>
-          <button
-            class="k-btn k-btn-danger"
-            disabled={confirmText !== 'gitops-cloud'}
-            onclick={() => {
-              modal = null;
-              showToast('Proyecto eliminado', 'gitops-cloud · commit 4c7d0aa');
-            }}>Eliminar proyecto</button
-          >
-        </div>
-      </div>
-    </div>
-  {/if}
+    {/snippet}
+    <Field label="Escribe gitops-cloud para confirmar">
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          autocomplete="off"
+          data-autofocus
+          bind:value={confirmText}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    {#snippet footer()}
+      <button class="k-btn k-btn-secondary" onclick={() => (confirmOpen = false)}>Cancelar</button>
+      <button
+        class="k-btn k-btn-danger"
+        disabled={confirmText !== 'gitops-cloud'}
+        onclick={() => {
+          confirmOpen = false;
+          toast.success('Proyecto eliminado', 'gitops-cloud · commit 4c7d0aa');
+        }}>Eliminar proyecto</button
+      >
+    {/snippet}
+  </Modal>
 
   <!-- Formulario -->
-  {#if modal === 'form'}
-    <div class="fixed inset-0 z-50 grid place-items-center p-4">
-      {@render backdrop()}
-      <div
-        class="k-popover relative w-full max-w-lg"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="form-title"
-        transition:scale={{ start: 0.96, duration: 150, easing: cubicOut }}
-      >
-        <form onsubmit={saveSecret}>
-          <div class="flex items-start justify-between gap-4 border-b border-white/8 px-6 py-5">
-            <div>
-              <h3 id="form-title" class="text-lg font-semibold text-white">Nuevo secreto</h3>
-              <p class="mt-0.5 text-sm text-fg-subtle">Se cifra antes de guardarse en GitDB.</p>
-            </div>
+  <Modal
+    bind:open={formOpen}
+    title="Nuevo secreto"
+    description="Se cifra antes de guardarse en GitDB."
+  >
+    <form id="form-secreto" class="space-y-5" onsubmit={saveSecret}>
+      <Field label="Nombre" help="Por ejemplo: STRIPE_SECRET_KEY" error={secretNameError} required>
+        {#snippet children(control)}
+          <input
+            class="k-input font-mono text-[13px]"
+            placeholder="DATABASE_URL"
+            autocomplete="off"
+            data-autofocus
+            bind:value={secretName}
+            {...control}
+          />
+        {/snippet}
+      </Field>
+      <Field label="Valor" required>
+        {#snippet children(control)}
+          <div class="relative">
+            <input
+              class="k-input pr-10 font-mono text-[13px]"
+              type={secretVisible ? 'text' : 'password'}
+              placeholder="••••••••"
+              autocomplete="off"
+              bind:value={secretValue}
+              {...control}
+            />
             <button
               type="button"
-              class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
-              aria-label="Cerrar"
-              onclick={() => (modal = null)}><X class="h-4 w-4" /></button
+              class="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-fg-subtle hover:bg-white/5 hover:text-white"
+              aria-label={secretVisible ? 'Ocultar valor' : 'Mostrar valor'}
+              onclick={() => (secretVisible = !secretVisible)}
             >
+              {#if secretVisible}<EyeOff class="h-4 w-4" />{:else}<Eye class="h-4 w-4" />{/if}
+            </button>
           </div>
-
-          <div class="space-y-5 px-6 py-5">
-            <div>
-              <label class="k-label" for="s-name">Nombre</label>
-              <input
-                id="s-name"
-                class="k-input font-mono text-[13px]"
-                placeholder="DATABASE_URL"
-                autocomplete="off"
-                aria-invalid={secretNameInvalid}
-                bind:value={secretName}
-                use:autofocus
-              />
-              {#if secretNameInvalid}
-                <p class="mt-1.5 flex items-center gap-1.5 text-xs text-red-300">
-                  <CircleX class="h-3.5 w-3.5" />Solo mayúsculas, números y guiones bajos, empezando
-                  por letra.
-                </p>
-              {:else}
-                <p class="k-help">Por ejemplo: STRIPE_SECRET_KEY</p>
-              {/if}
-            </div>
-            <div>
-              <label class="k-label" for="s-value">Valor</label>
-              <div class="relative">
-                <input
-                  id="s-value"
-                  class="k-input pr-10 font-mono text-[13px]"
-                  type={secretVisible ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  autocomplete="off"
-                  bind:value={secretValue}
-                />
-                <button
-                  type="button"
-                  class="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-fg-subtle hover:bg-white/5 hover:text-white"
-                  aria-label={secretVisible ? 'Ocultar valor' : 'Mostrar valor'}
-                  onclick={() => (secretVisible = !secretVisible)}
-                >
-                  {#if secretVisible}<EyeOff class="h-4 w-4" />{:else}<Eye class="h-4 w-4" />{/if}
-                </button>
-              </div>
-            </div>
-            <div>
-              <p class="k-label">Entorno</p>
-              <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Entorno">
-                {#each [['dev', 'Desarrollo'], ['staging', 'Staging'], ['prod', 'Producción']] as [id, label]}
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={secretEnv === id}
-                    onclick={() => (secretEnv = id)}
-                    class="rounded-lg border px-3 py-2.5 text-left text-sm transition-colors {secretEnv ===
-                    id
-                      ? 'border-brand-500/60 bg-brand-500/10 text-white'
-                      : 'border-white/10 bg-white/2 text-fg-muted hover:border-white/20'}"
-                  >
-                    <span class="block font-mono text-[11px] text-fg-subtle">{id}</span>
-                    {label}
-                  </button>
-                {/each}
-              </div>
-            </div>
-            {#if secretEnv === 'prod'}
-              <div
-                class="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/6 p-3 text-xs text-amber-200"
-                transition:fade={{ duration: 100 }}
-              >
-                <TriangleAlert class="h-4 w-4 shrink-0 text-amber-400" />Los cambios en producción
-                notifican a los administradores del proyecto.
-              </div>
-            {/if}
-          </div>
-
-          <div
-            class="flex items-center justify-between gap-2 border-t border-white/8 bg-ink-900/60 px-6 py-4"
-          >
-            <span class="hidden items-center gap-1 text-xs text-fg-subtle sm:flex"
-              ><span class="k-kbd">Esc</span> para cerrar</span
-            >
-            <div class="ml-auto flex gap-2">
-              <button type="button" class="k-btn k-btn-secondary" onclick={() => (modal = null)}
-                >Cancelar</button
-              >
-              <button
-                type="submit"
-                class="k-btn k-btn-primary"
-                disabled={!secretName || secretNameInvalid || !secretValue}>Guardar secreto</button
-              >
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  {/if}
-
-  <!-- Detalle grande -->
-  {#if modal === 'detalle'}
-    <div class="fixed inset-0 z-50 grid place-items-center p-4">
-      {@render backdrop()}
-      <div
-        class="k-popover relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="detalle-title"
-        transition:scale={{ start: 0.96, duration: 150, easing: cubicOut }}
-      >
-        <div class="border-b border-white/8 px-6 pt-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="k-badge k-badge-danger font-semibold">CRITICAL</span>
-                <span class="k-badge font-mono">CVE-2026-31337</span>
-              </div>
-              <h3 id="detalle-title" class="mt-2 text-lg font-semibold text-white">
-                Prototype pollution en lodash
-              </h3>
-              <p class="mt-0.5 text-sm text-fg-subtle">billing-worker · lodash 4.17.20 → 4.17.21</p>
-            </div>
+        {/snippet}
+      </Field>
+      <div>
+        <p class="k-label" id="entorno-label">Entorno</p>
+        <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-labelledby="entorno-label">
+          {#each [['dev', 'Desarrollo'], ['staging', 'Staging'], ['prod', 'Producción']] as [id, label]}
             <button
-              class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
-              aria-label="Cerrar"
-              onclick={() => (modal = null)}><X class="h-4 w-4" /></button
+              type="button"
+              role="radio"
+              aria-checked={secretEnv === id}
+              onclick={() => (secretEnv = id)}
+              class="rounded-lg border px-3 py-2.5 text-left text-sm transition-colors {secretEnv ===
+              id
+                ? 'border-brand-500/60 bg-brand-500/10 text-white'
+                : 'border-white/10 bg-white/2 text-fg-muted hover:border-white/20'}"
             >
-          </div>
-          <div class="mt-4 flex gap-6" role="tablist">
-            {#each [['descripcion', 'Descripción'], ['afectados', 'Afectados · 3'], ['historial', 'Historial']] as [id, label]}
-              <button
-                role="tab"
-                aria-selected={detalleTab === id}
-                onclick={() => (detalleTab = id)}
-                class="-mb-px border-b-2 pb-3 text-sm font-medium transition-colors {detalleTab ===
-                id
-                  ? 'border-brand-500 text-white'
-                  : 'border-transparent text-fg-subtle hover:text-fg'}">{label}</button
-              >
-            {/each}
-          </div>
+              <span class="block font-mono text-[11px] text-fg-subtle">{id}</span>
+              {label}
+            </button>
+          {/each}
         </div>
-
-        <div class="flex-1 overflow-y-auto px-6 py-5">
-          {#if detalleTab === 'descripcion'}
-            <div class="space-y-4 text-sm text-fg-muted">
-              <p>
-                Las funciones <span class="font-mono text-fg">merge</span>,
-                <span class="font-mono text-fg">mergeWith</span>
-                y <span class="font-mono text-fg">defaultsDeep</span> permiten modificar
-                <span class="font-mono text-fg">Object.prototype</span> con una entrada manipulada, lo
-                que puede derivar en ejecución de código o denegación de servicio.
-              </p>
-              <div class="grid grid-cols-3 gap-3">
-                {#each [['CVSS', '9.1'], ['Exploit', 'Público'], ['Fix', 'Disponible']] as [k, v]}
-                  <div class="rounded-lg border border-white/8 bg-white/2 p-3">
-                    <p class="text-xs text-fg-subtle">{k}</p>
-                    <p class="mt-0.5 font-semibold text-white">{v}</p>
-                  </div>
-                {/each}
-              </div>
-              <p class="text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle">
-                Cómo corregirlo
-              </p>
-              <pre
-                class="overflow-x-auto rounded-lg border border-white/8 bg-ink-950 p-4 font-mono text-[13px] leading-relaxed text-fg"><span
-                  class="text-fg-subtle"># package.json</span
-                >
-<span class="text-red-300">-  "lodash": "4.17.20"</span>
-<span class="text-green-300">+  "lodash": "^4.17.21"</span>
-
-<span class="text-brand-300">$</span> bun install && bun run test</pre>
-              {#each Array(4) as _, i}
-                <p>
-                  Párrafo de relleno {i + 1} para comprobar el scroll del cuerpo: la cabecera con las
-                  tabs y el pie con las acciones se quedan fijos mientras el contenido se desplaza.
-                </p>
-              {/each}
-            </div>
-          {:else if detalleTab === 'afectados'}
-            <ul class="divide-y divide-white/6">
-              {#each [['billing-worker', 'release/1.4'], ['checkout-api', 'main'], ['legacy-cron', 'develop']] as [svc, br]}
-                <li class="flex items-center gap-3 py-3">
-                  <Server class="h-4 w-4 text-fg-subtle" /><span class="flex-1 text-sm text-white"
-                    >{svc}</span
-                  ><span class="k-badge font-mono"><GitBranch class="h-3 w-3" />{br}</span>
-                </li>
-              {/each}
-            </ul>
-          {:else}
-            <ol class="space-y-4 border-l border-white/10 pl-5">
-              {#each [['Detectada por Open Report', 'hace 25 min'], ['Alerta enviada a 3 personas', 'hace 24 min'], ['Asignada a Carlos López', 'hace 10 min']] as [t, when]}
-                <li class="relative">
-                  <span
-                    class="absolute -left-6.25 top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-4 ring-ink-800"
-                  ></span>
-                  <p class="text-sm text-white">{t}</p>
-                  <p class="text-xs text-fg-subtle">{when}</p>
-                </li>
-              {/each}
-            </ol>
-          {/if}
-        </div>
-
+      </div>
+      {#if secretEnv === 'prod'}
         <div
-          class="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 bg-ink-900/60 px-6 py-4"
+          class="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/6 p-3 text-xs text-amber-200"
         >
-          <button class="k-btn k-btn-ghost k-btn-sm"
-            ><ExternalLink class="h-3.5 w-3.5" />Ver en NVD</button
-          >
-          <div class="flex gap-2">
-            <button class="k-btn k-btn-secondary" onclick={() => (modal = null)}>Ignorar</button>
-            <button
-              class="k-btn k-btn-primary"
-              onclick={() => {
-                modal = null;
-                showToast('PR creada', 'fix(deps): lodash 4.17.21 · #128');
-              }}><GitPullRequest class="h-4 w-4" />Crear PR con el fix</button
-            >
-          </div>
+          <TriangleAlert class="h-4 w-4 shrink-0 text-amber-400" />Los cambios en producción
+          notifican a los administradores del proyecto.
         </div>
-      </div>
-    </div>
-  {/if}
-
-  <!-- Drawer lateral -->
-  {#if modal === 'drawer'}
-    <div class="fixed inset-0 z-50">
-      {@render backdrop()}
-      <div
-        class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-white/10 bg-ink-900 shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="drawer-title"
-        transition:fly={{ x: 420, duration: 220, easing: cubicOut }}
+      {/if}
+    </form>
+    {#snippet footer()}
+      <span class="mr-auto hidden items-center gap-1 text-xs text-fg-subtle sm:flex"
+        ><span class="k-kbd">Esc</span> para cerrar</span
       >
-        <div class="flex items-start justify-between gap-4 border-b border-white/8 px-6 py-5">
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (formOpen = false)}
+        >Cancelar</button
+      >
+      <button
+        type="submit"
+        form="form-secreto"
+        class="k-btn k-btn-primary"
+        disabled={!secretName || !!secretNameError || !secretValue}>Guardar secreto</button
+      >
+    {/snippet}
+  </Modal>
+
+  <!-- Detalle grande: cabecera a medida -->
+  <Modal bind:open={detalleOpen} size="lg" title="Prototype pollution en lodash">
+    {#snippet header(titleId)}
+      <div class="border-b border-white/8 px-6 pt-5">
+        <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-400">
-              Monitor HTTP
-            </p>
-            <h3 id="drawer-title" class="mt-1 text-lg font-semibold text-white">checkout-api</h3>
-            <p class="mt-0.5 font-mono text-xs text-fg-subtle">
-              GET https://api.kettu.studio/health
-            </p>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="k-badge k-badge-danger font-semibold">CRITICAL</span>
+              <span class="k-badge font-mono">CVE-2026-31337</span>
+            </div>
+            <h2 id={titleId} class="mt-2 text-lg font-semibold text-white">
+              Prototype pollution en lodash
+            </h2>
+            <p class="mt-0.5 text-sm text-fg-subtle">billing-worker · lodash 4.17.20 → 4.17.21</p>
           </div>
           <button
             class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
             aria-label="Cerrar"
-            onclick={() => (modal = null)}
-            use:autofocus><X class="h-4 w-4" /></button
+            onclick={() => (detalleOpen = false)}><X class="h-4 w-4" /></button
           >
         </div>
-        <div class="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-          <div class="flex items-center gap-2">
-            <span class="k-badge k-badge-danger"
-              ><span class="h-1.5 w-1.5 rounded-full bg-danger"></span>Caído</span
-            >
-            <span class="text-xs text-fg-subtle">desde hace 2 min · 3 checks fallidos</span>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            {#each [['Uptime 30 d', '99,41 %'], ['p95', '640 ms'], ['Intervalo', '60 s'], ['Timeout', '10 s']] as [k, v]}
-              <div class="rounded-xl border border-white/8 bg-white/2 p-3">
+        <div class="mt-4">
+          <Tabs
+            label="Secciones de la vulnerabilidad"
+            idPrefix="cve"
+            bind:value={detalleTab}
+            items={[
+              { value: 'descripcion', label: 'Descripción' },
+              { value: 'afectados', label: 'Afectados', count: 3 },
+              { value: 'historial', label: 'Historial' },
+            ]}
+          />
+        </div>
+      </div>
+    {/snippet}
+
+    <div
+      id={tabPanelId('cve', detalleTab)}
+      role="tabpanel"
+      aria-labelledby={tabId('cve', detalleTab)}
+    >
+      {#if detalleTab === 'descripcion'}
+        <div class="space-y-4 text-sm text-fg-muted">
+          <p>
+            Las funciones <span class="font-mono text-fg">merge</span>,
+            <span class="font-mono text-fg">mergeWith</span>
+            y
+            <span class="font-mono text-fg">defaultsDeep</span> permiten modificar
+            <span class="font-mono text-fg">Object.prototype</span> con una entrada manipulada, lo que
+            puede derivar en ejecución de código o denegación de servicio.
+          </p>
+          <div class="grid grid-cols-3 gap-3">
+            {#each [['CVSS', '9.1'], ['Exploit', 'Público'], ['Fix', 'Disponible']] as [k, v]}
+              <div class="rounded-lg border border-white/8 bg-white/2 p-3">
                 <p class="text-xs text-fg-subtle">{k}</p>
-                <p class="mt-0.5 text-lg font-semibold text-white">{v}</p>
+                <p class="mt-0.5 font-semibold text-white">{v}</p>
               </div>
             {/each}
           </div>
-          <div>
-            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle">
-              Últimos checks
+          <p class="text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle">
+            Cómo corregirlo
+          </p>
+          <pre
+            class="overflow-x-auto rounded-lg border border-white/8 bg-ink-950 p-4 font-mono text-[13px] leading-relaxed text-fg"><span
+              class="text-fg-subtle"># package.json</span
+            >
+<span class="text-red-300">-  "lodash": "4.17.20"</span>
+<span class="text-green-300">+  "lodash": "^4.17.21"</span>
+
+<span class="text-brand-300">$</span> bun install && bun run test</pre>
+          {#each Array(4) as _, i}
+            <p>
+              Párrafo de relleno {i + 1} para comprobar el scroll del cuerpo: la cabecera con las tabs
+              y el pie con las acciones se quedan fijos mientras el contenido se desplaza.
             </p>
-            <ul class="divide-y divide-white/6 rounded-xl border border-white/8">
-              {#each [['503', 'Service Unavailable', 'danger', '12:04:01'], ['503', 'Service Unavailable', 'danger', '12:03:01'], ['504', 'Gateway Timeout', 'danger', '12:02:01'], ['200', 'OK · 212 ms', 'ok', '12:01:01']] as [code, text, tone, at]}
-                <li class="flex items-center gap-3 px-3 py-2.5 text-sm">
-                  <span class="h-1.5 w-1.5 rounded-full {tone === 'ok' ? 'bg-ok' : 'bg-danger'}"
-                  ></span>
-                  <span class="font-mono text-[13px] text-white">{code}</span>
-                  <span class="flex-1 text-fg-muted">{text}</span>
-                  <span class="font-mono text-xs text-fg-subtle">{at}</span>
-                </li>
-              {/each}
-            </ul>
+          {/each}
+        </div>
+      {:else if detalleTab === 'afectados'}
+        <ul class="divide-y divide-white/6">
+          {#each [['billing-worker', 'release/1.4'], ['checkout-api', 'main'], ['legacy-cron', 'develop']] as [svc, br]}
+            <li class="flex items-center gap-3 py-3">
+              <Server class="h-4 w-4 text-fg-subtle" /><span class="flex-1 text-sm text-white"
+                >{svc}</span
+              ><span class="k-badge font-mono"><GitBranch class="h-3 w-3" />{br}</span>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <ol class="space-y-4 border-l border-white/10 pl-5">
+          {#each [['Detectada por Open Report', 'hace 25 min'], ['Alerta enviada a 3 personas', 'hace 24 min'], ['Asignada a Carlos López', 'hace 10 min']] as [t, when]}
+            <li class="relative">
+              <span
+                class="absolute -left-6.25 top-1.5 h-2 w-2 rounded-full bg-brand-500 ring-4 ring-ink-800"
+              ></span>
+              <p class="text-sm text-white">{t}</p>
+              <p class="text-xs text-fg-subtle">{when}</p>
+            </li>
+          {/each}
+        </ol>
+      {/if}
+    </div>
+
+    {#snippet footer()}
+      <a href="#modales" class="k-btn k-btn-ghost k-btn-sm mr-auto"
+        ><ExternalLink class="h-3.5 w-3.5" />Ver en NVD</a
+      >
+      <button class="k-btn k-btn-secondary" onclick={() => (detalleOpen = false)}>Ignorar</button>
+      <button
+        class="k-btn k-btn-primary"
+        onclick={() => {
+          detalleOpen = false;
+          toast.success('PR creada', 'fix(deps): lodash 4.17.21 · #128');
+        }}><GitPullRequest class="h-4 w-4" />Crear PR con el fix</button
+      >
+    {/snippet}
+  </Modal>
+
+  <!-- Drawer lateral -->
+  <Drawer
+    bind:open={drawerOpen}
+    title="checkout-api"
+    description="GET https://api.kettu.studio/health"
+  >
+    <div class="space-y-6">
+      <div class="flex items-center gap-2">
+        <span class="k-badge k-badge-danger"
+          ><span class="h-1.5 w-1.5 rounded-full bg-danger"></span>Caído</span
+        >
+        <span class="text-xs text-fg-subtle">desde hace 2 min · 3 checks fallidos</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        {#each [['Uptime 30 d', '99,41 %'], ['p95', '640 ms'], ['Intervalo', '60 s'], ['Timeout', '10 s']] as [k, v]}
+          <div class="rounded-xl border border-white/8 bg-white/2 p-3">
+            <p class="text-xs text-fg-subtle">{k}</p>
+            <p class="mt-0.5 text-lg font-semibold text-white">{v}</p>
           </div>
-        </div>
-        <div class="flex gap-2 border-t border-white/8 px-6 py-4">
-          <button class="k-btn k-btn-secondary flex-1"><Pencil class="h-4 w-4" />Editar</button>
-          <button
-            class="k-btn k-btn-primary flex-1"
-            onclick={() => showToast('Check lanzado', 'checkout-api · resultado en unos segundos')}
-            ><Activity class="h-4 w-4" />Probar ahora</button
-          >
-        </div>
+        {/each}
+      </div>
+      <div>
+        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle">
+          Últimos checks
+        </p>
+        <ul class="divide-y divide-white/6 rounded-xl border border-white/8">
+          {#each [['503', 'Service Unavailable', 'danger', '12:04:01'], ['503', 'Service Unavailable', 'danger', '12:03:01'], ['504', 'Gateway Timeout', 'danger', '12:02:01'], ['200', 'OK · 212 ms', 'ok', '12:01:01']] as [code, text, tone, at]}
+            <li class="flex items-center gap-3 px-3 py-2.5 text-sm">
+              <span class="h-1.5 w-1.5 rounded-full {tone === 'ok' ? 'bg-ok' : 'bg-danger'}"></span>
+              <span class="font-mono text-[13px] text-white">{code}</span>
+              <span class="flex-1 text-fg-muted">{text}</span>
+              <span class="font-mono text-xs text-fg-subtle">{at}</span>
+            </li>
+          {/each}
+        </ul>
       </div>
     </div>
-  {/if}
+    {#snippet footer()}
+      <button class="k-btn k-btn-secondary flex-1"><Pencil class="h-4 w-4" />Editar</button>
+      <button
+        class="k-btn k-btn-primary flex-1"
+        onclick={() => toast.info('Check lanzado', 'checkout-api · resultado en unos segundos')}
+        ><Activity class="h-4 w-4" />Probar ahora</button
+      >
+    {/snippet}
+  </Drawer>
 
   <CommandPalette bind:open={paletteOpen} groups={commandGroups} />
-
-  <!-- Toast -->
-  {#if toastVisible}
-    <div
-      class="k-popover fixed bottom-6 right-6 z-70 flex w-80 items-start gap-3 p-4"
-      role="status"
-      transition:fly={{ y: 12, duration: 180, easing: cubicOut }}
-    >
-      <CircleCheck class="mt-0.5 h-4 w-4 shrink-0 text-green-400" />
-      <div class="flex-1">
-        <p class="text-sm font-medium text-white">{toastText.title}</p>
-        <p class="mt-0.5 text-xs text-fg-subtle">{toastText.body}</p>
-      </div>
-      <button
-        class="text-fg-subtle hover:text-white"
-        aria-label="Cerrar"
-        onclick={() => (toastVisible = false)}><X class="h-4 w-4" /></button
-      >
-    </div>
-  {/if}
+  <Toaster />
 </div>

@@ -85,6 +85,47 @@ dev server against it — it never touches the repository configured in `.env`. 
 minted directly (same HMAC scheme as `SessionService`), so specs don't need to drive the login
 form except in `e2e/specs/login.spec.ts`, which covers that mechanism itself.
 
+## UI (v3 redesign, in progress)
+
+The redesign uses the Kettu palette (ink surfaces, `brand-500` orange `#f95d11`, Inter). `/brand` is
+the live catalog of everything below; it uses the bare layout (no app sidebar/navbar) and needs a
+session like any other page. Check it there before inventing a new style.
+
+**Rule: styling is classes, behavior is components.**
+
+- **Styling only → `k-*` classes** from `src/lib/styles/brand.css` (imported by `app.css`):
+  buttons (`k-btn` + `k-btn-primary|secondary|outline-brand|ghost|danger`, sizes `k-btn-sm|lg`,
+  `k-btn-icon`), inputs/textarea/native select (`k-input`, `k-label`, `k-help`), checkbox/radio
+  (`k-checkbox`), badges (`k-badge` + `-brand|ok|warn|danger|info`), `k-kbd`, cards (`k-card`,
+  `k-card-hover`, `k-panel`), `k-popover`, `k-divider`, navigation (`k-nav-item` with
+  `aria-current="page"`, `k-nav-heading`), headings (`k-text-gradient`, `k-text-gradient-brand`).
+  They work on any element (`<a>`, `<button type="submit">`…), so do not wrap them in components.
+  They live in `@layer components`, so Tailwind utilities can adjust them (`k-input h-9 pl-9`).
+- **Anything with behavior, focus or ARIA → `#lib/components/ui`** (import from the index):
+  `Modal`, `Drawer`, `DropdownMenu` + `MenuItem`, `Select`, `Field`, `Switch`, `Tabs`
+  (`underline` / `segmented`), `CommandPalette`, `toast` + `Toaster`. Never hand-roll outside
+  click, Esc, focus trapping or scroll locking in a page; `ui/overlay.ts` already does it (Esc only
+  closes the top-most overlay).
+- Every form control goes inside `Field` (label, help and error wired with `aria-describedby` /
+  `aria-invalid`); spread the snippet argument on the control: `<input class="k-input" {...control} />`.
+- A submit button in a `Modal` footer lives outside the `<form>`: give the form an `id` and the
+  button `form="that-id"`. Put `data-autofocus` on the field that should get the initial focus.
+- `Select` and `Switch` accept `name` and add a hidden input, but they need JavaScript. Forms that
+  must work without JS keep a native `<select class="k-input">` / `<input type="checkbox" class="k-checkbox">`.
+- `toast.*` is client-only (module state): call it from event handlers, never during SSR.
+- Tokens: `bg-ink-950…500`, `brand-50…900`, text `text-fg|fg-muted|fg-subtle`, status
+  `ok|warn|danger|info` (always with an icon or text, never as a chart series), chart series
+  `series-1…5` in that fixed order. Use `bg-snow` for pure white: legacy `app.css` overrides
+  `.bg-white`, `.bg-white/15|70|80|90`, `.border-white/15|60`, `.text-slate-*`, `.shadow-sm|md|xl`
+  with `!important`, so avoid those classes in v3 code.
+- Logo files are in `static/brand/` (`gitops-logo-dark|light.svg`, `gitops-mark-*.svg`,
+  `gitops-icon.svg` and PNGs). The old `gitops_logo*.png`, `icono_*.png` and `favicon.png` are
+  still used by the v2 layout.
+- Legacy: `#lib/components/Dropdown.svelte` and the `btn-*` / `field-input` classes are v2; replace
+  them with the v3 equivalents when a screen is migrated, not piecemeal.
+- `e2e/specs/brand-ui.spec.ts` covers keyboard, focus and closing behavior of the UI components;
+  extend it when you change them.
+
 ## Architecture
 
 Business logic lives in `src/modules/<module>/`:

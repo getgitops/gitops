@@ -1,3 +1,9 @@
+<!--
+  Paleta de comandos / búsqueda global.
+  - Se abre con ⌘K o Ctrl+K (si `hotkey` no es false) o con bind:open.
+  - ↑ ↓ para moverse, Enter para ejecutar, Esc para cerrar. Devuelve el foco al cerrar.
+  - Va una vez en el layout; las acciones de cada página se pasan en `groups`.
+-->
 <script lang="ts" module>
   import type { Component } from 'svelte';
 
@@ -17,8 +23,28 @@
   import { fade, scale } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { ArrowDown, ArrowUp, CornerDownLeft, Search } from '@lucide/svelte';
+  import { focusTrap, overlayLayer, scrollLock } from './overlay';
 
-  let { open = $bindable(false), groups }: { open: boolean; groups: CommandGroup[] } = $props();
+  type Props = {
+    open?: boolean;
+    groups: CommandGroup[];
+    placeholder?: string;
+    /** Escucha ⌘K / Ctrl+K para abrir y cerrar. */
+    hotkey?: boolean;
+  };
+
+  let {
+    open = $bindable(false),
+    groups,
+    placeholder = 'Busca proyectos, secretos, acciones…',
+    hotkey = true,
+  }: Props = $props();
+
+  function onWindowKeydown(e: KeyboardEvent) {
+    if (!hotkey || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+    e.preventDefault();
+    open = !open;
+  }
 
   let query = $state('');
   let active = $state(0);
@@ -52,10 +78,6 @@
     if (open) query = '';
   });
 
-  function focusOnMount(node: HTMLInputElement) {
-    node.focus();
-  }
-
   function close() {
     open = false;
   }
@@ -76,9 +98,6 @@
       e.preventDefault();
       const item = flat[active];
       if (item) runItem(item);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      close();
     } else {
       return;
     }
@@ -90,8 +109,14 @@
   }
 </script>
 
+<svelte:window onkeydown={onWindowKeydown} />
+
 {#if open}
-  <div class="fixed inset-0 z-60 flex items-start justify-center p-4 pt-[12vh]">
+  <div
+    class="fixed inset-0 z-60 flex items-start justify-center p-4 pt-[12vh]"
+    use:scrollLock
+    use:overlayLayer={close}
+  >
     <button
       class="absolute inset-0 bg-black/60 backdrop-blur-sm"
       aria-label="Cerrar búsqueda"
@@ -104,14 +129,16 @@
       role="dialog"
       aria-modal="true"
       aria-label="Búsqueda"
+      tabindex="-1"
+      use:focusTrap
       transition:scale={{ start: 0.97, duration: 140, easing: cubicOut }}
     >
       <div class="flex items-center gap-3 border-b border-white/8 px-4">
         <Search class="h-4 w-4 shrink-0 text-fg-subtle" />
         <input
-          use:focusOnMount
+          data-autofocus
           class="k-input k-input-bare h-14 px-0 text-[15px]"
-          placeholder="Busca proyectos, secretos, acciones…"
+          {placeholder}
           role="combobox"
           aria-expanded="true"
           aria-controls="command-list"
@@ -186,7 +213,7 @@
         <span class="flex items-center gap-1.5"
           ><span class="k-kbd"><CornerDownLeft class="h-3 w-3" /></span>abrir</span
         >
-        <span class="ml-auto">{flat.length} resultados</span>
+        <span class="ml-auto">{flat.length} {flat.length === 1 ? 'resultado' : 'resultados'}</span>
       </div>
     </div>
   </div>
