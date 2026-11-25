@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { createPageStore } from '#lib/page-store';
-  import { ChevronRight, Clock, FileSearch, Search, X } from '@lucide/svelte';
+  import { ChevronLeft, ChevronRight, Clock, FileSearch, Search, X } from '@lucide/svelte';
   import { summarizeAnalysisResult } from '#lib/code-report/analysis-summary';
   import CodeReportToolBadge from '#lib/components/code-report/CodeReportToolBadge.svelte';
   import { Select } from '#lib/components/ui';
@@ -101,6 +101,35 @@
     );
   });
 
+  const PAGE_SIZE = 10;
+  let currentPage = $state(1);
+  const totalPages = $derived(Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE)));
+  const pagedRows = $derived(
+    filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+  );
+
+  // al cambiar filtros vuelve a la primera página
+  $effect(() => {
+    serviceFilter;
+    statusFilter;
+    dateFilter;
+    query;
+    currentPage = 1;
+  });
+
+  // ventana de páginas: 1 … n-1 n n+1 … último
+  const pageItems = $derived.by(() => {
+    const total = totalPages;
+    const set = new Set([1, total, currentPage - 1, currentPage, currentPage + 1]);
+    const nums = [...set].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+    const out: (number | null)[] = [];
+    nums.forEach((n, i) => {
+      if (i > 0 && n - nums[i - 1] > 1) out.push(null);
+      out.push(n);
+    });
+    return out;
+  });
+
   function formatDate(value: string) {
     return new Intl.DateTimeFormat($locale ?? 'es', {
       dateStyle: 'medium',
@@ -186,7 +215,7 @@
       </div>
     {:else}
       <ul class="divide-y divide-white/6">
-        {#each filteredRows as { analysis, summary, score, risk } (analysis.id)}
+        {#each pagedRows as { analysis, summary, score, risk } (analysis.id)}
           {@const status = statusBadge[analysis.status]}
           <li>
             <a
@@ -247,6 +276,50 @@
           </li>
         {/each}
       </ul>
+      {#if totalPages > 1}
+        <nav
+          class="flex flex-wrap items-center justify-between gap-3 border-t border-white/8 px-5 py-3"
+          aria-label={$_('codeReport.history.pagination')}
+        >
+          <span class="text-xs text-fg-subtle tabular-nums">
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredRows.length)}
+            / {filteredRows.length}
+          </span>
+          <div class="flex items-center gap-1">
+            <button
+              type="button"
+              class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+              aria-label={$_('codeReport.history.previousPage')}
+              disabled={currentPage === 1}
+              onclick={() => (currentPage = Math.max(1, currentPage - 1))}
+              ><ChevronLeft class="h-4 w-4" /></button
+            >
+            {#each pageItems as n}
+              {#if n === null}
+                <span class="px-1 text-sm text-fg-subtle">…</span>
+              {:else}
+                <button
+                  type="button"
+                  aria-current={currentPage === n ? 'page' : undefined}
+                  class="h-8 min-w-8 rounded-lg px-2 text-sm font-medium tabular-nums transition-colors {currentPage ===
+                  n
+                    ? 'bg-brand-500/15 text-brand-300 ring-1 ring-brand-500/40'
+                    : 'text-fg-muted hover:bg-white/5'}"
+                  onclick={() => (currentPage = n)}>{n}</button
+                >
+              {/if}
+            {/each}
+            <button
+              type="button"
+              class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+              aria-label={$_('codeReport.history.nextPage')}
+              disabled={currentPage === totalPages}
+              onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}
+              ><ChevronRight class="h-4 w-4" /></button
+            >
+          </div>
+        </nav>
+      {/if}
     {/if}
   </div>
 </div>
