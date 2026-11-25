@@ -1,4 +1,11 @@
-import type { IacLock, IacSnapshot, IacStackRef, IacUpdate } from '../../domain/iac.model';
+import type {
+  IacHistoryPage,
+  IacLock,
+  IacSnapshot,
+  IacSnapshotSource,
+  IacStackRef,
+  IacUpdate,
+} from '../../domain/iac.model';
 import type { ObjectStore } from '../object-store/object-store';
 
 /** A stack found in a backend, with what is needed to read it and to cache it. */
@@ -41,5 +48,26 @@ export interface StateEngine {
     stack: EngineStack,
     options: { limit: number; maxBytes: number },
   ): Promise<IacUpdate[]>;
+  /** One page of history, newest first; `before` is the `nextCursor` of the previous page. */
+  listHistory(
+    store: ObjectStore,
+    root: string,
+    stack: EngineStack,
+    options: { limit: number; before?: string | null; maxBytes: number },
+  ): Promise<IacHistoryPage>;
   readLock(store: ObjectStore, root: string, stack: EngineStack): Promise<IacLock | null>;
+  /** Every readable version of the state, newest first (sources in docs/adr/0003-state-iac.md). */
+  listSnapshotSources(
+    store: ObjectStore,
+    root: string,
+    stack: EngineStack,
+  ): Promise<IacSnapshotSource[]>;
+  /** `null` when the source does not exist (any more). */
+  readSnapshotSource(
+    store: ObjectStore,
+    root: string,
+    stack: EngineStack,
+    sourceId: string,
+    options: { maxBytes: number },
+  ): Promise<IacSnapshot | null>;
 }

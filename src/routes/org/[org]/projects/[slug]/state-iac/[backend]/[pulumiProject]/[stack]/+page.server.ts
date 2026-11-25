@@ -1,5 +1,10 @@
 import { error } from '@sveltejs/kit';
-import { canReadStates, getStack, type StackScope } from '#lib/server/state-iac/stacks';
+import {
+  canReadHistory,
+  canReadStates,
+  getStack,
+  type StackScope,
+} from '#lib/server/state-iac/stacks';
 
 export async function load({ parent, locals, params, url }) {
   const { project } = await parent();
@@ -9,7 +14,10 @@ export async function load({ parent, locals, params, url }) {
     organizationId: project.organization?.id ?? '',
   };
   // resources and outputs need `project:stateiac:states:read`; the summary only `stacks:read`
-  const states = await canReadStates(locals, scope);
+  const [states, history] = await Promise.all([
+    canReadStates(locals, scope),
+    canReadHistory(locals, scope),
+  ]);
   const result = await getStack(
     locals,
     scope,
@@ -22,6 +30,14 @@ export async function load({ parent, locals, params, url }) {
   return {
     detail: result.data,
     canReadStates: states,
+    canReadHistory: history,
+    apiBase: apiBaseOf(params),
+    scopeQuery: `projectId=${encodeURIComponent(project.id)}`,
     backHref: `/org/${params.org}/projects/${params.slug}/state-iac`,
   };
+}
+
+function apiBaseOf(params: { backend: string; pulumiProject: string; stack: string }) {
+  const part = encodeURIComponent;
+  return `/api/state-iac/stacks/${part(params.backend)}/${part(params.pulumiProject)}/${part(params.stack)}`;
 }

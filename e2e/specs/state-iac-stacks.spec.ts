@@ -142,3 +142,60 @@ test.describe('state iac stacks — organization view', () => {
     await expectDenied(page, `/org/${org}/state-iac`);
   });
 });
+
+test.describe('state iac stacks — history and changes', () => {
+  test('the history lists the updates and opens what changed in one', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
+    await page.waitForLoadState('networkidle');
+    const tabs = page.getByRole('tablist', { name: 'Contenido del stack' });
+
+    await tabs.getByRole('tab', { name: 'Historial' }).click();
+    const history = page.getByTestId('stack-history');
+    await expect(history.locator('li[data-update-id]')).toHaveCount(4);
+    await expect(history.locator('li[data-update-id="1789061079158069310"]')).toContainText(
+      'fallido',
+    );
+    // allow-listed environment: commit and author, never the email
+    await expect(history).toContainText('Jane Doe');
+    await expect(history).not.toContainText('jane@example.com');
+
+    await history
+      .locator('li[data-update-id="1795604216162649000"]')
+      .getByRole('button', { name: 'Ver cambios' })
+      .click();
+    const diff = page.getByTestId('stack-diff');
+    await expect(diff.getByTestId('diff-summary')).toContainText('Cambios 2');
+    const sql = diff.locator('li[data-resource="cloud-sql-acme-prod"]');
+    await expect(sql).toHaveAttribute('data-change', 'update');
+    await sql.getByRole('button').first().click();
+    await expect(sql).toContainText('inputs.publicIp');
+  });
+
+  test('a replace between two chosen versions', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
+    await page.waitForLoadState('networkidle');
+    await page
+      .getByRole('tablist', { name: 'Contenido del stack' })
+      .getByRole('tab', { name: 'Cambios' })
+      .click();
+    const diff = page.getByTestId('stack-diff');
+    await expect(diff.getByTestId('diff-summary')).toBeVisible();
+    await diff.getByLabel('Hasta').selectOption('history:1795602803296701000');
+    await expect(diff.locator('li[data-resource="lb-prod-cert"]')).toHaveAttribute(
+      'data-change',
+      'replace',
+    );
+  });
+
+  test('without history:read nor states:read there is no history nor diff', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('stateiacStacksOnly');
+    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
+    await expect(page.getByRole('tab', { name: 'Historial' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Cambios' })).toHaveCount(0);
+  });
+});

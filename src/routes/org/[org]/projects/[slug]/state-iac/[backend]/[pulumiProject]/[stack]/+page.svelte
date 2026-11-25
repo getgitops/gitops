@@ -7,6 +7,9 @@
       detail: StackDetailView;
       canReadStates: boolean;
       backHref: string;
+      apiBase: string;
+      scopeQuery: string;
+      canReadHistory?: boolean;
       project: { name: string };
     };
   };
@@ -17,4 +20,11 @@
   <title>{data.detail.summary.ref.stack} · State IaC - {data.project.name}</title>
 </svelte:head>
 
-<StackDetail detail={data.detail} canReadStates={data.canReadStates} backHref={data.backHref} />
+<StackDetail
+  apiBase={data.apiBase}
+  scopeQuery={data.scopeQuery}
+  canReadHistory={data.canReadHistory}
+  detail={data.detail}
+  canReadStates={data.canReadStates}
+  backHref={data.backHref}
+/>

@@ -1,5 +1,12 @@
 import type { Logger } from 'pino';
-import type { IacLock, IacSnapshot, IacStackSummary, IacUpdate } from '../domain/iac.model';
+import type {
+  IacHistoryPage,
+  IacLock,
+  IacSnapshot,
+  IacSnapshotSource,
+  IacStackSummary,
+  IacUpdate,
+} from '../domain/iac.model';
 import type { StateBackendDomain } from '../domain/state-backend.domain';
 import type { StateBindingDomain } from '../domain/state-binding.domain';
 import type {
@@ -9,6 +16,7 @@ import type {
 } from '../infrastructure/engines/state-engine';
 import type { StateBindingRepositoryPort } from '../infrastructure/repositories/state-binding.repository';
 import type { StateIacConfig } from '../infrastructure/config';
+import { diffSnapshots, type IacDiff } from './state-diff.service';
 import {
   readErrorCode,
   type BackendErrorCode,
@@ -41,6 +49,23 @@ export type BackendStacks = {
 
 export type StackDetail = { summary: StackListItem; snapshot: IacSnapshot };
 
+/** Who is looking: a GitOps project (its bindings) or an organization (everything). */
+export type StackViewer = { projectId: string } | { organizationId: string };
+
+export type LocatedStack = {
+  backend: StateBackendDomain;
+  stack: EngineStack;
+  assignedProjectId: string | null;
+};
+
+export type DiffOutcome = {
+  /** `null`: nothing to compare with (only the current state, or a source that is gone). */
+  diff: IacDiff | null;
+  sources: IacSnapshotSource[];
+  from: string | null;
+  to: string | null;
+};
+
 export type StateIacServiceOptions = {
   now?: () => number;
   logger?: Pick<Logger, 'warn'>;
@@ -66,6 +91,8 @@ export class StateIacService {
   private readonly snapshots = new Map<string, IacSnapshot>();
   private snapshotBytes = 0;
   private readonly extras = new Map<string, CachedExtras>();
+  private readonly pages = new Map<string, { expires: number; value: IacHistoryPage }>();
+  private readonly sources = new Map<string, { expires: number; value: IacSnapshotSource[] }>();
   private readonly now: () => number;
   private readonly log: Pick<Logger, 'warn'>;
   private readonly maxCacheBytes: number;
@@ -129,17 +156,7 @@ export class StateIacService {
     stack: string,
     options: { refresh?: boolean } = {},
   ): Promise<StackDetail | null> {
-    const bindings = await this.bindings.listByProject(projectId);
-    const visible = bindings.some(
-      (binding) =>
-        binding.backendId === backendId &&
-        binding.pulumiProject === project &&
-        binding.covers(stack),
-    );
-    if (!visible) return null;
-    const backend = await this.backends.get(backendId).catch(() => null);
-    if (!backend || !backend.enabled) return null;
-    return this.detail(backend, project, stack, projectId, options);
+    return this.detail(await this.locate({ projectId }, backendId, project, stack, options));
   }
 
   /** A stack seen from its organization: any stack of its backends. */
@@ -150,17 +167,130 @@ export class StateIacService {
     stack: string,
     options: { refresh?: boolean } = {},
   ): Promise<StackDetail | null> {
-    const backend = await this.backends.get(backendId).catch(() => null);
-    if (!backend || backend.organizationId !== organizationId || !backend.enabled) return null;
-    const bindings = await this.bindings.listByBackend(backend.id);
+    return this.detail(await this.locate({ organizationId }, backendId, project, stack, options));
+  }
+
+  /**
+   * Finds a stack the viewer may see: from a project, only if one of its bindings covers it;
+   * from an organization, any stack of its backends. `null` means 404.
+   */
+  async locate(
+    viewer: StackViewer,
+    backendId: string,
+    project: string,
+    stackName: string,
+    options: { refresh?: boolean } = {},
+  ): Promise<LocatedStack | null> {
     const projectName = project === UNKNOWN_PROJECT ? null : project;
-    return this.detail(
-      backend,
-      project,
-      stack,
-      assignedTo(bindings, projectName, stack) ?? null,
-      options,
+    let assignedProjectId: string | null;
+    if ('projectId' in viewer) {
+      const bindings = await this.bindings.listByProject(viewer.projectId);
+      const visible = bindings.some(
+        (binding) =>
+          binding.backendId === backendId &&
+          binding.pulumiProject === projectName &&
+          binding.covers(stackName),
+      );
+      if (!visible) return null;
+      assignedProjectId = viewer.projectId;
+    } else {
+      assignedProjectId = null;
+    }
+    const backend = await this.backends.get(backendId).catch(() => null);
+    if (!backend || !backend.enabled) return null;
+    if ('organizationId' in viewer) {
+      if (backend.organizationId !== viewer.organizationId) return null;
+      const bindings = await this.bindings.listByBackend(backend.id);
+      assignedProjectId = assignedTo(bindings, projectName, stackName) ?? null;
+    }
+    const discovery = await this.discover(backend, options);
+    if ('error' in discovery) return null;
+    const stack = discovery.stacks.find(
+      (candidate) => candidate.ref.project === projectName && candidate.ref.stack === stackName,
     );
+    return stack ? { backend, stack, assignedProjectId } : null;
+  }
+
+  /** One page of the stack's history, newest first. */
+  async history(
+    located: LocatedStack,
+    options: { cursor?: string | null; limit?: number } = {},
+  ): Promise<IacHistoryPage> {
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    const key = `${located.backend.id}|history|${located.stack.key}|${located.stack.version ?? ''}|${options.cursor ?? ''}|${limit}`;
+    const cached = this.pages.get(key);
+    if (cached && cached.expires > this.now()) return cached.value;
+    const value = await this.engine.listHistory(
+      this.backends.storeFor(located.backend),
+      located.backend.pulumiRoot,
+      located.stack,
+      { limit, before: options.cursor ?? null, maxBytes: this.config().maxStateBytes },
+    );
+    this.pages.set(key, { expires: this.now() + this.config().cacheTtlMs, value });
+    this.trimPages();
+    return value;
+  }
+
+  /** Versions of the state that can be compared, newest first. */
+  async snapshotSources(located: LocatedStack): Promise<IacSnapshotSource[]> {
+    const key = `${located.backend.id}|sources|${located.stack.key}|${located.stack.version ?? ''}`;
+    const cached = this.sources.get(key);
+    if (cached && cached.expires > this.now()) return cached.value;
+    const value = await this.engine.listSnapshotSources(
+      this.backends.storeFor(located.backend),
+      located.backend.pulumiRoot,
+      located.stack,
+    );
+    this.sources.set(key, { expires: this.now() + this.config().cacheTtlMs, value });
+    return value;
+  }
+
+  /**
+   * Diff between two versions of the state. Without `from`/`to`: the state after the last update
+   * against the one before it. `null` sources when there is nothing to compare with.
+   */
+  async diff(
+    located: LocatedStack,
+    ids: { from?: string | null; to?: string | null } = {},
+  ): Promise<DiffOutcome> {
+    const sources = await this.snapshotSources(located);
+    const known = new Set(sources.map((source) => source.id));
+    const history = sources.filter((source) => source.source === 'history');
+    const others = sources.filter((source) => source.id !== 'current');
+    const toId = ids.to ?? history[0]?.id ?? 'current';
+    const fromId =
+      ids.from ??
+      (toId === history[0]?.id ? history[1]?.id : undefined) ??
+      others.find((source) => source.id !== toId)?.id ??
+      null;
+    if (!fromId || !known.has(fromId) || !known.has(toId)) {
+      return { diff: null, sources, from: fromId, to: toId };
+    }
+    const [from, to] = await Promise.all([
+      this.sourceSnapshot(located, fromId),
+      this.sourceSnapshot(located, toId),
+    ]);
+    if (!from || !to) return { diff: null, sources, from: fromId, to: toId };
+    const diff = diffSnapshots({ ...from, versionId: fromId }, { ...to, versionId: toId });
+    return { diff, sources, from: fromId, to: toId };
+  }
+
+  private async sourceSnapshot(located: LocatedStack, sourceId: string) {
+    if (sourceId === 'current') return this.snapshot(located.backend, located.stack);
+    // past versions never change; `previous` (the .bak) changes with every write
+    const version = sourceId === 'previous' ? (located.stack.version ?? '') : '';
+    const key = `${located.backend.id}|${located.stack.key}|src:${sourceId}|${version}`;
+    const cached = this.snapshots.get(key);
+    if (cached) return cached;
+    const snapshot = await this.engine.readSnapshotSource(
+      this.backends.storeFor(located.backend),
+      located.backend.pulumiRoot,
+      located.stack,
+      sourceId,
+      { maxBytes: this.config().maxStateBytes },
+    );
+    if (snapshot) this.remember(key, snapshot);
+    return snapshot;
   }
 
   /** Name and location of a backend, for headings. */
@@ -175,27 +305,16 @@ export class StateIacService {
   invalidate(backendId: string): void {
     for (const key of this.discoveries.keys())
       if (key.startsWith(`${backendId}:`)) this.discoveries.delete(key);
-    for (const key of this.extras.keys())
-      if (key.startsWith(`${backendId}|`)) this.extras.delete(key);
+    for (const cache of [this.extras, this.pages, this.sources]) {
+      for (const key of cache.keys()) if (key.startsWith(`${backendId}|`)) cache.delete(key);
+    }
   }
 
-  private async detail(
-    backend: StateBackendDomain,
-    project: string,
-    stackName: string,
-    assignedProjectId: string | null,
-    options: { refresh?: boolean },
-  ): Promise<StackDetail | null> {
-    const discovery = await this.discover(backend, options);
-    if ('error' in discovery) return null;
-    const projectName = project === UNKNOWN_PROJECT ? null : project;
-    const stack = discovery.stacks.find(
-      (candidate) => candidate.ref.project === projectName && candidate.ref.stack === stackName,
-    );
-    if (!stack) return null;
-    const summary = await this.summarize(backend, stack, assignedProjectId);
-    if (summary.error) return { summary, snapshot: emptySnapshot(stack) };
-    const snapshot = await this.snapshot(backend, stack);
+  private async detail(located: LocatedStack | null): Promise<StackDetail | null> {
+    if (!located) return null;
+    const summary = await this.summarize(located.backend, located.stack, located.assignedProjectId);
+    if (summary.error) return { summary, snapshot: emptySnapshot(located.stack) };
+    const snapshot = await this.snapshot(located.backend, located.stack);
     return { summary, snapshot };
   }
 
@@ -291,6 +410,12 @@ export class StateIacService {
         maxBytes: this.config().maxStateBytes,
       },
     );
+    this.remember(key, snapshot);
+    return snapshot;
+  }
+
+  /** LRU bounded by the raw size of the states. */
+  private remember(key: string, snapshot: IacSnapshot) {
     this.snapshots.set(key, snapshot);
     this.snapshotBytes += snapshot.sizeBytes;
     for (const [oldKey, old] of this.snapshots) {
@@ -298,7 +423,11 @@ export class StateIacService {
       this.snapshots.delete(oldKey);
       this.snapshotBytes -= old.sizeBytes;
     }
-    return snapshot;
+  }
+
+  private trimPages() {
+    // history pages are small; keep the newest few thousand
+    while (this.pages.size > 2_000) this.pages.delete(this.pages.keys().next().value!);
   }
 
   private async summarize(

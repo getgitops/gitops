@@ -9,22 +9,45 @@
   import { Drawer, Tabs } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
   import type { IacResourceView, StackDetailView } from '#lib/state-iac/types';
+  import { untrack } from 'svelte';
   import IacValue from './IacValue.svelte';
+  import StackDiff from './StackDiff.svelte';
+  import StackHistory from './StackHistory.svelte';
 
   type Props = {
     detail: StackDetailView;
     /** Sin `project:stateiac:states:read` solo se ve el resumen. */
     canReadStates: boolean;
+    /** Historial de updates (`project:stateiac:history:read`). */
+    canReadHistory?: boolean;
     backHref: string;
     projectName?: string | null;
+    /** `/api/state-iac/stacks/<backend>/<project>/<stack>` y `projectId=…|organizationId=…` */
+    apiBase: string;
+    scopeQuery: string;
   };
-  let { detail, canReadStates, backHref, projectName = null }: Props = $props();
+  let {
+    detail,
+    canReadStates,
+    canReadHistory = false,
+    backHref,
+    projectName = null,
+    apiBase,
+    scopeQuery,
+  }: Props = $props();
 
   const STACK_TYPE = 'pulumi:pulumi:Stack';
   const resources = $derived(detail.resources ?? []);
   const byAddress = $derived(new Map(resources.map((r) => [r.address, r])));
 
-  let tab = $state('resources');
+  let tab = $state(untrack(() => (canReadStates ? 'resources' : 'history')));
+  /** Version picked in the history for the changes tab. */
+  let changesTo = $state<string | null>(null);
+
+  function showChanges(updateId: string) {
+    changesTo = `history:${updateId}`;
+    tab = 'changes';
+  }
   let query = $state('');
   let typeFilter = $state('');
   let providerFilter = $state('');
@@ -80,6 +103,18 @@
     return out;
   });
   const outputs = $derived(Object.entries(detail.outputs ?? {}));
+
+  // what this viewer may open: resources/outputs/changes need states:read, the history its own grant
+  const tabs = $derived([
+    ...(canReadStates
+      ? [
+          { value: 'resources', label: $_('stateIac.stacks.resources'), count: resources.length },
+          { value: 'outputs', label: $_('stateIac.detail.outputs'), count: outputs.length },
+        ]
+      : []),
+    ...(canReadHistory ? [{ value: 'history', label: $_('stateIac.history.title') }] : []),
+    ...(canReadStates ? [{ value: 'changes', label: $_('stateIac.diff.title') }] : []),
+  ]);
 
   function select(address: string) {
     const resource = byAddress.get(address);
@@ -170,7 +205,7 @@
     <p class="k-card border-danger/30 px-4 py-3 text-sm text-red-300" role="alert">
       {$_(`stateIac.errors.${summary.error}`)}
     </p>
-  {:else if !canReadStates}
+  {:else if tabs.length === 0}
     <p
       class="k-card border-dashed px-4 py-6 text-center text-sm text-fg-muted"
       data-testid="states-forbidden"
@@ -178,15 +213,7 @@
       {$_('stateIac.detail.noStatesPermission')}
     </p>
   {:else}
-    <Tabs
-      label={$_('stateIac.detail.tabs')}
-      bind:value={tab}
-      idPrefix="stack"
-      items={[
-        { value: 'resources', label: $_('stateIac.stacks.resources'), count: resources.length },
-        { value: 'outputs', label: $_('stateIac.detail.outputs'), count: outputs.length },
-      ]}
-    />
+    <Tabs label={$_('stateIac.detail.tabs')} bind:value={tab} idPrefix="stack" items={tabs} />
 
     {#if tab === 'resources'}
       <div
@@ -280,6 +307,19 @@
           </li>
         {/each}
       </ul>
+    {:else if tab === 'history'}
+      <div role="tabpanel" id="stack-panel-history" aria-labelledby="stack-tab-history">
+        <StackHistory {apiBase} {scopeQuery} canDiff={canReadStates} onshowchanges={showChanges} />
+      </div>
+    {:else if tab === 'changes'}
+      <div role="tabpanel" id="stack-panel-changes" aria-labelledby="stack-tab-changes">
+        <StackDiff
+          {apiBase}
+          {scopeQuery}
+          to={changesTo}
+          lastChanges={summary.lastUpdate?.changes ?? null}
+        />
+      </div>
     {:else}
       <div
         class="k-card p-4 font-mono text-xs"

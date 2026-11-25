@@ -78,7 +78,16 @@ export type { PulumiLayout } from './infrastructure/engines/pulumi/pulumi-discov
 export {
   UNKNOWN_PROJECT,
   type BackendStacks,
+  type DiffOutcome,
+  type LocatedStack,
+  type StackViewer,
   type StackDetail,
   type StackListItem,
 } from './application/state-iac.service';
 export type * from './domain/iac.model';
+export type {
+  IacDiff,
+  IacDiffSummary,
+  IacFieldChange,
+  IacResourceChange,
+} from './application/state-diff.service';

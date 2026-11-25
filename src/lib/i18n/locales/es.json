@@ -2464,6 +2464,50 @@
       "resourceTabs": "Datos del recurso",
       "inputs": "Inputs",
       "dependencies": "Dependencias"
+    },
+    "history": {
+      "title": "Historial",
+      "loading": "Leyendo el historial…",
+      "loadFailed": "No se pudo cargar el historial",
+      "empty": "Este stack no tiene historial de updates.",
+      "took": "duró {duration}",
+      "dirty": "cambios sin commit",
+      "showChanges": "Ver cambios",
+      "loadMore": "Cargar más"
+    },
+    "changes": {
+      "create": "Altas",
+      "update": "Cambios",
+      "replace": "Reemplazos",
+      "delete": "Bajas",
+      "import": "Importados",
+      "same": "Sin cambios"
+    },
+    "diff": {
+      "title": "Cambios",
+      "loading": "Comparando versiones…",
+      "loadFailed": "No se pudo calcular el diff",
+      "from": "Desde",
+      "to": "Hasta",
+      "noSources": "No hay versiones anteriores de este estado que comparar. Pulumi guarda una copia en el historial con cada update; si se borró, activa el versionado del bucket (GCS Object Versioning o S3 Versioning) o PULUMI_RETAIN_CHECKPOINTS.",
+      "unavailable": "Esa versión ya no está disponible en el bucket.",
+      "lastUpdateChanges": "Según el último update:",
+      "secretsNotice": "Los secretos se comparan sin revelarse. Pulumi los vuelve a cifrar en cada escritura, así que no se puede saber si un valor secreto cambió; solo si pasó a ser secreto o dejó de serlo.",
+      "noChanges": "No hay cambios entre estas dos versiones.",
+      "fields": "{count} propiedades",
+      "property": "Propiedad",
+      "before": "Antes",
+      "after": "Después",
+      "providerOnly": "{count} recursos solo cambiaron de provider (subida de versión)",
+      "outputs": "Outputs del stack",
+      "sources": {
+        "current": "Estado actual",
+        "history": "Update",
+        "backup": "Backup",
+        "retained": "Checkpoint retenido",
+        "previous": "Estado anterior (.bak)",
+        "object-version": "Versión del objeto"
+      }
     }
   }
 }

@@ -181,4 +181,128 @@ describe('StateIacService', () => {
       expect(group.stacks[0].resourceCount).toBe(0);
     });
   });
+
+  describe('history and diff', () => {
+    const locate = (fx: ReturnType<typeof createStateIacFixture>, id: string, stack = 'prod') =>
+      fx.stateIacService.locate({ projectId: 'p1' }, id, 'acme-infra', stack);
+
+    it('locate follows the same visibility as the detail', async () => {
+      expect(await locate(fx, shared.id)).not.toBeNull();
+      expect(await locate(fx, shared.id, 'staging')).toBeNull();
+      expect(
+        await fx.stateIacService.locate(
+          { organizationId: 'org-2' },
+          shared.id,
+          'acme-infra',
+          'prod',
+        ),
+      ).toBeNull();
+    });
+
+    it('pages the history, newest first', async () => {
+      const located = (await locate(fx, shared.id))!;
+      const first = await fx.stateIacService.history(located, { limit: 3 });
+      expect(first.updates.map((u) => u.id)).toEqual([
+        '1795604216162649000',
+        '1795602803296701000',
+        '1795602066945844000',
+      ]);
+      expect(first.nextCursor).toBe('1795602066945844000');
+      const second = await fx.stateIacService.history(located, {
+        limit: 3,
+        cursor: first.nextCursor,
+      });
+      expect(second.updates.map((u) => [u.id, u.result])).toEqual([
+        ['1789061079158069310', 'failed'],
+      ]);
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it('lists every source: current, history, backups, retained copies and the .bak', async () => {
+      const sources = await fx.stateIacService.snapshotSources((await locate(fx, shared.id))!);
+      expect(sources[0].id).toBe('current');
+      expect(sources.map((source) => source.source).sort()).toEqual(
+        [
+          'backup',
+          'current',
+          'history',
+          'history',
+          'history',
+          'history',
+          'previous',
+          'retained',
+        ].sort(),
+      );
+      expect(sources.find((s) => s.id === 'history:1795604216162649000')).toMatchObject({
+        updateId: '1795604216162649000',
+        takenAt: new Date(1795604216162).toISOString(),
+      });
+    });
+
+    it('by default compares the last update with the one before', async () => {
+      const outcome = await fx.stateIacService.diff((await locate(fx, shared.id))!);
+      expect(outcome.to).toBe('history:1795604216162649000');
+      expect(outcome.from).toBe('history:1795602803296701000');
+      expect(outcome.diff?.summary).toMatchObject({ update: 2, create: 0, delete: 0, replace: 0 });
+      expect(outcome.diff?.from.sourceId).toBe('history:1795602803296701000');
+    });
+
+    it('compares any two sources, and refuses unknown ones', async () => {
+      const located = (await locate(fx, shared.id))!;
+      const outcome = await fx.stateIacService.diff(located, {
+        from: 'history:1795602066945844000',
+        to: 'current',
+      });
+      expect(outcome.diff?.summary.replace).toBe(1);
+      const unknown = await fx.stateIacService.diff(located, { from: 'history:1', to: 'current' });
+      expect(unknown.diff).toBeNull();
+      const traversal = await fx.stateIacService.diff(located, {
+        from: 'backup:../../x',
+        to: 'current',
+      });
+      expect(traversal.diff).toBeNull();
+    });
+
+    it('uses object versions when the bucket keeps them', async () => {
+      const store = fixtureStore('project-layout');
+      store.versioning = true;
+      const key = '.pulumi/stacks/acme-platform/dev.json';
+      const empty =
+        '{"version":3,"checkpoint":{"stack":"organization/acme-platform/dev","latest":{}}}';
+      store.put(key, empty, '2026-11-01T00:00:00Z');
+      store.put(
+        key,
+        '{"version":3,"checkpoint":{"stack":"organization/acme-platform/dev","latest":{"resources":[{"urn":"urn:pulumi:dev::acme-platform::aws:s3/bucket:Bucket::logs","type":"aws:s3/bucket:Bucket","custom":true,"id":"logs"}]}}}',
+        '2026-11-02T00:00:00Z',
+      );
+      fx.buckets.set('shared-state', store);
+      fx.stateIacService.invalidate(shared.id);
+      const located = (await fx.stateIacService.locate(
+        { projectId: 'p2' },
+        shared.id,
+        'acme-platform',
+        'dev',
+      ))!;
+      const sources = await fx.stateIacService.snapshotSources(located);
+      // the fixture's dev.json was version 1 (before versioning), then 2 and 3 (live)
+      expect(sources.map((s) => s.id).sort()).toEqual(['current', 'previous', 'version:2']);
+      const outcome = await fx.stateIacService.diff(located, { from: 'version:2', to: 'current' });
+      expect(outcome.diff?.summary.create).toBe(1);
+      // no history: by default, current against the newest other source
+      const byDefault = await fx.stateIacService.diff(located);
+      expect(byDefault.to).toBe('current');
+      expect(byDefault.diff).not.toBeNull();
+    });
+
+    it('with only the current state there is nothing to compare', async () => {
+      const located = (await fx.stateIacService.locate(
+        { projectId: 'p2' },
+        shared.id,
+        'acme-platform',
+        'dev',
+      ))!;
+      const outcome = await fx.stateIacService.diff(located, { from: 'version:9', to: 'current' });
+      expect(outcome.diff).toBeNull();
+    });
+  });
 });

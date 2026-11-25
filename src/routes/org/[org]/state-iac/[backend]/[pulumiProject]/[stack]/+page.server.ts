@@ -18,5 +18,7 @@ export async function load({ parent, locals, params, url }) {
     detail: result.data,
     projectName: project?.name ?? null,
     backHref: `/org/${params.org}/state-iac`,
+    apiBase: `/api/state-iac/stacks/${encodeURIComponent(params.backend)}/${encodeURIComponent(params.pulumiProject)}/${encodeURIComponent(params.stack)}`,
+    scopeQuery: `organizationId=${encodeURIComponent(organization.id)}`,
   };
 }

@@ -1,6 +1,8 @@
 import {
   stateIacService,
   type BackendStacks,
+  type DiffOutcome,
+  type IacHistoryPage,
   type IacResource,
   type IacValue,
   type StackListItem,
@@ -25,7 +27,7 @@ export type StackScope =
 const forbidden = { ok: false as const, status: 403, error: 'Forbidden' };
 const notFound = { ok: false as const, status: 404, error: 'Stack not found' };
 
-function can(locals: AlertLocals, scope: StackScope, permission: 'stacks' | 'states') {
+function can(locals: AlertLocals, scope: StackScope, permission: 'stacks' | 'states' | 'history') {
   if (scope.scope === 'project') {
     return callerCan(locals, `project:stateiac:${permission}:read`, {
       scope: 'project',
@@ -142,4 +144,59 @@ export function parseInclude(value: string | null): StackInclude[] {
         .filter((part): part is StackInclude => part === 'resources' || part === 'outputs'),
     ),
   ];
+}
+
+type StackRef = { backendId: string; project: string; stack: string };
+
+/** The stack if the scope may see it at all (any State IaC read grant), else 404. */
+async function locateFor(locals: AlertLocals, scope: StackScope, ref: StackRef, refresh = false) {
+  const [stacks, history, states] = await Promise.all([
+    can(locals, scope, 'stacks'),
+    can(locals, scope, 'history'),
+    can(locals, scope, 'states'),
+  ]);
+  if (!stacks && !history && !states) return null;
+  const viewer =
+    scope.scope === 'project'
+      ? { projectId: scope.projectId }
+      : { organizationId: scope.organizationId };
+  return stateIacService.locate(viewer, ref.backendId, ref.project, ref.stack, { refresh });
+}
+
+/** Update history, newest first: `project:stateiac:history:read` in a project. */
+export async function getStackHistory(
+  locals: AlertLocals,
+  scope: StackScope,
+  ref: StackRef,
+  page: { cursor?: string | null; limit?: number },
+): Promise<StateIacResult<IacHistoryPage>> {
+  const located = await locateFor(locals, scope, ref);
+  if (!located) return notFound;
+  if (!(await can(locals, scope, 'history'))) return forbidden;
+  const cursor = page.cursor && /^\d+$/.test(page.cursor) ? page.cursor : null;
+  return {
+    ok: true,
+    status: 200,
+    data: await stateIacService.history(located, { ...page, cursor }),
+  };
+}
+
+/**
+ * Diff between two versions of the state (`project:stateiac:states:read` in a project): by default
+ * the last update against the one before. `sources` lists what can be compared.
+ */
+export async function getStackDiff(
+  locals: AlertLocals,
+  scope: StackScope,
+  ref: StackRef,
+  ids: { from?: string | null; to?: string | null },
+): Promise<StateIacResult<DiffOutcome>> {
+  const located = await locateFor(locals, scope, ref);
+  if (!located) return notFound;
+  if (!(await can(locals, scope, 'states'))) return forbidden;
+  return { ok: true, status: 200, data: await stateIacService.diff(located, ids) };
+}
+
+export async function canReadHistory(locals: AlertLocals, scope: StackScope): Promise<boolean> {
+  return can(locals, scope, 'history');
 }

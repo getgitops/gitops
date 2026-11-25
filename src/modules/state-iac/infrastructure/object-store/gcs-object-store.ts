@@ -6,6 +6,7 @@ import {
   type ListPage,
   type ObjectInfo,
   type ObjectStore,
+  type ObjectVersion,
 } from './object-store';
 
 export type GcsObjectStoreConfig = {
@@ -66,6 +67,37 @@ export class GcsObjectStore implements ObjectStore {
   async openRead(key: string): Promise<Readable | null> {
     try {
       return await primeStream(this.bucket.file(key).createReadStream());
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw error;
+    }
+  }
+
+  /** `storage.objects.list` with `versions=true` (Object Versioning): no extra permission. */
+  async listVersions(key: string): Promise<ObjectVersion[]> {
+    try {
+      const [files] = await this.bucket.getFiles({ prefix: key, versions: true });
+      return files
+        .filter((file) => file.name === key && file.metadata.generation !== undefined)
+        .map((file) => ({
+          versionId: String(file.metadata.generation),
+          updatedAt: (file.metadata.updated as string | undefined) ?? null,
+          size: Number(file.metadata.size ?? 0),
+          // noncurrent versions carry the time they stopped being live
+          latest: !file.metadata.timeDeleted,
+        }))
+        .sort((a, b) => (BigInt(b.versionId) > BigInt(a.versionId) ? 1 : -1));
+    } catch {
+      // no versioning or no permission: the diff falls back to the other sources
+      return [];
+    }
+  }
+
+  async openReadVersion(key: string, versionId: string): Promise<Readable | null> {
+    try {
+      return await primeStream(
+        this.bucket.file(key, { generation: Number(versionId) }).createReadStream(),
+      );
     } catch (error) {
       if (isNotFound(error)) return null;
       throw error;

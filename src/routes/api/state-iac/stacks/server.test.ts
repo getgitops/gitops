@@ -50,6 +50,8 @@ const { fixture } = (await import('#modules/state-iac')) as unknown as {
 const { fixtureStore } = await import('#modules/state-iac/application/testing');
 const list = await import('./+server');
 const item = await import('./[backend]/[pulumiProject]/[stack]/+server');
+const historyRoute = await import('./[backend]/[pulumiProject]/[stack]/history/+server');
+const diffRoute = await import('./[backend]/[pulumiProject]/[stack]/diff/+server');
 
 let backendId = '';
 
@@ -91,6 +93,7 @@ describe('/api/state-iac/stacks', () => {
       'project:p1': ['project:stateiac:stacks:read', 'project:stateiac:states:read'],
     };
     grants['user:listOnly'] = { 'project:p1': ['project:stateiac:stacks:read'] };
+    grants['user:historian'] = { 'project:p1': ['project:stateiac:history:read'] };
     grants['user:org'] = { 'org:org-1': ['organization:stateiac:stacks:read'] };
     grants['key:k1'] = { 'project:p1': ['project:stateiac:stacks:read'] };
     keyProjects.k1 = 'p1';
@@ -177,5 +180,52 @@ describe('/api/state-iac/stacks', () => {
   it('requires a scope', async () => {
     expect((await get(list.GET, '', user('a'))).status).toBe(400);
     expect((await get(list.GET, 'projectId=nope', user('a'))).status).toBe(404);
+  });
+
+  it('history needs history:read and pages newest first', async () => {
+    const params = stackParams('acme-infra', 'prod');
+    expect((await get(historyRoute.GET, 'projectId=p1', user('a'), params)).status).toBe(403);
+    const page = await get(historyRoute.GET, 'projectId=p1&limit=2', user('historian'), params);
+    expect(page.status).toBe(200);
+    const body = await page.json();
+    expect(body.updates.map((u: { id: string }) => u.id)).toEqual([
+      '1795604216162649000',
+      '1795602803296701000',
+    ]);
+    const next = await get(
+      historyRoute.GET,
+      `projectId=p1&limit=2&cursor=${body.nextCursor}`,
+      user('historian'),
+      params,
+    );
+    expect((await next.json()).updates).toHaveLength(2);
+    // another project's stack: not found, whatever the grant
+    const other = await get(
+      historyRoute.GET,
+      'projectId=p1',
+      user('historian'),
+      stackParams('acme-platform', 'dev'),
+    );
+    expect(other.status).toBe(404);
+  });
+
+  it('diff needs states:read and compares the last update with the previous one', async () => {
+    const params = stackParams('acme-infra', 'prod');
+    expect((await get(diffRoute.GET, 'projectId=p1', user('historian'), params)).status).toBe(403);
+    const response = await get(diffRoute.GET, 'projectId=p1', user('a'), params);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.to).toBe('history:1795604216162649000');
+    expect(body.diff.summary.update).toBe(2);
+    const text = JSON.stringify(body);
+    expect(text).not.toMatch(/ciphertext|v1:/);
+
+    const explicit = await get(
+      diffRoute.GET,
+      'projectId=p1&from=history:1795602066945844000&to=history:1795602803296701000',
+      user('a'),
+      params,
+    );
+    expect((await explicit.json()).diff.summary.replace).toBe(1);
   });
 });

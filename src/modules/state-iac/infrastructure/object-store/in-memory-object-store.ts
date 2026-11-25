@@ -1,13 +1,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { Readable } from 'node:stream';
-import type { ListOptions, ListPage, ObjectInfo, ObjectStore } from './object-store';
+import type { ListOptions, ListPage, ObjectInfo, ObjectStore, ObjectVersion } from './object-store';
 
 type StoredObject = { body: Buffer; updatedAt: string; version: number };
 
 /** Bucket in memory for tests: same listing semantics as GCS/S3 (sorted keys, delimiter, pages). */
 export class InMemoryObjectStore implements ObjectStore {
   private readonly objects = new Map<string, StoredObject>();
+  /** Every version ever put, when `versioning` is on (like a versioned bucket). */
+  private readonly history = new Map<string, StoredObject[]>();
+  versioning = false;
   /** Every call, to assert that nothing lists the whole bucket or writes. */
   readonly calls: Array<{ op: 'list' | 'head' | 'get'; key: string }> = [];
   /** Makes every call fail with this error (simulates a denied or missing bucket). */
@@ -31,11 +34,13 @@ export class InMemoryObjectStore implements ObjectStore {
 
   put(key: string, body: string | Buffer, updatedAt = new Date().toISOString()): void {
     const previous = this.objects.get(key);
-    this.objects.set(key, {
+    const object = {
       body: typeof body === 'string' ? Buffer.from(body) : body,
       updatedAt,
       version: (previous?.version ?? 0) + 1,
-    });
+    };
+    this.objects.set(key, object);
+    if (this.versioning) this.history.set(key, [...(this.history.get(key) ?? []), object]);
   }
 
   private check() {
@@ -105,5 +110,24 @@ export class InMemoryObjectStore implements ObjectStore {
         for (let i = 0; i < body.length; i += 16 * 1024) yield body.subarray(i, i + 16 * 1024);
       })(),
     );
+  }
+
+  async listVersions(key: string): Promise<ObjectVersion[]> {
+    this.calls.push({ op: 'list', key: `${key}#versions` });
+    this.check();
+    const current = this.objects.get(key);
+    return [...(this.history.get(key) ?? [])].reverse().map((object) => ({
+      versionId: String(object.version),
+      updatedAt: object.updatedAt,
+      size: object.body.length,
+      latest: object === current,
+    }));
+  }
+
+  async openReadVersion(key: string, versionId: string): Promise<Readable | null> {
+    this.calls.push({ op: 'get', key: `${key}#${versionId}` });
+    this.check();
+    const object = (this.history.get(key) ?? []).find((o) => String(o.version) === versionId);
+    return object ? Readable.from([object.body]) : null;
   }
 }

@@ -219,6 +219,13 @@ for `STATE_IAC_CACHE_SECONDS` and states by object version, so an unchanged stat
 `?refresh=1` skips the cache. States over `STATE_IAC_MAX_STATE_MB` fail with `too_large`. In e2e the
 dev server reads the fixtures through a local S3 endpoint (`e2e/fixtures/fake-s3.ts`, seeded backend
 `e2e-shared-state`: `acme-infra` → primary project, `acme-platform` → secondary project).
+History and diff: `stateIacService.history()` pages `*.history.json` (`project:stateiac:history:read`);
+`diff()` compares two snapshot sources (`current`, `history:<ns>`, `backup:<ns>`, `retained:<ns>`,
+`previous`, `version:<object version>` from `ObjectStore.listVersions`) with `diffSnapshots()` in
+`application/state-diff.service.ts` (`project:stateiac:states:read`), by default the last update
+against the one before. Two secrets always compare equal (Pulumi re-encrypts them on every write);
+provider-only changes are flagged `providerOnly`. Past sources are cached for good, the current one
+by object version. Periodic scans and `state_iac.stack.*` events are not built (ADR 0003, deferred).
 
 ## Domain events
 

@@ -2,11 +2,12 @@ import { Readable } from 'node:stream';
 import {
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectVersionsCommand,
   ListObjectsV2Command,
   S3Client,
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
-import type { ListOptions, ListPage, ObjectInfo, ObjectStore } from './object-store';
+import type { ListOptions, ListPage, ObjectInfo, ObjectStore, ObjectVersion } from './object-store';
 
 export type S3ObjectStoreConfig = {
   bucket: string;
@@ -81,10 +82,53 @@ export class S3ObjectStore implements ObjectStore {
     }
   }
 
-  async openRead(key: string): Promise<Readable | null> {
+  /** Needs `s3:ListBucketVersions`; empty without versioning or permission. */
+  async listVersions(key: string): Promise<ObjectVersion[]> {
+    try {
+      const versions: ObjectVersion[] = [];
+      let keyMarker: string | undefined;
+      let versionIdMarker: string | undefined;
+      do {
+        const response = await this.client.send(
+          new ListObjectVersionsCommand({
+            Bucket: this.bucket,
+            Prefix: key,
+            KeyMarker: keyMarker,
+            VersionIdMarker: versionIdMarker,
+          }),
+        );
+        for (const version of response.Versions ?? []) {
+          // unversioned objects report the version id "null"
+          if (version.Key !== key || !version.VersionId || version.VersionId === 'null') continue;
+          versions.push({
+            versionId: version.VersionId,
+            updatedAt: version.LastModified?.toISOString() ?? null,
+            size: version.Size ?? 0,
+            latest: version.IsLatest === true,
+          });
+        }
+        keyMarker = response.IsTruncated ? response.NextKeyMarker : undefined;
+        versionIdMarker = response.IsTruncated ? response.NextVersionIdMarker : undefined;
+      } while (keyMarker && versions.length < 5_000);
+      return versions.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+    } catch {
+      return [];
+    }
+  }
+
+  openReadVersion(key: string, versionId: string): Promise<Readable | null> {
+    return this.get(key, versionId);
+  }
+
+  openRead(key: string): Promise<Readable | null> {
+    return this.get(key);
+  }
+
+  /** Needs `s3:GetObject` (and `s3:GetObjectVersion` with a version). */
+  private async get(key: string, versionId?: string): Promise<Readable | null> {
     try {
       const response = await this.client.send(
-        new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+        new GetObjectCommand({ Bucket: this.bucket, Key: key, VersionId: versionId }),
       );
       const body = response.Body;
       if (!body) return Readable.from([]);

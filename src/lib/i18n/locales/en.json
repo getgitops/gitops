@@ -2464,6 +2464,50 @@
       "resourceTabs": "Resource data",
       "inputs": "Inputs",
       "dependencies": "Dependencies"
+    },
+    "history": {
+      "title": "History",
+      "loading": "Reading the history…",
+      "loadFailed": "The history could not be loaded",
+      "empty": "This stack has no update history.",
+      "took": "took {duration}",
+      "dirty": "uncommitted changes",
+      "showChanges": "Show changes",
+      "loadMore": "Load more"
+    },
+    "changes": {
+      "create": "Created",
+      "update": "Updated",
+      "replace": "Replaced",
+      "delete": "Deleted",
+      "import": "Imported",
+      "same": "Unchanged"
+    },
+    "diff": {
+      "title": "Changes",
+      "loading": "Comparing versions…",
+      "loadFailed": "The diff could not be computed",
+      "from": "From",
+      "to": "To",
+      "noSources": "There are no previous versions of this state to compare. Pulumi keeps a copy in the history on every update; if it was deleted, turn on bucket versioning (GCS Object Versioning or S3 Versioning) or PULUMI_RETAIN_CHECKPOINTS.",
+      "unavailable": "That version is no longer in the bucket.",
+      "lastUpdateChanges": "According to the last update:",
+      "secretsNotice": "Secrets are compared without being revealed. Pulumi re-encrypts them on every write, so whether a secret value changed can't be known; only whether a value became or stopped being secret.",
+      "noChanges": "There are no changes between these two versions.",
+      "fields": "{count} properties",
+      "property": "Property",
+      "before": "Before",
+      "after": "After",
+      "providerOnly": "{count} resources only changed provider (version upgrade)",
+      "outputs": "Stack outputs",
+      "sources": {
+        "current": "Current state",
+        "history": "Update",
+        "backup": "Backup",
+        "retained": "Retained checkpoint",
+        "previous": "Previous state (.bak)",
+        "object-version": "Object version"
+      }
     }
   }
 }

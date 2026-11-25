@@ -57,6 +57,52 @@ export type IacUpdateView = {
   };
 };
 
+export type IacHistoryPageView = {
+  updates: (IacUpdateView & {
+    snapshotAvailable: boolean;
+    config: Record<string, IacValue>;
+    execKind: string | null;
+  })[];
+  nextCursor: string | null;
+};
+
+export type IacSnapshotSourceView = {
+  id: string;
+  source: 'current' | 'history' | 'backup' | 'retained' | 'previous' | 'object-version';
+  takenAt: string | null;
+  sizeBytes: number;
+  updateId: string | null;
+};
+
+export type IacFieldChangeView = {
+  path: string;
+  before?: IacValue;
+  after?: IacValue;
+  secret: boolean;
+};
+
+export type IacResourceChangeView = {
+  address: string;
+  type: string;
+  name: string;
+  change: 'create' | 'delete' | 'update' | 'replace';
+  providerOnly: boolean;
+  fields: IacFieldChangeView[];
+};
+
+export type DiffOutcomeView = {
+  diff: {
+    from: { sourceId: string | null; takenAt: string | null };
+    to: { sourceId: string | null; takenAt: string | null };
+    summary: Record<'create' | 'delete' | 'update' | 'replace' | 'same' | 'providerOnly', number>;
+    resources: IacResourceChangeView[];
+    outputs: IacFieldChangeView[];
+  } | null;
+  sources: IacSnapshotSourceView[];
+  from: string | null;
+  to: string | null;
+};
+
 export type StackSummaryView = {
   ref: {
     backendId: string;

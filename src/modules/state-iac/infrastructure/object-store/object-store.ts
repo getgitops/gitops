@@ -15,7 +15,21 @@ export interface ObjectStore {
   head(key: string): Promise<ObjectInfo | null>;
   /** Raw object stream, or `null` when it does not exist. */
   openRead(key: string): Promise<Readable | null>;
+  /**
+   * Previous versions of one object (GCS Object Versioning / S3 Versioning), newest first. Empty
+   * when the bucket keeps none or the credentials can't list them.
+   */
+  listVersions(key: string): Promise<ObjectVersion[]>;
+  /** One version of an object, or `null` when it does not exist (any more). */
+  openReadVersion(key: string, versionId: string): Promise<Readable | null>;
 }
+
+export type ObjectVersion = {
+  versionId: string;
+  updatedAt: string | null;
+  size: number;
+  latest: boolean;
+};
 
 export type ListOptions = { delimiter?: '/'; pageToken?: string; maxKeys?: number };
 
@@ -75,8 +89,11 @@ export async function readObject(
   store: ObjectStore,
   key: string,
   maxBytes = DEFAULT_MAX_OBJECT_BYTES,
+  versionId?: string,
 ): Promise<Buffer | null> {
-  const stream = await store.openRead(key);
+  const stream = versionId
+    ? await store.openReadVersion(key, versionId)
+    : await store.openRead(key);
   if (!stream) return null;
 
   const iterator = stream[Symbol.asyncIterator]();
@@ -113,8 +130,9 @@ export async function readText(
   store: ObjectStore,
   key: string,
   maxBytes?: number,
+  versionId?: string,
 ): Promise<string | null> {
-  const buffer = await readObject(store, key, maxBytes);
+  const buffer = await readObject(store, key, maxBytes, versionId);
   return buffer ? buffer.toString('utf8') : null;
 }
 

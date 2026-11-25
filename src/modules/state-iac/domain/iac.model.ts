@@ -113,3 +113,19 @@ export type IacStackSummary = {
   pendingOperations: number;
   sizeBytes: number;
 };
+
+/**
+ * A version of a stack's state that can be read and compared. `id` is stable and opaque:
+ * `current`, `history:<unixnano>`, `backup:<unixnano>`, `retained:<unixnano>`, `previous` (the
+ * `.bak`) or `version:<object version>`.
+ */
+export type IacSnapshotSource = {
+  id: string;
+  source: IacSnapshot['source'];
+  takenAt: string | null;
+  sizeBytes: number;
+  /** The history entry this state comes after (`history:` sources). */
+  updateId: string | null;
+};
+
+export type IacHistoryPage = { updates: IacUpdate[]; nextCursor: string | null };
