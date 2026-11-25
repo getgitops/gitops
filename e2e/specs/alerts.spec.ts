@@ -79,7 +79,7 @@ test.describe('project alerts', () => {
     await expect(result).toContainText(seed.personas.projectAdmin.username);
     await expect(result).toContainText('oncall@example.com');
     await expect(result).toContainText('Sin añadir');
-    await expect(result).toContainText('no se ha enviado ningún email');
+    await expect(result).toContainText('no se ha enviado nada');
 
     await wizard.getByRole('button', { name: 'Crear alerta' }).click();
     await expect(wizard).toBeHidden();
