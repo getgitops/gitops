@@ -201,7 +201,10 @@
         >
           {stats.critical}
         </p>
-        <p class="mt-1 text-xs text-fg-subtle">{stats.high} altos</p>
+        <p class="mt-1 text-xs text-fg-subtle">
+          {stats.high}
+          {stats.high === 1 ? 'alto' : 'altos'}
+        </p>
       </button>
       <button
         type="button"

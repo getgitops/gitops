@@ -56,7 +56,6 @@
   let enabled = $state(initial?.enabled ?? true);
   let enforcement = $state<SecurityPolicyEnforcement>(initial?.enforcement ?? 'warn');
   let scope = $state<SecurityPolicyScope>({ ...defaultScope(), ...(initial?.scope ?? {}) });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cada tipo tiene reglas distintas
   let rulesByType = $state<Record<string, any>>(
     Object.fromEntries(
       SECURITY_POLICY_TYPES.map((key) => [
@@ -68,7 +67,11 @@
     ),
   );
   let error = $state<string | null>(null);
-  let listInputs = $state<Record<string, string>>({ ignoredCves: '', licenses: '', ignoredRules: '' });
+  let listInputs = $state<Record<string, string>>({
+    ignoredCves: '',
+    licenses: '',
+    ignoredRules: '',
+  });
 
   function slugify(value: string) {
     return value
@@ -172,14 +175,19 @@
   <input type="hidden" name="payload" value={payload} />
 
   {#if error}
-    <p class="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-red-200" role="alert">
+    <p
+      class="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-red-200"
+      role="alert"
+    >
       {error}
     </p>
   {/if}
 
   <!-- General -->
   <fieldset class="space-y-4">
-    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">General</legend>
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >General</legend
+    >
     <div class="grid gap-4 sm:grid-cols-2">
       <Field label="Nombre" required>
         {#snippet children(control)}
@@ -218,15 +226,16 @@
           rows="2"
           placeholder="Qué comprueba y por qué."
           bind:value={description}
-          {...control}
-        ></textarea>
+          {...control}></textarea>
       {/snippet}
     </Field>
   </fieldset>
 
   <!-- Tipo -->
   <fieldset>
-    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">Qué vigila</legend>
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Qué vigila</legend
+    >
     <div class="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de política">
       {#each SECURITY_POLICY_TYPES as value (value)}
         {@const meta = SECURITY_POLICY_TYPE_META[value]}
@@ -253,7 +262,9 @@
 
   <!-- Reglas -->
   <fieldset class="space-y-4">
-    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">Reglas</legend>
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Reglas</legend
+    >
     <p class="-mt-2 text-xs text-fg-subtle">Deja un campo vacío para no aplicar ese límite.</p>
 
     {#if type === 'vulnerabilities'}
@@ -303,10 +314,19 @@
         </Field>
       </div>
       <label class="flex items-center gap-2 text-sm text-fg">
-        <input type="checkbox" class="k-checkbox" bind:checked={rulesByType.vulnerabilities.ignoreUnfixed} />
+        <input
+          type="checkbox"
+          class="k-checkbox"
+          bind:checked={rulesByType.vulnerabilities.ignoreUnfixed}
+        />
         Ignorar vulnerabilidades sin parche disponible
       </label>
-      {@render listEditor('ignoredCves', 'CVEs ignorados', 'CVE-2024-1234', 'Excepciones aceptadas: no cuentan para los límites.')}
+      {@render listEditor(
+        'ignoredCves',
+        'CVEs ignorados',
+        'CVE-2024-1234',
+        'Excepciones aceptadas: no cuentan para los límites.',
+      )}
     {:else if type === 'license'}
       <Tabs
         variant="segmented"
@@ -327,29 +347,57 @@
       <div class="grid gap-3 sm:grid-cols-2">
         <Field label="Cobertura total mínima (%)">
           {#snippet children(control)}
-            <input type="number" min="0" max="100" class="k-input" bind:value={rulesByType.code_coverage.minTotalCoverage} {...control} />
+            <input
+              type="number"
+              min="0"
+              max="100"
+              class="k-input"
+              bind:value={rulesByType.code_coverage.minTotalCoverage}
+              {...control}
+            />
           {/snippet}
         </Field>
         <Field label="Cobertura mínima de los cambios (%)">
           {#snippet children(control)}
-            <input type="number" min="0" max="100" class="k-input" bind:value={rulesByType.code_coverage.minPatchCoverage} {...control} />
+            <input
+              type="number"
+              min="0"
+              max="100"
+              class="k-input"
+              bind:value={rulesByType.code_coverage.minPatchCoverage}
+              {...control}
+            />
           {/snippet}
         </Field>
       </div>
       <label class="flex items-center gap-2 text-sm text-fg">
-        <input type="checkbox" class="k-checkbox" bind:checked={rulesByType.code_coverage.allowCoverageDrop} />
+        <input
+          type="checkbox"
+          class="k-checkbox"
+          bind:checked={rulesByType.code_coverage.allowCoverageDrop}
+        />
         Permitir que la cobertura baje respecto al análisis anterior
       </label>
     {:else if type === 'secrets'}
       <div class="sm:w-1/2">
         <Field label="Máximo de secretos expuestos">
           {#snippet children(control)}
-            <input type="number" min="0" class="k-input" bind:value={rulesByType.secrets.maxSecrets} {...control} />
+            <input
+              type="number"
+              min="0"
+              class="k-input"
+              bind:value={rulesByType.secrets.maxSecrets}
+              {...control}
+            />
           {/snippet}
         </Field>
       </div>
       <label class="flex items-center gap-2 text-sm text-fg">
-        <input type="checkbox" class="k-checkbox" bind:checked={rulesByType.secrets.blockVerifiedOnly} />
+        <input
+          type="checkbox"
+          class="k-checkbox"
+          bind:checked={rulesByType.secrets.blockVerifiedOnly}
+        />
         Considerar solo secretos verificados
       </label>
       {@render listEditor('ignoredRules', 'Reglas ignoradas', 'generic-api-key', '')}
@@ -358,7 +406,9 @@
 
   <!-- Alcance -->
   <fieldset class="space-y-3">
-    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">Alcance</legend>
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Alcance</legend
+    >
     <Tabs
       variant="segmented"
       size="sm"
@@ -384,7 +434,8 @@
                 type="checkbox"
                 class="k-checkbox"
                 checked={scope.services.includes(service.id)}
-                onchange={() => (scope = { ...scope, services: toggle(scope.services, service.id) })}
+                onchange={() =>
+                  (scope = { ...scope, services: toggle(scope.services, service.id) })}
               />
               <span class="min-w-0 flex-1 truncate text-white">{service.name}</span>
               <span class="truncate font-mono text-[11px] text-fg-subtle">{service.slug}</span>
@@ -402,8 +453,9 @@
               type="button"
               aria-pressed={scope.tags.includes(tag)}
               onclick={() => (scope = { ...scope, tags: toggle(scope.tags, tag) })}
-              class="k-badge cursor-pointer {scope.tags.includes(tag) ? 'k-badge-brand' : 'hover:text-white'}"
-              >{tag}</button
+              class="k-badge cursor-pointer {scope.tags.includes(tag)
+                ? 'k-badge-brand'
+                : 'hover:text-white'}">{tag}</button
             >
           {/each}
         </div>
@@ -413,7 +465,9 @@
 
   <!-- Aplicación -->
   <fieldset class="space-y-3">
-    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle">Si se incumple</legend>
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Si se incumple</legend
+    >
     <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Aplicación">
       {#each SECURITY_POLICY_ENFORCEMENTS as value (value)}
         {@const meta = SECURITY_POLICY_ENFORCEMENT_META[value]}
@@ -436,7 +490,9 @@
         </button>
       {/each}
     </div>
-    <div class="flex items-center justify-between gap-4 rounded-lg border border-white/8 bg-white/2 px-3 py-2.5">
+    <div
+      class="flex items-center justify-between gap-4 rounded-lg border border-white/8 bg-white/2 px-3 py-2.5"
+    >
       <div>
         <p class="text-sm text-white" id="policy-enabled-label">Política activa</p>
         <p class="text-xs text-fg-subtle">Si está inactiva no se evalúa en los análisis.</p>

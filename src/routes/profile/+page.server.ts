@@ -49,7 +49,7 @@ export const actions = {
 
     await profileService.updateEmail(locals.user.id, email);
 
-    return { section: 'profile', message: 'Profile updated.' };
+    return { section: 'profile', code: 'profile_updated', message: 'Profile updated.' };
   },
 
   updatePassword: async ({ request, locals }) => {
@@ -61,22 +61,38 @@ export const actions = {
     const confirmPassword = String(formData.get('confirmPassword') || '');
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      return fail(400, { section: 'password', message: 'Complete all password fields.' });
+      return fail(400, {
+        section: 'password',
+        code: 'incomplete',
+        message: 'Complete all password fields.',
+      });
     }
 
     if (newPassword.length < 8) {
-      return fail(400, { section: 'password', message: 'Password must be at least 8 characters.' });
+      return fail(400, {
+        section: 'password',
+        code: 'too_short',
+        message: 'Password must be at least 8 characters.',
+      });
     }
 
     if (newPassword !== confirmPassword) {
-      return fail(400, { section: 'password', message: 'Passwords do not match.' });
+      return fail(400, {
+        section: 'password',
+        code: 'mismatch',
+        message: 'Passwords do not match.',
+      });
     }
 
     if (!(await profileService.changePassword(locals.user.id, currentPassword, newPassword))) {
-      return fail(400, { section: 'password', message: 'Current password is incorrect.' });
+      return fail(400, {
+        section: 'password',
+        code: 'wrong_current',
+        message: 'Current password is incorrect.',
+      });
     }
 
-    return { section: 'password', message: 'Password updated.' };
+    return { section: 'password', code: 'password_updated', message: 'Password updated.' };
   },
 
   createApiKey: async ({ request, locals }) => {

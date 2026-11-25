@@ -1,160 +1,358 @@
 <script lang="ts">
-  import { createPageStore } from '#lib/page-store';
+  import { untrack } from 'svelte';
   import { enhance } from '$app/forms';
-  import { Plus, Search, ShieldCheck, ShieldOff } from '@lucide/svelte';
+  import { createPageStore } from '#lib/page-store';
+  import {
+    ArrowRight,
+    Plus,
+    Search,
+    ShieldAlert,
+    ShieldCheck,
+    TriangleAlert,
+    X,
+  } from '@lucide/svelte';
   import {
     describeScope,
     SECURITY_POLICY_ENFORCEMENT_META,
     SECURITY_POLICY_TYPE_META,
     type SecurityPolicy,
   } from '#lib/code-report/security-policy';
+  import SecurityPolicyForm from '#lib/components/code-report/SecurityPolicyForm.svelte';
+  import { Modal, Select, Switch, toast } from '#lib/components/ui';
 
-  export let data: {
-    policies: SecurityPolicy[];
-    project?: { slug?: string; organization?: { slug?: string | null } | null };
-  };
-  export let form: { error?: string } | null;
+  type PolicyRow = SecurityPolicy & { compliance: { passing: number; failing: number } };
 
-  let searchQuery = '';
-  let typeFilter: 'all' | SecurityPolicy['type'] = 'all';
+  let {
+    data,
+  }: {
+    data: {
+      policies: PolicyRow[];
+      services: { id: string; slug: string; name: string; tags: string[] }[];
+      tags: string[];
+      canCreate: boolean;
+      canUpdate: boolean;
+      project?: { slug?: string; organization?: { slug?: string | null } | null };
+    };
+  } = $props();
 
-  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
-  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
-  $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
+  const page = createPageStore();
+  const base = $derived(
+    `/org/${data.project?.organization?.slug ?? $page.params.org}/projects/${data.project?.slug ?? $page.params.slug}/code-report/security-policy`,
+  );
 
-  $: filteredPolicies = data.policies.filter((policy) => {
-    if (typeFilter !== 'all' && policy.type !== typeFilter) return false;
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return true;
-    return (
-      policy.name.toLowerCase().includes(query) ||
-      policy.slug.toLowerCase().includes(query) ||
-      (policy.description ?? '').toLowerCase().includes(query)
+  // abre el modal directamente con ?new (enlaces desde otras pantallas)
+  let createOpen = $state(untrack(() => $page.url.searchParams.has('new')));
+  let creating = $state(false);
+
+  // formulario de activar/desactivar de cada fila, para enviarlo desde el Switch
+  let toggleForms = $state<Record<string, HTMLFormElement>>({});
+
+  let query = $state('');
+  let type = $state('all');
+  let status = $state('all');
+
+  const filtered = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    return data.policies.filter(
+      (policy) =>
+        (type === 'all' || policy.type === type) &&
+        (status === 'all' ||
+          (status === 'failing' && policy.compliance.failing > 0) ||
+          (status === 'enabled' && policy.enabled) ||
+          (status === 'disabled' && !policy.enabled)) &&
+        (!q ||
+          policy.name.toLowerCase().includes(q) ||
+          policy.slug.toLowerCase().includes(q) ||
+          (policy.description ?? '').toLowerCase().includes(q)),
     );
   });
-  const page = createPageStore();
+
+  const stats = $derived({
+    active: data.policies.filter((policy) => policy.enabled).length,
+    failing: data.policies.filter((policy) => policy.enabled && policy.compliance.failing > 0)
+      .length,
+    blocking: data.policies.filter(
+      (policy) => policy.enabled && policy.enforcement === 'block' && policy.compliance.failing > 0,
+    ).length,
+  });
+
+  const hasFilters = $derived(!!query.trim() || type !== 'all' || status !== 'all');
 </script>
 
-<svelte:head><title>Security Policies - Code Report - GitOps</title></svelte:head>
+<svelte:head><title>Políticas de seguridad - Code Report - GitOps</title></svelte:head>
 
 <div class="space-y-6">
-  <div class="flex flex-wrap items-center gap-3">
-    <div class="relative min-w-[220px] flex-1">
-      <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder="Buscar políticas por nombre o slug..."
-        class="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
-      />
-    </div>
-    <select
-      bind:value={typeFilter}
-      class="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:border-slate-400 focus:outline-none"
-    >
-      <option value="all">Todos los tipos</option>
-      {#each Object.entries(SECURITY_POLICY_TYPE_META) as [value, meta]}
-        <option {value}>{meta.label}</option>
-      {/each}
-    </select>
-    <a
-      href={`${baseHref}/new`}
-      class="inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-    >
-      <Plus class="h-4 w-4" />Nueva política
-    </a>
-  </div>
-
-  {#if form?.error}
-    <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{form.error}</p>
-  {/if}
-
-  {#if filteredPolicies.length === 0}
-    <div
-      class="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm"
-    >
-      <ShieldCheck class="mx-auto h-8 w-8 text-slate-400" />
-      <p class="mt-3 text-sm font-medium text-slate-900">
-        {data.policies.length === 0
-          ? 'Todavía no hay políticas de seguridad en este proyecto.'
-          : 'Sin resultados para tu búsqueda.'}
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="max-w-2xl">
+      <h1 class="text-2xl font-semibold tracking-tight text-white">Políticas de seguridad</h1>
+      <p class="mt-1 text-sm text-fg-muted">
+        Reglas que se evalúan en cada análisis: umbrales de vulnerabilidades, licencias o secretos.
+        Cada servicio cumple o incumple según su último análisis.
       </p>
-      {#if data.policies.length === 0}
-        <a href={`${baseHref}/new`} class="mt-4 inline-flex text-sm font-semibold text-slate-900 underline">
-          Crear la primera política
-        </a>
+    </div>
+    {#if data.canCreate}
+      <button type="button" class="k-btn k-btn-primary" onclick={() => (createOpen = true)}>
+        <Plus class="h-4 w-4" />Nueva política
+      </button>
+    {/if}
+  </header>
+
+  {#if data.policies.length === 0}
+    <div
+      class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/16 px-6 py-14 text-center"
+    >
+      <span class="grid h-12 w-12 place-items-center rounded-full bg-white/4 text-2xl">🦊</span>
+      <p class="mt-3 text-sm font-medium text-white">Aún no hay políticas de seguridad</p>
+      <p class="mt-1 max-w-md text-sm text-fg-muted">
+        Por ejemplo: "ninguna vulnerabilidad crítica en producción". Se comprueba sola en cada
+        análisis y la verás en el informe de cada servicio.
+      </p>
+      {#if data.canCreate}
+        <button
+          type="button"
+          class="k-btn k-btn-secondary k-btn-sm mt-4"
+          onclick={() => (createOpen = true)}
+        >
+          <Plus class="h-3.5 w-3.5" />Crear la primera
+        </button>
       {/if}
     </div>
   {:else}
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {#each filteredPolicies as policy (policy.id)}
-        <div
-          class="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+    <section class="grid gap-4 sm:grid-cols-3" aria-label="Resumen">
+      <div class="k-card p-5">
+        <p class="flex items-center gap-2 text-sm text-fg-muted">
+          <ShieldCheck class="h-4 w-4 text-brand-400" />Activas
+        </p>
+        <p class="mt-2 text-3xl font-semibold tabular-nums text-white">
+          {stats.active}<span class="text-lg text-fg-subtle">/{data.policies.length}</span>
+        </p>
+      </div>
+      <button
+        type="button"
+        class="k-card k-card-hover p-5 text-left"
+        aria-pressed={status === 'failing'}
+        onclick={() => (status = status === 'failing' ? 'all' : 'failing')}
+      >
+        <p class="flex items-center gap-2 text-sm text-fg-muted">
+          <ShieldAlert class="h-4 w-4 {stats.failing ? 'text-red-400' : 'text-fg-subtle'}" />Con
+          incumplimientos
+        </p>
+        <p
+          class="mt-2 text-3xl font-semibold tabular-nums {stats.failing
+            ? 'text-red-300'
+            : 'text-white'}"
         >
-          <a href={`${baseHref}/${policy.id}`} class="flex-1">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="text-sm font-semibold text-slate-900">{policy.name}</p>
-                <p class="mt-1 text-xs text-slate-500">{policy.slug}</p>
-              </div>
-              <span
-                class={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                  policy.enabled
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : 'bg-slate-100 text-slate-500'
-                }`}
-              >
-                {policy.enabled ? 'Activa' : 'Inactiva'}
-              </span>
-            </div>
+          {stats.failing}
+        </p>
+      </button>
+      <div class="k-card p-5">
+        <p class="flex items-center gap-2 text-sm text-fg-muted">
+          <TriangleAlert
+            class="h-4 w-4 {stats.blocking ? 'text-red-400' : 'text-fg-subtle'}"
+          />Bloqueando pipelines
+        </p>
+        <p class="mt-2 text-3xl font-semibold tabular-nums text-white">{stats.blocking}</p>
+      </div>
+    </section>
 
-            {#if policy.description}
-              <p class="mt-2 line-clamp-2 text-sm text-slate-600">{policy.description}</p>
-            {/if}
-
-            <div class="mt-3 flex flex-wrap gap-1.5">
-              <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-                {SECURITY_POLICY_TYPE_META[policy.type].label}
-              </span>
-              <span
-                class={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  policy.enforcement === 'block'
-                    ? 'bg-red-50 text-red-700'
-                    : 'bg-amber-50 text-amber-700'
-                }`}
-              >
-                {SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].label}
-              </span>
-            </div>
-
-            <p class="mt-3 text-[11px] text-slate-400">Alcance: {describeScope(policy.scope)}</p>
-          </a>
-
-          <form
-            method="POST"
-            action="?/toggle"
-            use:enhance
-            class="mt-4 border-t border-slate-100 pt-3"
-          >
-            <input type="hidden" name="id" value={policy.id} />
-            <input type="hidden" name="enabled" value={String(!policy.enabled)} />
-            <button
-              type="submit"
-              class={`inline-flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                policy.enabled
-                  ? 'border-slate-200 bg-slate-50 text-slate-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
-              }`}
-            >
-              {#if policy.enabled}
-                <ShieldOff class="h-4 w-4" />Desactivar política
-              {:else}
-                <ShieldCheck class="h-4 w-4" />Activar política
-              {/if}
-            </button>
-          </form>
+    <div class="k-card overflow-hidden">
+      <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
+        <label class="relative w-full sm:w-72">
+          <Search
+            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+          />
+          <input
+            type="search"
+            class="k-input h-9 pl-9"
+            placeholder="Buscar por nombre o slug…"
+            aria-label="Buscar políticas"
+            bind:value={query}
+          />
+        </label>
+        <div class="w-full sm:w-48 **:[[role=combobox]]:h-9">
+          <label for="policy-type" class="sr-only">Tipo</label>
+          <Select
+            id="policy-type"
+            bind:value={type}
+            options={[
+              { value: 'all', label: 'Todos los tipos' },
+              ...Object.entries(SECURITY_POLICY_TYPE_META).map(([value, meta]) => ({
+                value,
+                label: meta.label,
+              })),
+            ]}
+          />
         </div>
-      {/each}
+        <div class="w-full sm:w-44 **:[[role=combobox]]:h-9">
+          <label for="policy-status" class="sr-only">Estado</label>
+          <Select
+            id="policy-status"
+            bind:value={status}
+            options={[
+              { value: 'all', label: 'Todos los estados' },
+              { value: 'enabled', label: 'Activas' },
+              { value: 'disabled', label: 'Inactivas' },
+              { value: 'failing', label: 'Con incumplimientos' },
+            ]}
+          />
+        </div>
+        {#if hasFilters}
+          <button
+            type="button"
+            class="k-btn k-btn-ghost k-btn-sm"
+            onclick={() => {
+              query = '';
+              type = 'all';
+              status = 'all';
+            }}><X class="h-3.5 w-3.5" />Limpiar</button
+          >
+        {/if}
+        <span class="ml-auto text-xs tabular-nums text-fg-subtle">
+          {filtered.length} de {data.policies.length}
+        </span>
+      </div>
+
+      {#if filtered.length === 0}
+        <p class="px-5 py-10 text-center text-sm text-fg-subtle">
+          Ninguna política coincide con los filtros.
+        </p>
+      {:else}
+        <ul class="divide-y divide-white/6">
+          {#each filtered as policy (policy.id)}
+            {@const evaluated = policy.compliance.passing + policy.compliance.failing}
+            <li
+              class="group flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-4 {policy.enabled
+                ? ''
+                : 'opacity-60'}"
+            >
+              <a href={`${base}/${policy.id}`} class="min-w-0 flex-1 basis-72">
+                <p class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-white group-hover:text-brand-300"
+                    >{policy.name}</span
+                  >
+                  <span class="k-badge">{SECURITY_POLICY_TYPE_META[policy.type].label}</span>
+                  <span
+                    class="k-badge {policy.enforcement === 'block'
+                      ? 'k-badge-danger'
+                      : 'k-badge-warn'}"
+                  >
+                    {SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].label}
+                  </span>
+                </p>
+                <p class="mt-0.5 truncate text-xs text-fg-subtle">
+                  {policy.description || policy.slug} · {describeScope(policy.scope)}
+                </p>
+              </a>
+
+              <div class="w-44">
+                {#if !policy.enabled}
+                  <p class="text-xs text-fg-subtle">No se evalúa</p>
+                {:else if evaluated === 0}
+                  <p class="text-xs text-fg-subtle">Sin evaluar todavía</p>
+                {:else}
+                  <p class="flex items-center justify-between text-xs">
+                    <span class={policy.compliance.failing ? 'text-red-300' : 'text-ok'}>
+                      {policy.compliance.failing
+                        ? `${policy.compliance.failing} ${policy.compliance.failing === 1 ? 'incumple' : 'incumplen'}`
+                        : 'Todos cumplen'}
+                    </span>
+                    <span class="tabular-nums text-fg-subtle"
+                      >{policy.compliance.passing}/{evaluated}</span
+                    >
+                  </p>
+                  <div class="mt-1.5 flex h-1.5 gap-0.5 overflow-hidden rounded-full bg-white/6">
+                    <div
+                      class="bg-ok"
+                      style="width:{(policy.compliance.passing / evaluated) * 100}%"
+                    ></div>
+                    <div
+                      class="bg-red-500"
+                      style="width:{(policy.compliance.failing / evaluated) * 100}%"
+                    ></div>
+                  </div>
+                {/if}
+              </div>
+
+              <form
+                bind:this={toggleForms[policy.id]}
+                method="POST"
+                action="?/toggle"
+                class="flex items-center"
+                use:enhance={() => {
+                  const next = !policy.enabled;
+                  return async ({ result, update }) => {
+                    if (result.type === 'success') {
+                      toast.success(
+                        next ? 'Política activada' : 'Política desactivada',
+                        policy.name,
+                      );
+                    } else if (result.type === 'failure') {
+                      toast.error(
+                        'No se pudo cambiar la política',
+                        String(result.data?.error ?? ''),
+                      );
+                    }
+                    await update();
+                  };
+                }}
+              >
+                <input type="hidden" name="id" value={policy.id} />
+                <input type="hidden" name="enabled" value={String(!policy.enabled)} />
+                <Switch
+                  checked={policy.enabled}
+                  label={policy.enabled ? `Desactivar ${policy.name}` : `Activar ${policy.name}`}
+                  disabled={!data.canUpdate}
+                  size="sm"
+                  onchange={() => toggleForms[policy.id]?.requestSubmit()}
+                />
+              </form>
+
+              <a
+                href={`${base}/${policy.id}`}
+                class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                aria-label="Ver {policy.name}"
+              >
+                <ArrowRight class="h-4 w-4" />
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </div>
   {/if}
 </div>
+
+{#if data.canCreate}
+  <Modal
+    bind:open={createOpen}
+    size="xl"
+    title="Nueva política"
+    description="Se evaluará en los próximos análisis de los servicios a los que aplique."
+    dismissible={!creating}
+  >
+    <SecurityPolicyForm
+      action={`${base}/new?/create`}
+      formId="form-nueva-politica"
+      services={data.services}
+      tags={data.tags}
+      showSubmit={false}
+      bind:submitting={creating}
+    />
+    {#snippet footer()}
+      <span class="mr-auto hidden items-center gap-1 text-xs text-fg-subtle sm:flex"
+        ><span class="k-kbd">Esc</span> para cerrar</span
+      >
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (createOpen = false)}
+        >Cancelar</button
+      >
+      <button
+        type="submit"
+        form="form-nueva-politica"
+        class="k-btn k-btn-primary"
+        disabled={creating}
+      >
+        <Plus class="h-4 w-4" />{creating ? 'Creando…' : 'Crear política'}
+      </button>
+    {/snippet}
+  </Modal>
+{/if}

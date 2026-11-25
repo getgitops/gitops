@@ -138,7 +138,21 @@
     "darkMode": "Dark mode",
     "lightMode": "Light mode",
     "enableDarkMode": "Enable dark mode",
-    "disableDarkMode": "Disable dark mode"
+    "disableDarkMode": "Disable dark mode",
+    "feedback": {
+      "profile_updated": "Profile updated",
+      "password_updated": "Password updated",
+      "incomplete": "Fill in the three password fields.",
+      "too_short": "The password must be at least 8 characters.",
+      "mismatch": "Passwords do not match.",
+      "wrong_current": "The current password is not correct."
+    },
+    "preferences": "Preferences",
+    "connections": "Connections",
+    "gcpDescription": "Sign in with your Google Workspace account.",
+    "passwordHint": "At least 8 characters.",
+    "languageSaved": "Language changed",
+    "googleSso": "Google Workspace SSO"
   },
   "common": {
     "loading": "Loading...",
@@ -244,7 +258,19 @@
     "ssoErrorEmailNotVerified": "Your Google account email is not verified.",
     "ssoErrorDomainNotAllowed": "This Google account domain is not allowed.",
     "ssoErrorNotInvited": "There is no account for this Google identity. Ask an administrator for an invitation.",
-    "ssoErrorGeneric": "Google sign-in failed. Please try again or use your password."
+    "ssoErrorGeneric": "Google sign-in failed. Please try again or use your password.",
+    "shell": {
+      "headline": "Security, secrets and uptime,",
+      "headlineBrand": "in one place.",
+      "codeReport": "Vulnerabilities, dependencies and exposed secrets of every service.",
+      "vault": "Encrypted secrets per environment, versioned in Git.",
+      "monitoring": "Uptime, latency and incidents of your URLs."
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password.",
+      "missingCredentials": "Email and password are required.",
+      "passwordMismatch": "Passwords do not match."
+    }
   },
   "bootstrap": {
     "title": "GitOps setup",

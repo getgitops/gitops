@@ -1,89 +1,93 @@
+<!--
+  Perfil del usuario: cuenta (email), contraseña, idioma y conexiones. Las claves de API personales
+  siguen ocultas (las acciones existen en el servidor, pero la interfaz no se ha publicado).
+-->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import { enhance } from '$app/forms';
+  import type { SubmitFunction } from '$app/forms';
   import {
-    Cloud,
-    KeyRound,
+    ShieldCheck,
     Languages,
+    LoaderCircle,
     LockKeyhole,
     Mail,
     Save,
     UserRound,
-    Plus,
-    Trash2,
-    X,
-    RotateCcw,
-    Copy,
-    Check,
   } from '@lucide/svelte';
-  import { _ } from '#lib/i18n';
-  import { setLocale, SUPPORTED_LOCALES, locale, type SupportedLocale } from '#lib/i18n';
+  import { Field, toast } from '#lib/components/ui';
+  import { _, setLocale, SUPPORTED_LOCALES, type SupportedLocale } from '#lib/i18n';
 
-  export let data: any;
-  export let form: any;
+  let {
+    data,
+  }: {
+    data: { user: { id: string; username: string; email: string | null }; gcpConnected: boolean };
+  } = $props();
 
-  const showApiKeys = false;
-
-  let email = data.user.email || '';
-  let createApiKeyModalOpen = false;
-  let apiKeyName = '';
-  let apiKeyExpiresInDays = '';
-  let copiedCreatedKey = false;
-  let currentLocale: SupportedLocale = 'es';
+  // valor inicial; tras guardar, el campo ya tiene lo que se guardó
+  let email = $state(untrack(() => data.user.email ?? ''));
+  const emailDirty = $derived(email.trim() !== (data.user.email ?? ''));
+  let savingEmail = $state(false);
+  let savingPassword = $state(false);
+  let currentLocale = $state<SupportedLocale>('es');
 
   onMount(() => {
-    currentLocale = (localStorage.getItem('gitops-locale') as SupportedLocale) ?? 'es';
+    try {
+      currentLocale = (localStorage.getItem('gitops-locale') as SupportedLocale) ?? 'es';
+    } catch {
+      // sin almacenamiento: se queda el idioma por defecto
+    }
   });
 
-  $: if (data.user.email !== email && form?.section !== 'profile') {
-    email = data.user.email || '';
+  const initials = $derived(
+    data.user.username
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase(),
+  );
+
+  function feedback(code: unknown, fallback: unknown) {
+    return typeof code === 'string' ? $_(`profile.feedback.${code}`) : String(fallback ?? '');
   }
 
-  function openCreateApiKeyModal() {
-    createApiKeyModalOpen = true;
-  }
+  const submitEmail: SubmitFunction = () => {
+    savingEmail = true;
+    return async ({ result, update }) => {
+      savingEmail = false;
+      if (result.type === 'success') {
+        toast.success(feedback(result.data?.code, result.data?.message));
+        await update({ reset: false });
+      } else if (result.type === 'failure') {
+        toast.error(feedback(result.data?.code, result.data?.message));
+      } else {
+        await update();
+      }
+    };
+  };
 
-  function closeCreateApiKeyModal() {
-    createApiKeyModalOpen = false;
-  }
+  const submitPassword: SubmitFunction = () => {
+    savingPassword = true;
+    return async ({ result, update }) => {
+      savingPassword = false;
+      if (result.type === 'success') {
+        toast.success(feedback(result.data?.code, result.data?.message));
+        await update(); // vacía los campos
+      } else if (result.type === 'failure') {
+        toast.error(feedback(result.data?.code, result.data?.message));
+      } else {
+        await update();
+      }
+    };
+  };
 
-  function formatDateTime(value: string | null) {
-    if (!value) {
-      return $_('profile.never');
-    }
-
-    return new Intl.DateTimeFormat($locale ?? 'es', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(value));
-  }
-
-  function getKeyState(key: any) {
-    if (key.revokedAt) {
-      return $_('profile.revoked');
-    }
-
-    if (key.expiresAt && new Date(key.expiresAt) <= new Date()) {
-      return $_('profile.expired');
-    }
-
-    return $_('profile.active');
-  }
-
-  async function copyCreatedKey() {
-    if (!form?.createdKey) {
-      return;
-    }
-
-    await navigator.clipboard.writeText(form.createdKey);
-    copiedCreatedKey = true;
-    setTimeout(() => (copiedCreatedKey = false), 2000);
-  }
-
-  function handleLocaleChange(event: Event) {
-    const select = event.target as HTMLSelectElement;
-    const lang = select.value as SupportedLocale;
+  function changeLocale(lang: SupportedLocale) {
+    if (lang === currentLocale) return;
     currentLocale = lang;
     setLocale(lang);
+    toast.success($_('profile.languageSaved'));
   }
 </script>
 
@@ -91,368 +95,188 @@
   <title>{$_('profile.title')} - GitOps</title>
 </svelte:head>
 
-<div class="mx-auto max-w-6xl space-y-6">
-  <section class="overflow-hidden border border-slate-200 bg-white shadow-sm sm:rounded-2xl">
-    <div
-      class="bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 px-6 py-8 text-white sm:px-8"
+<div class="mx-auto max-w-4xl space-y-6">
+  <header class="flex flex-wrap items-center gap-4">
+    <span
+      class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-linear-to-br from-brand-400 to-brand-700 text-lg font-semibold text-white"
+      aria-hidden="true">{initials}</span
     >
-      <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-300">
-            {$_('profile.account')}
-          </p>
-          <h1 class="mt-2 text-3xl font-bold tracking-tight">{$_('profile.title')}</h1>
-          <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-            {$_('profile.subtitle')}
-          </p>
-        </div>
-
-      </div>
+    <div class="min-w-0">
+      <h1 class="truncate text-2xl font-semibold tracking-tight text-white">
+        {data.user.username}
+      </h1>
+      <p class="mt-0.5 text-sm text-fg-muted">{data.user.email || $_('profile.notSet')}</p>
     </div>
+  </header>
 
-    <div class="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:grid-cols-3 sm:px-8">
-      <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
-        <UserRound class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.username')}</p>
-        <p class="mt-1 text-base font-semibold text-slate-900">{data.user.username}</p>
-      </div>
-
-      <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
-        <Mail class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.email')}</p>
-        <p class="mt-1 text-base font-semibold text-slate-900">{data.user.email || $_('profile.notSet')}</p>
-      </div>
-
-      <div class="border border-slate-200 bg-slate-50 p-4 sm:rounded-xl">
-        <Cloud class="h-5 w-5 text-slate-900" />
-        <p class="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{$_('profile.gcp')}</p>
-        {#if data.gcpConnected}
-          <p class="mt-1 text-base font-semibold text-emerald-600">{$_('profile.connected')}</p>
-        {:else}
-          <p class="mt-1 text-base font-semibold text-red-600">{$_('profile.notConnected')}</p>
-        {/if}
-      </div>
-    </div>
-  </section>
-
-  {#if form?.message}
-    <div
-      class="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 sm:rounded-xl"
+  <div class="grid gap-6 lg:grid-cols-2">
+    <!-- Cuenta -->
+    <form
+      method="POST"
+      action="?/updateProfile"
+      use:enhance={submitEmail}
+      class="k-card flex flex-col"
     >
-      {form.message}
-    </div>
-  {/if}
-
-  <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-    <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
-      <div class="flex items-center gap-3">
-        <Mail class="h-5 w-5 text-slate-900" />
-        <h2 class="text-lg font-semibold text-slate-900">{$_('profile.accountInformation')}</h2>
-      </div>
-
-      <form method="POST" action="?/updateProfile" class="mt-6 space-y-4">
+      <div class="flex items-start gap-3 border-b border-white/8 px-5 py-4">
+        <UserRound class="mt-0.5 h-4 w-4 text-brand-400" />
         <div>
-          <label for="email" class="block text-sm font-medium text-slate-700">{$_('profile.email')}</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            bind:value={email}
-            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
-            placeholder="you@example.com"
-          />
+          <h2 class="text-sm font-semibold text-white">{$_('profile.accountInformation')}</h2>
+          <p class="mt-0.5 text-xs text-fg-subtle">{$_('profile.subtitle')}</p>
         </div>
-
-        <button
-          type="submit"
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
-        >
-          <Save class="h-4 w-4" />
+      </div>
+      <div class="flex-1 space-y-5 p-5">
+        <div>
+          <p class="k-label">{$_('profile.username')}</p>
+          <p class="font-mono text-sm text-fg">{data.user.username}</p>
+        </div>
+        <Field id="email" label={$_('profile.email')}>
+          {#snippet children(control)}
+            <input
+              {...control}
+              name="email"
+              type="email"
+              autocomplete="email"
+              class="k-input"
+              placeholder="you@example.com"
+              bind:value={email}
+            />
+          {/snippet}
+        </Field>
+      </div>
+      <div class="flex justify-end rounded-b-2xl border-t border-white/8 bg-ink-900/60 px-5 py-3">
+        <button type="submit" class="k-btn k-btn-primary" disabled={savingEmail || !emailDirty}>
+          {#if savingEmail}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Save
+              class="h-4 w-4"
+            />{/if}
           {$_('profile.saveChanges')}
         </button>
-      </form>
-    </section>
-
-    <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
-      <div class="flex items-center gap-3">
-        <LockKeyhole class="h-5 w-5 text-slate-900" />
-        <h2 class="text-lg font-semibold text-slate-900">{$_('profile.password')}</h2>
       </div>
+    </form>
 
-      <form method="POST" action="?/updatePassword" class="mt-6 space-y-4">
-        <div>
-          <label for="currentPassword" class="block text-sm font-medium text-slate-700"
-            >{$_('profile.currentPassword')}</label
-          >
-          <input
-            id="currentPassword"
-            name="currentPassword"
-            type="password"
-            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label for="newPassword" class="block text-sm font-medium text-slate-700"
-            >{$_('profile.newPassword')}</label
-          >
-          <input
+    <!-- Contraseña -->
+    <form
+      method="POST"
+      action="?/updatePassword"
+      use:enhance={submitPassword}
+      class="k-card flex flex-col"
+    >
+      <div class="flex items-start gap-3 border-b border-white/8 px-5 py-4">
+        <LockKeyhole class="mt-0.5 h-4 w-4 text-brand-400" />
+        <h2 class="text-sm font-semibold text-white">{$_('profile.password')}</h2>
+      </div>
+      <div class="flex-1 space-y-5 p-5">
+        <Field id="currentPassword" label={$_('profile.currentPassword')}>
+          {#snippet children(control)}
+            <input
+              {...control}
+              name="currentPassword"
+              type="password"
+              autocomplete="current-password"
+              class="k-input"
+            />
+          {/snippet}
+        </Field>
+        <div class="grid gap-5 sm:grid-cols-2">
+          <Field
             id="newPassword"
-            name="newPassword"
-            type="password"
-            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label for="confirmPassword" class="block text-sm font-medium text-slate-700"
-            >{$_('profile.confirmPassword')}</label
+            label={$_('profile.newPassword')}
+            help={$_('profile.passwordHint')}
           >
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
-          />
+            {#snippet children(control)}
+              <input
+                {...control}
+                name="newPassword"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+                class="k-input"
+              />
+            {/snippet}
+          </Field>
+          <Field id="confirmPassword" label={$_('profile.confirmPassword')}>
+            {#snippet children(control)}
+              <input
+                {...control}
+                name="confirmPassword"
+                type="password"
+                autocomplete="new-password"
+                class="k-input"
+              />
+            {/snippet}
+          </Field>
         </div>
-
-        <button
-          type="submit"
-          class="btn-secondary inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
-        >
+      </div>
+      <div class="flex justify-end rounded-b-2xl border-t border-white/8 bg-ink-900/60 px-5 py-3">
+        <button type="submit" class="k-btn k-btn-secondary" disabled={savingPassword}>
+          {#if savingPassword}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
           {$_('profile.updatePassword')}
         </button>
-      </form>
-    </section>
+      </div>
+    </form>
   </div>
 
-  <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
-    <div class="flex items-center gap-3">
-      <Languages class="h-5 w-5 text-slate-900" />
-      <div>
-        <h2 class="text-lg font-semibold text-slate-900">{$_('profile.language')}</h2>
-        <p class="text-sm text-slate-500">{$_('profile.languageDescription')}</p>
+  <!-- Preferencias -->
+  <section class="k-card" aria-labelledby="preferences-title">
+    <h2
+      id="preferences-title"
+      class="border-b border-white/8 px-5 py-4 text-sm font-semibold text-white"
+    >
+      {$_('profile.preferences')}
+    </h2>
+    <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+      <div class="flex items-start gap-3">
+        <Languages class="mt-0.5 h-4 w-4 text-fg-subtle" />
+        <div>
+          <p class="text-sm font-medium text-white">{$_('profile.language')}</p>
+          <p class="text-xs text-fg-subtle">{$_('profile.languageDescription')}</p>
+        </div>
       </div>
-    </div>
-
-    <div class="mt-4">
-      <select
-        value={currentLocale}
-        on:change={handleLocaleChange}
-        class="field-input rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
+      <div
+        class="inline-flex rounded-[0.625rem] border border-white/10 bg-ink-900 p-0.5"
+        role="radiogroup"
         aria-label={$_('profile.language')}
       >
-        {#each SUPPORTED_LOCALES as lang}
-          <option value={lang}>
+        {#each SUPPORTED_LOCALES as lang (lang)}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={currentLocale === lang}
+            class="h-8 rounded-md px-3 text-sm font-medium transition-colors {currentLocale === lang
+              ? 'bg-white/10 text-white'
+              : 'text-fg-subtle hover:text-fg'}"
+            onclick={() => changeLocale(lang)}
+          >
             {lang === 'es' ? $_('profile.spanish') : $_('profile.english')}
-          </option>
-        {/each}
-      </select>
-    </div>
-  </section>
-
-  {#if showApiKeys}
-  <section class="border border-slate-200 bg-white p-6 shadow-sm sm:rounded-2xl">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-3">
-        <KeyRound class="h-5 w-5 text-slate-900" />
-        <div>
-          <h2 class="text-lg font-semibold text-slate-900">{$_('profile.apiKeys')}</h2>
-          <p class="text-sm text-slate-500">{$_('profile.apiKeysDescription')}</p>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        on:click={openCreateApiKeyModal}
-        class="btn-primary inline-flex shrink-0 items-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium"
-      >
-        <Plus class="h-4 w-4" />
-        {$_('profile.create')}
-      </button>
-    </div>
-
-    {#if form?.createdKey}
-      <div
-        class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="font-medium">{$_('profile.copyNow')}</p>
-            <code class="mt-2 block break-all rounded bg-white px-3 py-2 text-xs text-slate-900"
-              >{form.createdKey}</code
-            >
-          </div>
-
-          <button
-            type="button"
-            on:click={copyCreatedKey}
-            class="btn-ghost inline-flex shrink-0 items-center gap-2 rounded-md border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-900 hover:bg-amber-100"
-            title={$_('profile.copy')}
-            aria-label={$_('profile.copy')}
-          >
-            {#if copiedCreatedKey}
-              <Check class="h-4 w-4 text-emerald-600" />
-              {$_('profile.copied')}
-            {:else}
-              <Copy class="h-4 w-4" />
-              {$_('profile.copy')}
-            {/if}
           </button>
-        </div>
-      </div>
-    {/if}
-
-    <div class="mt-6 space-y-3">
-      {#if data.apiKeys.length === 0}
-        <div
-          class="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500"
-        >
-          {$_('profile.noApiKeys')}
-        </div>
-      {:else}
-        {#each data.apiKeys as key}
-          <div
-            class="flex flex-col gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <p class="text-sm font-medium text-slate-900">{key.name}</p>
-              <p class="mt-1 text-xs text-slate-500">
-                {$_('profile.prefix')}: {key.keyPrefix} · {$_('profile.created')} {key.createdAt} · {$_('profile.expires')} {formatDateTime(
-                  key.expiresAt,
-                )}
-              </p>
-              <p
-                class="mt-1 text-xs font-medium {key.revokedAt
-                  ? 'text-rose-700'
-                  : 'text-emerald-700'}"
-              >
-                {$_('profile.status')}: {getKeyState(key)}
-                {#if key.revokedAt}
-                  · {$_('profile.revoked')} {formatDateTime(key.revokedAt)}
-                {/if}
-              </p>
-            </div>
-
-            <div class="flex items-center gap-2">
-              {#if !key.revokedAt}
-                <form method="POST" action="?/regenerateApiKey">
-                  <input type="hidden" name="keyId" value={key.id} />
-                  <button
-                    type="submit"
-                    class="btn-secondary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-                  >
-                    <RotateCcw class="h-4 w-4" />
-                    {$_('profile.regenerate')}
-                  </button>
-                </form>
-
-                <form method="POST" action="?/revokeApiKey">
-                  <input type="hidden" name="keyId" value={key.id} />
-                  <button
-                    type="submit"
-                    class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-                  >
-                    <Trash2 class="h-4 w-4" />
-                    {$_('profile.revoke')}
-                  </button>
-                </form>
-              {:else}
-                <div
-                  class="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"
-                >
-                  {$_('profile.revokedActionsUnavailable')}
-                </div>
-              {/if}
-            </div>
-          </div>
         {/each}
-      {/if}
+      </div>
     </div>
   </section>
-  {/if}
-</div>
 
-{#if showApiKeys && createApiKeyModalOpen}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeCreateApiKeyModal}
-    aria-label={$_('profile.closeCreateApiKeyModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('profile.createApiKey')}
+  <!-- Conexiones -->
+  <section class="k-card" aria-labelledby="connections-title">
+    <h2
+      id="connections-title"
+      class="border-b border-white/8 px-5 py-4 text-sm font-semibold text-white"
     >
-      <div class="border-b border-slate-200 px-4 py-3 flex items-center justify-between">
+      {$_('profile.connections')}
+    </h2>
+    <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+      <div class="flex items-start gap-3">
+        <ShieldCheck class="mt-0.5 h-4 w-4 text-fg-subtle" />
         <div>
-          <h5 class="text-sm font-semibold text-slate-900">{$_('profile.createApiKey')}</h5>
-          <p class="mt-1 text-xs text-slate-500">
-            {$_('profile.setNameAndExpiration')}
-          </p>
+          <p class="text-sm font-medium text-white">{$_('profile.googleSso')}</p>
+          <p class="text-xs text-fg-subtle">{$_('profile.gcpDescription')}</p>
         </div>
-        <button
-          type="button"
-          on:click={closeCreateApiKeyModal}
-          class="btn-ghost p-2 rounded-md text-slate-500 hover:text-slate-800 transition-colors"
-          aria-label={$_('common.close')}
-        >
-          <X class="h-4 w-4" />
-        </button>
       </div>
-
-      <form method="POST" action="?/createApiKey" class="space-y-4 px-4 py-4">
-        <div>
-          <label for="api-key-name" class="block text-sm font-medium text-slate-700">{$_('profile.name')}</label>
-          <input
-            id="api-key-name"
-            name="name"
-            type="text"
-            bind:value={apiKeyName}
-            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
-            placeholder="Deploy token"
-            autocomplete="off"
-          />
-        </div>
-
-        <div>
-          <label for="api-key-expiration" class="block text-sm font-medium text-slate-700"
-            >{$_('profile.expiration')}</label
-          >
-          <select
-            id="api-key-expiration"
-            name="expiresInDays"
-            bind:value={apiKeyExpiresInDays}
-            class="field-input mt-2 w-full rounded-md border bg-white px-4 py-2.5 text-sm outline-none transition"
-          >
-            <option value="">{$_('profile.never')}</option>
-            <option value="7">7 {$_('profile.days')}</option>
-            <option value="30">30 {$_('profile.days')}</option>
-            <option value="90">90 {$_('profile.days')}</option>
-            <option value="365">365 {$_('profile.days')}</option>
-          </select>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 pt-4">
-          <button
-            type="button"
-            on:click={closeCreateApiKeyModal}
-            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-          >
-            {$_('profile.cancel')}
-          </button>
-          <button
-            type="submit"
-            class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Plus class="h-4 w-4" />
-            {$_('profile.createApiKey')}
-          </button>
-        </div>
-      </form>
+      <span class="k-badge {data.gcpConnected ? 'k-badge-ok' : ''}">
+        <span class="h-1.5 w-1.5 rounded-full {data.gcpConnected ? 'bg-ok' : 'bg-fg-subtle'}"
+        ></span>
+        {data.gcpConnected ? $_('profile.connected') : $_('profile.notConnected')}
+      </span>
     </div>
-  </div>
-{/if}
+    <div class="flex items-center gap-3 border-t border-white/8 px-5 py-3 text-xs text-fg-subtle">
+      <Mail class="h-3.5 w-3.5" />{data.user.email || $_('profile.notSet')}
+    </div>
+  </section>
+</div>

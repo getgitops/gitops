@@ -159,8 +159,8 @@
 </script>
 
 {#if isBareLayout}
-  <!-- auth, bootstrap y /brand: sin shell (aún con los colores anteriores, salvo /brand) -->
-  <div class="flex min-h-screen flex-col bg-[#020813] font-sans text-slate-100">
+  <!-- auth, bootstrap y /brand: sin shell -->
+  <div class="flex min-h-screen flex-col bg-ink-950 font-sans text-fg antialiased">
     {@render children()}
   </div>
 {:else}
