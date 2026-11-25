@@ -5,10 +5,7 @@ const seed = getSeed();
 const org = seed.primaryOrgSlug;
 const project = seed.primaryProjectSlug;
 
-test('org developer only has a link into "Proyectos", nothing else', async ({
-  page,
-  loginAs,
-}) => {
+test('org developer only has a link into "Proyectos", nothing else', async ({ page, loginAs }) => {
   await loginAs('orgDeveloper');
   await page.goto(`/org/${org}/settings/projects`);
   const sidebar = page.locator('aside').first();
@@ -20,10 +17,7 @@ test('org developer only has a link into "Proyectos", nothing else', async ({
   await expect(page.locator('#section-nav')).toHaveCount(0);
 });
 
-test('org admin has links into every organization settings resource', async ({
-  page,
-  loginAs,
-}) => {
+test('org admin has links into every organization settings resource', async ({ page, loginAs }) => {
   await loginAs('orgAdmin');
   await page.goto(`/org/${org}/settings/projects`);
   // el sidebar enlaza el módulo; cada recurso está en las pestañas de sección
@@ -60,8 +54,7 @@ test('project admin has a sidebar link into Code Report', async ({ page, loginAs
   const sidebar = page.locator('aside').first();
   const base = `/org/${org}/projects/${project}`;
   await expect(sidebar.getByText('Code Report', { exact: true })).toBeVisible();
-  // Vault is enabled for the seeded project, so the admin gets it too. State IaC is "coming soon":
-  // the service forces it off, so it never reaches the sidebar regardless of permissions.
+  // Vault and State IaC are enabled for the seeded project, so the admin gets them too
   await expect(sidebar.locator(`a[href="${base}/vault"]`)).toBeVisible();
-  await expect(sidebar.locator(`a[href^="${base}/state-iac"]`)).toHaveCount(0);
+  await expect(sidebar.locator(`a[href^="${base}/state-iac"]`).first()).toBeVisible();
 });

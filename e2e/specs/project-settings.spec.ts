@@ -81,10 +81,7 @@ test.describe('server access keys — real revoke mutation', () => {
   // client-side hydration, which is unrelated to what this test cares about — whether the
   // server actually revokes the key for a role with delete permission, not whether the click
   // wiring works.
-  test('a role with delete permission can actually revoke a key', async ({
-    page,
-    loginAs,
-  }) => {
+  test('a role with delete permission can actually revoke a key', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     await page.goto(`${base}/settings/server-access-keys`);
     const before = await page.getByRole('button', { name: /revocar/i }).count();
@@ -145,10 +142,7 @@ test.describe('project users — role-change control (canUpdate)', () => {
 });
 
 test.describe('project roles — real create mutation', () => {
-  test('project admin can create a role and see it in the list', async ({
-    page,
-    loginAs,
-  }) => {
+  test('project admin can create a role and see it in the list', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     const response = await page.request.post(`${base}/settings/roles-permissions/new?/createRole`, {
       form: {
@@ -181,5 +175,26 @@ test.describe('project roles — real create mutation', () => {
     const body = await response.json();
     expect(body.type).toBe('failure');
     expect(body.status).toBe(403);
+  });
+});
+
+test.describe('project settings — State IaC module', () => {
+  test('a project admin can turn the State IaC module off and on', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await page.goto(`${base}/settings/overview`);
+    await page.waitForLoadState('networkidle');
+    const toggle = page.getByRole('switch', { name: 'State IaC' });
+    const sidebar = page.locator('aside').first();
+    const save = page.getByRole('button', { name: 'Guardar cambios' });
+
+    await expect(toggle).toBeEnabled();
+    await expect(toggle).toBeChecked();
+    await toggle.click();
+    await save.click();
+    await expect(sidebar.locator(`a[href^="${base}/state-iac"]`)).toHaveCount(0);
+
+    await toggle.click();
+    await save.click();
+    await expect(sidebar.locator(`a[href^="${base}/state-iac"]`).first()).toBeVisible();
   });
 });

@@ -182,7 +182,7 @@ describe('ProjectService', () => {
       });
     });
 
-    it('keeps only unavailable modules disabled while accepting available module overrides', async () => {
+    it('accepts module overrides, State IaC included', async () => {
       const project = await createProject({
         name: 'Project D',
         modules: { vault: true, codereport: false, stateiac: true },
@@ -190,7 +190,7 @@ describe('ProjectService', () => {
       expect(project.modules).toEqual({
         vault: true,
         codereport: false,
-        stateiac: false,
+        stateiac: true,
         monitoring: false,
       });
     });
@@ -246,7 +246,7 @@ describe('ProjectService', () => {
       expect(updated.modules).toEqual({
         vault: true,
         codereport: true,
-        stateiac: false,
+        stateiac: true,
         monitoring: false,
       });
 
@@ -256,7 +256,7 @@ describe('ProjectService', () => {
       expect(updatedAgain.modules).toEqual({
         vault: true,
         codereport: false,
-        stateiac: false,
+        stateiac: true,
         monitoring: false,
       });
     });
