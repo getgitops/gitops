@@ -51,7 +51,12 @@
 
   const examples = ['alerts.list.example1', 'alerts.list.example2', 'alerts.list.example3'];
 
-  const channelIcons = { mail: Mail, slack: Hash, google_chat: MessageSquare, webhook: Webhook };
+  const channelIcons = {
+    mail: Mail,
+    slack: Hash,
+    'google-chat': MessageSquare,
+    webhook: Webhook,
+  };
 
   // el asistente: "Crear alerta" y "Editar" lo abren; sus enlaces siguen funcionando sin JS
   let wizardOpen = $state(false);
@@ -65,7 +70,7 @@
 
   let settingsOpen = $state(false);
   function openSettings(event: MouseEvent) {
-    if (!data.settings || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    if (!data.configPath || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
     settingsOpen = true;
   }
@@ -86,9 +91,9 @@
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      {#if data.external.settingsPath}
+      {#if data.configPath}
         <a
-          href={data.external.settingsPath}
+          href={data.configPath}
           class="k-btn k-btn-secondary"
           onclick={openSettings}
           data-testid="alert-settings"
@@ -218,7 +223,7 @@
                   <li class="flex items-start gap-1.5">
                     <Icon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-subtle" />
                     <span
-                      >{channelTargets(channel, alert.recipients, data.users, data.roles).join(
+                      >{channelTargets(channel, alert, data.users, data.roles, data.channels).join(
                         ', ',
                       ) || $_('alerts.summary.noRecipients')}</span
                     >
@@ -344,15 +349,22 @@
 </Modal>
 
 {#if data.canCreate || data.canUpdate}
-  <AlertWizard bind:open={wizardOpen} alert={wizardAlert} {data} />
+  <AlertWizard
+    bind:open={wizardOpen}
+    alert={wizardAlert}
+    {data}
+    onConfigure={() => (settingsOpen = true)}
+  />
 {/if}
 
-{#if data.settings && data.external.settingsPath}
+{#if data.configPath}
   <Modal
     bind:open={settingsOpen}
     size="xl"
     title={$_('notifications.settings.title')}
-    description={$_('notifications.settings.description')}
+    description={data.scope === 'project'
+      ? $_('notifications.settings.descriptionProject')
+      : $_('notifications.settings.description')}
   >
     {#snippet icon()}
       <span
@@ -360,7 +372,12 @@
         ><Settings class="h-5 w-5" /></span
       >
     {/snippet}
-    <AlertSettingsPanel data={data.settings} action={data.external.settingsPath} />
+    <AlertSettingsPanel
+      data={data.settings}
+      channels={data.channelsSection}
+      organizationSettingsPath={data.scope === 'project' ? data.external.settingsPath : null}
+      action={data.configPath}
+    />
     {#snippet footer()}
       <button type="button" class="k-btn k-btn-secondary" onclick={() => (settingsOpen = false)}
         >{$_('common.close')}</button

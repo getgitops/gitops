@@ -121,10 +121,8 @@ session like any other page. Check it there before inventing a new style.
   a `Modal` (`role="alertdialog"`), and deleting a top-level entity asks to type its name.
 - Floating panels (`DropdownMenu`, `Select`, `TagInput` suggestions) render in `<body>` through
   `floating` in `ui/overlay.ts`, so no `overflow` (tables, modal bodies) clips them.
-- Alerts: one alert notifies several channels (`mail`, `slack`, `google_chat`, `webhook`), one
-  message each; targets live in `recipients` (`userIds`/`roleIds`/`emails`, `slackChannels`,
-  `googleChatSpaces`, `webhookUrls`). Only `mail` is delivered (`DELIVERED_CHANNELS`); the rest are
-  stored and validated. Create/edit happens in `AlertWizard` (modal); the `/new` and `/[id]` pages
+- Alerts: email targets live in `recipients` (`userIds`/`roleIds`/`emails`) and chat or webhook
+  targets in `channelIds` (notification channels); `channels` is derived on save. Create/edit happens in `AlertWizard` (modal); the `/new` and `/[id]` pages
   keep the no-JS editor (`AlertEditor`), so new alert fields must be added to both.
 - `toast.*` is client-only (module state): call it from event handlers, never during SSR.
 - Tokens: `bg-ink-950…500`, `brand-50…900`, text `text-fg|fg-muted|fg-subtle`, status
@@ -239,12 +237,15 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (`scope: 'organization'`, covers every project of it) or a project. `conditions`
   (`{ field, operator, value }`) use the catalog fields, combined with `match: 'all' | 'any'`; an
   empty list always matches. Organization alerts on project events also get a `projectId` field
-  (`listAlertFields`, value taken from the event scope).
+  (`listAlertFields`, value taken from the event scope). Email recipients are in `recipients`
+  (users, roles, external emails); chat and webhook targets are in `channelIds` (references to
+  `NotificationChannelEntity`), not in recipients (a channel delivers to its configured destination,
+  not to individual recipients).
 - `AlertService` validates every write against the catalog and the location and throws
   `AlertValidationError` with field-level codes (`conditions.0.operator: 'invalid_operator'`):
   alertable event compatible with the scope, operators of the field, typed values, references and
-  recipients (users, roles) inside the location, and **anti-escalation** (the author must hold the
-  event's `readPermission`).
+  recipients (users, roles, emails) inside the location, channels in the location, and
+  **anti-escalation** (the author must hold the event's `readPermission`).
 - `AlertEngine` subscribes to `'*'` once per process (`registerAlertEngine()` in `hooks.server.ts`,
   HMR-safe). Per event: fixed system notifications first (`system-notifications.data.ts`: access
   granted/updated/revoked to the affected user, new personal API keys to their owner, never to the
@@ -272,7 +273,9 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   recipient hash, never the content or the address. `registerMailShutdown()` drains it on
   `sveltekit:shutdown` (10 s). Invitations and password resets call `notify()` directly: their
   tokens must not travel through the bus or the queue. Without SMTP (`isMailConfigured()`), the
-  engine skips events (debug log), warns once at startup and the alert pages show a banner.
+  engine skips emails and system notifications (debug log) but still posts to channels, warns once
+  at startup and the alert pages show a banner. `MailQueue` is a `DeliveryQueue`
+  (`#lib/server/infra/notifications/delivery-queue.ts`), the generic queue channels reuse.
 - HTTP: `#lib/server/alerts` (`access.ts` for permissions/location/actor, `operations.ts` shared by
   the API and form actions). Routes: `GET /api/events/catalog`, `GET|POST /api/alerts`,
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
@@ -310,11 +313,46 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (`organization:notifications:read`; resend a confirmation, or remove a `pending` address added by
   mistake, with `organization:notifications:update`: removing deletes the recipient, so its link
   stops working, and `alertService.removeEmail()` drops it from every alert of the organization).
-  The "Settings" button of the alert lists (organization and project ones, no sidebar entry) opens
-  them in a modal (`AlertSettingsPanel`, data in `AlertListData.settings`) whose forms post to the
-  actions of `/org/<org>/settings/alerts/settings`, the same page browsers without JavaScript get.
-  The alert pages also get `data.external` (`ExternalRecipientsEditorData`: allowed domains, whether
-  the user may add addresses, statuses).
+  The "Settings" button of the alert lists (no sidebar entry) opens them in a modal
+  (`AlertSettingsPanel`) together with the location's notification channels; its forms post to the
+  actions of `<alerts path>/settings` (`/org/<org>/settings/alerts/settings` or
+  `/org/<org>/projects/<slug>/settings/alerts/settings`), the same pages browsers without
+  JavaScript get. Project settings only hold channels (domains are the organization's). The alert
+  pages also get `data.external` (`ExternalRecipientsEditorData`), `data.channels` (channel options
+  the location's alerts may use), `data.channelsSection` and `data.configPath` (for the settings modal).
+- Notification channels (`$modules/notifications`): `NotificationChannelEntity` (GitDB
+  `notification_channels`), owned by an organization (usable by alerts of the organization and of
+  all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
+  a type is available only once its transport is registered with `registerChatTransport()`
+  (`#lib/server/infra/notifications/chat-notification.ts`). This base registers none: each
+  transport (webhook, Slack, Google Chat) activates its own, and tests use `FakeChatTransport`.
+  A `ChatTransport` implements `send()` and `validateDestination()`, the anti-SSRF check
+  (`validateWebhookUrl()`: https, no credentials, no IP literal, default port, allowed host and
+  path) run before saving and again before every send. The destination (`webhookUrl`) is
+  encrypted with `GITDB_ENCRYPTION_KEY` (`channel-cipher.ts`, AES-GCM bound to the channel id)
+  and only ever leaves the server masked (`https://hooks.slack.com/…/••••1a2b`); changing it
+  means typing it again. `enabled` flag can disable delivery without deleting the channel.
+- Channel delivery: alerts store `channelIds` (references to `NotificationChannelEntity`). Adding
+  a channel needs `<scope>:notifications:update` (`forbidden_channel`), and a channel must be
+  usable from the alert's location (`unknown_channel`). The engine emails each recipient and
+  posts **one message per channel** in parallel; a failing channel never affects the emails or
+  the other channels, and system notifications never go to channels. The message is a
+  provider-neutral `ChannelMessage` (`buildAlertChannelMessage()`: default language, no
+  `sensitive` fields, "View in GitOps" link, throttled count); transports format it. Deliveries
+  go through the process-wide `channelQueue` (concurrency 3; `postJson()` from
+  `#lib/server/infra/http/webhook-request.ts` with a 5 s timeout and no redirects; `withRetry`
+  only on network errors, 429 honoring `Retry-After`, and 5xx). A permanent failure (4xx,
+  invalid or undecryptable destination, type without transport) sets `lastError`; a success
+  clears it. `lastDeliveryAt` is only refreshed hourly, since each write is a commit. Logs carry
+  the channel id and type, never the URL nor the message.
+- Channels HTTP: `#lib/server/notifications/channels.ts` (permission-first with
+  `<scope>:notifications:read|create|update|delete`; a channel the caller can't read is a 404).
+  Routes: `GET|POST /api/notification-channels` (`organizationId` or `projectId`),
+  `GET|PATCH|DELETE /api/notification-channels/[id]` and `POST /api/notification-channels/[id]/test`
+  (posts a test even to a disabled channel). Form actions for the settings pages live in
+  `#lib/server/notifications/channels-page.ts`; the UI is `ChannelsSection`
+  (`#lib/components/notifications/`), and the alert editors pick channels from `data.channels`
+  (the alert's draft has `channelIds: string[]`, not direct recipients by channel type).
 - UI: `/org/<org>/settings/alerts` and `/org/<org>/projects/<slug>/settings/alerts` (list, `new`,
   `[id]`), thin routes over `#lib/server/alerts/page.ts` (loaders and form actions `draft`, `save`,
   `test`, `toggle`, `delete`; everything works without JavaScript). Components live in

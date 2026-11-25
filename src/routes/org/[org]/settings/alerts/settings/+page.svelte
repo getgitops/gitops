@@ -29,5 +29,10 @@
     </p>
   </header>
 
-  <AlertSettingsPanel {data} {form} action={page.url.pathname} />
+  <AlertSettingsPanel
+    data={data.settings}
+    channels={data.channels}
+    {form}
+    action={page.url.pathname}
+  />
 </div>

@@ -24,6 +24,20 @@ export {
 } from './config';
 export { withRetry, isRetryableMailError, type RetryOptions } from './retry';
 export { emailButton, emailNote } from './email-parts';
+export {
+  CHAT_CHANNEL_TYPES,
+  ChatNotification,
+  availableChatTypes,
+  getChatTransport,
+  isChatChannelType,
+  registerChatTransport,
+  resetChatTransports,
+  type ChannelMessage,
+  type ChatChannelType,
+  type ChatNotificationInput,
+  type ChatTransport,
+} from './chat-notification';
+export { DeliveryQueue, defaultErrorCode, type DeliveryQueueOptions } from './delivery-queue';
 export { MailQueue, recipientHash, type MailContext, type MailQueueOptions } from './mail-queue';
 
 import { createLogger } from '#lib/server/logger';
@@ -41,13 +55,17 @@ type GlobalWithQueue = typeof globalThis & {
 
 (globalThis as GlobalWithQueue)[SEND_KEY] = send;
 
+export function sendWithLatestNotify(notification: Parameters<typeof send>[0]): Promise<void> {
+  return ((globalThis as GlobalWithQueue)[SEND_KEY] ?? send)(notification);
+}
+
 /**
  * Process-wide queue for alert and system emails (3 at a time, 4 attempts with backoff). Kept on
  * `globalThis` so HMR doesn't create a second one. Invitations and password resets don't use it:
  * their links carry tokens and are sent directly.
  */
 export const mailQueue: Queue = ((globalThis as GlobalWithQueue)[QUEUE_KEY] ??= new Queue({
-  send: (notification) => ((globalThis as GlobalWithQueue)[SEND_KEY] ?? send)(notification),
+  send: (notification) => sendWithLatestNotify(notification),
   concurrency: 3,
   logger: createLogger('mail'),
 }));

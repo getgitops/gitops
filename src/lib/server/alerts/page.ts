@@ -6,12 +6,12 @@ import {
   type AlertLocation,
   type AlertRow,
 } from '#modules/alerts';
+import { emptyRecipients } from '#modules/alerts/domain/alert.domain';
 import {
-  ALERT_CHANNELS,
-  emptyRecipients,
-  type AlertChannel,
-} from '#modules/alerts/domain/alert.domain';
-import { externalRecipientService, notificationSettingsService } from '#modules/notifications';
+  externalRecipientService,
+  notificationChannelService,
+  notificationSettingsService,
+} from '#modules/notifications';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import {
@@ -24,6 +24,7 @@ import {
 import type {
   AlertDraft,
   AlertEditorData,
+  AlertChannelOption,
   AlertListData,
   AlertOption,
   DraftCondition,
@@ -33,6 +34,7 @@ import {
   canOpenNotificationSettings,
   loadNotificationSettings,
 } from '#lib/server/notifications/settings';
+import { loadChannelsSection } from '#lib/server/notifications/channels-page';
 import { callerCan, canManageAlerts, contextOf, type AlertLocals } from './access';
 import {
   createAlert,
@@ -85,6 +87,17 @@ async function referenceOptions(
       options.map((option) => ({ id: option.id, label: option.label })),
     ]),
   );
+}
+
+async function channelOptions(location: AlertLocation): Promise<AlertChannelOption[]> {
+  const channels = await notificationChannelService.listUsable(location).catch(() => []);
+  return channels.map((channel) => ({
+    id: channel.id,
+    name: channel.name,
+    type: channel.type,
+    scope: channel.scope,
+    enabled: channel.enabled,
+  }));
 }
 
 async function recipientOptions(location: AlertLocation) {
@@ -150,7 +163,7 @@ export async function loadAlertList(
     scope: 'organization',
     projectId: null,
   };
-  const [references, own, organizationRecipients, external] = await Promise.all([
+  const [references, own, organizationRecipients, external, channels] = await Promise.all([
     referenceOptions([...catalog, ...inheritedCatalog], organizationLocation),
     recipientOptions(location),
     location.scope === 'project' ? recipientOptions(organizationLocation) : null,
@@ -159,6 +172,7 @@ export async function loadAlertList(
       location,
       listed.data.alerts.flatMap((alert) => alert.recipients.emails ?? []),
     ),
+    channelOptions(location),
   ]);
   // names for the recipients of the location's alerts and of the inherited organization ones
   const merge = (a: AlertOption[], b: AlertOption[] = []) => [
@@ -169,6 +183,14 @@ export async function loadAlertList(
     users: merge(own.users, organizationRecipients?.users),
     roles: merge(own.roles, organizationRecipients?.roles),
   };
+  const [settings, channelsSection] = await Promise.all([
+    location.scope === 'organization' && external.settingsPath
+      ? loadNotificationSettings(locals, location.organizationId).then((result) =>
+          result.ok ? result.data : null,
+        )
+      : null,
+    loadChannelsSection(locals, location).catch(() => null),
+  ]);
 
   return {
     basePath: context.basePath,
@@ -184,13 +206,12 @@ export async function loadAlertList(
     roles: recipients.roles,
     recipientUsers: own.users,
     recipientRoles: own.roles,
+    channels,
     mailConfigured: isMailConfigured(),
     external,
-    settings: external.settingsPath
-      ? await loadNotificationSettings(locals, location.organizationId).then((result) =>
-          result.ok ? result.data : null,
-        )
-      : null,
+    settings,
+    channelsSection,
+    configPath: settings || channelsSection ? `${context.basePath}/settings` : null,
     canCreate: allowed.canCreate,
     canUpdate: allowed.canUpdate,
     canDelete: allowed.canDelete,
@@ -205,8 +226,8 @@ function emptyDraft(eventType: string | null): AlertDraft {
     eventType: eventType ?? '',
     match: 'all',
     conditions: [],
-    channels: ['mail'],
     recipients: emptyRecipients(),
+    channelIds: [],
     throttleMinutes: 0,
   };
 }
@@ -223,8 +244,12 @@ function toDraft(alert: AlertRow): AlertDraft {
       operator: condition.operator,
       value: condition.value === undefined ? '' : condition.value,
     })),
-    channels: [...alert.channels],
-    recipients: { ...emptyRecipients(), ...alert.recipients },
+    recipients: {
+      userIds: [...alert.recipients.userIds],
+      roleIds: [...alert.recipients.roleIds],
+      emails: [...alert.recipients.emails],
+    },
+    channelIds: [...alert.channelIds],
     throttleMinutes: alert.throttleMinutes,
   };
 }
@@ -252,10 +277,11 @@ export async function loadAlertEditor(
   }
 
   const catalog = await listCatalog(locals, location);
-  const [references, recipients, external] = await Promise.all([
+  const [references, recipients, external, channels] = await Promise.all([
     referenceOptions(catalog, location),
     recipientOptions(location),
     externalRecipientsData(locals, location, alert?.recipients.emails ?? []),
+    channelOptions(location),
   ]);
 
   const draft = alert ? toDraft(alert) : emptyDraft(options.eventType ?? null);
@@ -274,6 +300,7 @@ export async function loadAlertEditor(
     roles: recipients.roles,
     recipientUsers: recipients.users,
     recipientRoles: recipients.roles,
+    channels,
     mailConfigured: isMailConfigured(),
     external,
     canSave: alert ? allowed.canUpdate : allowed.canCreate,
@@ -325,24 +352,12 @@ export function parseAlertForm(form: FormData): AlertDraft {
     eventType: String(form.get('eventType') ?? ''),
     match: form.get('match') === 'any' ? 'any' : 'all',
     conditions,
-    channels: (() => {
-      const channels = form
-        .getAll('channels')
-        .map(String)
-        .filter((channel): channel is AlertChannel =>
-          (ALERT_CHANNELS as readonly string[]).includes(channel),
-        );
-      // the editor always posts at least `mail`; older clients post nothing
-      return channels.length > 0 ? [...new Set(channels)] : ['mail'];
-    })(),
     recipients: {
       userIds: form.getAll('userIds').map(String),
       roleIds: form.getAll('roleIds').map(String),
       emails: listField(form, 'emails'),
-      slackChannels: listField(form, 'slackChannels'),
-      googleChatSpaces: listField(form, 'googleChatSpaces'),
-      webhookUrls: listField(form, 'webhookUrls'),
     },
+    channelIds: form.getAll('channelIds').map(String).filter(Boolean),
     throttleMinutes: Number(form.get('throttleMinutes') ?? 0) || 0,
   };
 }

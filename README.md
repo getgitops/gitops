@@ -186,6 +186,21 @@ sensitive fields and links into the app. Removing a domain blocks its addresses 
 them, and allowing it again restores them. `ORIGIN` must be set: without it, confirmation and
 unsubscribe links can't be built and nothing is sent to external addresses.
 
+#### Notification channels
+
+Alerts can also post to chat channels and webhooks. In **Settings → Alerts**, click **Settings** to
+manage the channels of the organization (usable by every alert of the organization and its
+projects) or of a project (only its alerts). Each channel has a name and the webhook URL its
+provider gives you; the URL is stored encrypted and only ever shown masked. **Send test message**
+posts an example to check it works. Then pick the channels in the alert, next to its email
+recipients: each firing sends one message per channel, and a failing channel never stops the
+emails or the other channels.
+
+Adding channels to an alert needs `organization:notifications:update` or
+`project:notifications:update`: people reading a channel may have no access to the resource.
+Messages leave out sensitive fields. Channel types become available as their transports land
+(generic webhooks, Slack and Google Chat); until then the settings say no type is available yet.
+
 ### Monitoring
 
 HTTP monitors check a URL (method, headers and body of your choice) every 60 seconds by default and

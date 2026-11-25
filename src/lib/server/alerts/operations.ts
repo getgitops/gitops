@@ -191,6 +191,7 @@ export type AlertTestResult = {
   /** Selected users left out because they can't read the event. */
   deniedCount: number;
   external: Array<{ email: string; status: string; delivers: boolean }>;
+  channels: Array<{ id: string; name: string; type: string; delivers: boolean }>;
   delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };
 };
@@ -212,6 +213,7 @@ async function dryRun(
     | 'conditions'
     | 'match'
     | 'recipients'
+    | 'channelIds'
     | 'location'
     | 'appliesTo'
   >,
@@ -287,6 +289,7 @@ async function dryRun(
       recipients: result.recipients.map(({ userId, username }) => ({ userId, username })),
       deniedCount: result.denied.length,
       external: result.external,
+      channels: result.channels,
       ...(delivery ? { delivery } : {}),
       event: { type: alert.eventType, payload: sample.payload, projectId },
     },
@@ -323,9 +326,11 @@ export async function testDraftAlert(
     existing &&
     existing.organizationId === location.organizationId &&
     existing.projectId === location.projectId;
-  const previousExternal = sameLocation ? existing.recipients.emails : [];
+  const previous = sameLocation
+    ? { emails: existing.recipients.emails, channelIds: existing.channelIds }
+    : {};
   try {
-    const fields = await alertService.validate(location, input, actor, previousExternal);
+    const fields = await alertService.validate(location, input, actor, previous);
     const draft = new AlertDomain({
       id: sameLocation ? existing.id : 'draft',
       ...location,

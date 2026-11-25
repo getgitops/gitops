@@ -23,7 +23,6 @@
     DraftCondition,
   } from '#lib/alerts/types';
   import ConditionBuilder from './ConditionBuilder.svelte';
-  import { DELIVERED_CHANNELS } from '#modules/alerts/domain/alert.domain';
   import OptionPicker from './OptionPicker.svelte';
 
   type Props = { data: AlertEditorData; form: AlertFormResult };
@@ -39,8 +38,6 @@
   }));
   let draft = $state(initial.draft);
   // canales sin envío todavía: solo se pueden mantener (o quitar) si la alerta ya los tenía
-  const initialChannels: string[] = [...initial.draft.channels];
-  const isSoon = (channel: string) => !(DELIVERED_CHANNELS as readonly string[]).includes(channel);
   let errors = $state<Record<string, string>>(initial.errors);
   let message = $state(initial.message);
   let test = $state(initial.test);
@@ -428,47 +425,67 @@
       {/if}
     </div>
 
-    <fieldset class="space-y-3">
+    <fieldset class="space-y-2" data-testid="alert-channels">
       <legend class="k-label mb-0">{$_('alerts.editor.channels')}</legend>
-      {#each [{ key: 'mail', list: null }, { key: 'slack', list: 'slackChannels' }, { key: 'google_chat', list: 'googleChatSpaces' }, { key: 'webhook', list: 'webhookUrls' }] as const as channel (channel.key)}
-        <div class="space-y-1.5">
+      <p class="k-help">{$_('alerts.editor.channelsHelp')}</p>
+      {#if data.channels.length === 0}
+        <p class="k-help">
+          {$_('alerts.editor.noChannels')}
+          {#if data.external.settingsPath}
+            <a class="text-brand-400 hover:text-brand-300" href={data.external.settingsPath}>
+              {$_('alerts.editor.channelsSettingsLink')}
+            </a>
+          {/if}
+        </p>
+      {:else}
+        {#each data.channels as channel (channel.id)}
+          {@const selected = draft.channelIds.includes(channel.id)}
           <label class="flex items-center gap-2 text-sm text-fg">
             <input
               type="checkbox"
               class="k-checkbox"
-              name="channels"
-              value={channel.key}
-              bind:group={draft.channels}
-              disabled={!data.canSave ||
-                (isSoon(channel.key) && !initialChannels.includes(channel.key))}
+              name="channelIds"
+              value={channel.id}
+              checked={selected}
+              disabled={!data.canSave || (!data.external.canManage && !selected)}
+              onchange={(event) => {
+                draft.channelIds = event.currentTarget.checked
+                  ? [...draft.channelIds, channel.id]
+                  : draft.channelIds.filter((id) => id !== channel.id);
+              }}
             />
-            {$_(`alerts.channels.${channel.key}`)}
-            {#if isSoon(channel.key)}
-              <span class="k-badge h-5 px-2 text-[10px] uppercase"
-                >{$_('alerts.channels.soon')}</span
+            {channel.name}
+            <span class="k-badge h-5 px-2 text-[10px]">
+              {$_(`notifications.channels.types.${channel.type}`)}
+            </span>
+            {#if channel.scope === 'organization' && data.scope === 'project'}
+              <span class="text-[11px] text-fg-subtle"
+                >{$_('alerts.editor.channelFromOrganization')}</span
+              >
+            {/if}
+            {#if !channel.enabled}
+              <span class="text-[11px] text-fg-subtle">{$_('notifications.channels.disabled')}</span
               >
             {/if}
           </label>
-          {#if channel.list && (!isSoon(channel.key) || initialChannels.includes(channel.key))}
-            <input
-              name={channel.list}
-              class="k-input"
-              aria-label={$_(`alerts.editor.targets.${channel.key}`)}
-              placeholder={$_(`alerts.editor.targets.${channel.key}`)}
-              value={draft.recipients[channel.list].join(', ')}
-              disabled={!data.canSave}
-              aria-invalid={Boolean(errors[`recipients.${channel.list}`]) || undefined}
-            />
-            {#if errors[`recipients.${channel.list}`]}
-              <p class="text-xs text-red-300" role="alert">
-                {errorFor(`recipients.${channel.list}`)}
-              </p>
-            {/if}
+          {#if selected && !data.canSave}
+            <input type="hidden" name="channelIds" value={channel.id} />
           {/if}
-        </div>
-      {/each}
-      {#if errors.channels}
-        <p class="text-xs text-red-300" role="alert">{errorFor('channels')}</p>
+        {/each}
+        {#if draft.channelIds.length > 0}
+          <p
+            class="flex items-start gap-2 rounded-xl border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
+          >
+            <ShieldAlert class="mt-0.5 h-4 w-4 shrink-0 text-warn" />
+            {$_('alerts.editor.channelsNotice')}
+          </p>
+        {/if}
+        {#if !data.external.canManage}
+          <p class="k-help">{$_('alerts.editor.channelsReadonly')}</p>
+        {/if}
+      {/if}
+      {#if errors.channelIds}
+        <p class="text-xs text-red-300" role="alert">{errorFor('channelIds')}</p>
       {/if}
     </fieldset>
 
@@ -554,6 +571,17 @@
           <p class="mt-1 text-xs">
             {$_('alerts.test.denied', { values: { count: test.deniedCount } })}
           </p>
+        {/if}
+        {#if test.channels?.length > 0}
+          <ul class="mt-1 text-xs">
+            {#each test.channels as channel (channel.id)}
+              <li>
+                {channel.name}: {channel.delivers
+                  ? $_('alerts.test.channelDelivers')
+                  : $_('alerts.test.channelSkipped')}
+              </li>
+            {/each}
+          </ul>
         {/if}
         {#if test.external.length > 0}
           <ul class="mt-1 text-xs">
