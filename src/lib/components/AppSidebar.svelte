@@ -11,7 +11,6 @@
     FolderKanban,
     Lock,
     Search,
-    ShieldCheck,
   } from '@lucide/svelte';
   import { DropdownMenu, MenuItem } from '#lib/components/ui';
   import SidebarFooter from '#lib/components/SidebarFooter.svelte';
@@ -55,11 +54,6 @@
 
   const currentProject = $derived(projects.find((p) => p.slug === currentProjectSlug) ?? null);
   const sidebarCategories = $derived(categories.filter((c) => c.sidebar !== false));
-
-  // Ajustes de GitOps: el árbol solo lo incluye para administradores del clúster (cluster-admin)
-  const adminModule = $derived(
-    categories.flatMap((c) => c.modules).find((m) => m.base === '/gitops-settings') ?? null,
-  );
 
   // selector de contexto: proyectos agrupados por organización, la actual primero
   let switcherOpen = $state(false);
@@ -226,21 +220,6 @@
   </nav>
 
   <div class="mt-3 space-y-3">
-    {#if adminModule}
-      <div class="border-t border-white/8 pt-3">
-        <a
-          href={adminModule.items[0].href}
-          class="k-nav-item {collapsed ? 'justify-center px-0' : ''}"
-          aria-current={isModuleActive(pathname, adminModule) ? 'page' : undefined}
-          title={collapsed ? adminModule.name : undefined}
-          aria-label={collapsed ? adminModule.name : undefined}
-          data-sveltekit-preload-data
-        >
-          <ShieldCheck class="h-4 w-4 shrink-0" />
-          {#if !collapsed}<span class="flex-1 truncate">{adminModule.name}</span>{/if}
-        </a>
-      </div>
-    {/if}
     <SidebarFooter {collapsed} {showSyncStatus} {syncStatusHref} {ontogglecollapse} />
   </div>
 </aside>

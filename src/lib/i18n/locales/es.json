@@ -601,7 +601,13 @@
         "access": "Accesos",
         "monitoring": "Monitoring"
       }
-    }
+    },
+    "current": "Actual",
+    "search": "Buscar organización",
+    "noMatches": "Ninguna organización coincide con la búsqueda.",
+    "created": "Organización creada",
+    "createDescription": "Serás su administrador. Después podrás invitar a tu equipo.",
+    "slugHelp": "Se usa en las URLs. Se genera a partir del nombre."
   },
   "project": {
     "layout": {
