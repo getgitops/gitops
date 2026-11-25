@@ -1,8 +1,20 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
-  import { CheckCircle, Copy, Save, Trash2 } from '@lucide/svelte';
-  import { _ } from '#lib/i18n';
+  import {
+    ArrowLeft,
+    ArrowRight,
+    Check,
+    Copy,
+    ExternalLink,
+    FolderGit2,
+    Save,
+    Trash2,
+    Users,
+  } from '@lucide/svelte';
+  import { Field, Modal, toast } from '#lib/components/ui';
+  import { _, locale } from '#lib/i18n';
 
   type OrganizationRow = {
     id: string;
@@ -13,88 +25,105 @@
     updatedAt: string;
   };
 
-  export let data: { organization: OrganizationRow };
+  type ProjectRow = {
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+    modules: {
+      vault?: boolean;
+      codereport?: boolean;
+      stateiac?: boolean;
+      monitoring?: boolean;
+    } | null;
+  };
 
-  $: organization = data.organization;
+  let {
+    data,
+  }: { data: { organization: OrganizationRow; projects: ProjectRow[]; memberCount: number } } =
+    $props();
 
-  let saving = false;
-  let error = '';
-  let success = '';
-  let slugCopied = false;
+  const organization = $derived(data.organization);
 
-  let editName = data.organization.name;
-  let editSlug = data.organization.slug;
-  let editDescription = data.organization.description ?? '';
+  let name = $state(untrack(() => data.organization.name));
+  let slug = $state(untrack(() => data.organization.slug));
+  let description = $state(untrack(() => data.organization.description ?? ''));
+  let saving = $state(false);
+  let copied = $state(false);
 
-  let deleteModalOpen = false;
-  let deleteLoading = false;
-  let deleteError = '';
+  const dirty = $derived(
+    name !== organization.name ||
+      slug !== organization.slug ||
+      description !== (organization.description ?? ''),
+  );
 
-  function flashSuccess(message: string) {
-    success = message;
-    setTimeout(() => {
-      success = '';
-    }, 2500);
+  const moduleLabels: [keyof NonNullable<ProjectRow['modules']>, string][] = [
+    ['codereport', 'Code Report'],
+    ['vault', 'Vault'],
+    ['monitoring', 'Monitoring'],
+    ['stateiac', 'State IaC'],
+  ];
+
+  function date(value: string) {
+    return new Intl.DateTimeFormat($locale ?? 'es', { dateStyle: 'medium' }).format(
+      new Date(value),
+    );
   }
 
   async function copySlug() {
     try {
       await navigator.clipboard.writeText(organization.slug);
-      slugCopied = true;
-      setTimeout(() => {
-        slugCopied = false;
-      }, 2000);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
     } catch {
-      error = $_('clusterSettings.organizationDetail.copySlugFailed');
+      toast.error($_('clusterSettings.organizationDetail.copySlugFailed'));
     }
   }
 
-  const saveOrganization: SubmitFunction = ({ cancel }) => {
-    error = '';
-    if (!editName.trim()) {
-      error = $_('clusterSettings.organizationDetail.nameRequired');
+  const submitSave: SubmitFunction = ({ cancel }) => {
+    if (!name.trim()) {
+      toast.error($_('clusterSettings.organizationDetail.nameRequired'));
       cancel();
       return;
     }
-
     saving = true;
     return async ({ result, update }) => {
-      await update();
       saving = false;
-
-      if (result.type === 'success') {
-        flashSuccess($_('clusterSettings.organizationDetail.updated'));
+      if (result.type === 'success' || result.type === 'redirect') {
+        toast.success($_('clusterSettings.organizationDetail.updated'), name);
+      } else if (result.type === 'failure') {
+        toast.error(
+          $_('clusterSettings.organizationDetail.updateFailed'),
+          result.data?.error ? String(result.data.error) : undefined,
+        );
         return;
       }
-
-      error =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : $_('clusterSettings.organizationDetail.updateFailed');
+      await update({ reset: false });
     };
   };
 
-  function openDeleteModal() {
-    deleteError = '';
-    deleteModalOpen = true;
-  }
+  // ---------- borrar ----------
 
-  function closeDeleteModal() {
-    deleteModalOpen = false;
-  }
+  let deleteOpen = $state(false);
+  let deleting = $state(false);
+  let confirmText = $state('');
 
-  const confirmDelete: SubmitFunction = () => {
-    deleteError = '';
-    deleteLoading = true;
+  const submitDelete: SubmitFunction = () => {
+    deleting = true;
+    const deleted = organization.name;
     return async ({ result, update }) => {
-      await update();
-
-      if (result.type === 'failure') {
-        deleteError = result.data?.error
-          ? String(result.data.error)
-          : $_('clusterSettings.organizationDetail.deleteFailed');
-        deleteLoading = false;
+      deleting = false;
+      if (result.type === 'redirect') {
+        deleteOpen = false;
+        toast.success($_('clusterSettings.organizations.deleteSuccess'), deleted);
+      } else if (result.type === 'failure') {
+        toast.error(
+          $_('clusterSettings.organizationDetail.deleteFailed'),
+          result.data?.error ? String(result.data.error) : undefined,
+        );
+        return;
       }
+      await update();
     };
   };
 </script>
@@ -104,160 +133,227 @@
 </svelte:head>
 
 <div class="space-y-6">
-  {#if error}
-    <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {error}
-    </div>
-  {/if}
-
-  {#if success}
-    <div
-      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
-    >
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {success}</span>
-    </div>
-  {/if}
-
-  <form
-    method="POST"
-    action="?/updateOrganization"
-    use:enhance={saveOrganization}
-    class="overflow-hidden rounded-md border border-slate-200 bg-white"
+  <a
+    href="/gitops-settings/orgs"
+    class="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-white"
   >
-    <input type="hidden" name="id" value={organization.id} />
-    <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
-      <h3 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizationDetail.information')}</h3>
-      <button
-        type="button"
-        on:click={copySlug}
-        class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+    <ArrowLeft class="h-3.5 w-3.5" />Volver a organizaciones
+  </a>
+
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="flex min-w-0 items-start gap-4">
+      <span
+        class="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-brand-500/30 bg-brand-500/10 text-lg font-semibold text-brand-300"
+        >{organization.name.slice(0, 1).toUpperCase()}</span
       >
-        <Copy class="h-3.5 w-3.5" />
-        {slugCopied ? $_('clusterSettings.organizationDetail.slugCopied') : $_('clusterSettings.organizationDetail.copySlug')}
-      </button>
-    </div>
-
-    <div class="space-y-4 px-4 py-4">
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="edit-org-name">{$_('common.name')}</label>
-          <input
-            id="edit-org-name"
-            name="name"
-            type="text"
-            bind:value={editName}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="edit-org-slug">{$_('common.slug')}</label>
-          <input
-            id="edit-org-slug"
-            name="slug"
-            type="text"
-            bind:value={editSlug}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium text-slate-700" for="edit-org-description">{$_('common.description')}</label>
-        <textarea
-          id="edit-org-description"
-          name="description"
-          bind:value={editDescription}
-          rows="4"
-          class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          placeholder={$_('clusterSettings.organizationDetail.optionalDescription')}
-        ></textarea>
-      </div>
-    </div>
-
-    <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-      <button
-        type="submit"
-        disabled={saving}
-        class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-      >
-        <Save class="h-4 w-4" />
-        {saving ? $_('common.saving') : $_('clusterSettings.organizationDetail.saveChanges')}
-      </button>
-    </div>
-  </form>
-
-  <section class="overflow-hidden rounded-md border border-red-200 bg-white">
-    <div class="border-b border-red-200 px-4 py-3">
-      <h3 class="text-sm font-semibold text-red-700">{$_('clusterSettings.organizationDetail.dangerZone')}</h3>
-    </div>
-    <div class="flex items-center justify-between gap-3 px-4 py-4">
-      <div>
-        <p class="text-sm font-medium text-slate-900">{$_('clusterSettings.organizationDetail.deleteTitle')}</p>
-        <p class="mt-1 text-xs text-slate-500">{$_('clusterSettings.organizationDetail.deleteDescription')}</p>
-      </div>
-      <button
-        type="button"
-        on:click={openDeleteModal}
-        class="btn-danger inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium"
-      >
-        <Trash2 class="h-3.5 w-3.5" />{$_('clusterSettings.organizationDetail.deleteTitle')}</button>
-    </div>
-  </section>
-</div>
-
-{#if deleteModalOpen}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeDeleteModal}
-    aria-label={$_('clusterSettings.organizationDetail.closeDeleteModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('clusterSettings.organizationDetail.deleteModal')}
-    >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizationDetail.deleteConfirmTitle')}</h5>
-      </div>
-
-      <form method="POST" action="?/deleteOrganization" use:enhance={confirmDelete}>
-        <input type="hidden" name="id" value={organization.id} />
-        <div class="space-y-3 px-4 py-4">
-          {#if deleteError}
-            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {deleteError}
-            </div>
-          {/if}
-
-          <p class="text-sm text-slate-600">
-            {$_('clusterSettings.organizationDetail.deleteConfirmStart')}<span class="font-medium text-slate-900"
-              >{organization.name}</span
-            >{$_('clusterSettings.organizationDetail.deleteConfirmEnd')}
-          </p>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
+      <div class="min-w-0">
+        <h1 class="truncate text-2xl font-semibold tracking-tight text-white">
+          {organization.name}
+        </h1>
+        <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
           <button
             type="button"
-            on:click={closeDeleteModal}
-            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
+            class="k-badge font-mono hover:text-white"
+            onclick={copySlug}
+            title={$_('clusterSettings.organizationDetail.copySlug')}
           >
-            {$_('common.cancel')}
+            {#if copied}<Check class="h-3 w-3 text-ok" />{:else}<Copy class="h-3 w-3" />{/if}
+            {organization.slug}
           </button>
-          <button
-            type="submit"
-            disabled={deleteLoading}
-            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Trash2 class="h-4 w-4" />
-            {deleteLoading ? $_('clusterSettings.organizationDetail.deleting') : $_('clusterSettings.organizationDetail.deleteTitle')}
+          <span>Creada el {date(organization.createdAt)}</span>
+        </div>
+      </div>
+    </div>
+    <a href={`/org/${organization.slug}/overview`} class="k-btn k-btn-secondary">
+      <ExternalLink class="h-4 w-4" />Abrir organización
+    </a>
+  </header>
+
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div class="min-w-0 space-y-4 lg:col-span-2">
+      <form method="POST" action="?/updateOrganization" class="k-card" use:enhance={submitSave}>
+        <input type="hidden" name="id" value={organization.id} />
+        <div class="border-b border-white/8 px-6 py-4">
+          <h2 class="font-semibold text-white">
+            {$_('clusterSettings.organizationDetail.information')}
+          </h2>
+        </div>
+        <div class="space-y-5 px-6 py-5">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <Field label={$_('common.name')} required>
+              {#snippet children(control)}
+                <input class="k-input" name="name" bind:value={name} {...control} />
+              {/snippet}
+            </Field>
+            <Field label={$_('common.slug')} help="Cambiarlo cambia las URLs de la organización.">
+              {#snippet children(control)}
+                <input
+                  class="k-input font-mono text-[13px]"
+                  name="slug"
+                  spellcheck="false"
+                  bind:value={slug}
+                  {...control}
+                />
+              {/snippet}
+            </Field>
+          </div>
+          <Field label={$_('common.description')}>
+            {#snippet aside()}Opcional{/snippet}
+            {#snippet children(control)}
+              <textarea
+                class="k-input"
+                name="description"
+                rows="3"
+                placeholder={$_('clusterSettings.organizationDetail.optionalDescription')}
+                bind:value={description}
+                {...control}></textarea>
+            {/snippet}
+          </Field>
+        </div>
+        <div
+          class="flex items-center justify-end gap-3 rounded-b-2xl border-t border-white/8 bg-ink-900/60 px-6 py-4"
+        >
+          {#if dirty}<span class="text-xs text-fg-subtle">Cambios sin guardar</span>{/if}
+          <button type="submit" class="k-btn k-btn-primary" disabled={saving || !dirty}>
+            <Save class="h-4 w-4" />{saving
+              ? $_('common.saving')
+              : $_('clusterSettings.organizationDetail.saveChanges')}
           </button>
         </div>
       </form>
+
+      <section class="k-card overflow-hidden" aria-labelledby="org-projects">
+        <div class="flex items-center justify-between border-b border-white/8 px-6 py-4">
+          <h2 id="org-projects" class="font-semibold text-white">
+            Proyectos <span class="font-normal text-fg-subtle">{data.projects.length}</span>
+          </h2>
+        </div>
+        {#if data.projects.length === 0}
+          <p class="px-6 py-8 text-sm text-fg-subtle">Esta organización no tiene proyectos.</p>
+        {:else}
+          <ul class="divide-y divide-white/6">
+            {#each data.projects as project (project.id)}
+              <li>
+                <a
+                  href={`/org/${organization.slug}/projects/${project.slug}/overview`}
+                  class="group flex flex-wrap items-center gap-3 px-6 py-3 transition-colors hover:bg-white/2.5"
+                >
+                  <FolderGit2 class="h-4 w-4 shrink-0 text-fg-subtle" />
+                  <span class="min-w-0 flex-1">
+                    <span
+                      class="block truncate text-sm font-medium text-white group-hover:text-brand-300"
+                      >{project.name}</span
+                    >
+                    <span class="block truncate font-mono text-xs text-fg-subtle"
+                      >{project.slug}</span
+                    >
+                  </span>
+                  <span class="flex flex-wrap gap-1">
+                    {#each moduleLabels as [key, label] (key)}
+                      {#if project.modules?.[key]}<span class="k-badge">{label}</span>{/if}
+                    {/each}
+                  </span>
+                  {#if project.status !== 'active'}
+                    <span class="k-badge">{$_('common.inactive')}</span>
+                  {/if}
+                  <ArrowRight
+                    class="h-4 w-4 text-fg-subtle transition group-hover:translate-x-0.5 group-hover:text-brand-400"
+                  />
+                </a>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
     </div>
+
+    <aside class="min-w-0 space-y-4">
+      <section class="k-card divide-y divide-white/6" aria-label="Resumen">
+        <div class="flex items-center gap-3 px-5 py-4">
+          <FolderGit2 class="h-4 w-4 text-brand-400" />
+          <span class="flex-1 text-sm text-fg-muted">Proyectos</span>
+          <span class="font-semibold tabular-nums text-white">{data.projects.length}</span>
+        </div>
+        <a
+          href={`/org/${organization.slug}/settings/access-control`}
+          class="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-white/2.5"
+        >
+          <Users class="h-4 w-4 text-brand-400" />
+          <span class="flex-1 text-sm text-fg-muted">Miembros</span>
+          <span class="font-semibold tabular-nums text-white">{data.memberCount}</span>
+          <ArrowRight class="h-3.5 w-3.5 text-fg-subtle" />
+        </a>
+        <div class="space-y-1 px-5 py-4 text-xs text-fg-subtle">
+          <p>Creada el {date(organization.createdAt)}</p>
+          <p>Actualizada el {date(organization.updatedAt)}</p>
+        </div>
+      </section>
+
+      <section class="k-card border-red-500/30" aria-labelledby="danger-zone">
+        <div class="px-5 py-4">
+          <h2 id="danger-zone" class="text-sm font-semibold text-red-300">
+            {$_('clusterSettings.organizationDetail.dangerZone')}
+          </h2>
+          <p class="mt-1 text-xs text-fg-subtle">
+            {$_('clusterSettings.organizationDetail.deleteDescription')}
+          </p>
+          <button
+            type="button"
+            class="k-btn k-btn-danger k-btn-sm mt-3"
+            onclick={() => {
+              confirmText = '';
+              deleteOpen = true;
+            }}
+          >
+            <Trash2 class="h-3.5 w-3.5" />{$_('clusterSettings.organizationDetail.deleteTitle')}
+          </button>
+        </div>
+      </section>
+    </aside>
   </div>
-{/if}
+</div>
+
+<Modal
+  bind:open={deleteOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!deleting}
+  title="¿Borrar la organización?"
+  description="Se borra la organización, pero sus proyectos, roles y accesos se quedan en GitDB sin organización. Quedará un commit, pero no se puede deshacer desde la interfaz."
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  <form id="form-borrar-org" method="POST" action="?/deleteOrganization" use:enhance={submitDelete}>
+    <input type="hidden" name="id" value={organization.id} />
+    <Field label="Escribe {organization.slug} para confirmar">
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          autocomplete="off"
+          spellcheck="false"
+          data-autofocus
+          bind:value={confirmText}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button
+      type="submit"
+      form="form-borrar-org"
+      class="k-btn k-btn-danger"
+      disabled={deleting || confirmText !== organization.slug}
+    >
+      {deleting
+        ? $_('clusterSettings.organizationDetail.deleting')
+        : $_('clusterSettings.organizationDetail.deleteTitle')}
+    </button>
+  {/snippet}
+</Modal>

@@ -1,8 +1,18 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
-  import { Building2, CheckCircle, Eye, Plus, Search, Trash2 } from '@lucide/svelte';
-  import { _ } from '#lib/i18n';
+  import {
+    ArrowRight,
+    Building2,
+    FolderGit2,
+    Plus,
+    Search,
+    Trash2,
+    Users,
+    X,
+  } from '@lucide/svelte';
+  import { Field, Modal, toast } from '#lib/components/ui';
+  import { _, locale } from '#lib/i18n';
 
   type OrganizationRow = {
     id: string;
@@ -10,127 +20,112 @@
     slug: string;
     description?: string | null;
     createdAt: string;
-    updatedAt: string;
+    projectCount: number | null;
+    memberCount: number | null;
   };
 
-  export let data: { organizations: OrganizationRow[] };
+  let { data }: { data: { organizations: OrganizationRow[] } } = $props();
 
-  $: organizations = data.organizations;
-
-  let error = '';
-  let success = '';
-
-  let searchQuery = '';
-
-  let createModalOpen = false;
-  let creating = false;
-  let createError = '';
-  let newName = '';
-  let newSlug = '';
-  let newDescription = '';
-
-  let deleteModalOrganization: OrganizationRow | null = null;
-  let deleteLoading = false;
-  let deleteError = '';
-
-  function flashSuccess(message: string) {
-    success = message;
-    setTimeout(() => {
-      success = '';
-    }, 2500);
-  }
-
-  $: filteredOrganizations = organizations.filter((organization) => {
-    const query = searchQuery.trim().toLowerCase();
-    return (
-      !query ||
-      organization.name.toLowerCase().includes(query) ||
-      organization.slug.toLowerCase().includes(query) ||
-      (organization.description ?? '').toLowerCase().includes(query)
+  let query = $state('');
+  const filtered = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    return data.organizations.filter(
+      (organization) =>
+        !q ||
+        organization.name.toLowerCase().includes(q) ||
+        organization.slug.toLowerCase().includes(q) ||
+        (organization.description ?? '').toLowerCase().includes(q),
     );
   });
 
-  function openCreateModal() {
-    createError = '';
-    newName = '';
-    newSlug = '';
-    newDescription = '';
-    createModalOpen = true;
+  const totals = $derived({
+    projects: data.organizations.reduce((sum, org) => sum + (org.projectCount ?? 0), 0),
+    members: data.organizations.reduce((sum, org) => sum + (org.memberCount ?? 0), 0),
+  });
+
+  function date(value: string) {
+    if (!value) return '—';
+    return new Intl.DateTimeFormat($locale ?? 'es', { dateStyle: 'medium' }).format(
+      new Date(value),
+    );
   }
 
-  function closeCreateModal() {
-    createModalOpen = false;
+  function slugify(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
-  const createOrganization: SubmitFunction = ({ cancel }) => {
-    createError = '';
+  // ---------- crear ----------
 
-    if (!newName.trim()) {
-      createError = $_('clusterSettings.organizations.nameRequired');
-      cancel();
-      return;
-    }
+  let createOpen = $state(false);
+  let creating = $state(false);
+  let name = $state('');
+  let slug = $state('');
+  let description = $state('');
 
+  function openCreate() {
+    name = '';
+    slug = '';
+    description = '';
+    createOpen = true;
+  }
+
+  const submitCreate: SubmitFunction = () => {
     creating = true;
+    const created = name.trim();
     return async ({ result, update }) => {
-      await update();
       creating = false;
-
       if (result.type === 'success') {
-        closeCreateModal();
-        flashSuccess($_('clusterSettings.organizations.created'));
-        return;
+        createOpen = false;
+        toast.success($_('clusterSettings.organizations.created'), created);
+        await update();
+      } else if (result.type === 'failure') {
+        toast.error(
+          $_('clusterSettings.organizations.createFailed'),
+          result.data?.error ? String(result.data.error) : undefined,
+        );
+      } else {
+        await update();
       }
-
-      createError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : $_('clusterSettings.organizations.createFailed');
     };
   };
 
-  function openDeleteModal(organization: OrganizationRow) {
-    deleteModalOrganization = organization;
-    deleteError = '';
+  // ---------- borrar ----------
+
+  let target = $state<OrganizationRow | null>(null);
+  let deleteOpen = $state(false);
+  let deleting = $state(false);
+  let confirmText = $state('');
+
+  function openDelete(organization: OrganizationRow) {
+    target = organization;
+    confirmText = '';
+    deleteOpen = true;
   }
 
-  function closeDeleteModal() {
-    deleteModalOrganization = null;
-  }
-
-  const confirmDelete: SubmitFunction = ({ cancel }) => {
-    if (!deleteModalOrganization) {
-      cancel();
-      return;
-    }
-
-    deleteError = '';
-    deleteLoading = true;
+  const submitDelete: SubmitFunction = () => {
+    deleting = true;
+    const deleted = target?.name;
     return async ({ result, update }) => {
-      await update();
-      deleteLoading = false;
-
+      deleting = false;
       if (result.type === 'success') {
-        closeDeleteModal();
-        flashSuccess($_('clusterSettings.organizations.deleteSuccess'));
-        return;
+        deleteOpen = false;
+        toast.success($_('clusterSettings.organizations.deleteSuccess'), deleted);
+        await update();
+      } else if (result.type === 'failure') {
+        toast.error(
+          $_('clusterSettings.organizations.deleteFailed'),
+          result.data?.error ? String(result.data.error) : undefined,
+        );
+      } else {
+        await update();
       }
-
-      deleteError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : $_('clusterSettings.organizations.deleteFailed');
     };
   };
-
-  function formatDate(value: string) {
-    if (!value) return '-';
-    try {
-      return new Date(value).toLocaleDateString();
-    } catch {
-      return value;
-    }
-  }
 </script>
 
 <svelte:head>
@@ -138,101 +133,143 @@
 </svelte:head>
 
 <div class="space-y-6">
-  <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-    <div>
-      <h3 class="text-xl font-semibold text-slate-900">{$_('clusterSettings.organizations.title')}</h3>
-      <p class="mt-2 text-sm text-slate-600">{$_('clusterSettings.organizations.description')}</p>
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="max-w-2xl">
+      <h1 class="text-2xl font-semibold tracking-tight text-white">
+        {$_('clusterSettings.organizations.title')}
+      </h1>
+      <p class="mt-1 text-sm text-fg-muted">{$_('clusterSettings.organizations.description')}</p>
     </div>
+    <button type="button" class="k-btn k-btn-primary" onclick={openCreate}>
+      <Plus class="h-4 w-4" />{$_('clusterSettings.organizations.new')}
+    </button>
+  </header>
 
-    <button
-      type="button"
-      on:click={openCreateModal}
-      class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-    >
-      <Plus class="h-4 w-4" />{$_('clusterSettings.organizations.new')}</button>
+  <section class="grid gap-4 sm:grid-cols-3" aria-label="Resumen">
+    <div class="k-card p-5">
+      <p class="flex items-center gap-2 text-sm text-fg-muted">
+        <Building2 class="h-4 w-4 text-brand-400" />Organizaciones
+      </p>
+      <p class="mt-2 text-3xl font-semibold tabular-nums text-white">
+        {data.organizations.length}
+      </p>
+    </div>
+    <div class="k-card p-5">
+      <p class="flex items-center gap-2 text-sm text-fg-muted">
+        <FolderGit2 class="h-4 w-4 text-brand-400" />Proyectos
+      </p>
+      <p class="mt-2 text-3xl font-semibold tabular-nums text-white">{totals.projects}</p>
+    </div>
+    <div class="k-card p-5">
+      <p class="flex items-center gap-2 text-sm text-fg-muted">
+        <Users class="h-4 w-4 text-brand-400" />Accesos a organizaciones
+      </p>
+      <p class="mt-2 text-3xl font-semibold tabular-nums text-white">{totals.members}</p>
+      <p class="mt-1 text-xs text-fg-subtle">Una persona en dos organizaciones cuenta dos veces</p>
+    </div>
   </section>
 
-  <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div class="relative flex-1">
-      <Search
-        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-      />
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder={$_('clusterSettings.organizations.searchPlaceholder')}
-        class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
-      />
+  <div class="k-card overflow-hidden">
+    <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
+      <label class="relative w-full sm:w-80">
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+        />
+        <input
+          type="search"
+          class="k-input h-9 pl-9"
+          placeholder={$_('clusterSettings.organizations.searchPlaceholder')}
+          aria-label={$_('clusterSettings.organizations.searchPlaceholder')}
+          bind:value={query}
+        />
+      </label>
+      {#if query}
+        <button type="button" class="k-btn k-btn-ghost k-btn-sm" onclick={() => (query = '')}>
+          <X class="h-3.5 w-3.5" />Limpiar
+        </button>
+      {/if}
+      <span class="ml-auto text-xs tabular-nums text-fg-subtle">
+        {filtered.length} de {data.organizations.length}
+      </span>
     </div>
-  </section>
 
-  {#if error}
-    <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {error}
-    </div>
-  {/if}
-
-  {#if success}
-    <div
-      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
-    >
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {success}</span>
-    </div>
-  {/if}
-
-  {#if filteredOrganizations.length === 0}
-    <div
-      class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
-    >
-      {organizations.length === 0
-        ? $_('clusterSettings.organizations.empty')
-        : $_('clusterSettings.organizations.emptySearch')}
-    </div>
-  {:else}
-    <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
+    {#if filtered.length === 0}
+      <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
+        <span class="grid h-12 w-12 place-items-center rounded-full bg-white/4 text-2xl">🦊</span>
+        <p class="text-sm text-fg-muted">
+          {data.organizations.length === 0
+            ? $_('clusterSettings.organizations.empty')
+            : $_('clusterSettings.organizations.emptySearch')}
+        </p>
+        {#if data.organizations.length === 0}
+          <button type="button" class="k-btn k-btn-secondary k-btn-sm" onclick={openCreate}>
+            <Plus class="h-3.5 w-3.5" />{$_('clusterSettings.organizations.new')}
+          </button>
+        {/if}
+      </div>
+    {:else}
       <div class="overflow-x-auto">
-        <table class="w-full min-w-160 text-sm">
-          <thead>
-            <tr
-              class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-            >
-              <th class="px-4 py-3">{$_('common.name')}</th>
-              <th class="px-4 py-3">{$_('common.slug')}</th>
-              <th class="px-4 py-3">{$_('clusterSettings.organizations.createdColumn')}</th>
-              <th class="px-4 py-3 text-right">{$_('common.actions')}</th>
+        <table class="w-full min-w-176 text-left text-sm">
+          <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+            <tr class="border-b border-white/8">
+              <th class="px-5 py-3 font-semibold">{$_('common.name')}</th>
+              <th class="px-3 py-3 text-right font-semibold">Proyectos</th>
+              <th class="px-3 py-3 text-right font-semibold">Miembros</th>
+              <th class="px-3 py-3 font-semibold">
+                {$_('clusterSettings.organizations.createdColumn')}
+              </th>
+              <th class="px-5 py-3"><span class="sr-only">{$_('common.actions')}</span></th>
             </tr>
           </thead>
-          <tbody>
-            {#each filteredOrganizations as organization (organization.id)}
-              <tr class="border-t border-slate-100">
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <Building2 class="h-4 w-4 shrink-0 text-slate-400" />
-                    <div class="min-w-0">
-                      <p class="truncate font-medium text-slate-900">{organization.name}</p>
-                      {#if organization.description}
-                        <p class="truncate text-xs text-slate-500">{organization.description}</p>
-                      {/if}
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-slate-600">{organization.slug}</td>
-                <td class="px-4 py-3 text-slate-600">{formatDate(organization.createdAt)}</td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-end gap-2">
-                    <a
-                      href={`/gitops-settings/orgs/${organization.slug}`}
-                      class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                      title={$_('clusterSettings.organizations.viewOrganization')}
+          <tbody class="divide-y divide-white/5">
+            {#each filtered as organization (organization.id)}
+              <tr class="group transition-colors hover:bg-white/2.5">
+                <td class="px-5 py-3">
+                  <a
+                    href={`/gitops-settings/orgs/${organization.slug}`}
+                    class="flex min-w-0 items-center gap-3"
+                  >
+                    <span
+                      class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-brand-500/30 bg-brand-500/10 text-sm font-semibold text-brand-300"
+                      >{organization.name.slice(0, 1).toUpperCase()}</span
                     >
-                      <Eye class="h-3.5 w-3.5" />{$_('common.view')}</a>
+                    <span class="min-w-0">
+                      <span class="block truncate font-medium text-white group-hover:text-brand-300"
+                        >{organization.name}</span
+                      >
+                      <span class="block truncate font-mono text-xs text-fg-subtle"
+                        >{organization.slug}</span
+                      >
+                    </span>
+                  </a>
+                </td>
+                <td class="px-3 py-3 text-right tabular-nums text-fg">
+                  {organization.projectCount ?? '—'}
+                </td>
+                <td class="px-3 py-3 text-right tabular-nums text-fg">
+                  {organization.memberCount ?? '—'}
+                </td>
+                <td class="whitespace-nowrap px-3 py-3 text-xs text-fg-muted">
+                  {date(organization.createdAt)}
+                </td>
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end gap-1">
                     <button
                       type="button"
-                      on:click={() => openDeleteModal(organization)}
-                      class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                      class="k-btn k-btn-ghost k-btn-icon k-btn-sm hover:text-red-400"
+                      aria-label="{$_('common.delete')} {organization.name}"
                       title={$_('common.delete')}
+                      onclick={() => openDelete(organization)}
                     >
-                      <Trash2 class="h-3.5 w-3.5" />{$_('common.delete')}</button>
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </button>
+                    <a
+                      href={`/gitops-settings/orgs/${organization.slug}`}
+                      class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                      aria-label="{$_('common.view')} {organization.name}"
+                    >
+                      <ArrowRight class="h-4 w-4" />
+                    </a>
                   </div>
                 </td>
               </tr>
@@ -240,151 +277,120 @@
           </tbody>
         </table>
       </div>
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
 
-{#if createModalOpen}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeCreateModal}
-    aria-label={$_('clusterSettings.organizations.closeCreateModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('clusterSettings.organizations.createModal')}
+<Modal
+  bind:open={createOpen}
+  title={$_('clusterSettings.organizations.createModalTitle')}
+  description="Se crean también sus roles por defecto. Después, invita a su administrador."
+  dismissible={!creating}
+>
+  <form
+    id="form-nueva-org"
+    method="POST"
+    action="?/createOrganization"
+    class="space-y-5"
+    use:enhance={submitCreate}
+  >
+    <Field label={$_('common.name')} required>
+      {#snippet children(control)}
+        <input
+          class="k-input"
+          name="name"
+          placeholder="Kettu Studio"
+          autocomplete="off"
+          data-autofocus
+          bind:value={name}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    <Field label={$_('common.slug')} help="Se usa en las URLs: /org/<slug>">
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          name="slug"
+          placeholder={slugify(name) || $_('clusterSettings.organizations.slugPlaceholder')}
+          autocomplete="off"
+          spellcheck="false"
+          bind:value={slug}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    <Field label={$_('common.description')}>
+      {#snippet aside()}Opcional{/snippet}
+      {#snippet children(control)}
+        <textarea
+          class="k-input"
+          name="description"
+          rows="3"
+          placeholder={$_('clusterSettings.organizations.descriptionPlaceholder')}
+          bind:value={description}
+          {...control}></textarea>
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (createOpen = false)}
+      >{$_('common.cancel')}</button
     >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">{$_('clusterSettings.organizations.createModalTitle')}</h5>
-      </div>
-
-      <form method="POST" action="?/createOrganization" use:enhance={createOrganization}>
-        <div class="space-y-4 px-4 py-4">
-          {#if createError}
-            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {createError}
-            </div>
-          {/if}
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-name">{$_('common.name')}</label>
-            <input
-              id="new-org-name"
-              name="name"
-              type="text"
-              bind:value={newName}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder="GitOps"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-slug">{$_('common.slug')}</label>
-            <input
-              id="new-org-slug"
-              name="slug"
-              type="text"
-              bind:value={newSlug}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder={$_('clusterSettings.organizations.slugPlaceholder')}
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-org-description">{$_('common.description')}</label>
-            <textarea
-              id="new-org-description"
-              name="description"
-              bind:value={newDescription}
-              rows="3"
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder={$_('clusterSettings.organizations.descriptionPlaceholder')}
-            ></textarea>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <button
-            type="button"
-            on:click={closeCreateModal}
-            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-          >
-            {$_('common.cancel')}
-          </button>
-          <button
-            type="submit"
-            disabled={creating}
-            class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Plus class="h-4 w-4" />
-            {creating ? $_('common.creating') : $_('clusterSettings.organizations.new')}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
-
-{#if deleteModalOrganization}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeDeleteModal}
-    aria-label={$_('clusterSettings.organizationDetail.closeDeleteModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('clusterSettings.organizationDetail.deleteModal')}
+    <button
+      type="submit"
+      form="form-nueva-org"
+      class="k-btn k-btn-primary"
+      disabled={creating || !name.trim()}
     >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">
-          {$_('clusterSettings.organizationDetail.deleteConfirmTitle')}
-        </h5>
-      </div>
+      <Plus class="h-4 w-4" />{creating
+        ? $_('common.creating')
+        : $_('clusterSettings.organizations.new')}
+    </button>
+  {/snippet}
+</Modal>
 
-      <form method="POST" action="?/deleteOrganization" use:enhance={confirmDelete}>
-        <input type="hidden" name="id" value={deleteModalOrganization.id} />
-        <div class="space-y-3 px-4 py-4">
-          {#if deleteError}
-            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {deleteError}
-            </div>
-          {/if}
-
-          <p class="text-sm text-slate-600">
-            {$_('clusterSettings.organizationDetail.deleteConfirmStart')}<span
-              class="font-medium text-slate-900">{deleteModalOrganization.name}</span
-            >{$_('clusterSettings.organizationDetail.deleteConfirmEnd')}
-          </p>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <button
-            type="button"
-            on:click={closeDeleteModal}
-            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-          >
-            {$_('common.cancel')}
-          </button>
-          <button
-            type="submit"
-            disabled={deleteLoading}
-            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Trash2 class="h-4 w-4" />
-            {deleteLoading
-              ? $_('clusterSettings.organizationDetail.deleting')
-              : $_('clusterSettings.organizationDetail.deleteTitle')}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
+<Modal
+  bind:open={deleteOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!deleting}
+  title="¿Borrar la organización?"
+  description="Se borra la organización, pero sus proyectos, roles y accesos se quedan en GitDB sin organización. Quedará un commit, pero no se puede deshacer desde la interfaz."
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  <form id="form-borrar-org" method="POST" action="?/deleteOrganization" use:enhance={submitDelete}>
+    <input type="hidden" name="id" value={target?.id ?? ''} />
+    <Field label="Escribe {target?.slug ?? ''} para confirmar">
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          autocomplete="off"
+          spellcheck="false"
+          data-autofocus
+          bind:value={confirmText}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button
+      type="submit"
+      form="form-borrar-org"
+      class="k-btn k-btn-danger"
+      disabled={deleting || confirmText !== target?.slug}
+    >
+      {deleting
+        ? $_('clusterSettings.organizationDetail.deleting')
+        : $_('clusterSettings.organizationDetail.deleteTitle')}
+    </button>
+  {/snippet}
+</Modal>

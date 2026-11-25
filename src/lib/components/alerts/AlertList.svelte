@@ -1,8 +1,21 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { BellRing, MailWarning, Pencil, Plus, Trash2 } from '@lucide/svelte';
+  import {
+    BellRing,
+    Hash,
+    LoaderCircle,
+    Mail,
+    MailWarning,
+    MessageSquare,
+    Pencil,
+    Plus,
+    Trash2,
+    Webhook,
+  } from '@lucide/svelte';
+  import AlertWizard from './AlertWizard.svelte';
+  import { Modal, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
-  import { summarizeConditions, summarizeRecipients } from '#lib/alerts/summary';
+  import { channelTargets, summarizeConditions } from '#lib/alerts/summary';
   import type { AlertListData, AlertRow } from '#lib/alerts/types';
 
   type Props = { data: AlertListData; error?: string };
@@ -35,13 +48,29 @@
   }
 
   const examples = ['alerts.list.example1', 'alerts.list.example2', 'alerts.list.example3'];
+
+  const channelIcons = { mail: Mail, slack: Hash, google_chat: MessageSquare, webhook: Webhook };
+
+  // el asistente: "Crear alerta" y "Editar" lo abren; sus enlaces siguen funcionando sin JS
+  let wizardOpen = $state(false);
+  let wizardAlert = $state<AlertRow | null>(null);
+  function openWizard(event: MouseEvent, alert: AlertRow | null) {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    wizardAlert = alert;
+    wizardOpen = true;
+  }
+
+  let deleteTarget = $state<AlertRow | null>(null);
+  let deleteOpen = $state(false);
+  let deleting = $state(false);
 </script>
 
 <div class="space-y-6">
-  <section class="flex flex-wrap items-start justify-between gap-4">
+  <header class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h3 class="text-xl font-semibold text-slate-900">{$_('alerts.list.title')}</h3>
-      <p class="mt-2 text-sm text-slate-600">
+      <h1 class="text-2xl font-semibold tracking-tight text-white">{$_('alerts.list.title')}</h1>
+      <p class="mt-1 text-sm text-fg-muted">
         {data.scope === 'project'
           ? $_('alerts.list.descriptionProject')
           : $_('alerts.list.descriptionOrganization')}
@@ -50,28 +79,28 @@
     {#if data.canCreate && data.alerts.length > 0}
       <a
         href="{data.basePath}/new"
-        class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+        class="k-btn k-btn-primary"
+        onclick={(event) => openWizard(event, null)}
       >
-        <Plus class="h-4 w-4" />
-        {$_('alerts.list.create')}
+        <Plus class="h-4 w-4" />{$_('alerts.list.create')}
       </a>
     {/if}
-  </section>
+  </header>
 
   {#if !data.mailConfigured}
     <p
-      class="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+      class="flex items-start gap-2 rounded-xl border border-warn/30 bg-warn/8 px-4 py-3 text-sm text-amber-100"
       role="status"
       data-testid="mail-disabled"
     >
-      <MailWarning class="mt-0.5 h-4 w-4 shrink-0" />
+      <MailWarning class="mt-0.5 h-4 w-4 shrink-0 text-warn" />
       {$_('alerts.mailDisabled')}
     </p>
   {/if}
 
   {#if error}
     <p
-      class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+      class="rounded-xl border border-danger/30 bg-danger/8 px-4 py-3 text-sm text-red-200"
       role="alert"
     >
       {error}
@@ -79,12 +108,12 @@
   {/if}
 
   {#if data.alerts.length === 0}
-    <div
-      class="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center"
-    >
-      <BellRing class="h-6 w-6 text-slate-400" />
-      <p class="text-sm font-medium text-slate-900">{$_('alerts.list.emptyTitle')}</p>
-      <ul class="space-y-1 text-xs text-slate-500">
+    <div class="k-card flex flex-col items-center gap-3 border-dashed p-10 text-center">
+      <span class="grid h-12 w-12 place-items-center rounded-xl bg-brand-500/10 text-brand-400">
+        <BellRing class="h-6 w-6" />
+      </span>
+      <p class="text-sm font-medium text-white">{$_('alerts.list.emptyTitle')}</p>
+      <ul class="space-y-1 text-xs text-fg-subtle">
         {#each examples as example (example)}
           <li>“{$_(example)}”</li>
         {/each}
@@ -92,10 +121,10 @@
       {#if data.canCreate}
         <a
           href="{data.basePath}/new"
-          class="mt-2 inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          class="k-btn k-btn-primary mt-2"
+          onclick={(event) => openWizard(event, null)}
         >
-          <Plus class="h-4 w-4" />
-          {$_('alerts.list.create')}
+          <Plus class="h-4 w-4" />{$_('alerts.list.create')}
         </a>
       {/if}
     </div>
@@ -106,8 +135,8 @@
   {#if data.scope === 'project' && data.inherited.length > 0}
     <section class="space-y-3">
       <div>
-        <h4 class="text-base font-semibold text-slate-900">{$_('alerts.list.inheritedTitle')}</h4>
-        <p class="text-xs text-slate-500">{$_('alerts.list.inheritedDescription')}</p>
+        <h2 class="text-sm font-semibold text-white">{$_('alerts.list.inheritedTitle')}</h2>
+        <p class="mt-0.5 text-xs text-fg-subtle">{$_('alerts.list.inheritedDescription')}</p>
       </div>
       {@render table(data.inherited, true)}
     </section>
@@ -115,53 +144,68 @@
 </div>
 
 {#snippet table(alerts: AlertRow[], readonly: boolean)}
-  <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+  <div class="k-card overflow-x-auto">
     <table
-      class="min-w-full divide-y divide-slate-100 text-sm"
+      class="w-full min-w-176 text-left text-sm"
       data-testid={readonly ? 'inherited-alerts' : 'alerts'}
     >
-      <thead
-        class="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-      >
-        <tr>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.name')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.event')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.conditions')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.recipients')}</th>
-          <th scope="col" class="px-4 py-3">{$_('alerts.list.status')}</th>
+      <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+        <tr class="border-b border-white/8">
+          <th scope="col" class="px-5 py-3 font-semibold">{$_('alerts.list.name')}</th>
+          <th scope="col" class="px-3 py-3 font-semibold">{$_('alerts.list.event')}</th>
+          <th scope="col" class="px-3 py-3 font-semibold">{$_('alerts.list.conditions')}</th>
+          <th scope="col" class="px-3 py-3 font-semibold">{$_('alerts.list.channelsColumn')}</th>
+          <th scope="col" class="px-3 py-3 font-semibold">{$_('alerts.list.status')}</th>
           {#if !readonly && (data.canUpdate || data.canDelete)}
-            <th scope="col" class="px-4 py-3"
+            <th scope="col" class="px-5 py-3"
               ><span class="sr-only">{$_('alerts.list.actions')}</span></th
             >
           {/if}
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-100">
+      <tbody class="divide-y divide-white/5">
         {#each alerts as alert (alert.id)}
-          <tr data-testid="alert-row">
-            <td class="px-4 py-3 font-medium text-slate-900">
+          <tr data-testid="alert-row" class="align-top transition-colors hover:bg-white/2.5">
+            <td class="px-5 py-3">
               {#if !readonly && data.canUpdate}
-                <a class="hover:underline" href="{data.basePath}/{alert.id}">{alert.name}</a>
+                <a
+                  class="font-medium text-white hover:text-brand-300"
+                  href="{data.basePath}/{alert.id}"
+                  onclick={(event) => openWizard(event, alert)}>{alert.name}</a
+                >
               {:else}
-                {alert.name}
+                <span class="font-medium text-white">{alert.name}</span>
               {/if}
               {#if alert.throttleMinutes > 0}
-                <p class="text-xs font-normal text-slate-500">
+                <p class="mt-0.5 text-xs text-fg-subtle">
                   {$_('alerts.list.throttle', { values: { minutes: alert.throttleMinutes } })}
                 </p>
               {/if}
             </td>
-            <td class="px-4 py-3">
-              <p class="text-slate-900">{eventLabel(alert)}</p>
-              <p class="text-xs text-slate-500">{moduleLabel(alert)}</p>
+            <td class="px-3 py-3">
+              <p class="text-fg">{eventLabel(alert)}</p>
+              <p class="mt-0.5 text-xs text-fg-subtle">{moduleLabel(alert)}</p>
             </td>
-            <td class="max-w-sm px-4 py-3 text-slate-700" data-testid="alert-summary"
-              >{conditionsOf(alert)}</td
+            <td
+              class="max-w-sm px-3 py-3 text-xs leading-5 text-fg-muted"
+              data-testid="alert-summary">{conditionsOf(alert)}</td
             >
-            <td class="px-4 py-3 text-slate-700">
-              {summarizeRecipients(alert.recipients, data.users, data.roles, t)}
+            <td class="px-3 py-3 text-xs text-fg-muted">
+              <ul class="space-y-1">
+                {#each alert.channels as channel (channel)}
+                  {@const Icon = channelIcons[channel]}
+                  <li class="flex items-start gap-1.5">
+                    <Icon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+                    <span
+                      >{channelTargets(channel, alert.recipients, data.users, data.roles).join(
+                        ', ',
+                      ) || $_('alerts.summary.noRecipients')}</span
+                    >
+                  </li>
+                {/each}
+              </ul>
             </td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-3">
               {#if !readonly && data.canUpdate}
                 <form method="POST" action="?/toggle" use:enhance>
                   <input type="hidden" name="alertId" value={alert.id} />
@@ -171,16 +215,16 @@
                     role="switch"
                     aria-checked={alert.enabled}
                     aria-label={$_('alerts.list.toggle', { values: { name: alert.name } })}
-                    class="inline-flex items-center gap-2 text-xs font-medium"
+                    class="inline-flex items-center gap-2 text-xs font-medium text-fg-muted"
                   >
                     <span
-                      class="relative inline-flex h-5 w-9 rounded-full transition {alert.enabled
-                        ? 'bg-emerald-500'
-                        : 'bg-slate-300'}"
+                      class="relative inline-flex h-5 w-9 shrink-0 rounded-full border transition-colors {alert.enabled
+                        ? 'border-brand-500 bg-brand-500'
+                        : 'border-white/10 bg-ink-600'}"
                     >
                       <span
-                        class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition {alert.enabled
-                          ? 'left-4'
+                        class="absolute top-0.5 h-3.5 w-3.5 rounded-full bg-snow shadow transition-all {alert.enabled
+                          ? 'left-4.5'
                           : 'left-0.5'}"
                       ></span>
                     </span>
@@ -188,42 +232,52 @@
                   </button>
                 </form>
               {:else}
-                <span
-                  class="text-xs font-medium {alert.enabled
-                    ? 'text-emerald-700'
-                    : 'text-slate-500'}"
-                >
+                <span class="k-badge h-6 px-2 text-[11px] {alert.enabled ? 'k-badge-ok' : ''}">
                   {alert.enabled ? $_('alerts.list.enabled') : $_('alerts.list.disabled')}
                 </span>
               {/if}
             </td>
             {#if !readonly && (data.canUpdate || data.canDelete)}
-              <td class="px-4 py-3">
-                <div class="flex justify-end gap-2">
+              <td class="px-5 py-3">
+                <div class="flex justify-end gap-1">
                   {#if data.canUpdate}
                     <a
                       href="{data.basePath}/{alert.id}"
-                      class="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-300"
+                      class="k-btn k-btn-ghost k-btn-sm"
+                      onclick={(event) => openWizard(event, alert)}
                     >
-                      <Pencil class="h-3.5 w-3.5" />
-                      {$_('alerts.list.edit')}
+                      <Pencil class="h-3.5 w-3.5" />{$_('alerts.list.edit')}
                     </a>
                   {/if}
                   {#if data.canDelete}
                     <form
+                      id="delete-alert-{alert.id}"
                       method="POST"
                       action="?/delete"
-                      use:enhance={({ cancel }) => {
-                        if (!confirm($_('alerts.list.confirmDelete'))) cancel();
+                      use:enhance={() => {
+                        deleting = true;
+                        return async ({ result, update }) => {
+                          deleting = false;
+                          deleteOpen = false;
+                          if (result.type === 'success' || result.type === 'redirect') {
+                            toast.success($_('alerts.list.deleted'), alert.name);
+                          }
+                          await update();
+                        };
                       }}
                     >
                       <input type="hidden" name="alertId" value={alert.id} />
+                      <!-- sin JavaScript borra directamente; con JavaScript pide confirmación -->
                       <button
                         type="submit"
-                        class="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                        class="k-btn k-btn-ghost k-btn-sm hover:text-red-400"
+                        onclick={(event) => {
+                          event.preventDefault();
+                          deleteTarget = alert;
+                          deleteOpen = true;
+                        }}
                       >
-                        <Trash2 class="h-3.5 w-3.5" />
-                        {$_('alerts.list.delete')}
+                        <Trash2 class="h-3.5 w-3.5" />{$_('alerts.list.delete')}
                       </button>
                     </form>
                   {/if}
@@ -236,3 +290,38 @@
     </table>
   </div>
 {/snippet}
+
+<Modal
+  bind:open={deleteOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!deleting}
+  title={$_('alerts.list.deleteTitle')}
+  description={$_('alerts.list.confirmDelete')}
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  {#if deleteTarget}<p class="text-sm font-medium text-white">{deleteTarget.name}</p>{/if}
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button
+      form="delete-alert-{deleteTarget?.id}"
+      formnovalidate
+      class="k-btn k-btn-danger"
+      disabled={deleting}
+      data-autofocus
+    >
+      {#if deleting}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
+      {$_('alerts.list.delete')}
+    </button>
+  {/snippet}
+</Modal>
+
+{#if data.canCreate || data.canUpdate}
+  <AlertWizard bind:open={wizardOpen} alert={wizardAlert} {data} />
+{/if}

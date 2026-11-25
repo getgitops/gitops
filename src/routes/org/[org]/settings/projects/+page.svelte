@@ -1,15 +1,25 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
-  import { CheckCircle, Eye, FolderKanban, Plus, Search, Trash2 } from '@lucide/svelte';
-  import { _ } from '#lib/i18n';
+  import {
+    Activity,
+    ArrowUpRight,
+    BarChart3,
+    FolderKanban,
+    FolderPlus,
+    LoaderCircle,
+    MoreHorizontal,
+    Plus,
+    Search,
+    Settings,
+    Shield,
+    Trash2,
+    X,
+  } from '@lucide/svelte';
+  import { DropdownMenu, Field, MenuItem, Modal, Select, Tabs, toast } from '#lib/components/ui';
+  import { _, locale } from '#lib/i18n';
 
-  export let data: {
-    organization: { id: string; slug: string } | null;
-    projects: ProjectRow[];
-    canCreate: boolean;
-    canDelete: boolean;
-  };
+  type ProjectModules = { vault?: boolean; codereport?: boolean; monitoring?: boolean };
 
   type ProjectRow = {
     id: string;
@@ -17,136 +27,174 @@
     slug: string;
     description?: string | null;
     status: 'active' | 'inactive';
+    modules?: ProjectModules;
     createdAt: string;
     updatedAt: string;
   };
 
-  $: projects = data.projects;
+  type StatusFilter = 'all' | 'active' | 'inactive';
 
-  let error = '';
-  let success = '';
+  let {
+    data,
+  }: {
+    data: {
+      organization: { id: string; slug: string } | null;
+      projects: ProjectRow[];
+      canCreate: boolean;
+      canDelete: boolean;
+    };
+  } = $props();
 
-  let searchQuery = '';
-  let statusFilter: 'all' | 'active' | 'inactive' = 'all';
+  const orgSlug = $derived(data.organization?.slug ?? '');
 
-  let createModalOpen = false;
-  let creating = false;
-  let createError = '';
-  let newName = '';
-  let newSlug = '';
-  let newDescription = '';
-  let newStatus: 'active' | 'inactive' = 'active';
+  let searchQuery = $state('');
+  let statusFilter = $state<StatusFilter>('all');
+  let searchInput = $state<HTMLInputElement>();
 
-  let deleteModalProject: ProjectRow | null = null;
-  let deleteLoading = false;
-  let deleteError = '';
-
-  function flashSuccess(message: string) {
-    success = message;
-    setTimeout(() => {
-      success = '';
-    }, 2500);
-  }
-
-  $: filteredProjects = projects.filter((project) => {
-    const query = searchQuery.trim().toLowerCase();
-    const matchesQuery =
-      !query ||
-      project.name.toLowerCase().includes(query) ||
-      project.slug.toLowerCase().includes(query) ||
-      (project.description ?? '').toLowerCase().includes(query);
-    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
-    return matchesQuery && matchesStatus;
+  const counts = $derived({
+    all: data.projects.length,
+    active: data.projects.filter((project) => project.status === 'active').length,
+    inactive: data.projects.filter((project) => project.status === 'inactive').length,
   });
 
-  function openCreateModal() {
-    createError = '';
-    newName = '';
-    newSlug = '';
-    newDescription = '';
-    newStatus = 'active';
-    createModalOpen = true;
+  const filteredProjects = $derived.by(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return data.projects
+      .filter((project) => {
+        const matchesQuery =
+          !query ||
+          project.name.toLowerCase().includes(query) ||
+          project.slug.toLowerCase().includes(query) ||
+          (project.description ?? '').toLowerCase().includes(query);
+        const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+        return matchesQuery && matchesStatus;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  const moduleChips = [
+    { key: 'codereport', label: 'Code Report', icon: BarChart3 },
+    { key: 'vault', label: 'Vault', icon: Shield },
+    { key: 'monitoring', label: 'Monitoring', icon: Activity },
+  ] as const;
+
+  // crear
+  let createOpen = $state(false);
+  let creating = $state(false);
+  let newName = $state('');
+  let newSlug = $state('');
+  let newDescription = $state('');
+  let newStatus = $state<'active' | 'inactive'>('active');
+  let nameError = $state('');
+
+  const slugPreview = $derived(
+    newName
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, ''),
+  );
+
+  // eliminar
+  let deleteTarget = $state<ProjectRow | null>(null);
+  let deleteOpen = $state(false);
+  let deleting = $state(false);
+  let deleteConfirm = $state('');
+
+  function projectHref(project: ProjectRow) {
+    return `/org/${orgSlug}/projects/${project.slug}/overview`;
   }
 
-  function closeCreateModal() {
-    createModalOpen = false;
+  function initials(name: string) {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    const letters = words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2);
+    return letters.toUpperCase();
   }
-
-  const createProject: SubmitFunction = ({ cancel }) => {
-    createError = '';
-
-    if (!newName.trim()) {
-      createError = $_('orgSettings.projects.nameRequired');
-      cancel();
-      return;
-    }
-
-    if (!data.organization) {
-      createError = $_('orgSettings.projects.noOrganization');
-      cancel();
-      return;
-    }
-
-    creating = true;
-    return async ({ result, update }) => {
-      await update();
-      creating = false;
-
-      if (result.type === 'success') {
-        closeCreateModal();
-        flashSuccess($_('orgSettings.projects.created'));
-        return;
-      }
-
-      createError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : $_('orgSettings.projects.createFailed');
-    };
-  };
-
-  function openDeleteModal(project: ProjectRow) {
-    deleteModalProject = project;
-    deleteError = '';
-  }
-
-  function closeDeleteModal() {
-    deleteModalProject = null;
-  }
-
-  const confirmDelete: SubmitFunction = ({ cancel }) => {
-    if (!deleteModalProject) {
-      cancel();
-      return;
-    }
-
-    deleteError = '';
-    deleteLoading = true;
-    return async ({ result, update }) => {
-      await update();
-      deleteLoading = false;
-
-      if (result.type === 'success') {
-        closeDeleteModal();
-        flashSuccess($_('orgSettings.projects.deleted'));
-        return;
-      }
-
-      deleteError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : $_('orgSettings.projects.deleteFailed');
-    };
-  };
 
   function formatDate(value: string) {
-    if (!value) return '-';
+    if (!value) return '—';
     try {
-      return new Date(value).toLocaleDateString();
+      return new Date(value).toLocaleDateString($locale, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
     } catch {
       return value;
     }
   }
+
+  function failureMessage(
+    result: { type: string; data?: Record<string, unknown> },
+    fallback: string,
+  ) {
+    return result.type === 'failure' && result.data?.error ? String(result.data.error) : fallback;
+  }
+
+  function openCreate() {
+    newName = '';
+    newSlug = '';
+    newDescription = '';
+    newStatus = 'active';
+    nameError = '';
+    createOpen = true;
+  }
+
+  function openDelete(project: ProjectRow) {
+    deleteTarget = project;
+    deleteConfirm = '';
+    deleteOpen = true;
+  }
+
+  function clearFilters() {
+    searchQuery = '';
+    statusFilter = 'all';
+    searchInput?.focus();
+  }
+
+  const createProject: SubmitFunction = ({ cancel }) => {
+    nameError = '';
+    if (!newName.trim()) {
+      nameError = $_('orgSettings.projects.nameRequired');
+      cancel();
+      return;
+    }
+    if (!data.organization) {
+      toast.error($_('orgSettings.projects.noOrganization'));
+      cancel();
+      return;
+    }
+    creating = true;
+    return async ({ result, update }) => {
+      await update();
+      creating = false;
+      if (result.type === 'success') {
+        createOpen = false;
+        toast.success($_('orgSettings.projects.created'));
+      } else {
+        toast.error(failureMessage(result, $_('orgSettings.projects.createFailed')));
+      }
+    };
+  };
+
+  const confirmDelete: SubmitFunction = ({ cancel }) => {
+    if (!deleteTarget || deleteConfirm !== deleteTarget.name) {
+      cancel();
+      return;
+    }
+    deleting = true;
+    return async ({ result, update }) => {
+      await update();
+      deleting = false;
+      if (result.type === 'success') {
+        deleteOpen = false;
+        toast.success($_('orgSettings.projects.deleted'));
+      } else {
+        toast.error(failureMessage(result, $_('orgSettings.projects.deleteFailed')));
+      }
+    };
+  };
 </script>
 
 <svelte:head>
@@ -154,305 +202,353 @@
 </svelte:head>
 
 <div class="space-y-6">
-  <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <header class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h3 class="text-xl font-semibold text-slate-900">{$_('orgSettings.projects.title')}</h3>
-      <p class="mt-2 text-sm text-slate-600">{$_('orgSettings.projects.description')}</p>
+      <h1 class="text-2xl font-semibold tracking-tight text-white">
+        {$_('orgSettings.projects.title')}
+      </h1>
+      <p class="mt-1 text-sm text-fg-muted">{$_('orgSettings.projects.description')}</p>
     </div>
-
     {#if data.canCreate}
-      <button
-        type="button"
-        on:click={openCreateModal}
-        class="btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-      >
-        <Plus class="h-4 w-4" />{$_('orgSettings.projects.new')}</button
-      >
+      <button type="button" class="k-btn k-btn-primary" onclick={openCreate}>
+        <Plus class="h-4 w-4" />{$_('orgSettings.projects.new')}
+      </button>
     {/if}
-  </section>
+  </header>
 
-  <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div class="relative flex-1">
-      <Search
-        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-      />
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder={$_('orgSettings.projects.searchPlaceholder')}
-        class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
-      />
-    </div>
-
-    <select
-      bind:value={statusFilter}
-      class="field-input w-full rounded-md border px-3 py-2 text-sm outline-none transition sm:w-48"
-    >
-      <option value="all">{$_('orgSettings.projects.allStatuses')}</option>
-      <option value="active">{$_('common.active')}</option>
-      <option value="inactive">{$_('common.inactive')}</option>
-    </select>
-  </section>
-
-  {#if error}
-    <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {error}
-    </div>
-  {/if}
-
-  {#if success}
-    <div
-      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
-    >
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {success}</span>
-    </div>
-  {/if}
-
-  {#if filteredProjects.length === 0}
-    <div
-      class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
-    >
-      {projects.length === 0
-        ? $_('orgSettings.projects.empty')
-        : $_('orgSettings.projects.emptyFiltered')}
-    </div>
-  {:else}
-    <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-160 text-sm">
-          <thead>
-            <tr
-              class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-            >
-              <th class="px-4 py-3">{$_('common.name')}</th>
-              <th class="px-4 py-3">{$_('common.slug')}</th>
-              <th class="px-4 py-3">{$_('common.status')}</th>
-              <th class="px-4 py-3">{$_('common.created')}</th>
-              <th class="px-4 py-3 text-right">{$_('common.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each filteredProjects as project (project.id)}
-              <tr class="border-t border-slate-100">
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <FolderKanban class="h-4 w-4 shrink-0 text-slate-400" />
-                    <div class="min-w-0">
-                      <p class="truncate font-medium text-slate-900">{project.name}</p>
-                      {#if project.description}
-                        <p class="truncate text-xs text-slate-500">{project.description}</p>
-                      {/if}
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-slate-600">{project.slug}</td>
-                <td class="px-4 py-3">
-                  <span
-                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {project.status ===
-                    'active'
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-slate-100 text-slate-600'}"
-                  >
-                    {project.status === 'active' ? $_('common.active') : $_('common.inactive')}
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-slate-600">{formatDate(project.createdAt)}</td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-end gap-2">
-                    <a
-                      href={data.organization
-                        ? `/org/${data.organization.slug}/projects/${project.slug}/settings/overview`
-                        : '/gitops-settings/orgs'}
-                      class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                      title={$_('orgSettings.projects.viewProject')}
-                    >
-                      <Eye class="h-3.5 w-3.5" />{$_('common.view')}</a
-                    >
-                    {#if data.canDelete}
-                      <button
-                        type="button"
-                        on:click={() => openDeleteModal(project)}
-                        class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
-                        title={$_('orgSettings.projects.deleteProject')}
-                      >
-                        <Trash2 class="h-3.5 w-3.5" />{$_('common.delete')}</button
-                      >
-                    {/if}
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+  {#if data.projects.length > 0}
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div class="relative flex-1 sm:max-w-md">
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+        />
+        <input
+          bind:this={searchInput}
+          type="search"
+          bind:value={searchQuery}
+          aria-label={$_('orgSettings.projects.searchPlaceholder')}
+          placeholder={$_('orgSettings.projects.searchPlaceholder')}
+          class="k-input h-9 pl-9 pr-9"
+        />
+        {#if searchQuery}
+          <button
+            type="button"
+            class="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md text-fg-subtle hover:bg-white/5 hover:text-white"
+            aria-label={$_('orgSettings.projects.clearSearch')}
+            onclick={() => {
+              searchQuery = '';
+              searchInput?.focus();
+            }}
+          >
+            <X class="h-3.5 w-3.5" />
+          </button>
+        {/if}
+      </div>
+      <div class="sm:ml-auto">
+        <Tabs
+          variant="segmented"
+          size="sm"
+          label={$_('orgSettings.projects.filterLabel')}
+          value={statusFilter}
+          onchange={(value) => (statusFilter = value as StatusFilter)}
+          items={[
+            { value: 'all', label: $_('orgSettings.projects.filterAll'), count: counts.all },
+            {
+              value: 'active',
+              label: $_('orgSettings.projects.filterActive'),
+              count: counts.active,
+            },
+            {
+              value: 'inactive',
+              label: $_('orgSettings.projects.filterArchived'),
+              count: counts.inactive,
+            },
+          ]}
+        />
       </div>
     </div>
+  {/if}
+
+  {#if data.projects.length === 0}
+    <div class="k-card flex flex-col items-center gap-3 border-dashed px-6 py-16 text-center">
+      <span class="grid h-12 w-12 place-items-center rounded-xl bg-brand-500/10 text-brand-400">
+        <FolderKanban class="h-6 w-6" />
+      </span>
+      <p class="text-sm font-medium text-white">{$_('orgSettings.projects.empty')}</p>
+      <p class="max-w-sm text-sm text-fg-muted">{$_('orgSettings.projects.emptyDescription')}</p>
+      {#if data.canCreate}
+        <button type="button" class="k-btn k-btn-primary k-btn-sm mt-2" onclick={openCreate}>
+          <Plus class="h-3.5 w-3.5" />{$_('orgSettings.projects.new')}
+        </button>
+      {/if}
+    </div>
+  {:else if filteredProjects.length === 0}
+    <div class="k-card flex flex-col items-center gap-3 border-dashed px-6 py-14 text-center">
+      <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/5 text-fg-subtle">
+        <Search class="h-5 w-5" />
+      </span>
+      <p class="text-sm text-fg-muted">{$_('orgSettings.projects.emptyFiltered')}</p>
+      <button type="button" class="k-btn k-btn-ghost k-btn-sm" onclick={clearFilters}>
+        {$_('orgSettings.projects.clearFilters')}
+      </button>
+    </div>
+  {:else}
+    <ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {#each filteredProjects as project (project.id)}
+        {@const archived = project.status === 'inactive'}
+        {@const activeModules = moduleChips.filter((chip) => project.modules?.[chip.key])}
+        <li
+          class="k-card k-card-hover relative flex flex-col p-5 focus-within:border-brand-500/40 {archived
+            ? 'opacity-70 hover:opacity-100'
+            : ''}"
+        >
+          <div class="flex items-start gap-3">
+            <span
+              class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-semibold {archived
+                ? 'bg-white/5 text-fg-subtle'
+                : 'bg-brand-500/12 text-brand-400'}"
+              aria-hidden="true"
+            >
+              {initials(project.name)}
+            </span>
+            <div class="min-w-0 flex-1">
+              <a
+                href={projectHref(project)}
+                class="block truncate text-sm font-semibold text-white outline-none after:absolute after:inset-0 after:rounded-2xl after:content-['']"
+                >{project.name}</a
+              >
+              <p class="truncate font-mono text-xs text-fg-subtle">{project.slug}</p>
+            </div>
+            <div class="relative z-10 -mr-2 -mt-1">
+              <DropdownMenu
+                align="end"
+                label={$_('orgSettings.projects.actionsFor', { values: { name: project.name } })}
+              >
+                {#snippet trigger(props)}
+                  <button
+                    {...props}
+                    class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                    aria-label={$_('orgSettings.projects.actionsFor', {
+                      values: { name: project.name },
+                    })}
+                  >
+                    <MoreHorizontal class="h-4 w-4" />
+                  </button>
+                {/snippet}
+                <MenuItem icon={ArrowUpRight} href={projectHref(project)}>
+                  {$_('orgSettings.projects.viewProject')}
+                </MenuItem>
+                <MenuItem
+                  icon={Settings}
+                  href={`/org/${orgSlug}/projects/${project.slug}/settings/overview`}
+                >
+                  {$_('orgSettings.projects.projectSettings')}
+                </MenuItem>
+                {#if data.canDelete}
+                  <MenuItem icon={Trash2} tone="danger" onclick={() => openDelete(project)}>
+                    {$_('orgSettings.projects.deleteProject')}
+                  </MenuItem>
+                {/if}
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <p
+            class="mt-3 line-clamp-2 min-h-10 text-sm {project.description
+              ? 'text-fg-muted'
+              : 'text-fg-subtle italic'}"
+          >
+            {project.description || $_('orgSettings.projects.noDescription')}
+          </p>
+
+          <div class="mt-4 flex min-h-6 flex-wrap gap-1.5">
+            {#each activeModules as chip (chip.key)}
+              <span class="k-badge h-6 gap-1 px-2 text-[11px]">
+                <chip.icon class="h-3 w-3" />{chip.label}
+              </span>
+            {:else}
+              <span class="text-xs text-fg-subtle">{$_('orgSettings.projects.noModules')}</span>
+            {/each}
+          </div>
+
+          <div
+            class="mt-4 flex items-center justify-between gap-2 border-t border-white/8 pt-3 text-xs text-fg-subtle"
+          >
+            {#if archived}
+              <span class="k-badge k-badge-warn h-5 px-2 text-[11px]"
+                >{$_('orgSettings.projects.archived')}</span
+              >
+            {:else}
+              <span class="k-badge k-badge-ok h-5 px-2 text-[11px]">{$_('common.active')}</span>
+            {/if}
+            <span
+              >{$_('orgSettings.projects.createdOn', {
+                values: { date: formatDate(project.createdAt) },
+              })}</span
+            >
+          </div>
+        </li>
+      {/each}
+
+      {#if data.canCreate && statusFilter !== 'inactive' && !searchQuery}
+        <li>
+          <button
+            type="button"
+            onclick={openCreate}
+            class="flex h-full min-h-52 w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/12 p-5 text-sm text-fg-muted transition-colors hover:border-brand-500/40 hover:bg-white/2 hover:text-white"
+          >
+            <span class="grid h-10 w-10 place-items-center rounded-xl bg-white/5">
+              <FolderPlus class="h-5 w-5" />
+            </span>
+            {$_('orgSettings.projects.new')}
+          </button>
+        </li>
+      {/if}
+    </ul>
   {/if}
 </div>
 
-{#if createModalOpen}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeCreateModal}
-    aria-label={$_('orgSettings.projects.closeCreateModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('orgSettings.projects.createModal')}
+<Modal
+  bind:open={createOpen}
+  dismissible={!creating}
+  title={$_('orgSettings.projects.createModalTitle')}
+  description={$_('orgSettings.projects.createModalDescription')}
+>
+  {#snippet icon()}
+    <span
+      class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/10 text-brand-400"
+      ><FolderPlus class="h-5 w-5" /></span
     >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">
-          {$_('orgSettings.projects.createModalTitle')}
-        </h5>
-      </div>
-
-      <form method="POST" action="?/createProject" use:enhance={createProject}>
-        <input type="hidden" name="organizationId" value={data.organization?.id ?? ''} />
-        <div class="space-y-4 px-4 py-4">
-          {#if createError}
-            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {createError}
-            </div>
-          {/if}
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-project-name"
-              >{$_('common.name')}</label
-            >
-            <input
-              id="new-project-name"
-              name="name"
-              type="text"
-              bind:value={newName}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder="Platform Core"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-project-slug"
-              >{$_('common.slug')}</label
-            >
-            <input
-              id="new-project-slug"
-              name="slug"
-              type="text"
-              bind:value={newSlug}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder={$_('orgSettings.projects.slugPlaceholder')}
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-project-description"
-              >{$_('common.description')}</label
-            >
-            <textarea
-              id="new-project-description"
-              name="description"
-              bind:value={newDescription}
-              rows="3"
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              placeholder={$_('orgSettings.projects.descriptionPlaceholder')}></textarea>
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-project-status"
-              >{$_('common.status')}</label
-            >
-            <select
-              id="new-project-status"
-              name="status"
-              bind:value={newStatus}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            >
-              <option value="active">{$_('common.active')}</option>
-              <option value="inactive">{$_('common.inactive')}</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <button
-            type="button"
-            on:click={closeCreateModal}
-            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-          >
-            {$_('common.cancel')}
-          </button>
-          <button
-            type="submit"
-            disabled={creating}
-            class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Plus class="h-4 w-4" />
-            {creating ? $_('common.creating') : $_('common.create')}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
-
-{#if deleteModalProject}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeDeleteModal}
-    aria-label={$_('orgSettings.projects.closeDeleteModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('orgSettings.projects.deleteModal')}
+  {/snippet}
+  <form
+    id="create-project-form"
+    method="POST"
+    action="?/createProject"
+    use:enhance={createProject}
+    class="grid gap-4"
+  >
+    <input type="hidden" name="organizationId" value={data.organization?.id ?? ''} />
+    <Field id="new-project-name" label={$_('common.name')} required error={nameError}>
+      {#snippet children(control)}
+        <input
+          {...control}
+          name="name"
+          class="k-input"
+          placeholder="Platform Core"
+          autocomplete="off"
+          data-autofocus
+          bind:value={newName}
+        />
+      {/snippet}
+    </Field>
+    <Field
+      id="new-project-slug"
+      label={$_('common.slug')}
+      help={$_('orgSettings.projects.slugHelp')}
     >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">
-          {$_('orgSettings.projects.deleteConfirmTitle')}
-        </h5>
-      </div>
+      {#snippet children(control)}
+        <input
+          {...control}
+          name="slug"
+          class="k-input font-mono text-[13px]"
+          placeholder={slugPreview || 'platform-core'}
+          autocomplete="off"
+          bind:value={newSlug}
+        />
+      {/snippet}
+    </Field>
+    <Field id="new-project-description" label={$_('common.description')}>
+      {#snippet children(control)}
+        <textarea
+          {...control}
+          name="description"
+          rows="3"
+          class="k-input"
+          placeholder={$_('orgSettings.projects.descriptionPlaceholder')}
+          bind:value={newDescription}></textarea>
+      {/snippet}
+    </Field>
+    <Field id="new-project-status" label={$_('common.status')}>
+      {#snippet children(control)}
+        <Select
+          {...control}
+          name="status"
+          value={newStatus}
+          onchange={(value) => (newStatus = value as 'active' | 'inactive')}
+          options={[
+            { value: 'active', label: $_('common.active') },
+            { value: 'inactive', label: $_('orgSettings.projects.archived') },
+          ]}
+        />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (createOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button form="create-project-form" class="k-btn k-btn-primary" disabled={creating}>
+      {#if creating}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Plus
+          class="h-4 w-4"
+        />{/if}
+      {creating ? $_('orgSettings.projects.creating') : $_('orgSettings.projects.createProject')}
+    </button>
+  {/snippet}
+</Modal>
 
-      <form method="POST" action="?/deleteProject" use:enhance={confirmDelete}>
-        <input type="hidden" name="id" value={deleteModalProject.id} />
-        {#if deleteError}
-          <div class="px-4 pt-4">
-            <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {deleteError}
-            </div>
-          </div>
-        {/if}
-
-        <div class="px-4 py-4 text-sm text-slate-600">
-          {$_('orgSettings.projects.deleteConfirmStart')}<span class="font-medium text-slate-900"
-            >{deleteModalProject.name}</span
-          >{$_('orgSettings.projects.deleteConfirmEnd')}
-        </div>
-
-        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-          <button
-            type="button"
-            on:click={closeDeleteModal}
-            class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-          >
-            {$_('common.cancel')}
-          </button>
-          <button
-            type="submit"
-            disabled={deleteLoading}
-            class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-          >
-            <Trash2 class="h-4 w-4" />
-            {deleteLoading
-              ? $_('orgSettings.projects.deleting')
-              : $_('orgSettings.projects.deleteProject')}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
+<Modal
+  bind:open={deleteOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!deleting}
+  title={$_('orgSettings.projects.deleteConfirmTitle')}
+  description={deleteTarget
+    ? `${$_('orgSettings.projects.deleteConfirmStart')}${deleteTarget.name}${$_('orgSettings.projects.deleteConfirmEnd')}`
+    : ''}
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  {#if deleteTarget}
+    <form
+      id="delete-org-project-form"
+      method="POST"
+      action="?/deleteProject"
+      use:enhance={confirmDelete}
+    >
+      <input type="hidden" name="id" value={deleteTarget.id} />
+      <Field
+        label={$_('projectSettings.overview.typeToConfirm', {
+          values: { name: deleteTarget.name },
+        })}
+      >
+        {#snippet children(control)}
+          <input
+            {...control}
+            class="k-input font-mono text-[13px]"
+            autocomplete="off"
+            data-autofocus
+            bind:value={deleteConfirm}
+          />
+        {/snippet}
+      </Field>
+    </form>
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button
+      form="delete-org-project-form"
+      class="k-btn k-btn-danger"
+      disabled={deleting || !deleteTarget || deleteConfirm !== deleteTarget.name}
+    >
+      {#if deleting}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Trash2
+          class="h-4 w-4"
+        />{/if}
+      {deleting ? $_('orgSettings.projects.deleting') : $_('orgSettings.projects.deleteProject')}
+    </button>
+  {/snippet}
+</Modal>

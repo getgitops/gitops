@@ -10,7 +10,17 @@
     "profile": "Perfil",
     "changeOrganization": "Cambiar organización",
     "signOut": "Cerrar sesión",
-    "account": "Cuenta"
+    "account": "Cuenta",
+    "search": "Buscar",
+    "searchPlaceholder": "Busca páginas, proyectos, ajustes…",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "projects": "Proyectos",
+    "navigation": "Navegación",
+    "searchProjects": "Buscar proyecto…",
+    "noProjectsFound": "Ningún proyecto coincide.",
+    "noOrganization": "Sin organización",
+    "breadcrumbs": "Migas de pan"
   },
   "sidebar": {
     "organization": "Organización",
@@ -60,8 +70,10 @@
       "registration": "Registro",
       "events": "Eventos",
       "alerts": "Alertas",
-      "monitors": "Monitores"
-    }
+      "monitors": "Monitores",
+      "projectDashboard": "Dashboard"
+    },
+    "whatsNew": "Ver novedades"
   },
   "footer": {
     "currentVersion": "Versión actual",
@@ -126,7 +138,21 @@
     "darkMode": "Modo oscuro",
     "lightMode": "Modo claro",
     "enableDarkMode": "Activar modo oscuro",
-    "disableDarkMode": "Desactivar modo oscuro"
+    "disableDarkMode": "Desactivar modo oscuro",
+    "feedback": {
+      "profile_updated": "Perfil actualizado",
+      "password_updated": "Contraseña actualizada",
+      "incomplete": "Rellena los tres campos de contraseña.",
+      "too_short": "La contraseña debe tener al menos 8 caracteres.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "wrong_current": "La contraseña actual no es correcta."
+    },
+    "preferences": "Preferencias",
+    "connections": "Conexiones",
+    "gcpDescription": "Inicio de sesión con tu cuenta de Google Workspace.",
+    "passwordHint": "Mínimo 8 caracteres.",
+    "languageSaved": "Idioma cambiado",
+    "googleSso": "Google Workspace SSO"
   },
   "common": {
     "loading": "Cargando...",
@@ -232,7 +258,19 @@
     "ssoErrorEmailNotVerified": "El email de tu cuenta de Google no está verificado.",
     "ssoErrorDomainNotAllowed": "El dominio de esta cuenta de Google no está permitido.",
     "ssoErrorNotInvited": "No hay ninguna cuenta para esta identidad de Google. Pide una invitación a un administrador.",
-    "ssoErrorGeneric": "Falló el inicio de sesión con Google. Inténtalo de nuevo o usa tu contraseña."
+    "ssoErrorGeneric": "Falló el inicio de sesión con Google. Inténtalo de nuevo o usa tu contraseña.",
+    "shell": {
+      "headline": "Seguridad, secretos y disponibilidad,",
+      "headlineBrand": "en un solo sitio.",
+      "codeReport": "Vulnerabilidades, dependencias y secretos expuestos de cada servicio.",
+      "vault": "Secretos cifrados por entorno, versionados en Git.",
+      "monitoring": "Uptime, latencia e incidencias de tus URLs."
+    },
+    "errors": {
+      "invalidCredentials": "El correo o la contraseña no son correctos.",
+      "missingCredentials": "Escribe tu correo y tu contraseña.",
+      "passwordMismatch": "Las contraseñas no coinciden."
+    }
   },
   "bootstrap": {
     "title": "Configuración de GitOps",
@@ -393,6 +431,135 @@
       "infoMessage": "Este listado agrupa los CVEs de todos los proyectos de la organización usando el último análisis completado de cada servicio.",
       "emptyMessage": "Todavía no se han detectado CVEs en esta organización."
     },
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Estado de todos los proyectos de la organización y lo que necesita tu atención.",
+      "updatedAt": "Actualizado a las {time}",
+      "kpisLabel": "Métricas generales",
+      "noAccess": "Sin acceso",
+      "kpi": {
+        "projects": "Proyectos activos",
+        "projectsDetail": "{critical} críticos · {warning} con avisos · {ok} bien",
+        "security": "Puntuación de seguridad",
+        "criticalCount": "{count} críticas",
+        "highCount": "{count} altas",
+        "uptime": "Disponibilidad 24 h",
+        "noMonitors": "Sin monitores configurados",
+        "monitorsFailing": "{count} con fallos",
+        "monitorsTotal": "{count} monitores",
+        "users": "Usuarios",
+        "usersDetail": "{active} activos · {invited} invitados",
+        "usersDisabled": "{count} desactivados",
+        "keys": "Claves en riesgo",
+        "keysAtRiskOf": "de {count} claves",
+        "secrets": "{count} secretos en el vault"
+      },
+      "severity": {
+        "critical": "críticos",
+        "warning": "avisos",
+        "info": "a revisar"
+      },
+      "attention": {
+        "title": "Qué revisar",
+        "description": "Lo más urgente primero, en todos los proyectos a los que tienes acceso.",
+        "emptyTitle": "Todo en orden",
+        "emptyDescription": "No hay nada crítico ni pendiente en los proyectos que puedes ver.",
+        "showAll": "Ver todo ({count})",
+        "showLess": "Ver menos",
+        "kinds": {
+          "monitorsDown": {
+            "title": "Monitores caídos",
+            "description": "Servicios que no responden ahora mismo."
+          },
+          "exposedSecrets": {
+            "title": "Secretos expuestos en el código",
+            "description": "Gitleaks ha encontrado credenciales en el último análisis."
+          },
+          "criticalVulns": {
+            "title": "Vulnerabilidades críticas",
+            "description": "Abiertas en el último análisis de cada servicio."
+          },
+          "keysExpired": {
+            "title": "Claves caducadas",
+            "description": "Siguen dadas de alta pero ya no sirven: revócalas o regenéralas."
+          },
+          "monitorsDegraded": {
+            "title": "Monitores degradados",
+            "description": "Responden, pero lentos o con errores intermitentes."
+          },
+          "keysExpiring": {
+            "title": "Claves que caducan pronto",
+            "description": "Caducan en menos de {days} días."
+          },
+          "keysNotRotated": {
+            "title": "Claves sin rotar",
+            "description": "Más de {days} días sin regenerarse."
+          },
+          "keysNoExpiry": {
+            "title": "Claves sin caducidad",
+            "description": "No tienen fecha de caducidad."
+          },
+          "keysUnused": {
+            "title": "Claves sin uso",
+            "description": "Sin usarse en más de {days} días."
+          },
+          "staleScans": {
+            "title": "Servicios sin analizar",
+            "description": "Sin análisis en más de {days} días."
+          },
+          "vaultMissing": {
+            "title": "Valores vacíos en el vault",
+            "description": "Secretos sin valor en algún entorno."
+          },
+          "vaultStale": {
+            "title": "Secretos antiguos",
+            "description": "Sin cambios en más de {days} días."
+          },
+          "invitedUsers": {
+            "title": "Invitaciones pendientes",
+            "description": "Usuarios invitados que aún no han entrado."
+          },
+          "pendingEvents": {
+            "title": "Eventos sin revisar",
+            "description": "Actividad de la organización pendiente de revisar."
+          }
+        }
+      },
+      "keys": {
+        "title": "Riesgo de las claves",
+        "description": "Claves de acceso de servidor de todos los proyectos. Rótalas al menos cada {days} días.",
+        "empty": "No hay claves de acceso de servidor activas."
+      },
+      "activity": "Actividad",
+      "pendingEvents": "Eventos sin revisar",
+      "pendingEventsDescription": "Actividad reciente pendiente de revisar",
+      "alerts": "Alertas activas",
+      "alertsDescription": "{total} alertas de la organización",
+      "cves": "CVEs de la organización",
+      "cvesDescription": "Vulnerabilidades agrupadas de todos los proyectos",
+      "status": {
+        "critical": "Crítico",
+        "warning": "Avisos",
+        "ok": "Bien",
+        "unknown": "Sin datos"
+      },
+      "projects": {
+        "title": "Estado de los proyectos",
+        "description": "Ordenados por gravedad.",
+        "archived": "{count} archivados no se muestran",
+        "filterLabel": "Filtrar por estado",
+        "all": "Todos",
+        "score": "Puntos",
+        "critical": "Críticas",
+        "uptime": "Uptime",
+        "monitorsFailing": "{count} monitores con fallos",
+        "exposedSecrets": "{count} secretos expuestos",
+        "keysAtRisk": "{count} claves en riesgo",
+        "vaultMissing": "{count} valores vacíos",
+        "allGood": "Sin incidencias",
+        "noData": "Sin productos activos o sin acceso a sus datos"
+      }
+    },
     "events": {
       "title": "Eventos",
       "description": "Lo que ha ocurrido en la organización y en sus proyectos. Marca cada evento como revisado cuando lo hayas atendido.",
@@ -418,6 +585,14 @@
       "ack": "Marcar como revisado",
       "ackedBy": "Revisado por {name} · {date}",
       "ackFailed": "No se ha podido marcar el evento como revisado.",
+      "yesterday": "Ayer",
+      "acked": "Revisado",
+      "pending": "Pendiente",
+      "actor": "Autor",
+      "scope": "Ámbito",
+      "fieldsTitle": "Detalles",
+      "noFields": "Este evento no tiene más detalles.",
+      "ackedByShort": "Revisado por {name}",
       "modules": {
         "code_report": "Code Report",
         "vault": "Vault",
@@ -426,7 +601,13 @@
         "access": "Accesos",
         "monitoring": "Monitoring"
       }
-    }
+    },
+    "current": "Actual",
+    "search": "Buscar organización",
+    "noMatches": "Ninguna organización coincide con la búsqueda.",
+    "created": "Organización creada",
+    "createDescription": "Serás su administrador. Después podrás invitar a tu equipo.",
+    "slugHelp": "Se usa en las URLs. Se genera a partir del nombre."
   },
   "project": {
     "layout": {
@@ -530,7 +711,22 @@
       "days7": "7 días",
       "days30": "30 días",
       "days90": "90 días",
-      "days365": "365 días"
+      "days365": "365 días",
+      "failed": "No se pudo completar la acción.",
+      "revokedToast": "Key revocada",
+      "emptyHelp": "Crea una key para que tu CI/CD envíe los análisis de Code Report a este proyecto.",
+      "createDescription": "La key solo verá este proyecto y tendrá los permisos del rol que elijas.",
+      "neverWarning": "Una key sin caducidad es un riesgo si se filtra. Rótala de vez en cuando.",
+      "tokenTitle": "Tu nueva key",
+      "token": "Token",
+      "usage": "Ejemplo de uso",
+      "done": "Hecho, ya la he copiado",
+      "rotateTitle": "¿Rotar la key?",
+      "rotateDescription": "Se generará un token nuevo para «{name}» y el actual dejará de funcionar inmediatamente.",
+      "rotateConfirm": "Rotar key",
+      "revokeTitle": "¿Revocar la key?",
+      "revokeDescription": "«{name}» dejará de funcionar inmediatamente. No se puede deshacer.",
+      "revokeConfirm": "Revocar key"
     },
     "overview": {
       "codeReport": "Code Report",
@@ -587,8 +783,21 @@
       "copyProjectSlug": "Copiar slug del proyecto",
       "optionalDescription": "Descripción opcional",
       "comingSoon": "Próximamente",
-      "transferSoon": "Próximamente"
-    }
+      "transferSoon": "Próximamente",
+      "subtitle": "Datos generales, módulos activos e integraciones del proyecto.",
+      "general": "General",
+      "generalDescription": "Nombre, slug y descripción del proyecto.",
+      "slugHelp": "Se usa en las URLs y en la CLI. Si lo cambias, los enlaces antiguos dejarán de funcionar.",
+      "noDescription": "Sin descripción.",
+      "moduleCodeReport": "Vulnerabilidades, dependencias y políticas de seguridad.",
+      "moduleVault": "Secretos y credenciales cifrados por entorno.",
+      "moduleMonitoring": "Monitores HTTP con uptime, latencia e incidencias.",
+      "moduleStateIac": "Estado de Pulumi y backends de almacenamiento.",
+      "unsaved": "Tienes cambios sin guardar.",
+      "discard": "Descartar",
+      "typeToConfirm": "Escribe {name} para confirmar"
+    },
+    "title": "Ajustes del proyecto"
   },
   "codeReport": {
     "dashboard": {
@@ -753,7 +962,7 @@
       "soon": "Próximamente",
       "comingSoon": "Próximamente",
       "generalTitle": "General",
-      "generalDescription": "Parámetros globales del módulo para puntuar riesgo y clasificar findings en este proyecto.",
+      "generalDescription": "Cómo se puntúa el riesgo y qué herramientas de análisis se usan en este proyecto.",
       "riskMultipliers": "Multiplicadores de riesgo de seguridad",
       "formulaDescription": "Fórmula aplicada en el detalle de servicio: (Critical × M_c) + (High × M_h) + (Medium × M_m) + (Low × M_l).",
       "critical": "Critical",
@@ -848,7 +1057,50 @@
       "descriptionPlaceholder": "Descripción opcional",
       "deleteConfirmTitle": "Eliminar proyecto",
       "deleteConfirmStart": "¿Seguro que quieres eliminar ",
-      "deleteConfirmEnd": "? Esta acción no se puede deshacer."
+      "deleteConfirmEnd": "? Esta acción no se puede deshacer.",
+      "clearSearch": "Limpiar búsqueda",
+      "clearFilters": "Quitar filtros",
+      "filterLabel": "Filtrar por estado",
+      "filterAll": "Todos",
+      "filterActive": "Activos",
+      "filterArchived": "Archivados",
+      "archived": "Archivado",
+      "actionsFor": "Acciones de {name}",
+      "projectSettings": "Ajustes del proyecto",
+      "noDescription": "Sin descripción",
+      "noModules": "Sin módulos activos",
+      "createdOn": "Creado el {date}",
+      "emptyDescription": "Crea el primer proyecto de la organización para empezar a usar Code Report, Vault o Monitoring.",
+      "createModalDescription": "El proyecto se crea con sus roles por defecto.",
+      "slugHelp": "Identificador en las URL y en la CLI. Si lo dejas vacío, se genera a partir del nombre."
+    },
+    "security": {
+      "title": "Seguridad",
+      "description": "Cómo se accede a esta organización y cómo se protegen sus datos. Los proveedores de identidad se configuran a nivel de GitOps; aquí ves su estado.",
+      "postureTitle": "Postura de seguridad",
+      "postureHint": "Controles de acceso y protección de datos que aplican a todos los proyectos de la organización.",
+      "postureSummary": "de {total} controles activos",
+      "checkLocal": "Usuario y contraseña",
+      "checkGoogle": "SSO con Google Workspace",
+      "checkSaml": "SSO con SAML",
+      "checkEncryption": "Cifrado gestionado",
+      "on": "Activado",
+      "off": "Desactivado",
+      "identityTitle": "Proveedores de identidad",
+      "alwaysOn": "Siempre activo",
+      "localTitle": "Usuario y contraseña",
+      "localFootnote": "No se puede desactivar: es el acceso de respaldo de la organización.",
+      "allowedDomains": "Dominios permitidos",
+      "anyDomain": "Sin restricción de dominio",
+      "autoProvision": "Alta automática",
+      "autoProvisionOn": "Las cuentas nuevas de los dominios permitidos se crean al primer acceso.",
+      "autoProvisionOff": "Solo pueden entrar usuarios que ya existen o tienen invitación.",
+      "keyRotation": "Rotación de claves",
+      "keyRotationDescription": "Rota las claves de cifrado de la organización sin cortar el servicio.",
+      "encryptionPolicy": "Política de cifrado",
+      "encryptionPolicyDescription": "Define los requisitos mínimos de cifrado para los datos de la organización.",
+      "scopedSecrets": "Secretos por ámbito",
+      "scopedSecretsDescription": "Protege los secretos con claves distintas por organización y proyecto."
     },
     "serverAccessKeys": {
       "title": "Claves de acceso del servidor",
@@ -907,13 +1159,27 @@
     "removeModalDescriptionStart": "Eliminar el acceso de",
     "removeModalDescriptionEnd": "? Esto revocará la asignación de este alcance.",
     "removing": "Eliminando...",
-    "adding": "Añadiendo..."
+    "adding": "Añadiendo...",
+    "count": "{count} usuario(s)",
+    "changeRole": "Cambiar el rol de {name}",
+    "addProjectDescription": "Da acceso a este proyecto a un usuario de la organización.",
+    "newUserDescription": "Crea la cuenta y asígnale un rol.",
+    "noAssignableUsers": "Todos los usuarios de la organización ya tienen acceso a este proyecto.",
+    "chooseUser": "Elige un usuario"
   },
   "rolePermissions": {
     "defaultTitle": "Roles y permisos",
     "defaultDescription": "Gestiona roles de usuario y políticas de acceso granulares.",
     "addRole": "Añadir rol",
-    "empty": "No se encontraron roles."
+    "empty": "No se encontraron roles.",
+    "clusterAdminDescription": "Acceso completo a GitOps y a todas las organizaciones.",
+    "clusterUserDescription": "Acceso de lectura y gestión de recursos limitados.",
+    "permissionCount": "{count} permiso(s) configurados.",
+    "search": "Buscar roles",
+    "count": "{count} rol(es)",
+    "noMatches": "Ningún rol coincide con la búsqueda.",
+    "system": "Sistema",
+    "users": "Usuarios con este rol"
   },
   "roleDetail": {
     "edit": "Editar",
@@ -943,7 +1209,20 @@
     "sectionGroup": "Grupo de secciones",
     "addClusterRole": "Añadir rol de GitOps",
     "addOrganizationRole": "Añadir rol de la organización",
-    "addProjectRole": "Añadir rol del proyecto"
+    "addProjectRole": "Añadir rol del proyecto",
+    "defaultTitle": "Rol",
+    "nameRequired": "El nombre y el slug son obligatorios.",
+    "deleted": "Rol eliminado",
+    "backToRoles": "Volver a roles",
+    "createRole": "Crear rol",
+    "slugHelp": "Se genera a partir del nombre. No se puede cambiar después.",
+    "slugLocked": "El slug no se puede cambiar.",
+    "permissionsHelp": "Elige el nivel de acceso de cada recurso. «Personalizado» permite marcar acciones sueltas.",
+    "expandAll": "Expandir todo",
+    "collapseAll": "Contraer todo",
+    "inherited": "Heredado",
+    "deleteTitle": "¿Eliminar el rol?",
+    "deleteDescription": "Se eliminará «{name}». Hay {count} usuario(s) con este rol."
   },
   "auditLog": {
     "defaultTitle": "Registro de auditoría",
@@ -978,6 +1257,9 @@
     "noChanges": "No se detectaron cambios.",
     "before": "Antes",
     "after": "Después",
+    "changesTitle": "Cambios",
+    "previousChange": "Cambio anterior",
+    "nextChange": "Cambio siguiente",
     "actions": {
       "insert": "creación",
       "update": "actualización",
@@ -985,7 +1267,9 @@
       "other": "otro"
     },
     "actionsLabel": "Acción",
-    "entity": "Entidad"
+    "entity": "Entidad",
+    "period": "Periodo",
+    "pagination": "Paginación"
   },
   "subNavbar": {
     "defaultLabel": "Estado",
@@ -1426,13 +1710,18 @@
       "too_many": "Hay demasiados elementos.",
       "unknown_user": "Algún usuario no pertenece a este ámbito.",
       "unknown_role": "Algún rol no pertenece a este ámbito.",
-      "invalid_channel": "Canal no disponible."
+      "invalid_channel": "Canal no disponible.",
+      "invalid_email": "Algún email no es válido.",
+      "invalid_slack_channel": "Usa nombres de canal de Slack como #alertas.",
+      "invalid_url": "Usa una URL http(s) válida."
     },
     "channels": {
       "mail": "Email",
       "in_app": "Notificación en la app",
       "slack": "Slack",
-      "soon": "Próximamente"
+      "soon": "Próximamente",
+      "google_chat": "Google Chat",
+      "webhook": "Webhook"
     },
     "list": {
       "title": "Alertas",
@@ -1457,7 +1746,10 @@
       "confirmDelete": "¿Borrar esta alerta? No se puede deshacer.",
       "throttle": "Máx. un email cada {minutes} min",
       "inheritedTitle": "Alertas de la organización",
-      "inheritedDescription": "Estas alertas se definen en la organización y también se disparan con los eventos de este proyecto. Solo se pueden cambiar desde los ajustes de la organización."
+      "inheritedDescription": "Estas alertas se definen en la organización y también se disparan con los eventos de este proyecto. Solo se pueden cambiar desde los ajustes de la organización.",
+      "deleted": "Alerta eliminada",
+      "deleteTitle": "¿Borrar la alerta?",
+      "channelsColumn": "Destinos"
     },
     "editor": {
       "newTitle": "Nueva alerta",
@@ -1500,7 +1792,13 @@
       "test": "Probar alerta",
       "create": "Crear alerta",
       "saveChanges": "Guardar cambios",
-      "fixErrors": "Revisa los campos marcados."
+      "fixErrors": "Revisa los campos marcados.",
+      "externalEmails": "Emails externos (opcional, separados por comas)",
+      "targets": {
+        "slack": "Canales de Slack, p. ej. #alertas",
+        "google_chat": "Espacios de Google Chat",
+        "webhook": "URLs de webhook"
+      }
     },
     "test": {
       "matched": "El evento de ejemplo cumple las condiciones.",
@@ -1510,7 +1808,53 @@
       "denied": "{count} destinatarios no lo recibirían porque no pueden ver este evento.",
       "nothingSent": "Es una prueba: no se ha enviado ningún email."
     },
-    "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán."
+    "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán.",
+    "wizard": {
+      "subtitle": "Elige un evento, fíltralo si quieres y decide por dónde avisar.",
+      "steps": "Pasos",
+      "step": {
+        "event": "Evento",
+        "conditions": "Condiciones",
+        "channels": "Destinos",
+        "review": "Revisar"
+      },
+      "searchEvents": "Buscar eventos…",
+      "noEvents": "Ningún evento coincide con la búsqueda.",
+      "conditionsIntro": "Opcional: la alerta solo saltará cuando «{event}» cumpla estas condiciones.",
+      "channelsTitle": "Canales",
+      "channelsHelp": "Elige uno o varios: se enviará un aviso por cada canal.",
+      "mailDescription": "Usuarios, roles o direcciones externas",
+      "slackDescription": "Publica en uno o varios canales",
+      "googleChatDescription": "Publica en espacios de Google Chat",
+      "webhookDescription": "POST con el evento en JSON",
+      "groupRoles": "Roles",
+      "groupUsers": "Usuarios",
+      "mailTargets": "Destinatarios",
+      "mailTargetsHelp": "Busca usuarios o roles, o escribe un email y pulsa Enter.",
+      "mailPlaceholder": "Usuario, rol o email…",
+      "slackTargets": "Canales de Slack",
+      "slackTargetsHelp": "Escribe el nombre del canal y pulsa Enter.",
+      "googleChatTargets": "Espacios de Google Chat",
+      "googleChatTargetsHelp": "Nombre del espacio donde se publicará.",
+      "googleChatPlaceholder": "Nombre del espacio…",
+      "webhookTargets": "URLs",
+      "webhookTargetsHelp": "Recibirán un POST con el evento en JSON.",
+      "throttle": "Frecuencia máxima",
+      "throttle_0": "Cada evento",
+      "throttle_15": "15 min",
+      "throttle_60": "1 hora",
+      "throttle_1440": "1 día",
+      "throttleCustom": "o cada",
+      "enabledHelp": "Desactívala para pausarla sin borrarla.",
+      "summary": "Resumen",
+      "stepOf": "Paso {current} de {total}",
+      "back": "Atrás",
+      "next": "Siguiente",
+      "skipConditions": "Sin condiciones",
+      "created": "Alerta creada",
+      "saved": "Alerta guardada",
+      "failed": "No se pudo completar. Inténtalo de nuevo."
+    }
   },
   "monitoring": {
     "title": "Monitoring",
@@ -1581,7 +1925,9 @@
       "scheduled": "{count} monitores programados",
       "overdue": "{count} comprobaciones con retraso",
       "dedicatedRepo": "Métricas en repositorio GitDB dedicado",
-      "sharedRepo": "Métricas en el repositorio GitDB principal"
+      "sharedRepo": "Métricas en el repositorio GitDB principal",
+      "filterLabel": "Filtrar por estado",
+      "rangeLabel": "Periodo de las barras"
     },
     "table": {
       "monitor": "Monitor",
@@ -1599,7 +1945,8 @@
     },
     "delete": {
       "title": "Eliminar monitor",
-      "description": "Se eliminará «{name}» junto con su historial de uptime e incidencias. No se puede deshacer."
+      "description": "Se eliminará «{name}» junto con su historial de uptime e incidencias. No se puede deshacer.",
+      "done": "Monitor eliminado"
     },
     "detail": {
       "since": "desde hace {duration}",
@@ -1696,6 +2043,7 @@
       "recentHelp": "Cada comprobación de la última hora (en memoria); color según su estado.",
       "aggregateHelp": "Media y p95 de los agregados guardados.",
       "noData": "Aún no hay tiempos de respuesta en este periodo."
-    }
+    },
+    "created": "Monitor creado"
   }
 }

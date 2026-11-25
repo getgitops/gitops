@@ -1,6 +1,13 @@
+<!--
+  Formulario de política de seguridad (crear y editar).
+  Envía todo como JSON en `payload` a `action`. En un Modal/Drawer, pon `showSubmit={false}` y un
+  botón con `form={formId}` en el pie; `onsuccess` se llama cuando la acción devuelve éxito.
+-->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { enhance } from '$app/forms';
-  import { X } from '@lucide/svelte';
+  import { goto } from '$app/navigation';
+  import { Plus, Save, X } from '@lucide/svelte';
   import {
     defaultRulesFor,
     defaultScope,
@@ -13,507 +20,532 @@
     type SecurityPolicyScope,
     type SecurityPolicyType,
   } from '#lib/code-report/security-policy';
+  import { Field, Switch, Tabs, toast } from '#lib/components/ui';
 
   type ServiceOption = { id: string; slug: string; name: string; tags: string[] };
 
-  export let action: string;
-  export let submitLabel = 'Guardar';
-  export let services: ServiceOption[] = [];
-  export let tags: string[] = [];
-  export let policy: Partial<SecurityPolicy> | null = null;
-  export let errorMessage: string | null = null;
+  let {
+    action,
+    formId = 'security-policy-form',
+    submitLabel = 'Guardar',
+    services = [],
+    tags = [],
+    policy = null,
+    showSubmit = true,
+    submitting = $bindable(false),
+    onsuccess,
+  }: {
+    action: string;
+    formId?: string;
+    submitLabel?: string;
+    services?: ServiceOption[];
+    tags?: string[];
+    policy?: Partial<SecurityPolicy> | null;
+    showSubmit?: boolean;
+    submitting?: boolean;
+    onsuccess?: () => void;
+  } = $props();
 
-  let name = policy?.name ?? '';
-  let slug = policy?.slug ?? '';
-  let slugTouched = Boolean(policy?.slug);
-  let description = policy?.description ?? '';
-  let type: SecurityPolicyType = policy?.type ?? 'vulnerabilities';
-  let enabled = policy?.enabled ?? true;
-  let enforcement: SecurityPolicyEnforcement = policy?.enforcement ?? 'warn';
-  let scope: SecurityPolicyScope = { ...defaultScope(), ...(policy?.scope ?? {}) };
-  let rulesByType: Record<string, any> = SECURITY_POLICY_TYPES.reduce(
-    (acc, key) => ({ ...acc, [key]: defaultRulesFor(key) }),
-    {} as Record<string, any>,
+  const initial = untrack(() => policy);
+
+  let name = $state(initial?.name ?? '');
+  let slug = $state(initial?.slug ?? '');
+  let slugTouched = $state(Boolean(initial?.slug));
+  let description = $state(initial?.description ?? '');
+  let type = $state<SecurityPolicyType>(initial?.type ?? 'vulnerabilities');
+  let enabled = $state(initial?.enabled ?? true);
+  let enforcement = $state<SecurityPolicyEnforcement>(initial?.enforcement ?? 'warn');
+  let scope = $state<SecurityPolicyScope>({ ...defaultScope(), ...(initial?.scope ?? {}) });
+  let rulesByType = $state<Record<string, any>>(
+    Object.fromEntries(
+      SECURITY_POLICY_TYPES.map((key) => [
+        key,
+        initial?.type === key && initial.rules
+          ? { ...defaultRulesFor(key), ...initial.rules }
+          : defaultRulesFor(key),
+      ]),
+    ),
   );
-  if (policy?.type && policy?.rules) {
-    rulesByType[policy.type] = { ...rulesByType[policy.type], ...policy.rules };
-  }
-
-  let submitting = false;
-  let ignoredCveInput = '';
-  let licenseInput = '';
-  let ignoredRuleInput = '';
+  let error = $state<string | null>(null);
+  let listInputs = $state<Record<string, string>>({
+    ignoredCves: '',
+    licenses: '',
+    ignoredRules: '',
+  });
 
   function slugify(value: string) {
     return value
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
   }
 
-  $: if (!slugTouched) slug = slugify(name);
-  $: rules = rulesByType[type];
+  const effectiveSlug = $derived(slugTouched ? slug : slugify(name));
+  const rules = $derived(rulesByType[type]);
 
-  function toggleInList(list: string[], value: string) {
+  function toggle(list: string[], value: string) {
     return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
   }
 
-  function addToRuleList(field: string, value: string) {
-    const trimmed = value.trim();
-    if (!trimmed) return;
+  function addToList(field: string) {
+    const value = listInputs[field]?.trim();
+    if (!value) return;
     const current: string[] = rulesByType[type][field] ?? [];
-    if (!current.includes(trimmed)) {
-      rulesByType[type] = { ...rulesByType[type], [field]: [...current, trimmed] };
-      rulesByType = { ...rulesByType };
-    }
+    if (!current.includes(value)) rulesByType[type][field] = [...current, value];
+    listInputs[field] = '';
   }
 
-  function removeFromRuleList(field: string, value: string) {
-    const current: string[] = rulesByType[type][field] ?? [];
-    rulesByType[type] = { ...rulesByType[type], [field]: current.filter((item) => item !== value) };
-    rulesByType = { ...rulesByType };
+  function removeFromList(field: string, value: string) {
+    rulesByType[type][field] = (rulesByType[type][field] ?? []).filter(
+      (item: string) => item !== value,
+    );
   }
 
   function numberOrNull(value: unknown) {
     return value === '' || value === null || value === undefined ? null : Number(value);
   }
 
-  $: payload = JSON.stringify({
-    name,
-    slug,
-    description,
-    type,
-    enabled,
-    enforcement,
-    scope,
-    rules:
-      type === 'vulnerabilities'
-        ? {
-            ...rules,
-            maxCritical: numberOrNull(rules.maxCritical),
-            maxHigh: numberOrNull(rules.maxHigh),
-            maxMedium: numberOrNull(rules.maxMedium),
-            maxLow: numberOrNull(rules.maxLow),
-            minCvssScore: numberOrNull(rules.minCvssScore),
-            maxAgeDays: numberOrNull(rules.maxAgeDays),
-          }
-        : rules,
-  });
+  const payload = $derived(
+    JSON.stringify({
+      name,
+      slug: effectiveSlug,
+      description,
+      type,
+      enabled,
+      enforcement,
+      scope,
+      rules:
+        type === 'vulnerabilities'
+          ? {
+              ...rules,
+              maxCritical: numberOrNull(rules.maxCritical),
+              maxHigh: numberOrNull(rules.maxHigh),
+              maxMedium: numberOrNull(rules.maxMedium),
+              maxLow: numberOrNull(rules.maxLow),
+              minCvssScore: numberOrNull(rules.minCvssScore),
+              maxAgeDays: numberOrNull(rules.maxAgeDays),
+            }
+          : rules,
+    }),
+  );
 
   const severityFields = [
-    { key: 'maxCritical', label: 'Críticas', hint: 'Máximo permitido' },
-    { key: 'maxHigh', label: 'Altas', hint: 'Máximo permitido' },
-    { key: 'maxMedium', label: 'Medias', hint: 'Máximo permitido' },
-    { key: 'maxLow', label: 'Bajas', hint: 'Máximo permitido' },
+    { key: 'maxCritical', label: 'Críticas', dot: 'bg-red-500' },
+    { key: 'maxHigh', label: 'Altas', dot: 'bg-brand-500' },
+    { key: 'maxMedium', label: 'Medias', dot: 'bg-amber-400' },
+    { key: 'maxLow', label: 'Bajas', dot: 'bg-white/30' },
   ];
 
-  const scopeModes: { value: SecurityPolicyScope['mode']; label: string }[] = [
+  const scopeItems = [
     { value: 'all', label: 'Todos los servicios' },
     { value: 'services', label: 'Servicios concretos' },
     { value: 'tags', label: 'Por tags' },
   ];
-
-  const licenseModes: { value: 'denylist' | 'allowlist'; label: string }[] = [
-    { value: 'denylist', label: 'Lista de denegadas' },
-    { value: 'allowlist', label: 'Lista de permitidas' },
-  ];
 </script>
 
 <form
+  id={formId}
   method="POST"
   {action}
+  class="space-y-6"
   use:enhance={() => {
     submitting = true;
-    return async ({ update }) => {
-      await update();
+    error = null;
+    return async ({ result, update }) => {
       submitting = false;
+      if (result.type === 'redirect') {
+        toast.success('Política creada', name);
+        await goto(result.location, { invalidateAll: true });
+      } else if (result.type === 'success') {
+        toast.success('Política guardada', name);
+        await update({ reset: false });
+        onsuccess?.();
+      } else if (result.type === 'failure') {
+        error = result.data?.error ? String(result.data.error) : 'No se pudo guardar la política';
+        toast.error('No se pudo guardar la política', error);
+      } else {
+        await update();
+      }
     };
   }}
-  class="space-y-4"
 >
   <input type="hidden" name="payload" value={payload} />
 
-  {#if errorMessage}
-    <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+  {#if error}
+    <p
+      class="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-red-200"
+      role="alert"
+    >
+      {error}
+    </p>
   {/if}
 
-  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h2 class="text-sm font-semibold text-slate-900">1. Información general</h2>
-    <p class="mt-1 text-xs text-slate-500">Identifica la política dentro del proyecto.</p>
-
-    <div class="mt-4 grid gap-4 sm:grid-cols-2">
-      <label class="block">
-        <span class="text-xs font-medium text-slate-600">Nombre</span>
-        <input
-          type="text"
-          bind:value={name}
-          required
-          placeholder="Sin vulnerabilidades críticas"
-          class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-        />
-      </label>
-      <label class="block">
-        <span class="text-xs font-medium text-slate-600">Slug</span>
-        <input
-          type="text"
-          bind:value={slug}
-          on:input={() => (slugTouched = true)}
-          placeholder="sin-criticas"
-          class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-        />
-      </label>
+  <!-- General -->
+  <fieldset class="space-y-4">
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >General</legend
+    >
+    <div class="grid gap-4 sm:grid-cols-2">
+      <Field label="Nombre" required>
+        {#snippet children(control)}
+          <input
+            class="k-input"
+            placeholder="Sin vulnerabilidades críticas"
+            autocomplete="off"
+            data-autofocus
+            bind:value={name}
+            {...control}
+          />
+        {/snippet}
+      </Field>
+      <Field label="Slug" help="Identificador para la API y la CLI.">
+        {#snippet children(control)}
+          <input
+            class="k-input font-mono text-[13px]"
+            placeholder="sin-criticas"
+            autocomplete="off"
+            spellcheck="false"
+            value={effectiveSlug}
+            oninput={(event) => {
+              slugTouched = true;
+              slug = event.currentTarget.value;
+            }}
+            {...control}
+          />
+        {/snippet}
+      </Field>
     </div>
+    <Field label="Descripción">
+      {#snippet aside()}Opcional{/snippet}
+      {#snippet children(control)}
+        <textarea
+          class="k-input"
+          rows="2"
+          placeholder="Qué comprueba y por qué."
+          bind:value={description}
+          {...control}></textarea>
+      {/snippet}
+    </Field>
+  </fieldset>
 
-    <label class="mt-4 block">
-      <span class="text-xs font-medium text-slate-600">Descripción</span>
-      <textarea
-        bind:value={description}
-        rows="2"
-        placeholder="Qué comprueba esta política y por qué."
-        class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-      ></textarea>
-    </label>
-  </section>
-
-  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h2 class="text-sm font-semibold text-slate-900">2. Tipo de política</h2>
-    <p class="mt-1 text-xs text-slate-500">Determina qué reglas puedes configurar.</p>
-
-    <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      {#each SECURITY_POLICY_TYPES as value}
+  <!-- Tipo -->
+  <fieldset>
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Qué vigila</legend
+    >
+    <div class="mt-3 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tipo de política">
+      {#each SECURITY_POLICY_TYPES as value (value)}
+        {@const meta = SECURITY_POLICY_TYPE_META[value]}
         <button
           type="button"
-          disabled={!SECURITY_POLICY_TYPE_META[value].available}
-          on:click={() => (type = value)}
-          class={`rounded-xl border p-4 text-left transition ${
-            type === value ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'
-          } ${SECURITY_POLICY_TYPE_META[value].available ? '' : 'cursor-not-allowed opacity-50'}`}
+          role="radio"
+          aria-checked={type === value}
+          disabled={!meta.available}
+          onclick={() => (type = value)}
+          class="rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {type ===
+          value
+            ? 'border-brand-500/60 bg-brand-500/10'
+            : 'border-white/10 bg-white/2 hover:border-white/20'}"
         >
-          <p class="text-sm font-semibold text-slate-900">
-            {SECURITY_POLICY_TYPE_META[value].label}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">{SECURITY_POLICY_TYPE_META[value].description}</p>
-          {#if !SECURITY_POLICY_TYPE_META[value].available}
-            <p class="mt-2 text-[11px] font-semibold uppercase text-slate-400">Próximamente</p>
-          {/if}
+          <span class="flex items-center gap-2 text-sm font-medium text-white">
+            {meta.label}
+            {#if !meta.available}<span class="k-badge text-[10px]">Próximamente</span>{/if}
+          </span>
+          <span class="mt-0.5 block text-xs text-fg-subtle">{meta.description}</span>
         </button>
       {/each}
     </div>
-  </section>
+  </fieldset>
 
-  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h2 class="text-sm font-semibold text-slate-900">3. Alcance</h2>
-    <p class="mt-1 text-xs text-slate-500">A qué servicios del proyecto se aplica.</p>
-
-    <div class="mt-4 flex flex-wrap gap-2">
-      {#each scopeModes as option}
-        <button
-          type="button"
-          on:click={() => (scope = { ...scope, mode: option.value })}
-          class={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-            scope.mode === option.value
-              ? 'border-slate-900 bg-slate-900 text-white'
-              : 'border-slate-200 text-slate-600 hover:border-slate-300'
-          }`}
-        >
-          {option.label}
-        </button>
-      {/each}
-    </div>
-
-    {#if scope.mode === 'services'}
-      <div class="mt-4 grid gap-2 sm:grid-cols-2">
-        {#each services as service (service.id)}
-          <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-            <input
-              type="checkbox"
-              checked={scope.services.includes(service.id)}
-              on:change={() => (scope = { ...scope, services: toggleInList(scope.services, service.id) })}
-            />
-            <span class="text-slate-700">{service.name}</span>
-            <span class="text-xs text-slate-400">{service.slug}</span>
-          </label>
-        {:else}
-          <p class="text-sm text-slate-500">No hay servicios en este proyecto.</p>
-        {/each}
-      </div>
-    {:else if scope.mode === 'tags'}
-      <div class="mt-4 flex flex-wrap gap-2">
-        {#each tags as tag}
-          <button
-            type="button"
-            on:click={() => (scope = { ...scope, tags: toggleInList(scope.tags, tag) })}
-            class={`rounded-full border px-3 py-1 text-xs font-medium ${
-              scope.tags.includes(tag)
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-200 text-slate-600'
-            }`}
-          >
-            {tag}
-          </button>
-        {:else}
-          <p class="text-sm text-slate-500">No hay tags definidos en los servicios.</p>
-        {/each}
-      </div>
-    {/if}
-  </section>
-
-  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h2 class="text-sm font-semibold text-slate-900">4. Reglas</h2>
-    <p class="mt-1 text-xs text-slate-500">
-      Deja un campo vacío para no aplicar ese límite.
-    </p>
+  <!-- Reglas -->
+  <fieldset class="space-y-4">
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Reglas</legend
+    >
+    <p class="-mt-2 text-xs text-fg-subtle">Deja un campo vacío para no aplicar ese límite.</p>
 
     {#if type === 'vulnerabilities'}
-      <div class="mt-4 grid gap-4 sm:grid-cols-4">
-        {#each severityFields as field}
-          <label class="block">
-            <span class="text-xs font-medium text-slate-600">{field.label}</span>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {#each severityFields as field (field.key)}
+          <div>
+            <label class="k-label flex items-center gap-2" for="rule-{field.key}">
+              <span class="h-2 w-2 rounded-full {field.dot}"></span>Máx. {field.label.toLowerCase()}
+            </label>
+            <input
+              id="rule-{field.key}"
+              type="number"
+              min="0"
+              class="k-input tabular-nums"
+              placeholder="Sin límite"
+              bind:value={rulesByType.vulnerabilities[field.key]}
+            />
+          </div>
+        {/each}
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <Field label="CVSS mínimo a considerar" help="Las de menor puntuación no cuentan.">
+          {#snippet children(control)}
             <input
               type="number"
               min="0"
-              bind:value={rulesByType.vulnerabilities[field.key]}
-              placeholder="Sin límite"
-              class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+              max="10"
+              step="0.1"
+              class="k-input tabular-nums"
+              placeholder="Sin filtro"
+              bind:value={rulesByType.vulnerabilities.minCvssScore}
+              {...control}
             />
-            <span class="mt-1 block text-[11px] text-slate-400">{field.hint}</span>
-          </label>
-        {/each}
+          {/snippet}
+        </Field>
+        <Field label="Antigüedad máxima (días)" help="Desde que se publicó el CVE.">
+          {#snippet children(control)}
+            <input
+              type="number"
+              min="0"
+              class="k-input tabular-nums"
+              placeholder="Sin límite"
+              bind:value={rulesByType.vulnerabilities.maxAgeDays}
+              {...control}
+            />
+          {/snippet}
+        </Field>
       </div>
-
-      <div class="mt-4 grid gap-4 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-xs font-medium text-slate-600">CVSS mínimo a considerar</span>
-          <input
-            type="number"
-            min="0"
-            max="10"
-            step="0.1"
-            bind:value={rulesByType.vulnerabilities.minCvssScore}
-            placeholder="Sin filtro"
-            class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-medium text-slate-600">Antigüedad máxima del hallazgo (días)</span>
-          <input
-            type="number"
-            min="0"
-            bind:value={rulesByType.vulnerabilities.maxAgeDays}
-            placeholder="Sin límite"
-            class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-          />
-        </label>
-      </div>
-
-      <label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" bind:checked={rulesByType.vulnerabilities.ignoreUnfixed} />
-        Ignorar vulnerabilidades sin fix disponible
-      </label>
-
-      <div class="mt-4">
-        <span class="text-xs font-medium text-slate-600">CVEs ignorados</span>
-        <div class="mt-1 flex gap-2">
-          <input
-            type="text"
-            bind:value={ignoredCveInput}
-            placeholder="CVE-2024-1234"
-            on:keydown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                addToRuleList('ignoredCves', ignoredCveInput);
-                ignoredCveInput = '';
-              }
-            }}
-            class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-          />
-          <button
-            type="button"
-            on:click={() => {
-              addToRuleList('ignoredCves', ignoredCveInput);
-              ignoredCveInput = '';
-            }}
-            class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
-          >
-            Añadir
-          </button>
-        </div>
-        <div class="mt-2 flex flex-wrap gap-1.5">
-          {#each rulesByType.vulnerabilities.ignoredCves as cve}
-            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
-              {cve}
-              <button type="button" on:click={() => removeFromRuleList('ignoredCves', cve)}>
-                <X class="h-3 w-3" />
-              </button>
-            </span>
-          {/each}
-        </div>
-      </div>
-    {:else if type === 'license'}
-      <div class="mt-4 flex gap-2">
-        {#each licenseModes as option}
-          <button
-            type="button"
-            on:click={() =>
-              (rulesByType.license = { ...rulesByType.license, mode: option.value })}
-            class={`rounded-full border px-4 py-1.5 text-xs font-semibold ${
-              rulesByType.license.mode === option.value
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-200 text-slate-600'
-            }`}
-          >
-            {option.label}
-          </button>
-        {/each}
-      </div>
-      <div class="mt-4 flex gap-2">
+      <label class="flex items-center gap-2 text-sm text-fg">
         <input
-          type="text"
-          bind:value={licenseInput}
-          placeholder="GPL-3.0"
-          class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+          type="checkbox"
+          class="k-checkbox"
+          bind:checked={rulesByType.vulnerabilities.ignoreUnfixed}
         />
-        <button
-          type="button"
-          on:click={() => {
-            addToRuleList('licenses', licenseInput);
-            licenseInput = '';
-          }}
-          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
-        >
-          Añadir
-        </button>
-      </div>
-      <div class="mt-2 flex flex-wrap gap-1.5">
-        {#each rulesByType.license.licenses as license}
-          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
-            {license}
-            <button type="button" on:click={() => removeFromRuleList('licenses', license)}>
-              <X class="h-3 w-3" />
-            </button>
-          </span>
-        {/each}
-      </div>
-      <label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" bind:checked={rulesByType.license.allowUnknown} />
+        Ignorar vulnerabilidades sin parche disponible
+      </label>
+      {@render listEditor(
+        'ignoredCves',
+        'CVEs ignorados',
+        'CVE-2024-1234',
+        'Excepciones aceptadas: no cuentan para los límites.',
+      )}
+    {:else if type === 'license'}
+      <Tabs
+        variant="segmented"
+        size="sm"
+        label="Modo de licencias"
+        items={[
+          { value: 'denylist', label: 'Denegar estas' },
+          { value: 'allowlist', label: 'Permitir solo estas' },
+        ]}
+        bind:value={rulesByType.license.mode}
+      />
+      {@render listEditor('licenses', 'Licencias', 'GPL-3.0', '')}
+      <label class="flex items-center gap-2 text-sm text-fg">
+        <input type="checkbox" class="k-checkbox" bind:checked={rulesByType.license.allowUnknown} />
         Permitir dependencias con licencia desconocida
       </label>
     {:else if type === 'code_coverage'}
-      <div class="mt-4 grid gap-4 sm:grid-cols-2">
-        <label class="block">
-          <span class="text-xs font-medium text-slate-600">Cobertura total mínima (%)</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            bind:value={rulesByType.code_coverage.minTotalCoverage}
-            class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-medium text-slate-600">Cobertura mínima de los cambios (%)</span>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            bind:value={rulesByType.code_coverage.minPatchCoverage}
-            class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-          />
-        </label>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <Field label="Cobertura total mínima (%)">
+          {#snippet children(control)}
+            <input
+              type="number"
+              min="0"
+              max="100"
+              class="k-input"
+              bind:value={rulesByType.code_coverage.minTotalCoverage}
+              {...control}
+            />
+          {/snippet}
+        </Field>
+        <Field label="Cobertura mínima de los cambios (%)">
+          {#snippet children(control)}
+            <input
+              type="number"
+              min="0"
+              max="100"
+              class="k-input"
+              bind:value={rulesByType.code_coverage.minPatchCoverage}
+              {...control}
+            />
+          {/snippet}
+        </Field>
       </div>
-      <label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" bind:checked={rulesByType.code_coverage.allowCoverageDrop} />
+      <label class="flex items-center gap-2 text-sm text-fg">
+        <input
+          type="checkbox"
+          class="k-checkbox"
+          bind:checked={rulesByType.code_coverage.allowCoverageDrop}
+        />
         Permitir que la cobertura baje respecto al análisis anterior
       </label>
     {:else if type === 'secrets'}
-      <label class="mt-4 block sm:w-1/2">
-        <span class="text-xs font-medium text-slate-600">Máximo de secretos expuestos</span>
+      <div class="sm:w-1/2">
+        <Field label="Máximo de secretos expuestos">
+          {#snippet children(control)}
+            <input
+              type="number"
+              min="0"
+              class="k-input"
+              bind:value={rulesByType.secrets.maxSecrets}
+              {...control}
+            />
+          {/snippet}
+        </Field>
+      </div>
+      <label class="flex items-center gap-2 text-sm text-fg">
         <input
-          type="number"
-          min="0"
-          bind:value={rulesByType.secrets.maxSecrets}
-          class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
+          type="checkbox"
+          class="k-checkbox"
+          bind:checked={rulesByType.secrets.blockVerifiedOnly}
         />
-      </label>
-      <label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" bind:checked={rulesByType.secrets.blockVerifiedOnly} />
         Considerar solo secretos verificados
       </label>
-      <div class="mt-4 flex gap-2">
-        <input
-          type="text"
-          bind:value={ignoredRuleInput}
-          placeholder="generic-api-key"
-          class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none"
-        />
+      {@render listEditor('ignoredRules', 'Reglas ignoradas', 'generic-api-key', '')}
+    {/if}
+  </fieldset>
+
+  <!-- Alcance -->
+  <fieldset class="space-y-3">
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Alcance</legend
+    >
+    <Tabs
+      variant="segmented"
+      size="sm"
+      label="Alcance"
+      items={scopeItems}
+      value={scope.mode}
+      onchange={(mode) => (scope = { ...scope, mode: mode as SecurityPolicyScope['mode'] })}
+    />
+    {#if scope.mode === 'services'}
+      {#if services.length === 0}
+        <p class="text-sm text-fg-subtle">No hay servicios en este proyecto.</p>
+      {:else}
+        <div class="grid gap-1.5 sm:grid-cols-2">
+          {#each services as service (service.id)}
+            <label
+              class="flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors {scope.services.includes(
+                service.id,
+              )
+                ? 'border-brand-500/50 bg-brand-500/8'
+                : 'border-white/10 bg-white/2 hover:border-white/20'}"
+            >
+              <input
+                type="checkbox"
+                class="k-checkbox"
+                checked={scope.services.includes(service.id)}
+                onchange={() =>
+                  (scope = { ...scope, services: toggle(scope.services, service.id) })}
+              />
+              <span class="min-w-0 flex-1 truncate text-white">{service.name}</span>
+              <span class="truncate font-mono text-[11px] text-fg-subtle">{service.slug}</span>
+            </label>
+          {/each}
+        </div>
+      {/if}
+    {:else if scope.mode === 'tags'}
+      {#if tags.length === 0}
+        <p class="text-sm text-fg-subtle">Ningún servicio tiene tags todavía.</p>
+      {:else}
+        <div class="flex flex-wrap gap-1.5">
+          {#each tags as tag (tag)}
+            <button
+              type="button"
+              aria-pressed={scope.tags.includes(tag)}
+              onclick={() => (scope = { ...scope, tags: toggle(scope.tags, tag) })}
+              class="k-badge cursor-pointer {scope.tags.includes(tag)
+                ? 'k-badge-brand'
+                : 'hover:text-white'}">{tag}</button
+            >
+          {/each}
+        </div>
+      {/if}
+    {/if}
+  </fieldset>
+
+  <!-- Aplicación -->
+  <fieldset class="space-y-3">
+    <legend class="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-subtle"
+      >Si se incumple</legend
+    >
+    <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Aplicación">
+      {#each SECURITY_POLICY_ENFORCEMENTS as value (value)}
+        {@const meta = SECURITY_POLICY_ENFORCEMENT_META[value]}
         <button
           type="button"
-          on:click={() => {
-            addToRuleList('ignoredRules', ignoredRuleInput);
-            ignoredRuleInput = '';
-          }}
-          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
+          role="radio"
+          aria-checked={enforcement === value}
+          disabled={!meta.available}
+          onclick={() => (enforcement = value)}
+          class="rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {enforcement ===
+          value
+            ? 'border-brand-500/60 bg-brand-500/10'
+            : 'border-white/10 bg-white/2 hover:border-white/20'}"
         >
-          Añadir regla ignorada
+          <span class="flex items-center gap-2 text-sm font-medium text-white">
+            {meta.label}
+            {#if !meta.available}<span class="k-badge text-[10px]">Próximamente</span>{/if}
+          </span>
+          <span class="mt-0.5 block text-xs text-fg-subtle">{meta.description}</span>
         </button>
+      {/each}
+    </div>
+    <div
+      class="flex items-center justify-between gap-4 rounded-lg border border-white/8 bg-white/2 px-3 py-2.5"
+    >
+      <div>
+        <p class="text-sm text-white" id="policy-enabled-label">Política activa</p>
+        <p class="text-xs text-fg-subtle">Si está inactiva no se evalúa en los análisis.</p>
       </div>
+      <Switch bind:checked={enabled} label="Política activa" />
+    </div>
+  </fieldset>
+
+  {#if showSubmit}
+    <div class="flex justify-end border-t border-white/8 pt-5">
+      <button type="submit" class="k-btn k-btn-primary" disabled={submitting || !name.trim()}>
+        <Save class="h-4 w-4" />{submitting ? 'Guardando…' : submitLabel}
+      </button>
+    </div>
+  {/if}
+</form>
+
+{#snippet listEditor(field: string, label: string, placeholder: string, help: string)}
+  <div>
+    <label class="k-label" for="list-{field}">{label}</label>
+    <div class="flex gap-2">
+      <input
+        id="list-{field}"
+        class="k-input font-mono text-[13px]"
+        {placeholder}
+        autocomplete="off"
+        bind:value={listInputs[field]}
+        onkeydown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            addToList(field);
+          }
+        }}
+      />
+      <button type="button" class="k-btn k-btn-secondary shrink-0" onclick={() => addToList(field)}>
+        <Plus class="h-4 w-4" />Añadir
+      </button>
+    </div>
+    {#if help}<p class="k-help">{help}</p>{/if}
+    {#if (rulesByType[type][field] ?? []).length > 0}
       <div class="mt-2 flex flex-wrap gap-1.5">
-        {#each rulesByType.secrets.ignoredRules as rule}
-          <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
-            {rule}
-            <button type="button" on:click={() => removeFromRuleList('ignoredRules', rule)}>
-              <X class="h-3 w-3" />
-            </button>
+        {#each rulesByType[type][field] as item (item)}
+          <span class="k-badge gap-1 pr-1 font-mono">
+            {item}
+            <button
+              type="button"
+              class="grid h-4 w-4 place-items-center rounded text-fg-subtle hover:bg-white/10 hover:text-white"
+              aria-label="Quitar {item}"
+              onclick={() => removeFromList(field, item)}><X class="h-3 w-3" /></button
+            >
           </span>
         {/each}
       </div>
     {/if}
-  </section>
-
-  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <h2 class="text-sm font-semibold text-slate-900">5. Aplicación</h2>
-    <p class="mt-1 text-xs text-slate-500">Qué ocurre cuando un análisis incumple la política.</p>
-
-    <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      {#each SECURITY_POLICY_ENFORCEMENTS as value}
-        <button
-          type="button"
-          disabled={!SECURITY_POLICY_ENFORCEMENT_META[value].available}
-          on:click={() => (enforcement = value)}
-          class={`rounded-xl border p-4 text-left transition ${
-            enforcement === value
-              ? 'border-slate-900 bg-slate-50'
-              : 'border-slate-200 hover:border-slate-300'
-          } ${SECURITY_POLICY_ENFORCEMENT_META[value].available ? '' : 'cursor-not-allowed opacity-50'}`}
-        >
-          <p class="text-sm font-semibold text-slate-900">
-            {SECURITY_POLICY_ENFORCEMENT_META[value].label}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {SECURITY_POLICY_ENFORCEMENT_META[value].description}
-          </p>
-          {#if !SECURITY_POLICY_ENFORCEMENT_META[value].available}
-            <p class="mt-2 text-[11px] font-semibold uppercase text-slate-400">Próximamente</p>
-          {/if}
-        </button>
-      {/each}
-    </div>
-
-    <label class="mt-4 flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" bind:checked={enabled} />
-      Política activa
-    </label>
-  </section>
-
-  <div class="flex justify-end gap-2">
-    <slot name="secondary-actions" />
-    <button
-      type="submit"
-      disabled={submitting || !name.trim()}
-      class="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-    >
-      {submitting ? 'Guardando...' : submitLabel}
-    </button>
   </div>
-</form>
+{/snippet}

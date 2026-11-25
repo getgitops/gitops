@@ -1,214 +1,447 @@
-<script lang="ts">
-  import { AlertTriangle, ChevronLeft, ChevronRight, Info, Search, ShieldAlert } from '@lucide/svelte';
-  import Dropdown from '#lib/components/Dropdown.svelte';
+<!--
+  Listado de CVEs, reutilizable en un proyecto o en toda la organización.
+  Los enlaces los decide quien lo usa (`cveHref`), así el componente no conoce las rutas.
+  Con `projects` muestra el filtro por proyecto (vista global); sin él, filtra por servicio.
+-->
+<script lang="ts" module>
+  type Severity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
 
-  type CveListRow = {
+  export type CveListItem = {
     id: string;
     title: string;
-    severity: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+    severity: Severity;
     cvssScore: number | null;
-    affectedServiceCount: number;
+    epssScore: number | null;
+    fixable: boolean;
+    packages: string[];
+    services: { slug: string; name: string; projectSlug: string; projectName: string }[];
+    projectSlugs: string[];
     occurrenceCount: number;
-    projectSlugs?: string[];
   };
-
-  type ProjectFilterOption = {
-    slug: string;
-    name: string;
-  };
-
-  export let cves: CveListRow[] = [];
-  export let baseHref = '';
-  export let infoMessage =
-    'Este listado muestra los CVEs detectados en el ultimo analisis de cada servicio. Los servicios sin un analisis reciente completado no aparecen reflejados aqui.';
-  export let emptyMessage = 'Todavia no se han detectado CVEs.';
-  export let projectOptions: ProjectFilterOption[] = [];
-  export let showProjectFilter = false;
-  export let initialProjectFilter = 'all';
-
-  const severityStyles: Record<CveListRow['severity'], string> = {
-    critical: 'border-red-200 bg-red-50 text-red-700',
-    high: 'border-orange-200 bg-orange-50 text-orange-700',
-    medium: 'border-amber-200 bg-amber-50 text-amber-700',
-    low: 'border-slate-200 bg-slate-50 text-slate-600',
-    unknown: 'border-slate-200 bg-slate-50 text-slate-600',
-  };
-
-  const severityOptions = [
-    { id: 'all', name: 'Todas las severidades' },
-    { id: 'critical', name: 'Critical' },
-    { id: 'high', name: 'High' },
-    { id: 'medium', name: 'Medium' },
-    { id: 'low', name: 'Low' },
-    { id: 'unknown', name: 'Unknown' },
-  ];
-
-  let searchQuery = '';
-  let severityFilter = 'all';
-  let projectFilter = 'all';
-  const perPageOptions = [10, 25, 50, 100];
-  let perPage = 10;
-  let currentPage = 1;
-
-  $: if (initialProjectFilter) projectFilter = initialProjectFilter;
-
-  $: projectDropdownOptions = [
-    { id: 'all', name: 'Todos los proyectos' },
-    ...projectOptions.map((project) => ({ id: project.slug, name: project.name })),
-  ];
-
-  function handleProjectChange(event: CustomEvent<{ id: string }>) {
-    projectFilter = event.detail.id;
-  }
-
-  function handleSeverityChange(event: CustomEvent<{ id: string }>) {
-    severityFilter = event.detail.id;
-  }
-
-  $: filteredCves = cves.filter((cve) => {
-    const query = searchQuery.trim().toLowerCase();
-    const matchesQuery =
-      !query || cve.id.toLowerCase().includes(query) || cve.title.toLowerCase().includes(query);
-    const matchesSeverity = severityFilter === 'all' || cve.severity === severityFilter;
-    const matchesProject =
-      !showProjectFilter ||
-      projectFilter === 'all' ||
-      (cve.projectSlugs ?? []).includes(projectFilter);
-
-    return matchesQuery && matchesSeverity && matchesProject;
-  });
-
-  $: totalPages = Math.max(1, Math.ceil(filteredCves.length / perPage));
-  $: if (currentPage > totalPages) currentPage = totalPages;
-  $: searchQuery, severityFilter, projectFilter, perPage, (currentPage = 1);
-  $: paginatedCves = filteredCves.slice((currentPage - 1) * perPage, currentPage * perPage);
-  $: rangeStart = filteredCves.length === 0 ? 0 : (currentPage - 1) * perPage + 1;
-  $: rangeEnd = Math.min(currentPage * perPage, filteredCves.length);
 </script>
 
-<div class="space-y-6">
-  <div class="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-    <Info class="mt-0.5 h-4 w-4 shrink-0" />
-    <p>{infoMessage}</p>
-  </div>
+<script lang="ts">
+  import { untrack } from 'svelte';
+  import {
+    ChevronLeft,
+    ChevronRight,
+    CircleCheck,
+    Search,
+    ShieldAlert,
+    Wrench,
+    X,
+  } from '@lucide/svelte';
+  import {
+    SEVERITY_FILL,
+    SEVERITY_LABEL,
+    SEVERITY_ORDER,
+    severityBadge,
+  } from '#lib/code-report/severity-ui';
+  import { Select, Tabs } from '#lib/components/ui';
 
-  <div class="flex flex-col gap-3 lg:flex-row">
-    <label class="relative min-w-0 flex-1">
-      <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder="Buscar por CVE o titulo..."
-        class="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
-      />
-    </label>
+  let {
+    cves,
+    cveHref,
+    projects = null,
+    initialProject = 'all',
+    emptyTitle = 'Sin CVEs detectados',
+    emptyMessage = 'Ningún servicio tiene vulnerabilidades en su último análisis.',
+  }: {
+    cves: CveListItem[];
+    cveHref: (id: string) => string;
+    /** Vista global: proyectos para filtrar. */
+    projects?: { slug: string; name: string }[] | null;
+    initialProject?: string;
+    emptyTitle?: string;
+    emptyMessage?: string;
+  } = $props();
 
-    {#if showProjectFilter}
-      <Dropdown
-        options={projectDropdownOptions}
-        value={projectFilter}
-        ariaLabel="Filtrar por proyecto"
-        on:change={handleProjectChange}
-      />
-    {/if}
+  const PER_PAGE = 25;
 
-    <Dropdown
-      options={severityOptions}
-      value={severityFilter}
-      ariaLabel="Filtrar por severidad"
-      on:change={handleSeverityChange}
-    />
-  </div>
+  let query = $state('');
+  let severity = $state('all');
+  let scope = $state(untrack(() => initialProject));
+  let onlyFixable = $state(false);
+  let sort = $state('severity');
+  let page = $state(1);
 
-  {#if filteredCves.length === 0}
-    <div
-      class="rounded-[28px] border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm"
+  const services = $derived(
+    [
+      ...new Map(
+        cves
+          .flatMap((cve) => cve.services)
+          .map((service) => [`${service.projectSlug}/${service.slug}`, service]),
+      ).values(),
+    ].sort((left, right) => left.name.localeCompare(right.name)),
+  );
+
+  const scopeOptions = $derived(
+    projects
+      ? [
+          { value: 'all', label: 'Todos los proyectos' },
+          ...projects.map((project) => ({ value: project.slug, label: project.name })),
+        ]
+      : [
+          { value: 'all', label: 'Todos los servicios' },
+          ...services.map((service) => ({
+            value: `${service.projectSlug}/${service.slug}`,
+            label: service.name,
+          })),
+        ],
+  );
+
+  function inScope(cve: CveListItem) {
+    if (scope === 'all') return true;
+    return projects
+      ? cve.projectSlugs.includes(scope)
+      : cve.services.some((service) => `${service.projectSlug}/${service.slug}` === scope);
+  }
+
+  // filtros salvo la severidad, para que los contadores de severidad respondan al resto
+  const base = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    return cves.filter(
+      (cve) =>
+        inScope(cve) &&
+        (!onlyFixable || cve.fixable) &&
+        (!q ||
+          cve.id.toLowerCase().includes(q) ||
+          cve.title.toLowerCase().includes(q) ||
+          cve.packages.some((name) => name.toLowerCase().includes(q))),
+    );
+  });
+
+  const counts = $derived(
+    Object.fromEntries(
+      SEVERITY_ORDER.map((key) => [key, base.filter((cve) => cve.severity === key).length]),
+    ) as Record<Severity, number>,
+  );
+
+  const filtered = $derived.by(() => {
+    const list = base.filter((cve) => severity === 'all' || cve.severity === severity);
+    if (sort === 'cvss') return [...list].sort((a, b) => (b.cvssScore ?? -1) - (a.cvssScore ?? -1));
+    if (sort === 'epss') return [...list].sort((a, b) => (b.epssScore ?? -1) - (a.epssScore ?? -1));
+    if (sort === 'services') return [...list].sort((a, b) => b.services.length - a.services.length);
+    return list; // ya viene por severidad desde el servidor
+  });
+
+  const pages = $derived(Math.max(1, Math.ceil(filtered.length / PER_PAGE)));
+  const visible = $derived(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE));
+
+  $effect(() => {
+    void [query, severity, scope, onlyFixable, sort];
+    page = 1;
+  });
+
+  const hasFilters = $derived(
+    !!query.trim() || severity !== 'all' || scope !== 'all' || onlyFixable,
+  );
+
+  function clear() {
+    query = '';
+    severity = 'all';
+    scope = 'all';
+    onlyFixable = false;
+  }
+
+  // cifras de cabecera sobre el ámbito elegido
+  const scoped = $derived(cves.filter(inScope));
+  const stats = $derived({
+    total: scoped.length,
+    critical: scoped.filter((cve) => cve.severity === 'critical').length,
+    high: scoped.filter((cve) => cve.severity === 'high').length,
+    fixable: scoped.filter((cve) => cve.fixable).length,
+    services: new Set(
+      scoped.flatMap((cve) => cve.services.map((s) => `${s.projectSlug}/${s.slug}`)),
+    ).size,
+  });
+
+  const severityItems = $derived([
+    { value: 'all', label: `Todas ${base.length}` },
+    ...SEVERITY_ORDER.filter((key) => key !== 'unknown' || counts.unknown > 0).map((key) => ({
+      value: key,
+      label: `${SEVERITY_LABEL[key]} ${counts[key]}`,
+      disabled: counts[key] === 0 && severity !== key,
+    })),
+  ]);
+</script>
+
+{#if cves.length === 0}
+  <div class="k-card flex flex-col items-center gap-3 px-6 py-14 text-center">
+    <span class="grid h-12 w-12 place-items-center rounded-full bg-ok/10 text-ok"
+      ><CircleCheck class="h-6 w-6" /></span
     >
-      <ShieldAlert class="mx-auto h-8 w-8 text-slate-400" />
-      <p class="mt-3 text-sm font-medium text-slate-900">
-        {cves.length === 0 ? emptyMessage : 'Sin resultados para tu busqueda.'}
-      </p>
-    </div>
-  {:else}
-    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <table class="w-full text-left text-sm">
-        <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-          <tr>
-            <th class="px-5 py-3 font-semibold">CVE</th>
-            <th class="px-5 py-3 font-semibold">Severidad</th>
-            <th class="px-5 py-3 font-semibold">CVSS</th>
-            <th class="px-5 py-3 font-semibold">Servicios afectados</th>
-            <th class="px-5 py-3 font-semibold">Apariciones</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {#each paginatedCves as cve (cve.id)}
-            <tr class="hover:bg-slate-50">
-              <td class="px-5 py-3">
-                <a href={`${baseHref}/${cve.id}`} class="font-mono font-semibold text-slate-900 hover:underline">
-                  {cve.id}
-                </a>
-                {#if cve.title}
-                  <p class="mt-0.5 max-w-md truncate text-xs text-slate-500">{cve.title}</p>
-                {/if}
-              </td>
-              <td class="px-5 py-3">
-                <span
-                  class={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase ${severityStyles[cve.severity]}`}
-                >
-                  {#if cve.severity === 'critical'}<AlertTriangle class="h-3 w-3" />{/if}
-                  {cve.severity}
-                </span>
-              </td>
-              <td class="px-5 py-3 text-slate-700">
-                {cve.cvssScore !== null ? cve.cvssScore.toFixed(1) : '-'}
-              </td>
-              <td class="px-5 py-3 text-slate-700">{cve.affectedServiceCount}</td>
-              <td class="px-5 py-3 text-slate-700">{cve.occurrenceCount}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
-      <div class="flex items-center gap-2 text-sm text-slate-600">
-        <span>Mostrando {rangeStart}-{rangeEnd} de {filteredCves.length}</span>
-        <label class="flex items-center gap-1.5">
-          <span class="text-slate-500">Por pagina</span>
-          <select
-            bind:value={perPage}
-            aria-label="Elementos por pagina"
-            class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+    <p class="text-sm font-medium text-white">{emptyTitle}</p>
+    <p class="max-w-md text-sm text-fg-muted">{emptyMessage}</p>
+  </div>
+{:else}
+  <div class="space-y-4">
+    <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumen de CVEs">
+      <div class="k-card p-5">
+        <p class="text-sm text-fg-muted">CVEs abiertos</p>
+        <p class="mt-2 text-3xl font-semibold tabular-nums text-white">{stats.total}</p>
+        <p class="mt-1 text-xs text-fg-subtle">
+          en {stats.services}
+          {stats.services === 1 ? 'servicio' : 'servicios'}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="k-card k-card-hover p-5 text-left"
+        onclick={() => (severity = severity === 'critical' ? 'all' : 'critical')}
+        aria-pressed={severity === 'critical'}
+      >
+        <p class="flex items-center gap-2 text-sm text-fg-muted">
+          <span class="h-2 w-2 rounded-full {SEVERITY_FILL.critical}"></span>Críticos
+        </p>
+        <p
+          class="mt-2 text-3xl font-semibold tabular-nums {stats.critical
+            ? 'text-red-300'
+            : 'text-white'}"
+        >
+          {stats.critical}
+        </p>
+        <p class="mt-1 text-xs text-fg-subtle">
+          {stats.high}
+          {stats.high === 1 ? 'alto' : 'altos'}
+        </p>
+      </button>
+      <button
+        type="button"
+        class="k-card k-card-hover p-5 text-left"
+        onclick={() => (onlyFixable = !onlyFixable)}
+        aria-pressed={onlyFixable}
+      >
+        <p class="flex items-center gap-2 text-sm text-fg-muted">
+          <Wrench class="h-3.5 w-3.5 text-ok" />Con parche disponible
+        </p>
+        <p class="mt-2 text-3xl font-semibold tabular-nums text-white">
+          {stats.total ? Math.round((stats.fixable / stats.total) * 100) : 0}<span
+            class="text-lg text-fg-subtle">%</span
           >
-            {#each perPageOptions as option}
-              <option value={option}>{option}</option>
-            {/each}
-          </select>
+        </p>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white/6">
+          <div
+            class="h-full rounded-full bg-ok"
+            style="width:{stats.total ? (stats.fixable / stats.total) * 100 : 0}%"
+          ></div>
+        </div>
+      </button>
+      <div class="k-card p-5">
+        <p class="text-sm text-fg-muted">Por severidad</p>
+        <div class="mt-3 flex h-2 gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
+          {#each SEVERITY_ORDER as key (key)}
+            {@const value = scoped.filter((cve) => cve.severity === key).length}
+            {#if value > 0}
+              <div
+                class={SEVERITY_FILL[key]}
+                style="width:{(value / Math.max(stats.total, 1)) * 100}%"
+              ></div>
+            {/if}
+          {/each}
+        </div>
+        <ul class="mt-3 grid grid-cols-4 gap-1 text-xs">
+          {#each ['critical', 'high', 'medium', 'low'] as const as key (key)}
+            <li>
+              <span class="block text-fg-subtle">{SEVERITY_LABEL[key]}</span>
+              <span class="tabular-nums text-white"
+                >{scoped.filter((cve) => cve.severity === key).length}</span
+              >
+            </li>
+          {/each}
+        </ul>
+      </div>
+    </section>
+
+    <div class="max-w-full overflow-x-auto">
+      <Tabs
+        variant="segmented"
+        size="sm"
+        label="Severidad"
+        items={severityItems}
+        bind:value={severity}
+      />
+    </div>
+
+    <div class="k-card overflow-hidden">
+      <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
+        <label class="relative w-full sm:w-72">
+          <Search
+            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+          />
+          <input
+            type="search"
+            class="k-input h-9 pl-9"
+            placeholder="Buscar CVE, título o paquete…"
+            aria-label="Buscar CVEs"
+            bind:value={query}
+          />
         </label>
+        {#if scopeOptions.length > 2}
+          <div class="w-full sm:w-56 **:[[role=combobox]]:h-9">
+            <label for="cve-scope" class="sr-only">{projects ? 'Proyecto' : 'Servicio'}</label>
+            <Select
+              id="cve-scope"
+              options={scopeOptions}
+              bind:value={scope}
+              searchable={scopeOptions.length > 8}
+            />
+          </div>
+        {/if}
+        <div class="w-full sm:w-48 **:[[role=combobox]]:h-9">
+          <label for="cve-sort" class="sr-only">Ordenar por</label>
+          <Select
+            id="cve-sort"
+            bind:value={sort}
+            options={[
+              { value: 'severity', label: 'Ordenar: severidad' },
+              { value: 'cvss', label: 'Ordenar: CVSS' },
+              { value: 'epss', label: 'Ordenar: EPSS' },
+              { value: 'services', label: 'Ordenar: servicios' },
+            ]}
+          />
+        </div>
+        <label class="inline-flex items-center gap-2 text-sm text-fg-muted">
+          <input type="checkbox" class="k-checkbox" bind:checked={onlyFixable} />Solo con parche
+        </label>
+        {#if hasFilters}
+          <button type="button" class="k-btn k-btn-ghost k-btn-sm" onclick={clear}>
+            <X class="h-3.5 w-3.5" />Limpiar
+          </button>
+        {/if}
+        <span class="ml-auto text-xs tabular-nums text-fg-subtle"
+          >{filtered.length} de {cves.length}</span
+        >
       </div>
 
-      <div class="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={currentPage === 1}
-          on:click={() => (currentPage -= 1)}
-          aria-label="Pagina anterior"
-          class="inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ChevronLeft class="h-4 w-4" />
-        </button>
-        <span class="px-3 text-sm text-slate-600">Pagina {currentPage} de {totalPages}</span>
-        <button
-          type="button"
-          disabled={currentPage === totalPages}
-          on:click={() => (currentPage += 1)}
-          aria-label="Pagina siguiente"
-          class="inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ChevronRight class="h-4 w-4" />
-        </button>
-      </div>
+      {#if filtered.length === 0}
+        <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
+          <ShieldAlert class="h-6 w-6 text-fg-subtle" />
+          <p class="text-sm text-fg-muted">Ningún CVE coincide con los filtros.</p>
+          <button type="button" class="k-btn k-btn-secondary k-btn-sm" onclick={clear}>
+            <X class="h-3.5 w-3.5" />Limpiar filtros
+          </button>
+        </div>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-200 text-left text-sm">
+            <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+              <tr class="border-b border-white/8">
+                <th class="px-5 py-3 font-semibold">CVE</th>
+                <th class="px-3 py-3 font-semibold">Severidad</th>
+                <th class="px-3 py-3 font-semibold">CVSS</th>
+                <th class="px-3 py-3 font-semibold">EPSS</th>
+                <th class="px-3 py-3 font-semibold">Afecta a</th>
+                <th class="px-5 py-3 font-semibold">Parche</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              {#each visible as cve (cve.id)}
+                <tr class="group relative transition-colors hover:bg-white/2.5">
+                  <td class="max-w-md px-5 py-3">
+                    <a
+                      href={cveHref(cve.id)}
+                      class="block font-mono text-[13px] font-medium text-white after:absolute after:inset-0 group-hover:text-brand-300"
+                    >
+                      {cve.id}
+                    </a>
+                    <p class="truncate text-xs text-fg-subtle" title={cve.title}>
+                      {cve.title || '—'}
+                    </p>
+                  </td>
+                  <td class="px-3 py-3">
+                    <span class="k-badge {severityBadge(cve.severity)} font-semibold"
+                      >{SEVERITY_LABEL[cve.severity]}</span
+                    >
+                  </td>
+                  <td class="px-3 py-3">
+                    {#if cve.cvssScore !== null}
+                      <div class="flex items-center gap-2">
+                        <span class="w-7 tabular-nums text-fg">{cve.cvssScore.toFixed(1)}</span>
+                        <span
+                          class="hidden h-1 w-12 overflow-hidden rounded-full bg-white/6 lg:block"
+                        >
+                          <span
+                            class="block h-full rounded-full {SEVERITY_FILL[cve.severity]}"
+                            style="width:{cve.cvssScore * 10}%"
+                          ></span>
+                        </span>
+                      </div>
+                    {:else}<span class="text-fg-subtle">—</span>{/if}
+                  </td>
+                  <td
+                    class="px-3 py-3 tabular-nums {cve.epssScore !== null && cve.epssScore >= 0.1
+                      ? 'text-amber-300'
+                      : 'text-fg-muted'}"
+                  >
+                    {cve.epssScore !== null
+                      ? `${(cve.epssScore * 100).toFixed(cve.epssScore < 0.01 ? 2 : 1)} %`
+                      : '—'}
+                  </td>
+                  <td class="px-3 py-3">
+                    <p
+                      class="truncate text-xs text-fg"
+                      title={cve.services.map((s) => s.name).join(', ')}
+                    >
+                      {cve.services.length === 1
+                        ? cve.services[0].name
+                        : `${cve.services.length} servicios`}
+                      {#if projects && cve.projectSlugs.length > 1}
+                        <span class="text-fg-subtle">· {cve.projectSlugs.length} proyectos</span>
+                      {/if}
+                    </p>
+                    <p
+                      class="truncate font-mono text-[11px] text-fg-subtle"
+                      title={cve.packages.join(', ')}
+                    >
+                      {cve.packages.slice(0, 2).join(', ')}{#if cve.packages.length > 2}
+                        +{cve.packages.length - 2}{/if}
+                    </p>
+                  </td>
+                  <td class="px-5 py-3">
+                    {#if cve.fixable}
+                      <span class="k-badge k-badge-ok"><Wrench class="h-3 w-3" />Disponible</span>
+                    {:else}
+                      <span class="k-badge">Sin parche</span>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        {#if pages > 1}
+          <div
+            class="flex items-center justify-between gap-3 border-t border-white/8 px-5 py-3 text-xs text-fg-subtle"
+          >
+            <span class="tabular-nums">
+              {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} de {filtered.length}
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                aria-label="Página anterior"
+                disabled={page === 1}
+                onclick={() => (page -= 1)}
+              >
+                <ChevronLeft class="h-4 w-4" />
+              </button>
+              <span class="px-2 tabular-nums">{page} / {pages}</span>
+              <button
+                type="button"
+                class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                aria-label="Página siguiente"
+                disabled={page === pages}
+                onclick={() => (page += 1)}
+              >
+                <ChevronRight class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        {/if}
+      {/if}
     </div>
-  {/if}
-</div>
+  </div>
+{/if}

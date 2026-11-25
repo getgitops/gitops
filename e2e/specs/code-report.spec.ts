@@ -12,7 +12,6 @@ const readOnlyRoutes = [
   `${base}/services`,
   `${base}/services/${seed.seededServiceSlug}`,
   `${base}/settings`,
-  `${base}/settings/tools`,
 ];
 
 test.describe('code report — no codereport:*:read grant at all', () => {

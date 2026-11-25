@@ -1,98 +1,265 @@
 <script lang="ts">
   import '../app.css';
-  import { onMount } from 'svelte';
-  import { createPageStore } from '#lib/page-store';
+  import { onMount, type Snippet } from 'svelte';
+  import { page } from '$app/state';
+  import { goto } from '$app/navigation';
+  import { BookOpen, ChevronRight, FolderKanban, LogOut, UserRound } from '@lucide/svelte';
   import AppNavbar from '#lib/components/AppNavbar.svelte';
   import AppSidebar from '#lib/components/AppSidebar.svelte';
-  import Footer from '#lib/components/Footer.svelte';
   import WhatsNewBanner from '#lib/components/WhatsNewBanner.svelte';
-  import { setupI18n } from '#lib/i18n';
+  import { CommandPalette, Toaster, type CommandGroup } from '#lib/components/ui';
+  import { scrollLock, overlayLayer } from '#lib/components/ui/overlay';
+  import { activeItem, buildNavigation, isModuleActive } from '#lib/navigation';
+  import { _, setupI18n } from '#lib/i18n';
 
-  export let data: any;
-
-  let sidebarCollapsed = false;
-  let sidebarStateReady = false;
+  let { data, children }: { data: any; children: Snippet } = $props();
 
   setupI18n();
 
-  $: isBareLayout =
-    $page?.url?.pathname?.startsWith('/auth/') || $page?.url?.pathname?.startsWith('/bootstrap');
+  const SIDEBAR_KEY = 'gitops-sidebar-collapsed';
+  let sidebarCollapsed = $state(false);
+  let mobileMenuOpen = $state(false);
+  let searchOpen = $state(false);
 
   onMount(() => {
-    sidebarCollapsed = localStorage.getItem('gitops-sidebar-collapsed') === '1';
-    sidebarStateReady = true;
+    try {
+      sidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
+    } catch {
+      // sin almacenamiento (modo privado): se queda expandido
+    }
   });
 
-  $: if (sidebarStateReady) {
-    localStorage.setItem('gitops-sidebar-collapsed', sidebarCollapsed ? '1' : '0');
+  function toggleCollapsed() {
+    sidebarCollapsed = !sidebarCollapsed;
+    try {
+      localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
+    } catch {
+      // preferencia solo de esta sesión
+    }
   }
-  const page = createPageStore();
+
+  const pathname = $derived(page.url.pathname);
+  const isBareLayout = $derived(
+    pathname.startsWith('/auth/') || pathname.startsWith('/bootstrap') || pathname === '/brand',
+  );
+
+  // el menú móvil se cierra al navegar
+  $effect(() => {
+    void pathname;
+    mobileMenuOpen = false;
+  });
+
+  const categories = $derived(
+    buildNavigation(
+      {
+        organizationSlug: data.organization?.slug ?? null,
+        currentProjectSlug: data.currentProjectSlug ?? null,
+        projects: data.projects ?? [],
+        access: data,
+      },
+      $_,
+    ),
+  );
+
+  type ShellProject = {
+    id: string;
+    name: string;
+    slug: string;
+    organization?: { id: string; name: string; slug: string } | null;
+  };
+  const projects: ShellProject[] = $derived(data.projects ?? []);
+
+  // pestañas de sección: las subpáginas del módulo activo, si tiene más de una
+  const sectionModule = $derived(
+    categories
+      .flatMap((category) => category.modules)
+      .find((navModule) => navModule.items.length > 1 && isModuleActive(pathname, navModule)) ??
+      null,
+  );
+  const sectionItem = $derived(sectionModule ? activeItem(pathname, sectionModule) : null);
+
+  // migas de pan: organización › proyecto › módulo › página del módulo
+  const crumbs = $derived.by(() => {
+    const list: { label: string; href: string }[] = [];
+    const navModule =
+      categories
+        .flatMap((category) => category.modules)
+        .find((candidate) => isModuleActive(pathname, candidate)) ?? null;
+    const org = data.organization as { name: string; slug: string } | null;
+    if (org && navModule?.id !== 'cluster-settings') {
+      list.push({ label: org.name, href: `/org/${org.slug}/overview` });
+    }
+    const project = projects.find((p) => p.slug === data.currentProjectSlug);
+    if (org && project) {
+      list.push({
+        label: project.name,
+        href: `/org/${org.slug}/projects/${project.slug}/overview`,
+      });
+    }
+    if (navModule && navModule.id !== 'project-dashboard' && navModule.id !== 'org-overview') {
+      list.push({ label: navModule.name, href: navModule.items[0].href });
+      const item = navModule.items.length > 1 ? activeItem(pathname, navModule) : null;
+      if (item) list.push({ label: item.label, href: item.href });
+    }
+    return list;
+  });
+
+  const searchGroups: CommandGroup[] = $derived.by(() => {
+    const orgSlug = data.organization?.slug;
+    const groups: CommandGroup[] = [];
+    if (projects.length > 0) {
+      groups.push({
+        label: $_('nav.projects'),
+        items: projects.map((project) => ({
+          id: `project:${project.slug}`,
+          label: project.name,
+          hint: project.organization?.name ?? project.slug,
+          keywords: project.slug,
+          icon: FolderKanban,
+          run: () =>
+            goto(`/org/${project.organization?.slug ?? orgSlug}/projects/${project.slug}/overview`),
+        })),
+      });
+    }
+    groups.push({
+      label: $_('nav.navigation'),
+      items: categories.flatMap((category) =>
+        category.modules.flatMap((navModule) =>
+          navModule.items.map((item) => ({
+            id: `nav:${item.href}`,
+            label: item.label,
+            hint: navModule.name === item.label ? category.name : navModule.name,
+            icon: item.icon,
+            keywords: `${category.name} ${navModule.name}`,
+            run: () => goto(item.href),
+          })),
+        ),
+      ),
+    });
+    groups.push({
+      label: $_('nav.account'),
+      items: [
+        { id: 'profile', label: $_('nav.profile'), icon: UserRound, run: () => goto('/profile') },
+        {
+          id: 'docs',
+          label: $_('nav.howTo'),
+          icon: BookOpen,
+          run: () => window.open('https://getgitops.com/docs', '_blank', 'noopener'),
+        },
+        {
+          id: 'logout',
+          label: $_('nav.signOut'),
+          icon: LogOut,
+          run: () => window.location.assign('/auth/logout'),
+        },
+      ],
+    });
+    return groups;
+  });
 </script>
 
-<div
-  class="min-h-screen bg-[#020813] text-slate-100 font-sans flex flex-col"
-  style={`--sidebar-width:${sidebarCollapsed ? '84px' : '292px'}`}
->
-  {#if !isBareLayout}
+{#if isBareLayout}
+  <!-- auth, bootstrap y /brand: sin shell -->
+  <div class="flex min-h-screen flex-col bg-ink-950 font-sans text-fg antialiased">
+    {@render children()}
+  </div>
+{:else}
+  <div
+    class="flex min-h-screen flex-col bg-ink-950 font-sans text-fg antialiased"
+    style:--sidebar-width={sidebarCollapsed ? '4.25rem' : '16rem'}
+  >
     <AppNavbar
       user={data.user}
-      projects={data.projects}
-      organizationSlug={data.organization?.slug ?? null}
-      projectSlug={data.currentProjectSlug ?? ''}
+      settingsHref={data.canAccessClusterSettings ? '/gitops-settings/orgs' : null}
+      onsearch={data.user ? () => (searchOpen = true) : undefined}
+      menuOpen={mobileMenuOpen}
+      onmenu={() => (mobileMenuOpen = !mobileMenuOpen)}
     />
-    <WhatsNewBanner />
+
+    {#if mobileMenuOpen}
+      <div
+        class="fixed inset-0 top-16 z-20 bg-black/60 backdrop-blur-sm md:hidden"
+        aria-hidden="true"
+        onclick={() => (mobileMenuOpen = false)}
+        use:scrollLock
+        use:overlayLayer={() => (mobileMenuOpen = false)}
+      ></div>
+    {/if}
 
     <div
-      class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 py-6 sm:px-6 md:block md:px-0"
+      id="app-sidebar"
+      class="fixed bottom-0 left-0 top-16 z-20 w-72 border-r border-white/8 bg-ink-950 transition-[translate,width] duration-200 md:w-(--sidebar-width) md:translate-x-0 {mobileMenuOpen
+        ? 'translate-x-0'
+        : '-translate-x-full'}"
     >
-      <aside
-        class="app-shell-sidebar w-full md:fixed md:left-0 md:top-[84px] md:z-20 md:h-[calc(100vh-84px)] md:overflow-y-auto md:border-r md:border-[#142236] md:bg-[#020813] md:px-6 md:py-7"
-      >
-        <AppSidebar
-          pathname={$page?.url?.pathname}
-          isConfigured={data.isConfigured}
-          organizationSlug={data.organization?.slug ?? null}
-          organizationName={data.organization?.name ?? null}
-          projects={data.projects}
-          canAccessClusterSettings={data.canAccessClusterSettings}
-          canManageOrganization={data.canManageOrganization}
-          canManageProject={data.canManageProject}
-          canReadOrgProjects={data.canReadOrgProjects}
-          canReadOrgUsers={data.canReadOrgUsers}
-          canReadOrgRoles={data.canReadOrgRoles}
-          canReadOrgGlobal={data.canReadOrgGlobal}
-          canReadOrgBackups={data.canReadOrgBackups}
-          canReadOrgServerKeys={data.canReadOrgServerKeys}
-          canReadOrgAudit={data.canReadOrgAudit}
-          canReadOrgEvents={data.canReadOrgEvents}
-          canReadOrganizationAlerts={data.canReadOrganizationAlerts}
-          canReadProjectInfo={data.canReadProjectInfo}
-          canReadProjectUsers={data.canReadProjectUsers}
-          canReadProjectRoles={data.canReadProjectRoles}
-          canReadProjectServerKeys={data.canReadProjectServerKeys}
-          canReadProjectAudit={data.canReadProjectAudit}
-          canReadProjectAlerts={data.canReadProjectAlerts}
-          canReadProjectVault={data.canReadProjectVault}
-          canReadProjectCodeReport={data.canReadProjectCodeReport}
-          canReadProjectStateIac={data.canReadProjectStateIac}
-          canReadProjectMonitoring={data.canReadProjectMonitoring}
-          currentProjectSlug={data.currentProjectSlug ?? null}
-          bind:collapsed={sidebarCollapsed}
-        />
-      </aside>
-
-      <main class="app-shell-main min-w-0 flex-1 md:pr-6">
-        <slot />
-      </main>
+      <AppSidebar
+        {pathname}
+        {categories}
+        {projects}
+        collapsed={sidebarCollapsed && !mobileMenuOpen}
+        isConfigured={data.isConfigured}
+        organizationSlug={data.organization?.slug ?? null}
+        organizationName={data.organization?.name ?? null}
+        currentProjectSlug={data.currentProjectSlug ?? null}
+        showSyncStatus={data.canViewGitDbStatus}
+        syncStatusHref={data.canAccessClusterSettings ? '/gitops-settings/database' : null}
+        ontogglecollapse={toggleCollapsed}
+      />
     </div>
-  {:else}
-    <slot />
-  {/if}
 
-  {#if !isBareLayout}
-    <Footer
-      showSyncStatus={data.canViewGitDbStatus}
-      syncStatusHref={data.canAccessClusterSettings ? '/gitops-settings/database' : null}
-    />
-  {/if}
-</div>
+    <main class="min-w-0 flex-1 transition-[padding] duration-200 md:pl-(--sidebar-width)">
+      <div class="px-4 py-6 sm:px-6">
+        <WhatsNewBanner />
+        {#if crumbs.length > 1}
+          <nav aria-label={$_('nav.breadcrumbs')} class="mb-4">
+            <ol class="flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
+              {#each crumbs as crumb, index (index)}
+                {@const last = index === crumbs.length - 1}
+                <li class="flex min-w-0 items-center gap-1.5">
+                  {#if index > 0}<ChevronRight class="h-3 w-3 shrink-0" aria-hidden="true" />{/if}
+                  <a
+                    href={crumb.href}
+                    class="truncate transition-colors hover:text-white {last ? 'text-fg' : ''}"
+                    aria-current={crumb.href === pathname ? 'page' : undefined}>{crumb.label}</a
+                  >
+                </li>
+              {/each}
+            </ol>
+          </nav>
+        {/if}
+        {#if sectionModule}
+          <nav
+            id="section-nav"
+            aria-label={sectionModule.name}
+            class="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b border-white/8 px-4 sm:-mx-6 sm:px-6"
+          >
+            {#each sectionModule.items as item (item.href)}
+              {@const current = item.href === sectionItem?.href}
+              <a
+                href={item.href}
+                aria-current={current ? 'page' : undefined}
+                class="relative flex shrink-0 items-center gap-2 px-3 pb-3 pt-1 text-sm font-medium transition-colors {current
+                  ? 'text-white after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:bg-brand-500'
+                  : 'text-fg-muted hover:text-white'}"
+                data-sveltekit-preload-data
+              >
+                <item.icon class="h-4 w-4 {current ? 'text-brand-400' : ''}" />
+                {item.label}
+              </a>
+            {/each}
+          </nav>
+        {/if}
+        {@render children()}
+      </div>
+    </main>
+
+    {#if data.user}
+      <CommandPalette
+        bind:open={searchOpen}
+        groups={searchGroups}
+        placeholder={$_('nav.searchPlaceholder')}
+      />
+    {/if}
+    <Toaster />
+  </div>
+{/if}

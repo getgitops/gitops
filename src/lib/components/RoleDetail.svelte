@@ -2,15 +2,17 @@
   import { deserialize } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
   import {
-    CheckCircle,
+    ArrowLeft,
     ChevronDown,
     ChevronRight,
-    Pencil,
+    KeyRound,
+    LoaderCircle,
+    Lock,
     Save,
     Trash2,
     Users,
-    X,
   } from '@lucide/svelte';
+  import { Field, Modal, toast } from '#lib/components/ui';
   import permissionsCatalog, { defaultActions } from '#lib/config/permissions';
   import { normalizePermissionGrant, toStoredPermissionGrant } from '#lib/permissions';
   import { _ } from '#lib/i18n';
@@ -74,8 +76,35 @@
   let selectedPermissions = toUiPermissions(role?.permissions ?? []);
   let saving = false;
   let deleting = false;
-  let detailError = '';
-  let detailSuccess = '';
+  let deleteOpen = false;
+  // en un rol nuevo el slug se genera a partir del nombre hasta que se edita a mano
+  let slugTouched = false;
+  $: if (isCreate && !slugTouched) roleSlug = slugify(roleName);
+
+  function slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function levelLabel(level: AccessLevel): string {
+    return level === 'none'
+      ? $_('roleDetail.noAccess')
+      : level === 'read'
+        ? $_('roleDetail.readOnly')
+        : level === 'full'
+          ? $_('roleDetail.fullAccess')
+          : $_('roleDetail.custom');
+  }
+
+  function setAllExpanded(open: boolean) {
+    expanded = Object.fromEntries(
+      permissionRows.filter((row) => hasExpandableContent(row)).map((row) => [row.key, open]),
+    );
+  }
   let expanded: Record<string, boolean> = defaultExpanded(getPermissionRows(scope));
   let accessLevelOverrides: Record<string, AccessLevel> = {};
 
@@ -362,13 +391,6 @@
     return row.hasChildren || row.permissions.length > 0;
   }
 
-  function flashSuccess(message: string) {
-    detailSuccess = message;
-    setTimeout(() => {
-      detailSuccess = '';
-    }, 2500);
-  }
-
   async function submitAction(action: string, values: Record<string, string>) {
     const formData = new FormData();
     for (const [key, value] of Object.entries(values)) formData.set(key, value);
@@ -383,8 +405,12 @@
     return result.type === 'success' ? (result.data as { role?: RoleRow } | undefined) : null;
   }
 
-  async function saveRole() {
-    detailError = '';
+  async function saveRole(event?: SubmitEvent) {
+    event?.preventDefault();
+    if (!roleName.trim() || !roleSlug.trim()) {
+      toast.error($_('roleDetail.nameRequired'));
+      return;
+    }
     saving = true;
 
     try {
@@ -396,14 +422,15 @@
       });
 
       if (isCreate && result?.role?.id) {
+        toast.success($_('roleDetail.saved'), roleName.trim());
         await goto(`${cancelHref}/${result.role.id}`);
         return;
       }
 
       await invalidateAll();
-      flashSuccess($_('roleDetail.saved'));
+      toast.success($_('roleDetail.saved'), roleName.trim());
     } catch (error: unknown) {
-      detailError = error instanceof Error ? error.message : $_('roleDetail.saveFailed');
+      toast.error(error instanceof Error ? error.message : $_('roleDetail.saveFailed'));
     } finally {
       saving = false;
     }
@@ -412,13 +439,14 @@
   async function deleteRole() {
     if (!role) return;
 
-    detailError = '';
     deleting = true;
     try {
       await submitAction('deleteRole', { id: role.id });
+      deleteOpen = false;
+      toast.success($_('roleDetail.deleted'), role.name);
       await goto(cancelHref);
     } catch (error: unknown) {
-      detailError = error instanceof Error ? error.message : $_('roleDetail.deleteFailed');
+      toast.error(error instanceof Error ? error.message : $_('roleDetail.deleteFailed'));
     } finally {
       deleting = false;
     }
@@ -429,230 +457,279 @@
   <title>{title || $_('roleDetail.defaultTitle')}</title>
 </svelte:head>
 
-<div class="space-y-4">
-  {#if detailError}
-    <div class="w-full rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {detailError}
-    </div>
-  {/if}
-  {#if detailSuccess}
-    <div
-      class="w-full rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
-    >
-      <span class="inline-flex items-center gap-2"
-        ><CheckCircle class="h-4 w-4" /> {detailSuccess}</span
+<form class="space-y-6" on:submit={saveRole}>
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+      <a
+        href={cancelHref}
+        class="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-white"
       >
+        <ArrowLeft class="h-3.5 w-3.5" />{$_('roleDetail.backToRoles')}
+      </a>
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        <h1 class="truncate text-2xl font-semibold tracking-tight text-white">
+          {isCreate ? $_('roleDetail.newRole') : roleName || role?.name}
+        </h1>
+        {#if roleIsSystem}
+          <span class="k-badge gap-1"><Lock class="h-3 w-3" />{$_('rolePermissions.system')}</span>
+        {/if}
+      </div>
     </div>
-  {/if}
+    <div class="flex flex-wrap items-center gap-2">
+      {#if !isCreate && canDelete}
+        <button
+          type="button"
+          class="k-btn k-btn-ghost hover:text-red-400"
+          disabled={roleIsSystem}
+          title={roleIsSystem ? $_('roleDetail.systemRoleDeleteDisabled') : undefined}
+          on:click={() => (deleteOpen = true)}
+        >
+          <Trash2 class="h-4 w-4" />{$_('common.delete')}
+        </button>
+      {/if}
+      <a href={cancelHref} class="k-btn k-btn-secondary">{$_('common.cancel')}</a>
+      {#if canSave}
+        <button type="submit" class="k-btn k-btn-primary" disabled={saving}>
+          {#if saving}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Save
+              class="h-4 w-4"
+            />{/if}
+          {isCreate ? $_('roleDetail.createRole') : $_('common.save')}
+        </button>
+      {/if}
+    </div>
+  </header>
 
-  <div class="grid gap-4 lg:grid-cols-[minmax(260px,1fr)_minmax(0,4fr)]">
-    <aside class="self-start rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-      <div class="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-        <h3 class="text-base font-semibold text-slate-900">
-          {scope === 'organization'
-            ? $_('roleDetail.orgRoleDetails')
-            : scope === 'project'
-              ? $_('roleDetail.projectRoleDetails')
-              : $_('roleDetail.clusterRoleDetails')}
-        </h3>
-        <Pencil class="h-4 w-4 text-slate-400" />
-      </div>
-
-      <div class="mt-5 space-y-5 text-sm">
-        {#if !isCreate && role?.id}
+  <div class="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+    <section class="k-card h-fit space-y-5 p-5 lg:sticky lg:top-20">
+      <h2 class="text-sm font-semibold text-white">
+        {scope === 'organization'
+          ? $_('roleDetail.orgRoleDetails')
+          : scope === 'project'
+            ? $_('roleDetail.projectRoleDetails')
+            : $_('roleDetail.clusterRoleDetails')}
+      </h2>
+      {#if canSave}
+        <Field id="role-name" label={$_('common.name')} required>
+          {#snippet children(control)}
+            <input
+              {...control}
+              class="k-input"
+              placeholder={$_('roleDetail.developerPlaceholder')}
+              data-autofocus
+              bind:value={roleName}
+            />
+          {/snippet}
+        </Field>
+        <Field
+          id="role-slug"
+          label={$_('common.slug')}
+          help={isCreate ? $_('roleDetail.slugHelp') : $_('roleDetail.slugLocked')}
+        >
+          {#snippet children(control)}
+            <input
+              {...control}
+              class="k-input font-mono text-[13px]"
+              placeholder="developer"
+              readonly={!isCreate}
+              bind:value={roleSlug}
+              on:input={() => (slugTouched = true)}
+            />
+          {/snippet}
+        </Field>
+      {:else}
+        <dl class="space-y-4 text-sm">
           <div>
-            <div class="font-semibold text-slate-500">{$_('roleDetail.roleId')}</div>
-            <div class="mt-1 break-all text-slate-700">{role.id}</div>
+            <dt class="k-label">{$_('common.name')}</dt>
+            <dd class="text-fg">{roleName}</dd>
           </div>
-        {/if}
-
-        <div>
-          <label class="block font-semibold text-slate-400" for="role-name"
-            >{$_('common.name')}</label
-          >
-          <input
-            id="role-name"
-            type="text"
-            bind:value={roleName}
-            readonly={!canSave}
-            class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 read-only:text-slate-300 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
-            placeholder={$_('roleDetail.developerPlaceholder')}
-          />
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-400" for="role-slug"
-            >{$_('common.slug')}</label
-          >
-          <input
-            id="role-slug"
-            type="text"
-            bind:value={roleSlug}
-            readonly={!isCreate || !canSave}
-            class="mt-1 w-full rounded-md border border-transparent bg-transparent px-0 py-1 text-slate-200 outline-none transition placeholder:text-slate-600 read-only:text-slate-300 focus:border-[#dfff22] focus:bg-[#24262b] focus:px-2"
-            placeholder="developer"
-          />
-        </div>
-
-        <div>
-          <div class="font-semibold text-slate-400">{$_('common.description')}</div>
-          <div class="mt-1 text-slate-300">
-            {isCreate
-              ? $_('roleDetail.newRole')
-              : `${roleName || $_('common.role')} ${$_('roleDetail.roleSuffix')}`}
+          <div>
+            <dt class="k-label">{$_('common.slug')}</dt>
+            <dd class="font-mono text-fg">{roleSlug}</dd>
           </div>
-        </div>
+        </dl>
+      {/if}
 
+      <div class="k-divider"></div>
+      <dl class="grid grid-cols-2 gap-3 text-sm">
+        <div class="rounded-xl border border-white/8 bg-ink-900/60 p-3">
+          <dt class="flex items-center gap-1.5 text-xs text-fg-subtle">
+            <KeyRound class="h-3.5 w-3.5" />{$_('roleDetail.permissions')}
+          </dt>
+          <dd class="mt-1 text-lg font-semibold tabular-nums text-white">
+            {selectedPermissions.length}
+          </dd>
+        </div>
         {#if !isCreate}
-          <div>
-            <div class="font-semibold text-slate-400">{$_('usersComponent.defaultTitle')}</div>
-            <div class="mt-2 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-300">
-              <Users class="h-4 w-4 text-slate-400" />
-              <span class="font-semibold text-slate-100">{role?.userCount ?? 0}</span>
-            </div>
+          <div class="rounded-xl border border-white/8 bg-ink-900/60 p-3">
+            <dt class="flex items-center gap-1.5 text-xs text-fg-subtle">
+              <Users class="h-3.5 w-3.5" />{$_('usersComponent.defaultTitle')}
+            </dt>
+            <dd class="mt-1 text-lg font-semibold tabular-nums text-white">
+              {role?.userCount ?? 0}
+            </dd>
           </div>
         {/if}
-      </div>
-    </aside>
+      </dl>
+      {#if !isCreate && role?.id}
+        <p class="break-all font-mono text-[11px] text-fg-subtle">
+          {$_('roleDetail.roleId')}: {role.id}
+        </p>
+      {/if}
+    </section>
 
-    <section class="min-w-0 rounded-md border border-slate-200 bg-white shadow-sm">
-      <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-4">
-        <h4 class="text-lg font-semibold text-slate-900">{$_('roleDetail.permissions')}</h4>
-        <div class="flex items-center gap-3">
-          {#if !isCreate && canDelete}
-            <button
-              type="button"
-              on:click={deleteRole}
-              disabled={deleting || roleIsSystem}
-              title={roleIsSystem ? $_('roleDetail.systemRoleDeleteDisabled') : undefined}
-              class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-            >
-              <Trash2 class="h-4 w-4" />
-              {deleting ? $_('roleDetail.deleting') : $_('common.delete')}
-            </button>
-          {/if}
-          {#if canSave}
-            <button
-              type="button"
-              on:click={saveRole}
-              disabled={saving}
-              class="inline-flex h-10 items-center gap-2 rounded-md bg-[#dfff22] px-4 text-sm font-semibold text-[#141510] transition hover:bg-[#e8ff4d] disabled:opacity-60"
-            >
-              <Save class="h-4 w-4" />
-              {saving ? $_('roleDetail.saving') : $_('common.save')}
-            </button>
-          {/if}
-          <a
-            href={cancelHref}
-            class="inline-flex h-10 items-center gap-2 rounded-md px-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"
+    <section class="k-card min-w-0 overflow-hidden">
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 px-5 py-4"
+      >
+        <div>
+          <h2 class="text-sm font-semibold text-white">{$_('roleDetail.permissions')}</h2>
+          <p class="mt-0.5 text-xs text-fg-subtle">{$_('roleDetail.permissionsHelp')}</p>
+        </div>
+        <div class="flex gap-1">
+          <button
+            type="button"
+            class="k-btn k-btn-ghost k-btn-sm"
+            on:click={() => setAllExpanded(true)}>{$_('roleDetail.expandAll')}</button
           >
-            <X class="h-4 w-4" />
-            {$_('common.cancel')}
-          </a>
+          <button
+            type="button"
+            class="k-btn k-btn-ghost k-btn-sm"
+            on:click={() => setAllExpanded(false)}>{$_('roleDetail.collapseAll')}</button
+          >
         </div>
       </div>
-      <div class="overflow-hidden p-4">
-        <table class="w-full overflow-hidden rounded-md border border-slate-200 text-sm">
-          <thead>
-            <tr class="bg-slate-50 text-left text-xs font-semibold uppercase text-slate-500">
-              <th class="w-[58%] px-4 py-4">{$_('roleDetail.resource')}</th>
-              <th class="px-4 py-4">{$_('roleDetail.permission')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each visiblePermissionRows as permissionRow (permissionRow.key)}
-              <tr class="border-t border-slate-100 bg-white first:border-t-0">
-                <td class="px-4 py-3 font-semibold text-slate-900">
-                  <div
-                    class="flex items-center"
-                    style={`padding-left: ${permissionRow.depth * 1.4}rem;`}
-                  >
-                    {#if hasExpandableContent(permissionRow)}
-                      <button
-                        type="button"
-                        on:click={() => toggleExpanded(permissionRow)}
-                        class="mr-3 inline-flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                        aria-label={expanded[permissionRow.key]
-                          ? $_('roleDetail.collapseSection')
-                          : $_('roleDetail.expandSection')}
-                      >
-                        {#if expanded[permissionRow.key]}
-                          <ChevronDown class="h-4 w-4" />
-                        {:else}
-                          <ChevronRight class="h-4 w-4" />
-                        {/if}
-                      </button>
-                    {:else}
-                      <span class="mr-3 h-6 w-6"></span>
-                    {/if}
-                    <span class:text-slate-500={!permissionRow.permissions.length}>
-                      {rowLabel(permissionRow)}
-                    </span>
-                  </div>
-                </td>
-                <td class="px-4 py-3">
-                  {#if permissionRow.permissions.length}
-                    {#key `${permissionRow.key}:${accessLevelKey}`}
-                      <select
-                        class="field-input w-full max-w-40 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none transition disabled:opacity-60"
-                        value={accessLevel(permissionRow)}
-                        disabled={hasInheritedAccess(permissionRow) || !canSave}
-                        on:change={(event) => onAccessLevelChange(permissionRow, event)}
-                      >
-                        {#each selectableAccessLevels(permissionRow) as level}
-                          <option value={level}>
-                            {level === 'none'
-                              ? $_('roleDetail.noAccess')
-                              : level === 'read'
-                                ? $_('roleDetail.readOnly')
-                                : level === 'full'
-                                  ? $_('roleDetail.fullAccess')
-                                  : $_('roleDetail.custom')}
-                          </option>
-                        {/each}
-                      </select>
-                    {/key}
-                  {:else}
-                    <span class="text-sm font-medium text-slate-500"
-                      >{$_('roleDetail.sectionGroup')}</span
-                    >
-                  {/if}
-                </td>
-              </tr>
 
-              {#if expanded[permissionRow.key] && permissionRow.permissions.length}
-                <tr class="border-t border-slate-100 bg-slate-50">
-                  <td colspan="2" class="px-8 py-5">
-                    <div
-                      class="grid gap-x-16 gap-y-4 sm:grid-cols-2 lg:grid-cols-3"
-                      style={`padding-left: ${permissionRow.depth * 1.4 + 1.5}rem;`}
+      <ul class="divide-y divide-white/5">
+        {#each visiblePermissionRows as permissionRow (permissionRow.key)}
+          <li>
+            <div
+              class="flex flex-wrap items-center gap-3 py-2.5 pr-5"
+              style={`padding-left: ${1 + permissionRow.depth * 1.5}rem;`}
+            >
+              {#if hasExpandableContent(permissionRow)}
+                <button
+                  type="button"
+                  class="k-btn k-btn-ghost k-btn-icon k-btn-sm -ml-1"
+                  aria-expanded={Boolean(expanded[permissionRow.key])}
+                  aria-label={expanded[permissionRow.key]
+                    ? $_('roleDetail.collapseSection')
+                    : $_('roleDetail.expandSection')}
+                  on:click={() => toggleExpanded(permissionRow)}
+                >
+                  {#if expanded[permissionRow.key]}<ChevronDown
+                      class="h-4 w-4"
+                    />{:else}<ChevronRight class="h-4 w-4" />{/if}
+                </button>
+              {:else}
+                <span class="w-7"></span>
+              {/if}
+              <span
+                class="min-w-0 flex-1 truncate text-sm capitalize {permissionRow.permissions.length
+                  ? 'font-medium text-white'
+                  : 'text-fg-subtle'}">{rowLabel(permissionRow)}</span
+              >
+
+              {#if permissionRow.permissions.length}
+                {#key `${permissionRow.key}:${accessLevelKey}`}
+                  {@const level = accessLevel(permissionRow)}
+                  {#if hasInheritedAccess(permissionRow)}
+                    <span class="k-badge k-badge-info h-6 px-2 text-[11px]"
+                      >{$_('roleDetail.inherited')}</span
                     >
-                      {#each visibleRowPermissions(permissionRow) as permission}
-                        {@const action = actionFrom(permission)}
-                        {#key `${permission}:${accessLevelKey}`}
-                          <label
-                            class="inline-flex items-center gap-3 text-sm font-medium text-slate-700"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isVisiblePermissionSelected(permissionRow, permission)}
-                              disabled={isPermissionDisabled(permissionRow, permission) || !canSave}
-                              on:change={() => togglePermission(permissionRow, permission)}
-                              class="h-4 w-4 rounded border-slate-300 accent-[color:var(--primary)] disabled:opacity-50"
-                              title={inheritedPermission(permissionRow, action) ?? permission}
-                            />
-                            <span class="capitalize">{action}</span>
-                          </label>
-                        {/key}
+                  {:else}
+                    <div
+                      class="inline-flex rounded-[0.625rem] border border-white/10 bg-ink-900 p-0.5"
+                      role="radiogroup"
+                      aria-label={rowLabel(permissionRow)}
+                    >
+                      {#each selectableAccessLevels(permissionRow) as option}
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={level === option}
+                          disabled={!canSave}
+                          class="h-7 rounded-md px-2.5 text-xs font-medium transition-colors disabled:cursor-default {level ===
+                          option
+                            ? option === 'none'
+                              ? 'bg-white/10 text-white'
+                              : 'bg-brand-500/20 text-brand-200'
+                            : 'text-fg-subtle hover:text-fg'}"
+                          on:click={() => setAccessLevel(permissionRow, option)}
+                          >{levelLabel(option)}</button
+                        >
                       {/each}
                     </div>
-                  </td>
-                </tr>
+                  {/if}
+                {/key}
               {/if}
-            {/each}
-          </tbody>
-        </table>
-      </div>
+            </div>
+
+            {#if expanded[permissionRow.key] && permissionRow.permissions.length}
+              <div
+                class="flex flex-wrap gap-2 pb-3 pr-5"
+                style={`padding-left: ${3 + permissionRow.depth * 1.5}rem;`}
+              >
+                {#each visibleRowPermissions(permissionRow) as permission}
+                  {@const action = actionFrom(permission)}
+                  {#key `${permission}:${accessLevelKey}`}
+                    {@const checked = isVisiblePermissionSelected(permissionRow, permission)}
+                    <label
+                      class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium capitalize transition-colors has-disabled:cursor-default has-disabled:opacity-60 {checked
+                        ? 'border-brand-500/40 bg-brand-500/10 text-brand-100'
+                        : 'border-white/10 text-fg-muted hover:border-white/20'}"
+                      title={inheritedPermission(permissionRow, action) ?? permission}
+                    >
+                      <input
+                        type="checkbox"
+                        class="k-checkbox"
+                        {checked}
+                        disabled={isPermissionDisabled(permissionRow, permission) || !canSave}
+                        on:change={() => togglePermission(permissionRow, permission)}
+                      />
+                      {action}
+                    </label>
+                  {/key}
+                {/each}
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
     </section>
   </div>
-</div>
+</form>
+
+{#if role}
+  <Modal
+    bind:open={deleteOpen}
+    role="alertdialog"
+    size="sm"
+    dismissible={!deleting}
+    title={$_('roleDetail.deleteTitle')}
+    description={$_('roleDetail.deleteDescription', {
+      values: { name: role.name, count: role.userCount ?? 0 },
+    })}
+  >
+    {#snippet icon()}
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+        ><Trash2 class="h-5 w-5" /></span
+      >
+    {/snippet}
+    {#snippet footer()}
+      <button type="button" class="k-btn k-btn-secondary" on:click={() => (deleteOpen = false)}
+        >{$_('common.cancel')}</button
+      >
+      <button
+        type="button"
+        class="k-btn k-btn-danger"
+        disabled={deleting}
+        data-autofocus
+        on:click={deleteRole}
+      >
+        {#if deleting}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
+        {$_('common.delete')}
+      </button>
+    {/snippet}
+  </Modal>
+{/if}

@@ -105,7 +105,7 @@ describe('AlertService', () => {
     const errors = await validationErrors(
       service.create(
         projectLocation,
-        { name: ' ', match: 'some', recipients: {}, throttleMinutes: -1, channels: ['slack'] },
+        { name: ' ', match: 'some', recipients: {}, throttleMinutes: -1, channels: ['sms'] },
         actor(),
       ),
     );
@@ -259,6 +259,77 @@ describe('AlertService', () => {
         value: 0,
       }));
       expect(await conditionErrors(many)).toEqual({ conditions: 'too_many' });
+    });
+  });
+
+  describe('channels', () => {
+    it('keeps the targets of every enabled channel and normalizes them', async () => {
+      const alert = await service.create(
+        projectLocation,
+        guidedExample({
+          channels: ['mail', 'slack', 'google_chat', 'webhook'],
+          recipients: {
+            roleIds: ['role-project-admin'],
+            emails: [' Ops@Example.com ', 'ops@example.com'],
+            slackChannels: ['Alerts', '#alerts'],
+            googleChatSpaces: ['Incidencias'],
+            webhookUrls: ['https://hooks.example.com/gitops'],
+          },
+        }),
+        actor(),
+      );
+      expect(alert.channels).toEqual(['mail', 'slack', 'google_chat', 'webhook']);
+      expect(alert.recipients).toMatchObject({
+        emails: ['ops@example.com'],
+        slackChannels: ['#alerts'],
+        googleChatSpaces: ['Incidencias'],
+        webhookUrls: ['https://hooks.example.com/gitops'],
+      });
+    });
+
+    it('drops the targets of disabled channels', async () => {
+      const alert = await service.create(
+        projectLocation,
+        guidedExample({
+          channels: ['slack'],
+          recipients: { roleIds: ['role-project-admin'], slackChannels: ['#alerts'] },
+        }),
+        actor(),
+      );
+      expect(alert.recipients.roleIds).toEqual([]);
+      expect(alert.recipients.slackChannels).toEqual(['#alerts']);
+    });
+
+    it('requires a valid target for each enabled channel', async () => {
+      const errors = await validationErrors(
+        service.create(
+          projectLocation,
+          guidedExample({
+            channels: ['mail', 'slack', 'google_chat', 'webhook'],
+            recipients: {
+              emails: ['not-an-email'],
+              slackChannels: ['bad channel!'],
+              webhookUrls: ['ftp://example.com'],
+            },
+          }),
+          actor(),
+        ),
+      );
+      expect(errors).toEqual({
+        'recipients.emails': 'invalid_email',
+        'recipients.slackChannels': 'invalid_slack_channel',
+        'recipients.googleChatSpaces': 'required',
+        'recipients.webhookUrls': 'invalid_url',
+      });
+    });
+
+    it('accepts external addresses as the only mail targets', async () => {
+      const alert = await service.create(
+        projectLocation,
+        guidedExample({ recipients: { emails: ['oncall@example.com'] } }),
+        actor(),
+      );
+      expect(alert.recipients.emails).toEqual(['oncall@example.com']);
     });
   });
 

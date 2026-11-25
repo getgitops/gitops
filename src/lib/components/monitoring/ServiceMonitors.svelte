@@ -30,19 +30,19 @@
   });
 </script>
 
-<section class="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+<section class="k-card p-5">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-2">
       <Activity
         class="h-4 w-4 {worst === 'down'
-          ? 'text-rose-400'
+          ? 'text-red-400'
           : worst === 'degraded'
-            ? 'text-amber-400'
-            : 'text-emerald-400'}"
+            ? 'text-warn'
+            : 'text-ok'}"
       />
-      <h2 class="text-sm font-semibold text-slate-100">{$_('monitoring.service.title')}</h2>
+      <h2 class="text-sm font-semibold text-white">{$_('monitoring.service.title')}</h2>
       {#if monitoring.monitors.length}
-        <span class="text-xs text-slate-500">
+        <span class="text-xs text-fg-subtle">
           · {$_('monitoring.uptime.d30')}
           <span class="font-semibold {uptimeTone(uptime)}">{formatUptime(uptime)}</span>
         </span>
@@ -51,7 +51,7 @@
     {#if monitoring.canCreate}
       <a
         href={`${monitoring.base}/monitors/new?serviceId=${serviceId}`}
-        class="btn-secondary inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+        class="k-btn k-btn-secondary k-btn-sm"
       >
         <Plus class="h-3.5 w-3.5" />{$_('monitoring.service.add')}
       </a>
@@ -59,7 +59,7 @@
   </div>
 
   {#if monitoring.monitors.length === 0}
-    <p class="mt-3 text-sm text-slate-500">{$_('monitoring.service.empty')}</p>
+    <p class="mt-3 text-sm text-fg-subtle">{$_('monitoring.service.empty')}</p>
   {:else}
     <div class="mt-4 space-y-2">
       {#each monitoring.monitors as row (row.monitor.id)}

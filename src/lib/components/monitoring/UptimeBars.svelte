@@ -34,7 +34,7 @@
     {#each bars as bar, index (bar.start)}
       <button
         type="button"
-        class="h-full min-w-[2px] flex-1 rounded-[2px] transition-[transform,background-color] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 {statusStyle(
+        class="h-full min-w-[2px] flex-1 rounded-[2px] transition-[transform,background-color] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {statusStyle(
           bar.status,
         ).bar} {hovered === index ? 'scale-y-110' : ''}"
         aria-label={`${label(bar)}: ${$_(`monitoring.status.${bar.status}`)}`}
@@ -50,34 +50,34 @@
     {@const bar = bars[hovered]}
     {@const left = Math.min(Math.max(((hovered + 0.5) / bars.length) * 100, 12), 88)}
     <div
-      class="pointer-events-none absolute bottom-full z-20 mb-2 w-60 -translate-x-1/2 rounded-xl border border-[var(--border)] bg-[#0b1829] p-3 text-xs shadow-2xl"
+      class="k-popover pointer-events-none absolute bottom-full z-20 mb-2 w-60 -translate-x-1/2 p-3 text-xs"
       style="left: {left}%"
     >
       <div class="flex items-center justify-between gap-2">
-        <span class="font-semibold text-slate-100">{label(bar)}</span>
+        <span class="font-medium text-white">{label(bar)}</span>
         <span class="font-semibold {statusStyle(bar.status).text}">
           {$_(`monitoring.status.${bar.status}`)}
         </span>
       </div>
       {#if bar.status !== 'none'}
-        <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-slate-400">
+        <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-fg-subtle">
           <dt>{$_('monitoring.bars.uptime')}</dt>
-          <dd class="text-right text-slate-200">{formatUptime(bar.uptime)}</dd>
+          <dd class="text-right tabular-nums text-fg">{formatUptime(bar.uptime)}</dd>
           <dt>{$_('monitoring.bars.checks')}</dt>
-          <dd class="text-right text-slate-200">{bar.checks}</dd>
+          <dd class="text-right tabular-nums text-fg">{bar.checks}</dd>
           <dt>{$_('monitoring.bars.latency')}</dt>
-          <dd class="text-right text-slate-200">{formatLatency(bar.latencyAvg)}</dd>
+          <dd class="text-right tabular-nums text-fg">{formatLatency(bar.latencyAvg)}</dd>
           {#if bar.downSeconds > 0}
-            <dt class="text-rose-300">{$_('monitoring.bars.down')}</dt>
-            <dd class="text-right text-rose-300">{formatDuration(bar.downSeconds)}</dd>
+            <dt class="text-red-300">{$_('monitoring.bars.down')}</dt>
+            <dd class="text-right tabular-nums text-red-300">{formatDuration(bar.downSeconds)}</dd>
           {/if}
           {#if bar.degradedSeconds > 0}
-            <dt class="text-amber-300">{$_('monitoring.bars.degraded')}</dt>
-            <dd class="text-right text-amber-300">{formatDuration(bar.degradedSeconds)}</dd>
+            <dt class="text-amber-200">{$_('monitoring.bars.degraded')}</dt>
+            <dd class="text-right tabular-nums text-amber-200">{formatDuration(bar.degradedSeconds)}</dd>
           {/if}
         </dl>
       {:else}
-        <p class="mt-1 text-slate-500">{$_('monitoring.bars.noData')}</p>
+        <p class="mt-1 text-fg-subtle">{$_('monitoring.bars.noData')}</p>
       {/if}
     </div>
   {/if}

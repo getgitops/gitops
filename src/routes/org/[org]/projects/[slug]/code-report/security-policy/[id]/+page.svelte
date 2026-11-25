@@ -1,17 +1,27 @@
 <script lang="ts">
-  import { createPageStore } from '#lib/page-store';
   import { enhance } from '$app/forms';
-  import { ArrowLeft, Pencil, RefreshCw, Trash2, X } from '@lucide/svelte';
-  import SecurityPolicyForm from '#lib/components/code-report/SecurityPolicyForm.svelte';
-  import { _ } from '#lib/i18n';
+  import { createPageStore } from '#lib/page-store';
+  import {
+    ArrowLeft,
+    CircleCheck,
+    Pencil,
+    RefreshCw,
+    ShieldAlert,
+    ShieldCheck,
+    Trash2,
+  } from '@lucide/svelte';
   import {
     describeScope,
     SECURITY_POLICY_ENFORCEMENT_META,
     SECURITY_POLICY_TYPE_META,
     type SecurityPolicy,
   } from '#lib/code-report/security-policy';
+  import CodeReportToolBadge from '#lib/components/code-report/CodeReportToolBadge.svelte';
+  import SecurityPolicyForm from '#lib/components/code-report/SecurityPolicyForm.svelte';
+  import { Field, Modal, Tabs, toast } from '#lib/components/ui';
+  import { locale } from '#lib/i18n';
 
-  type AffectedService = {
+  type EvaluatedService = {
     id: string;
     slug: string;
     name: string;
@@ -24,41 +34,40 @@
     violations: { label: string; actual: number; limit: number | null }[];
   };
 
-  export let data: {
-    policy: SecurityPolicy;
-    affectedServices: AffectedService[];
-    services: { id: string; slug: string; name: string; tags: string[] }[];
-    tags: string[];
-    project?: { slug?: string; organization?: { slug?: string | null } | null };
-  };
-  export let form: {
-    error?: string;
-    success?: boolean;
-    evaluated?: { servicesEvaluated: number; analysesUpdated: number; failingServices: number };
-  } | null;
+  let {
+    data,
+  }: {
+    data: {
+      policy: SecurityPolicy;
+      affectedServices: EvaluatedService[];
+      services: { id: string; slug: string; name: string; tags: string[] }[];
+      tags: string[];
+      canUpdate: boolean;
+      canDelete: boolean;
+      project?: { slug?: string; organization?: { slug?: string | null } | null };
+    };
+  } = $props();
 
-  let editing = false;
-  let deleteModalOpen = false;
-  let deleting = false;
-  let evaluating = false;
-  let activeTab: 'detail' | 'services' = 'detail';
+  const page = createPageStore();
+  const projectBase = $derived(
+    `/org/${data.project?.organization?.slug ?? $page.params.org}/projects/${data.project?.slug ?? $page.params.slug}/code-report`,
+  );
+  const policy = $derived(data.policy);
 
-  $: policy = data.policy;
-  $: orgSlug = data.project?.organization?.slug ?? $page?.params?.org ?? '';
-  $: projectSlug = data.project?.slug ?? $page?.params?.slug ?? '';
-  $: baseHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/security-policy`;
-  $: servicesHref = `/org/${orgSlug}/projects/${projectSlug}/code-report/services`;
-  $: failingServicesCount = data.affectedServices.filter((service) => !service.passing).length;
-  $: if (form?.success) editing = false;
+  let tab = $state('summary');
+  let editOpen = $state(false);
+  let saving = $state(false);
+  let deleteOpen = $state(false);
+  let deleting = $state(false);
+  let confirmText = $state('');
+  let evaluating = $state(false);
 
-  $: scopedServices =
+  const failing = $derived(data.affectedServices.filter((service) => !service.passing));
+  const scopedServices = $derived(
     policy.scope.mode === 'services'
       ? data.services.filter((service) => policy.scope.services.includes(service.id))
-      : [];
-
-  function ruleEntries(rules: Record<string, unknown>) {
-    return Object.entries(rules ?? {});
-  }
+      : [],
+  );
 
   const ruleLabels: Record<string, string> = {
     maxCritical: 'Máx. críticas',
@@ -66,7 +75,7 @@
     maxMedium: 'Máx. medias',
     maxLow: 'Máx. bajas',
     minCvssScore: 'CVSS mínimo',
-    ignoreUnfixed: 'Ignorar sin fix',
+    ignoreUnfixed: 'Ignorar sin parche',
     maxAgeDays: 'Antigüedad máx. (días)',
     ignoredCves: 'CVEs ignorados',
     mode: 'Modo',
@@ -80,292 +89,434 @@
     ignoredRules: 'Reglas ignoradas',
   };
 
-  function formatRuleValue(value: unknown) {
+  const severityRules = [
+    { key: 'maxCritical', label: 'Críticas', dot: 'bg-red-500' },
+    { key: 'maxHigh', label: 'Altas', dot: 'bg-brand-500' },
+    { key: 'maxMedium', label: 'Medias', dot: 'bg-amber-400' },
+    { key: 'maxLow', label: 'Bajas', dot: 'bg-white/30' },
+  ];
+
+  const rules = $derived((policy.rules ?? {}) as Record<string, unknown>);
+  const otherRules = $derived(
+    Object.entries(rules).filter(
+      ([key]) =>
+        policy.type !== 'vulnerabilities' || !severityRules.some((rule) => rule.key === key),
+    ),
+  );
+
+  function formatRule(value: unknown) {
     if (value === null || value === undefined || value === '') return 'Sin límite';
     if (typeof value === 'boolean') return value ? 'Sí' : 'No';
     if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'Ninguno';
+    if (value === 'denylist') return 'Denegar las indicadas';
+    if (value === 'allowlist') return 'Permitir solo las indicadas';
     return String(value);
   }
-  const page = createPageStore();
+
+  function date(iso: string | Date) {
+    return new Intl.DateTimeFormat($locale ?? 'es', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(iso));
+  }
 </script>
 
-<svelte:head><title>{policy.name} - Security Policies - GitOps</title></svelte:head>
+<svelte:head><title>{policy.name} - Políticas de seguridad - GitOps</title></svelte:head>
 
-<div class="space-y-4">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <a href={baseHref} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
-      <ArrowLeft class="h-3.5 w-3.5" />{$_('codeReport.securityPolicy.backToPolicies')}
-    </a>
-    <div class="flex flex-wrap items-center gap-2">
-      <form
-        method="POST"
-        action="?/evaluate"
-        use:enhance={() => {
-          evaluating = true;
-          return async ({ update }) => {
-            await update({ reset: false });
-            evaluating = false;
-          };
-        }}
-      >
-        <button
-          type="submit"
-          disabled={evaluating}
-          class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-        >
-          <RefreshCw class={`h-4 w-4 ${evaluating ? 'animate-spin' : ''}`} />
-          {evaluating ? $_('codeReport.securityPolicy.evaluating') : $_('codeReport.securityPolicy.evaluateServices')}
-        </button>
-      </form>
-      <button
-        type="button"
-        on:click={() => (editing = !editing)}
-        class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-      >
-        <Pencil class="h-4 w-4" />{editing
-          ? $_('codeReport.securityPolicy.cancelEditing')
-          : $_('codeReport.securityPolicy.editing')}
-      </button>
-      <button
-        type="button"
-        on:click={() => (deleteModalOpen = true)}
-        class="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-      >
-        <Trash2 class="h-4 w-4" />{$_('codeReport.securityPolicy.delete')}
-      </button>
-    </div>
-  </div>
+<div class="space-y-6">
+  <a
+    href={`${projectBase}/security-policy`}
+    class="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-white"
+  >
+    <ArrowLeft class="h-3.5 w-3.5" />Volver a políticas
+  </a>
 
-  {#if form?.evaluated}
-    <p
-      class={`rounded-xl border px-4 py-3 text-sm ${
-        form.evaluated.failingServices > 0
-          ? 'border-red-200 bg-red-50 text-red-800'
-          : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-      }`}
-    >
-      {form.evaluated.servicesEvaluated} {$_('codeReport.securityPolicy.servicesReevaluated')} ({form.evaluated.analysesUpdated}
-      {$_('codeReport.securityPolicy.analysesUpdated')}).
-      {#if form.evaluated.failingServices > 0}
-        <strong>{form.evaluated.failingServices}</strong> {$_('codeReport.securityPolicy.failingPolicy')}
-      {:else}
-        {$_('codeReport.securityPolicy.noneFailPolicy')}
-      {/if}
-    </p>
-  {/if}
-
-  {#if editing}
-    {#key policy.updatedAt}
-      <SecurityPolicyForm
-        action="?/update"
-        submitLabel={$_('projectSettings.overview.saveChanges')}
-        services={data.services}
-        tags={data.tags}
-        {policy}
-        errorMessage={form?.error ?? null}
-      />
-    {/key}
-  {:else}
-    <div class="flex gap-1 border-b border-slate-200" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === 'detail'}
-        on:click={() => (activeTab = 'detail')}
-        class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'detail' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="flex min-w-0 items-start gap-4">
+      <span
+        class="grid h-12 w-12 shrink-0 place-items-center rounded-xl border {failing.length
+          ? 'border-red-500/30 bg-red-500/10 text-red-400'
+          : 'border-brand-500/30 bg-brand-500/10 text-brand-400'}"
       >
-        {$_('codeReport.securityPolicy.detailTab')}
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === 'services'}
-        on:click={() => (activeTab = 'services')}
-        class={`border-b-2 px-4 py-3 text-sm font-semibold ${activeTab === 'services' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-900'}`}
-      >
-        {$_('codeReport.securityPolicy.affectedServicesTab')}
-        <span class="ml-1 text-xs font-normal text-slate-400">{data.affectedServices.length}</span>
-      </button>
-    </div>
-
-    {#if activeTab === 'services'}
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-900">{$_('codeReport.securityPolicy.affectedServices')}</h2>
-          <p class="mt-1 text-xs text-slate-500">
-            {$_('codeReport.securityPolicy.affectedServicesDescription')}
-          </p>
-        </div>
-        {#if failingServicesCount > 0}
-          <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700">
-            {failingServicesCount} {$_('codeReport.securityPolicy.failing')}
+        {#if failing.length}<ShieldAlert class="h-6 w-6" />{:else}<ShieldCheck
+            class="h-6 w-6"
+          />{/if}
+      </span>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-semibold tracking-tight text-white">{policy.name}</h1>
+          <span class="k-badge {policy.enabled ? 'k-badge-ok' : ''}">
+            <span class="h-1.5 w-1.5 rounded-full {policy.enabled ? 'bg-ok' : 'bg-fg-subtle'}"
+            ></span>
+            {policy.enabled ? 'Activa' : 'Inactiva'}
           </span>
+        </div>
+        <p class="mt-0.5 font-mono text-xs text-fg-subtle">{policy.slug}</p>
+        {#if policy.description}
+          <p class="mt-2 max-w-2xl text-sm text-fg-muted">{policy.description}</p>
         {/if}
       </div>
+    </div>
 
-      {#if data.affectedServices.length === 0}
-        <p class="mt-6 text-sm text-slate-500">
-          {$_('codeReport.securityPolicy.noEvaluations')}
-        </p>
-      {:else}
-        <ul class="mt-4 space-y-2">
-          {#each data.affectedServices as service (service.id)}
-            <li
-              class={`rounded-xl border p-4 ${service.passing ? 'border-slate-200' : 'border-red-200 bg-red-50/50'}`}
-            >
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <a
-                    href={`${servicesHref}/${service.slug}`}
-                    class="text-sm font-semibold text-slate-900 hover:underline"
-                  >
-                    {service.name}
-                  </a>
-                  <p class="mt-0.5 text-xs text-slate-500">
-                    {service.evaluatedAnalyses} {$_('codeReport.securityPolicy.analysesEvaluated')} · {$_('codeReport.securityPolicy.lastWith')} {service.lastTool} {$_('codeReport.securityPolicy.onDate')}
-                    {new Date(service.lastEvaluatedAt).toLocaleString()}
-                  </p>
-                  {#if service.violations.length > 0}
-                    <ul class="mt-2 flex flex-wrap gap-1.5">
-                      {#each service.violations as violation}
-                        <li
-                          class="rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-700"
-                        >
-                          {violation.label}: {violation.actual}{violation.limit !== null
-                            ? ` / ${violation.limit}`
-                            : ''}
-                        </li>
-                      {/each}
-                    </ul>
-                  {/if}
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                  <span
-                    class={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase ${service.passing ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
-                  >
-                    {service.passing ? $_('codeReport.securityPolicy.compliant') : $_('codeReport.securityPolicy.nonCompliant')}
-                  </span>
-                  <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                    {service.failingAnalyses} {$_('codeReport.securityPolicy.analysesAffected')}
-                  </span>
-                </div>
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-  {:else}
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 class="text-lg font-semibold text-slate-900">{policy.name}</h1>
-          <p class="mt-1 text-xs text-slate-500">{policy.slug}</p>
-          {#if policy.description}
-            <p class="mt-3 max-w-2xl text-sm text-slate-600">{policy.description}</p>
-          {/if}
-        </div>
-        <span
-          class={`rounded-full px-3 py-1 text-xs font-semibold ${
-            policy.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-          }`}
+    <div class="flex flex-wrap items-center gap-2">
+      {#if data.canUpdate}
+        <form
+          method="POST"
+          action="?/evaluate"
+          use:enhance={() => {
+            evaluating = true;
+            return async ({ result, update }) => {
+              evaluating = false;
+              if (result.type === 'success' && result.data?.evaluated) {
+                const evaluated = result.data.evaluated as {
+                  servicesEvaluated: number;
+                  failingServices: number;
+                };
+                const summary =
+                  evaluated.servicesEvaluated === 1
+                    ? '1 servicio evaluado'
+                    : `${evaluated.servicesEvaluated} servicios evaluados`;
+                if (evaluated.failingServices > 0)
+                  toast.warning(
+                    evaluated.failingServices === 1
+                      ? '1 servicio incumple la política'
+                      : `${evaluated.failingServices} servicios incumplen la política`,
+                    summary,
+                  );
+                else toast.success('Todos los servicios cumplen', summary);
+              } else if (result.type === 'failure') {
+                toast.error('No se pudo re-evaluar', String(result.data?.error ?? ''));
+              }
+              await update({ reset: false });
+            };
+          }}
         >
-          {policy.enabled ? $_('codeReport.securityPolicy.active') : $_('codeReport.securityPolicy.inactive')}
-        </span>
-      </div>
+          <button type="submit" class="k-btn k-btn-secondary" disabled={evaluating}>
+            <RefreshCw class="h-4 w-4 {evaluating ? 'animate-spin' : ''}" />
+            {evaluating ? 'Evaluando…' : 'Re-evaluar'}
+          </button>
+        </form>
+        <button type="button" class="k-btn k-btn-primary" onclick={() => (editOpen = true)}>
+          <Pencil class="h-4 w-4" />Editar
+        </button>
+      {/if}
+      {#if data.canDelete}
+        <button
+          type="button"
+          class="k-btn k-btn-ghost k-btn-icon hover:text-red-400"
+          aria-label="Borrar política"
+          title="Borrar política"
+          onclick={() => {
+            confirmText = '';
+            deleteOpen = true;
+          }}
+        >
+          <Trash2 class="h-4 w-4" />
+        </button>
+      {/if}
+    </div>
+  </header>
 
-      <div class="mt-5 grid gap-4 sm:grid-cols-3">
-        <div class="rounded-xl border border-slate-200 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{$_('codeReport.securityPolicy.type')}</p>
-          <p class="mt-1 text-sm font-semibold text-slate-900">
-            {SECURITY_POLICY_TYPE_META[policy.type].label}
-          </p>
-        </div>
-        <div class="rounded-xl border border-slate-200 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{$_('codeReport.securityPolicy.application')}</p>
-          <p class="mt-1 text-sm font-semibold text-slate-900">
-            {SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].label}
-          </p>
-          <p class="mt-1 text-xs text-slate-500">
-            {SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].description}
-          </p>
-        </div>
-        <div class="rounded-xl border border-slate-200 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{$_('codeReport.securityPolicy.scope')}</p>
-          <p class="mt-1 text-sm font-semibold text-slate-900">{describeScope(policy.scope)}</p>
-          {#if scopedServices.length > 0}
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              {#each scopedServices as service}
-                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-                  {service.name}
-                </span>
+  <Tabs
+    label="Secciones de la política"
+    idPrefix="policy"
+    bind:value={tab}
+    items={[
+      { value: 'summary', label: 'Resumen' },
+      { value: 'services', label: 'Servicios evaluados', count: data.affectedServices.length },
+    ]}
+  />
+
+  {#if tab === 'summary'}
+    <div class="grid gap-4 lg:grid-cols-3">
+      <div class="min-w-0 space-y-4 lg:col-span-2">
+        <section class="k-card p-5" aria-labelledby="rules-title">
+          <h2 id="rules-title" class="font-semibold text-white">Reglas</h2>
+          {#if policy.type === 'vulnerabilities'}
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {#each severityRules as rule (rule.key)}
+                {@const value = rules[rule.key]}
+                <div class="rounded-lg border border-white/8 bg-white/2 px-3 py-2.5">
+                  <p class="flex items-center gap-2 text-xs text-fg-muted">
+                    <span class="h-2 w-2 rounded-full {rule.dot}"></span>Máx. {rule.label.toLowerCase()}
+                  </p>
+                  <p
+                    class="mt-1 text-xl font-semibold tabular-nums {value === null ||
+                    value === undefined
+                      ? 'text-fg-subtle'
+                      : 'text-white'}"
+                  >
+                    {value === null || value === undefined ? '∞' : value}
+                  </p>
+                </div>
               {/each}
             </div>
           {/if}
-        </div>
+          {#if otherRules.length > 0}
+            <dl class="mt-4 divide-y divide-white/6 border-t border-white/8">
+              {#each otherRules as [key, value] (key)}
+                <div class="flex flex-wrap items-start justify-between gap-3 py-2.5 text-sm">
+                  <dt class="text-fg-muted">{ruleLabels[key] ?? key}</dt>
+                  <dd
+                    class="max-w-md text-right {Array.isArray(value)
+                      ? 'font-mono text-xs'
+                      : ''} text-fg"
+                  >
+                    {formatRule(value)}
+                  </dd>
+                </div>
+              {/each}
+            </dl>
+          {/if}
+        </section>
+
+        {#if failing.length > 0}
+          <section class="k-card overflow-hidden border-red-500/30" aria-labelledby="failing-title">
+            <div class="border-b border-white/8 px-5 py-4">
+              <h2 id="failing-title" class="font-semibold text-white">
+                {failing.length}
+                {failing.length === 1 ? 'servicio la incumple' : 'servicios la incumplen'}
+              </h2>
+              <p class="text-xs text-fg-subtle">Según su último análisis evaluado</p>
+            </div>
+            <ul class="divide-y divide-white/6">
+              {#each failing as service (service.id)}
+                <li class="flex flex-wrap items-center gap-3 px-5 py-3">
+                  <a
+                    href={`${projectBase}/services/${service.slug}`}
+                    class="min-w-0 flex-1 truncate font-medium text-white hover:text-brand-300"
+                    >{service.name}</a
+                  >
+                  <div class="flex flex-wrap gap-1.5">
+                    {#each service.violations as violation (violation.label)}
+                      <span class="k-badge k-badge-danger tabular-nums">
+                        {violation.label}: {violation.actual}{violation.limit !== null
+                          ? ` / ${violation.limit}`
+                          : ''}
+                      </span>
+                    {/each}
+                  </div>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {:else if data.affectedServices.length > 0}
+          <section class="k-card flex items-center gap-3 px-5 py-4 text-sm text-fg-muted">
+            <CircleCheck class="h-4 w-4 text-ok" />Todos los servicios evaluados cumplen esta
+            política.
+          </section>
+        {/if}
       </div>
-    </section>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-900">{$_('codeReport.securityPolicy.rules')}</h2>
-      <dl class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {#each ruleEntries(policy.rules) as [key, value]}
-          <div class="rounded-xl border border-slate-200 p-3">
-            <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              {ruleLabels[key] ?? key}
-            </dt>
-            <dd class="mt-1 text-sm text-slate-800">{formatRuleValue(value)}</dd>
+      <aside class="min-w-0 space-y-4">
+        <section class="k-card divide-y divide-white/6" aria-label="Configuración">
+          <div class="px-5 py-4">
+            <p class="text-xs text-fg-subtle">Vigila</p>
+            <p class="mt-0.5 text-sm font-medium text-white">
+              {SECURITY_POLICY_TYPE_META[policy.type].label}
+            </p>
+            <p class="text-xs text-fg-subtle">
+              {SECURITY_POLICY_TYPE_META[policy.type].description}
+            </p>
           </div>
-        {/each}
-      </dl>
+          <div class="px-5 py-4">
+            <p class="text-xs text-fg-subtle">Si se incumple</p>
+            <p class="mt-0.5">
+              <span
+                class="k-badge {policy.enforcement === 'block' ? 'k-badge-danger' : 'k-badge-warn'}"
+                >{SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].label}</span
+              >
+            </p>
+            <p class="mt-1 text-xs text-fg-subtle">
+              {SECURITY_POLICY_ENFORCEMENT_META[policy.enforcement].description}
+            </p>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-xs text-fg-subtle">Alcance</p>
+            <p class="mt-0.5 text-sm font-medium text-white">{describeScope(policy.scope)}</p>
+            {#if scopedServices.length > 0}
+              <div class="mt-2 flex flex-wrap gap-1.5">
+                {#each scopedServices as service (service.id)}
+                  <a
+                    href={`${projectBase}/services/${service.slug}`}
+                    class="k-badge hover:text-white">{service.name}</a
+                  >
+                {/each}
+              </div>
+            {/if}
+          </div>
+          <div class="space-y-1 px-5 py-4 text-xs text-fg-subtle">
+            <p>Creada el {date(policy.createdAt)}</p>
+            <p>Actualizada el {date(policy.updatedAt)}</p>
+          </div>
+        </section>
+      </aside>
+    </div>
+  {:else}
+    <section class="k-card overflow-hidden" aria-label="Servicios evaluados">
+      {#if data.affectedServices.length === 0}
+        <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
+          <p class="text-sm text-fg-muted">Ningún análisis ha evaluado esta política todavía.</p>
+          {#if data.canUpdate}
+            <p class="text-xs text-fg-subtle">
+              Pulsa «Re-evaluar» para aplicarla a los últimos análisis.
+            </p>
+          {/if}
+        </div>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-176 text-left text-sm">
+            <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+              <tr class="border-b border-white/8">
+                <th class="px-5 py-3 font-semibold">Servicio</th>
+                <th class="px-3 py-3 font-semibold">Estado</th>
+                <th class="px-3 py-3 font-semibold">Incumplimientos</th>
+                <th class="px-3 py-3 font-semibold">Último análisis</th>
+                <th class="px-5 py-3 text-right font-semibold">Análisis que incumplen</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              {#each data.affectedServices as service (service.id)}
+                <tr class="transition-colors hover:bg-white/2.5">
+                  <td class="px-5 py-3">
+                    <a
+                      href={`${projectBase}/services/${service.slug}`}
+                      class="font-medium text-white hover:text-brand-300">{service.name}</a
+                    >
+                  </td>
+                  <td class="px-3 py-3">
+                    <span class="k-badge {service.passing ? 'k-badge-ok' : 'k-badge-danger'}">
+                      {service.passing ? 'Cumple' : 'Incumple'}
+                    </span>
+                  </td>
+                  <td class="px-3 py-3 text-xs">
+                    {#if service.violations.length}
+                      <span class="text-red-300"
+                        >{service.violations
+                          .map(
+                            (v) =>
+                              `${v.label}: ${v.actual}${v.limit !== null ? `/${v.limit}` : ''}`,
+                          )
+                          .join(' · ')}</span
+                      >
+                    {:else}<span class="text-fg-subtle">—</span>{/if}
+                  </td>
+                  <td class="px-3 py-3">
+                    <a
+                      href={`${projectBase}/history/${service.lastAnalysisId}`}
+                      class="inline-flex items-center gap-2 text-xs text-fg-muted hover:text-white"
+                    >
+                      <CodeReportToolBadge tool={service.lastTool} size="sm" />
+                      {date(service.lastEvaluatedAt)}
+                    </a>
+                  </td>
+                  <td class="px-5 py-3 text-right tabular-nums text-fg-muted">
+                    {service.failingAnalyses} / {service.evaluatedAnalyses}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
     </section>
-
-    <p class="text-xs text-slate-400">
-      {$_('codeReport.securityPolicy.createdOn')} {new Date(policy.createdAt).toLocaleString()} · {$_('codeReport.securityPolicy.updatedOn')}
-      {new Date(policy.updatedAt).toLocaleString()}
-    </p>
-    {/if}
   {/if}
 </div>
 
-{#if deleteModalOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-      <div class="flex items-start justify-between">
-        <h3 class="text-lg font-semibold">{$_('codeReport.securityPolicy.deletePolicy')}</h3>
-        <button type="button" on:click={() => (deleteModalOpen = false)}>
-          <X class="h-5 w-5" />
-        </button>
-      </div>
-      <p class="mt-3 text-sm text-slate-600">
-        {$_('codeReport.securityPolicy.deleteDescriptionStart')} <strong>{policy.name}</strong>{$_('codeReport.securityPolicy.deleteDescriptionEnd')}
-      </p>
-      <form
-        method="POST"
-        action="?/delete"
-        use:enhance={() => {
-          deleting = true;
-          return async ({ update }) => {
-            await update();
-            deleting = false;
-          };
-        }}
-        class="mt-5 flex justify-end gap-2"
+{#if data.canUpdate}
+  <Modal
+    bind:open={editOpen}
+    size="xl"
+    title="Editar política"
+    description={policy.name}
+    dismissible={!saving}
+  >
+    {#key policy.updatedAt}
+      <SecurityPolicyForm
+        action="?/update"
+        formId="form-editar-politica"
+        services={data.services}
+        tags={data.tags}
+        {policy}
+        showSubmit={false}
+        bind:submitting={saving}
+        onsuccess={() => (editOpen = false)}
+      />
+    {/key}
+    {#snippet footer()}
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (editOpen = false)}
+        >Cancelar</button
       >
-        <button
-          type="button"
-          on:click={() => (deleteModalOpen = false)}
-          class="rounded-full border px-4 py-2 text-sm">{$_('codeReport.services.cancel')}</button
-        >
-        <button
-          type="submit"
-          disabled={deleting}
-          class="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white"
-        >
-          {deleting ? $_('codeReport.securityPolicy.deleting') : $_('codeReport.securityPolicy.deletePolicy')}
-        </button>
-      </form>
-    </div>
-  </div>
+      <button
+        type="submit"
+        form="form-editar-politica"
+        class="k-btn k-btn-primary"
+        disabled={saving}
+      >
+        {saving ? 'Guardando…' : 'Guardar cambios'}
+      </button>
+    {/snippet}
+  </Modal>
+{/if}
+
+{#if data.canDelete}
+  <Modal
+    bind:open={deleteOpen}
+    role="alertdialog"
+    size="sm"
+    dismissible={!deleting}
+    title="¿Borrar la política?"
+    description="Dejará de evaluarse en los análisis. Quedará un commit en GitDB, pero no se puede deshacer desde la interfaz."
+  >
+    {#snippet icon()}
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+        ><Trash2 class="h-5 w-5" /></span
+      >
+    {/snippet}
+    <form
+      id="form-borrar-politica"
+      method="POST"
+      action="?/delete"
+      use:enhance={() => {
+        deleting = true;
+        const name = policy.name;
+        return async ({ result, update }) => {
+          deleting = false;
+          if (result.type === 'redirect') {
+            deleteOpen = false;
+            toast.success('Política borrada', name);
+          } else if (result.type === 'failure') {
+            toast.error('No se pudo borrar la política', String(result.data?.error ?? ''));
+            return;
+          }
+          await update();
+        };
+      }}
+    >
+      <Field label="Escribe {policy.slug} para confirmar">
+        {#snippet children(control)}
+          <input
+            class="k-input font-mono text-[13px]"
+            autocomplete="off"
+            spellcheck="false"
+            data-autofocus
+            bind:value={confirmText}
+            {...control}
+          />
+        {/snippet}
+      </Field>
+    </form>
+    {#snippet footer()}
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteOpen = false)}
+        >Cancelar</button
+      >
+      <button
+        type="submit"
+        form="form-borrar-politica"
+        class="k-btn k-btn-danger"
+        disabled={deleting || confirmText !== policy.slug}>Borrar política</button
+      >
+    {/snippet}
+  </Modal>
 {/if}

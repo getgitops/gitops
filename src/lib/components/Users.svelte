@@ -1,27 +1,36 @@
+<!--
+  Usuarios con acceso (GitOps, organización o proyecto): lista con búsqueda, cambio de rol en
+  línea, alta/invitación en modal y confirmación para quitar acceso.
+-->
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { deserialize } from '$app/forms';
   import {
+    Check,
     ChevronDown,
-    CheckCircle,
+    LoaderCircle,
     Mail,
     Plus,
     Search,
     Send,
     Trash2,
     UserPlus,
+    UserX,
     Users as UsersIcon,
   } from '@lucide/svelte';
+  import {
+    DropdownMenu,
+    Field,
+    MenuItem,
+    Modal,
+    Select,
+    toast,
+    type SelectOption,
+  } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
 
   type UserScope = 'cluster' | 'organization' | 'project';
-
-  type RoleRow = {
-    id: string;
-    name: string;
-    slug: string;
-  };
-
+  type RoleRow = { id: string; name: string; slug: string };
   type AccessUserRow = {
     id: string;
     userId: string;
@@ -32,95 +41,118 @@
     status: 'active' | 'invited';
     createdAt: string;
   };
+  type AssignableUserRow = { id: string; username: string; email: string | null };
 
-  type AssignableUserRow = {
-    id: string;
-    username: string;
-    email: string | null;
-    role?: RoleRow | null;
+  type Props = {
+    scope: UserScope;
+    initialUsers?: AccessUserRow[];
+    roles?: RoleRow[];
+    assignableUsers?: AssignableUserRow[];
+    title?: string;
+    description?: string;
+    canCreate?: boolean;
+    canUpdate?: boolean;
+    canDelete?: boolean;
   };
 
-  export let scope: UserScope;
-  export let initialUsers: AccessUserRow[] = [];
-  export let roles: RoleRow[] = [];
-  export let assignableUsers: AssignableUserRow[] = [];
-  export let title = '';
-  export let description = '';
-  export let canCreate = true;
-  export let canUpdate = false;
-  export let canDelete = true;
+  let {
+    scope,
+    initialUsers = [],
+    roles = [],
+    assignableUsers = [],
+    title = '',
+    description = '',
+    canCreate = true,
+    canUpdate = false,
+    canDelete = true,
+  }: Props = $props();
 
-  let users: AccessUserRow[] = initialUsers;
-  let searchQuery = '';
-  let error = '';
-  let success = '';
-  let addModalOpen = false;
-  let adding = false;
-  let addError = '';
-  let inviteModalOpen = false;
-  let inviting = false;
-  let inviteEmail = '';
-  let inviteError = '';
-  let savingAccessId: string | null = null;
-  let removingAccessId: string | null = null;
-  let resendingAccessId: string | null = null;
-  let openRoleMenuId: string | null = null;
-  let removeModalUser: AccessUserRow | null = null;
-
-  let newUsername = '';
-  let newEmail = '';
-  let newPassword = '';
-  let selectedUserId = '';
-  let selectedRoleId = '';
-
-  $: users = initialUsers;
-  $: filteredUsers = users.filter((user) => {
-    const query = searchQuery.trim().toLowerCase();
-    return (
-      !query ||
-      user.username.toLowerCase().includes(query) ||
-      (user.email ?? '').toLowerCase().includes(query) ||
-      (user.role?.name ?? '').toLowerCase().includes(query) ||
-      (user.role?.slug ?? '').toLowerCase().includes(query) ||
-      (user.organizations ?? []).some(
-        (organization) =>
-          organization.name.toLowerCase().includes(query) ||
-          organization.slug.toLowerCase().includes(query) ||
-          (organization.role ?? '').toLowerCase().includes(query),
-      )
-    );
-  });
-  $: availableUsers = assignableUsers.filter(
-    (user) => !users.some((accessUser) => accessUser.userId === user.id),
+  // cambio de rol optimista: se pinta el rol elegido mientras se guarda y hasta que llega la recarga
+  let roleOverrides = $state<Record<string, RoleRow>>({});
+  const users = $derived(
+    initialUsers.map((user) =>
+      roleOverrides[user.id] ? { ...user, role: roleOverrides[user.id] } : user,
+    ),
   );
 
-  function openAddModal() {
-    addError = '';
-    newUsername = '';
-    newEmail = '';
-    newPassword = '';
-    selectedUserId = availableUsers[0]?.id ?? '';
-    selectedRoleId = roles[0]?.id ?? '';
-    addModalOpen = true;
+  let searchQuery = $state('');
+  let savingAccessId = $state<string | null>(null);
+  let resendingAccessId = $state<string | null>(null);
+
+  let addOpen = $state(false);
+  let adding = $state(false);
+  let addError = $state('');
+  let newUsername = $state('');
+  let newEmail = $state('');
+  let newPassword = $state('');
+  let selectedUserId = $state('');
+  let selectedRoleId = $state('');
+
+  let inviteOpen = $state(false);
+  let inviting = $state(false);
+  let inviteError = $state('');
+  let inviteEmail = $state('');
+
+  let removeOpen = $state(false);
+  let removing = $state(false);
+  let removeUser = $state<AccessUserRow | null>(null);
+
+  const resolvedTitle = $derived(title || $_('usersComponent.defaultTitle'));
+  const normalize = (value: string) => value.toLowerCase();
+
+  const filteredUsers = $derived.by(() => {
+    const query = normalize(searchQuery.trim());
+    if (!query) return users;
+    return users.filter(
+      (user) =>
+        normalize(user.username).includes(query) ||
+        normalize(user.email ?? '').includes(query) ||
+        normalize(user.role?.name ?? '').includes(query) ||
+        normalize(user.role?.slug ?? '').includes(query) ||
+        (user.organizations ?? []).some(
+          (organization) =>
+            normalize(organization.name).includes(query) ||
+            normalize(organization.slug).includes(query) ||
+            normalize(organization.role ?? '').includes(query),
+        ),
+    );
+  });
+  const availableUsers = $derived(
+    assignableUsers.filter((user) => !users.some((access) => access.userId === user.id)),
+  );
+  const userOptions: SelectOption[] = $derived(
+    availableUsers.map((user) => ({
+      value: user.id,
+      label: user.username,
+      hint: user.email ?? undefined,
+    })),
+  );
+  const roleOptions: SelectOption[] = $derived(
+    roles.map((role) => ({ value: role.id, label: role.name })),
+  );
+
+  function initials(name: string) {
+    return name
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase();
   }
 
-  function openInviteModal() {
-    inviteError = '';
-    inviteEmail = '';
-    inviteModalOpen = true;
-  }
-
-  function flashSuccess(message: string) {
-    success = message;
-    setTimeout(() => {
-      success = '';
-    }, 2500);
+  function formatDate(value: string) {
+    if (!value) return '—';
+    try {
+      return new Date(value).toLocaleDateString();
+    } catch {
+      return value;
+    }
   }
 
   async function submitAction(action: string, values: Record<string, string>) {
     const formData = new FormData();
     for (const [key, value] of Object.entries(values)) formData.set(key, value);
-
     const response = await fetch(`?/${action}`, { method: 'POST', body: formData });
     const result = deserialize(await response.text());
     if (result.type === 'failure' || result.type === 'error') {
@@ -132,25 +164,26 @@
     await invalidateAll();
   }
 
-  async function addUser() {
+  function openAdd() {
     addError = '';
-    success = '';
+    newUsername = '';
+    newEmail = '';
+    newPassword = '';
+    selectedUserId = '';
+    selectedRoleId = roles[0]?.id ?? '';
+    addOpen = true;
+  }
 
-    if (!selectedRoleId) {
-      addError = $_('usersComponent.roleRequired');
-      return;
-    }
-
+  async function addUser(event: SubmitEvent) {
+    event.preventDefault();
+    addError = '';
+    if (!selectedRoleId) return void (addError = $_('usersComponent.roleRequired'));
     if (scope !== 'project' && (!newUsername.trim() || !newPassword.trim())) {
-      addError = $_('usersComponent.usernamePasswordRequired');
-      return;
+      return void (addError = $_('usersComponent.usernamePasswordRequired'));
     }
-
     if (scope === 'project' && !selectedUserId) {
-      addError = $_('usersComponent.userRequired');
-      return;
+      return void (addError = $_('usersComponent.userRequired'));
     }
-
     adding = true;
     try {
       await submitAction('addUser', {
@@ -160,8 +193,8 @@
         password: newPassword,
         userId: selectedUserId,
       });
-      addModalOpen = false;
-      flashSuccess(
+      addOpen = false;
+      toast.success(
         scope === 'project' ? $_('usersComponent.userAssigned') : $_('usersComponent.userCreated'),
       );
     } catch (err: unknown) {
@@ -171,20 +204,15 @@
     }
   }
 
-  async function inviteUser() {
+  async function inviteUser(event: SubmitEvent) {
+    event.preventDefault();
     inviteError = '';
-    success = '';
-
-    if (!inviteEmail.trim()) {
-      inviteError = $_('usersComponent.emailRequired');
-      return;
-    }
-
+    if (!inviteEmail.trim()) return void (inviteError = $_('usersComponent.emailRequired'));
     inviting = true;
     try {
       await submitAction('inviteUser', { email: inviteEmail.trim() });
-      inviteModalOpen = false;
-      flashSuccess($_('usersComponent.invitationSent'));
+      inviteOpen = false;
+      toast.success($_('usersComponent.invitationSent'), inviteEmail.trim());
     } catch (err: unknown) {
       inviteError = err instanceof Error ? err.message : $_('usersComponent.inviteFailed');
     } finally {
@@ -193,18 +221,8 @@
   }
 
   async function selectRole(user: AccessUserRow, role: RoleRow) {
-    if (user.role?.id === role.id) {
-      openRoleMenuId = null;
-      return;
-    }
-
-    const previousRole = user.role;
-    user.role = role;
-    users = users;
-    openRoleMenuId = null;
-
-    error = '';
-    success = '';
+    if (user.role?.id === role.id) return;
+    roleOverrides[user.id] = role;
     savingAccessId = user.id;
     try {
       await submitAction('updateUserAccess', {
@@ -212,79 +230,51 @@
         roleId: role.id,
         status: user.status,
       });
-      flashSuccess($_('usersComponent.roleUpdated'));
+      toast.success($_('usersComponent.roleUpdated'), `${user.username} · ${role.name}`);
     } catch (err: unknown) {
-      user.role = previousRole;
-      users = users;
-      error = err instanceof Error ? err.message : $_('usersComponent.updateAccessFailed');
+      toast.error(err instanceof Error ? err.message : $_('usersComponent.updateAccessFailed'));
     } finally {
+      delete roleOverrides[user.id];
       savingAccessId = null;
     }
   }
 
-  function openRemoveModal(user: AccessUserRow) {
-    error = '';
-    removeModalUser = user;
-  }
-
-  async function confirmRemoveAccess() {
-    if (!removeModalUser) return;
-
-    error = '';
-    success = '';
-    removingAccessId = removeModalUser.id;
-    try {
-      await submitAction('removeUserAccess', { accessId: removeModalUser.id });
-      removeModalUser = null;
-      flashSuccess($_('usersComponent.accessRemoved'));
-    } catch (err: unknown) {
-      error = err instanceof Error ? err.message : $_('usersComponent.removeAccessFailed');
-    } finally {
-      removingAccessId = null;
-    }
-  }
-
-  function statusClasses(status: AccessUserRow['status']) {
-    return status === 'invited'
-      ? 'border-amber-200 bg-amber-50 text-amber-800'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-800';
-  }
-
   async function resendInvitation(user: AccessUserRow) {
-    error = '';
-    success = '';
     resendingAccessId = user.id;
     try {
       await submitAction('resendInvitation', { accessId: user.id });
-      flashSuccess($_('usersComponent.invitationResent'));
+      toast.success($_('usersComponent.invitationResent'), user.email ?? user.username);
     } catch (err: unknown) {
-      error = err instanceof Error ? err.message : $_('usersComponent.resendFailed');
+      toast.error(err instanceof Error ? err.message : $_('usersComponent.resendFailed'));
     } finally {
       resendingAccessId = null;
     }
   }
 
-  function formatDate(value: string) {
-    if (!value) return '-';
+  async function confirmRemove() {
+    if (!removeUser) return;
+    removing = true;
     try {
-      return new Date(value).toLocaleDateString();
-    } catch {
-      return value;
+      await submitAction('removeUserAccess', { accessId: removeUser.id });
+      toast.success($_('usersComponent.accessRemoved'), removeUser.username);
+      removeOpen = false;
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : $_('usersComponent.removeAccessFailed'));
+    } finally {
+      removing = false;
     }
   }
 </script>
 
 <svelte:head>
-  <title>{title || $_('usersComponent.defaultTitle')}</title>
+  <title>{resolvedTitle}</title>
 </svelte:head>
 
-<div class="flex min-h-[calc(100dvh-22rem)] flex-col gap-6">
-  <section class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+<div class="space-y-6">
+  <header class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h3 class="text-xl font-semibold text-slate-900">
-        {title || $_('usersComponent.defaultTitle')}
-      </h3>
-      <p class="mt-2 text-sm text-slate-600">
+      <h1 class="text-2xl font-semibold tracking-tight text-white">{resolvedTitle}</h1>
+      <p class="mt-1 text-sm text-fg-muted">
         {description || $_('usersComponent.defaultDescription')}
       </p>
     </div>
@@ -293,190 +283,174 @@
         {#if scope === 'organization'}
           <button
             type="button"
-            on:click={openInviteModal}
-            class="btn-secondary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
+            class="k-btn k-btn-secondary"
+            onclick={() => {
+              inviteError = '';
+              inviteEmail = '';
+              inviteOpen = true;
+            }}
           >
-            <Mail class="h-4 w-4" />
-            {$_('usersComponent.inviteUser')}
+            <Mail class="h-4 w-4" />{$_('usersComponent.inviteUser')}
           </button>
         {/if}
-        <button
-          type="button"
-          on:click={openAddModal}
-          class="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
+        <button type="button" class="k-btn k-btn-primary" onclick={openAdd}>
           <Plus class="h-4 w-4" />
           {scope === 'project' ? $_('usersComponent.addUser') : $_('usersComponent.newUser')}
         </button>
       </div>
     {/if}
-  </section>
+  </header>
 
-  <section class="flex flex-col gap-3 sm:flex-row sm:items-center">
-    <div class="relative flex-1">
-      <Search
-        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-      />
-      <input
-        type="text"
-        bind:value={searchQuery}
-        placeholder={$_('usersComponent.searchPlaceholder')}
-        class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
-      />
+  <div class="k-card">
+    <div class="flex flex-wrap items-center gap-3 border-b border-white/8 p-4">
+      <label class="relative w-full sm:w-80">
+        <span class="sr-only">{$_('usersComponent.searchPlaceholder')}</span>
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+        />
+        <input
+          class="k-input h-9 pl-9"
+          placeholder={$_('usersComponent.searchPlaceholder')}
+          bind:value={searchQuery}
+        />
+      </label>
+      <span class="ml-auto text-xs text-fg-subtle">
+        {$_('usersComponent.count', { values: { count: users.length } })}
+      </span>
     </div>
-  </section>
 
-  {#if error}
-    <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      {error}
-    </div>
-  {/if}
-
-  {#if success}
-    <div
-      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
-    >
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {success}</span>
-    </div>
-  {/if}
-
-  {#if filteredUsers.length === 0}
-    <div
-      class="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center"
-    >
-      <UsersIcon class="h-8 w-8 text-slate-400" />
-      <p class="text-sm font-medium text-slate-700">
-        {users.length === 0 ? $_('usersComponent.empty') : $_('usersComponent.emptySearch')}
-      </p>
-    </div>
-  {:else}
-    <div class="relative flex-1 overflow-visible rounded-md border border-slate-200 bg-white">
-      <div class="overflow-x-auto overflow-y-visible pb-24">
-        <table class="w-full min-w-160 text-sm">
-          <thead>
-            <tr
-              class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-            >
-              <th class="px-4 py-3">{$_('usersComponent.user')}</th>
-              <th class="px-4 py-3">{$_('common.email')}</th>
+    {#if filteredUsers.length === 0}
+      <div class="flex flex-col items-center gap-3 px-6 py-14 text-center">
+        <span class="grid h-12 w-12 place-items-center rounded-xl bg-white/5 text-fg-subtle">
+          <UsersIcon class="h-6 w-6" />
+        </span>
+        <p class="text-sm font-medium text-fg">
+          {users.length === 0 ? $_('usersComponent.empty') : $_('usersComponent.emptySearch')}
+        </p>
+        {#if users.length === 0 && canCreate}
+          <button type="button" class="k-btn k-btn-secondary k-btn-sm" onclick={openAdd}>
+            <Plus class="h-3.5 w-3.5" />
+            {scope === 'project' ? $_('usersComponent.addUser') : $_('usersComponent.newUser')}
+          </button>
+        {/if}
+      </div>
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-176 text-left text-sm">
+          <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+            <tr class="border-b border-white/8">
+              <th class="px-5 py-3 font-semibold">{$_('usersComponent.user')}</th>
               {#if scope === 'cluster'}
-                <th class="px-4 py-3">{$_('usersComponent.organizations')}</th>
+                <th class="px-3 py-3 font-semibold">{$_('usersComponent.organizations')}</th>
               {/if}
-              <th class="px-4 py-3">{$_('common.role')}</th>
-              <th class="px-4 py-3">{$_('common.status')}</th>
-              <th class="px-4 py-3">{$_('usersComponent.added')}</th>
-              <th class="px-4 py-3 text-right">{$_('common.actions')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('common.role')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('common.status')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('usersComponent.added')}</th>
+              <th class="px-5 py-3"><span class="sr-only">{$_('common.actions')}</span></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y divide-white/5">
             {#each filteredUsers as user (user.id)}
-              <tr class="border-t border-slate-100">
-                <td class="px-4 py-3 font-medium text-slate-900">{user.username}</td>
-                <td class="px-4 py-3 text-slate-600">{user.email || '-'}</td>
+              <tr class="transition-colors hover:bg-white/2.5">
+                <td class="px-5 py-3">
+                  <div class="flex min-w-0 items-center gap-3">
+                    <span
+                      class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-linear-to-br from-ink-500 to-ink-700 text-[11px] font-semibold text-white"
+                      aria-hidden="true">{initials(user.username)}</span
+                    >
+                    <span class="min-w-0">
+                      <span class="block truncate font-medium text-white">{user.username}</span>
+                      <span class="block truncate text-xs text-fg-subtle">{user.email || '—'}</span>
+                    </span>
+                  </div>
+                </td>
                 {#if scope === 'cluster'}
-                  <td class="px-4 py-3 text-slate-600">
+                  <td class="px-3 py-3">
                     {#if user.organizations?.length}
                       <div class="flex max-w-md flex-wrap gap-1.5">
                         {#each user.organizations as organization (organization.id)}
-                          <span
-                            class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
-                            title={organization.role
-                              ? `${organization.name}: ${organization.role}`
-                              : organization.name}
-                          >
+                          <span class="k-badge h-6 gap-1 px-2 text-[11px]">
                             {organization.name}
-                            {#if organization.role}
-                              <span class="text-slate-400">·</span>
-                              <span class="text-slate-500">{organization.role}</span>
-                            {/if}
+                            {#if organization.role}<span class="text-fg-subtle"
+                                >· {organization.role}</span
+                              >{/if}
                           </span>
                         {/each}
                       </div>
                     {:else}
-                      <span class="text-slate-400">-</span>
+                      <span class="text-fg-subtle">—</span>
                     {/if}
                   </td>
                 {/if}
-                <td class="px-4 py-3 text-slate-600">
-                  {#if canUpdate}
-                    <div class="relative inline-block text-left">
-                      <button
-                        type="button"
-                        on:click={() =>
-                          (openRoleMenuId = openRoleMenuId === user.id ? null : user.id)}
-                        disabled={savingAccessId === user.id || roles.length === 0}
-                        class="btn-secondary inline-flex min-w-44 items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm font-medium"
-                      >
-                        <span class="truncate"
-                          >{user.role?.name ?? $_('usersComponent.selectRole')}</span
+                <td class="px-3 py-3">
+                  {#if canUpdate && roles.length > 0}
+                    <DropdownMenu
+                      label={$_('usersComponent.changeRole', {
+                        values: { name: user.username },
+                      })}
+                      class="w-56 p-1.5"
+                    >
+                      {#snippet trigger(props)}
+                        <button
+                          {...props}
+                          class="k-btn k-btn-secondary k-btn-sm min-w-40 justify-between"
+                          disabled={savingAccessId === user.id}
                         >
-                        <ChevronDown class="h-4 w-4 shrink-0" />
-                      </button>
-                      {#if openRoleMenuId === user.id}
-                        <div
-                          class="absolute left-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg"
+                          <span class="truncate"
+                            >{user.role?.name ?? $_('usersComponent.selectRole')}</span
+                          >
+                          {#if savingAccessId === user.id}<LoaderCircle
+                              class="h-3.5 w-3.5 animate-spin"
+                            />{:else}<ChevronDown class="h-3.5 w-3.5 text-fg-subtle" />{/if}
+                        </button>
+                      {/snippet}
+                      {#each roles as role (role.id)}
+                        <MenuItem
+                          icon={user.role?.id === role.id ? Check : undefined}
+                          tone={user.role?.id === role.id ? 'brand' : 'default'}
+                          onclick={() => selectRole(user, role)}>{role.name}</MenuItem
                         >
-                          {#each roles as role (role.id)}
-                            <button
-                              type="button"
-                              on:click={() => selectRole(user, role)}
-                              class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-slate-50 {user
-                                .role?.id === role.id
-                                ? 'font-medium text-slate-950'
-                                : 'text-slate-600'}"
-                            >
-                              <span class="truncate">{role.name}</span>
-                              {#if user.role?.id === role.id}
-                                <CheckCircle class="h-4 w-4 text-emerald-600" />
-                              {/if}
-                            </button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
+                      {/each}
+                    </DropdownMenu>
                   {:else}
-                    <span class="truncate">{user.role?.name ?? $_('usersComponent.selectRole')}</span>
+                    <span class="k-badge">{user.role?.name ?? '—'}</span>
                   {/if}
                 </td>
-                <td class="px-4 py-3 text-slate-600">
-                  <span
-                    class={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${statusClasses(
-                      user.status,
-                    )}`}
-                  >
-                    <span
-                      class={`h-2 w-2 rounded-full ${user.status === 'invited' ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                    ></span>
+                <td class="px-3 py-3">
+                  <span class="k-badge {user.status === 'invited' ? 'k-badge-warn' : 'k-badge-ok'}">
                     {user.status === 'invited' ? $_('usersComponent.invited') : $_('common.active')}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-slate-600">{formatDate(user.createdAt)}</td>
-                <td class="px-4 py-3">
-                  <div class="flex items-center justify-end gap-2">
+                <td class="whitespace-nowrap px-3 py-3 text-xs text-fg-muted"
+                  >{formatDate(user.createdAt)}</td
+                >
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end gap-1">
                     {#if user.status === 'invited' && canCreate}
                       <button
                         type="button"
-                        on:click={() => resendInvitation(user)}
+                        class="k-btn k-btn-ghost k-btn-sm"
                         disabled={resendingAccessId === user.id}
-                        class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                        onclick={() => resendInvitation(user)}
                       >
-                        <Send class="h-3.5 w-3.5" />
-                        {resendingAccessId === user.id
-                          ? $_('usersComponent.sending')
-                          : $_('usersComponent.resendInvitation')}
+                        {#if resendingAccessId === user.id}<LoaderCircle
+                            class="h-3.5 w-3.5 animate-spin"
+                          />{:else}<Send class="h-3.5 w-3.5" />{/if}
+                        {$_('usersComponent.resendInvitation')}
                       </button>
                     {/if}
                     {#if canDelete}
                       <button
                         type="button"
-                        on:click={() => openRemoveModal(user)}
-                        disabled={removingAccessId === user.id}
-                        class="btn-danger inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium"
+                        class="k-btn k-btn-ghost k-btn-icon k-btn-sm hover:text-red-400"
+                        title={$_('usersComponent.removeAccess')}
+                        aria-label="{$_('usersComponent.removeAccess')}: {user.username}"
+                        onclick={() => {
+                          removeUser = user;
+                          removeOpen = true;
+                        }}
                       >
-                        <Trash2 class="h-3.5 w-3.5" />
-                        {removingAccessId === user.id
-                          ? $_('usersComponent.removing')
-                          : $_('usersComponent.removeAccess')}
+                        <UserX class="h-4 w-4" />
                       </button>
                     {/if}
                   </div>
@@ -486,240 +460,174 @@
           </tbody>
         </table>
       </div>
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
 
-{#if addModalOpen}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={() => (addModalOpen = false)}
-    aria-label={$_('usersComponent.closeAddModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-lg rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('usersComponent.addModal')}
+<Modal
+  bind:open={addOpen}
+  dismissible={!adding}
+  title={scope === 'project' ? $_('usersComponent.addUser') : $_('usersComponent.newUser')}
+  description={scope === 'project'
+    ? $_('usersComponent.addProjectDescription')
+    : $_('usersComponent.newUserDescription')}
+>
+  {#snippet icon()}
+    <span
+      class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/10 text-brand-400"
+      ><UserPlus class="h-5 w-5" /></span
     >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">
-          {scope === 'project' ? $_('usersComponent.addUser') : $_('usersComponent.newUser')}
-        </h5>
-      </div>
-      <div class="space-y-4 px-4 py-4">
-        {#if addError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {addError}
-          </div>
-        {/if}
-
-        {#if scope !== 'project'}
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="new-user-name"
-                >{$_('common.username')}</label
-              >
-              <input
-                id="new-user-name"
-                type="text"
-                bind:value={newUsername}
-                class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="new-user-email"
-                >{$_('common.email')}</label
-              >
-              <input
-                id="new-user-email"
-                type="email"
-                bind:value={newEmail}
-                class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-              />
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="new-user-password"
-              >{$_('common.password')}</label
-            >
-            <input
-              id="new-user-password"
-              type="password"
-              bind:value={newPassword}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            />
-          </div>
-        {:else}
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="existing-user"
-              >{$_('usersComponent.user')}</label
-            >
-            <select
-              id="existing-user"
+  {/snippet}
+  <form id="add-user-form" class="space-y-5" onsubmit={addUser}>
+    {#if addError}
+      <p
+        class="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-red-200"
+        role="alert"
+      >
+        {addError}
+      </p>
+    {/if}
+    {#if scope === 'project'}
+      {#if availableUsers.length === 0}
+        <p class="text-sm text-fg-muted">{$_('usersComponent.noAssignableUsers')}</p>
+      {:else}
+        <Field label={$_('usersComponent.user')} id="existing-user" required>
+          {#snippet children(control)}
+            <Select
+              id={control.id}
+              options={userOptions}
+              searchable
+              placeholder={$_('usersComponent.chooseUser')}
+              searchPlaceholder={$_('usersComponent.searchPlaceholder')}
               bind:value={selectedUserId}
-              class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-            >
-              {#each availableUsers as user (user.id)}
-                <option value={user.id}
-                  >{user.username}{user.email ? ` (${user.email})` : ''}</option
-                >
-              {/each}
-            </select>
-          </div>
-        {/if}
-
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="user-role"
-            >{$_('common.role')}</label
-          >
-          <select
-            id="user-role"
-            bind:value={selectedRoleId}
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
-          >
-            {#each roles as role (role.id)}
-              <option value={role.id}>{role.name}</option>
-            {/each}
-          </select>
-        </div>
+            />
+          {/snippet}
+        </Field>
+      {/if}
+    {:else}
+      <div class="grid gap-5 sm:grid-cols-2">
+        <Field label={$_('common.username')} id="new-user-name" required>
+          {#snippet children(control)}
+            <input
+              {...control}
+              class="k-input"
+              autocomplete="off"
+              data-autofocus
+              bind:value={newUsername}
+            />
+          {/snippet}
+        </Field>
+        <Field label={$_('common.email')} id="new-user-email">
+          {#snippet children(control)}
+            <input {...control} type="email" class="k-input" bind:value={newEmail} />
+          {/snippet}
+        </Field>
       </div>
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={() => (addModalOpen = false)}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          {$_('common.cancel')}
-        </button>
-        <button
-          type="button"
-          on:click={addUser}
-          disabled={adding ||
-            roles.length === 0 ||
-            (scope === 'project' && availableUsers.length === 0)}
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <UserPlus class="h-4 w-4" />
-          {adding ? $_('usersComponent.adding') : $_('usersComponent.addUser')}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
-
-{#if inviteModalOpen}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={() => (inviteModalOpen = false)}
-    aria-label={$_('usersComponent.closeInviteModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('usersComponent.inviteModal')}
-    >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">
-          {$_('usersComponent.inviteModalTitle')}
-        </h5>
-      </div>
-      <div class="space-y-4 px-4 py-4">
-        {#if inviteError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {inviteError}
-          </div>
-        {/if}
-
-        <p class="text-sm text-slate-600">
-          {$_('usersComponent.inviteModalDescription')}
-        </p>
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="invite-user-email"
-            >{$_('common.email')}</label
-          >
+      <Field label={$_('common.password')} id="new-user-password" required>
+        {#snippet children(control)}
           <input
-            id="invite-user-email"
-            type="email"
-            bind:value={inviteEmail}
-            placeholder="user@example.com"
-            class="field-input mt-2 w-full rounded-md border px-3 py-2 text-sm outline-none transition"
+            {...control}
+            type="password"
+            class="k-input"
+            autocomplete="new-password"
+            bind:value={newPassword}
           />
-        </div>
-      </div>
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={() => (inviteModalOpen = false)}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-        >
-          {$_('common.cancel')}
-        </button>
-        <button
-          type="button"
-          on:click={inviteUser}
-          disabled={inviting}
-          class="btn-primary inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Mail class="h-4 w-4" />
-          {inviting ? $_('usersComponent.sending') : $_('usersComponent.sendInvitation')}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
-
-{#if removeModalUser}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={() => (removeModalUser = null)}
-    aria-label={$_('usersComponent.closeRemoveModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-md rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('usersComponent.removeModal')}
+        {/snippet}
+      </Field>
+    {/if}
+    <Field label={$_('common.role')} id="user-role" required>
+      {#snippet children(control)}
+        <Select id={control.id} options={roleOptions} bind:value={selectedRoleId} />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (addOpen = false)}
+      >{$_('common.cancel')}</button
     >
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h5 class="text-sm font-semibold text-slate-900">
-          {$_('usersComponent.removeModalTitle')}
-        </h5>
-      </div>
-      <div class="px-4 py-4">
-        <p class="text-sm text-slate-700">
-          {$_('usersComponent.removeModalDescriptionStart')}
-          <span class="font-semibold text-slate-900">{removeModalUser.username}</span>{$_(
-            'usersComponent.removeModalDescriptionEnd',
-          )}
-        </p>
-      </div>
-      <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">
-        <button
-          type="button"
-          on:click={() => (removeModalUser = null)}
-          class="btn-secondary rounded-md px-3 py-2 text-sm font-medium"
-          >{$_('common.cancel')}</button
-        >
-        <button
-          type="button"
-          on:click={confirmRemoveAccess}
-          disabled={removingAccessId === removeModalUser.id}
-          class="btn-danger inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-        >
-          <Trash2 class="h-4 w-4" />
-          {removingAccessId === removeModalUser.id
-            ? $_('usersComponent.removing')
-            : $_('usersComponent.removeAccess')}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
+    <button
+      form="add-user-form"
+      class="k-btn k-btn-primary"
+      disabled={adding ||
+        roles.length === 0 ||
+        (scope === 'project' && availableUsers.length === 0)}
+    >
+      {#if adding}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<UserPlus
+          class="h-4 w-4"
+        />{/if}
+      {$_('usersComponent.addUser')}
+    </button>
+  {/snippet}
+</Modal>
+
+<Modal
+  bind:open={inviteOpen}
+  size="sm"
+  dismissible={!inviting}
+  title={$_('usersComponent.inviteModalTitle')}
+  description={$_('usersComponent.inviteModalDescription')}
+>
+  {#snippet icon()}
+    <span
+      class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/10 text-brand-400"
+      ><Mail class="h-5 w-5" /></span
+    >
+  {/snippet}
+  <form id="invite-user-form" onsubmit={inviteUser}>
+    <Field label={$_('common.email')} id="invite-user-email" error={inviteError || null}>
+      {#snippet children(control)}
+        <input
+          {...control}
+          type="email"
+          class="k-input"
+          placeholder="user@example.com"
+          data-autofocus
+          bind:value={inviteEmail}
+        />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (inviteOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button form="invite-user-form" class="k-btn k-btn-primary" disabled={inviting}>
+      {#if inviting}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Send
+          class="h-4 w-4"
+        />{/if}
+      {$_('usersComponent.sendInvitation')}
+    </button>
+  {/snippet}
+</Modal>
+
+<Modal
+  bind:open={removeOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!removing}
+  title={$_('usersComponent.removeModalTitle')}
+  description={removeUser
+    ? `${$_('usersComponent.removeModalDescriptionStart')} ${removeUser.username}${$_('usersComponent.removeModalDescriptionEnd')}`
+    : undefined}
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (removeOpen = false)}
+      >{$_('common.cancel')}</button
+    >
+    <button
+      type="button"
+      class="k-btn k-btn-danger"
+      disabled={removing}
+      data-autofocus
+      onclick={confirmRemove}
+    >
+      {#if removing}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
+      {$_('usersComponent.removeAccess')}
+    </button>
+  {/snippet}
+</Modal>

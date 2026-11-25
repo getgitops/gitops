@@ -14,6 +14,7 @@ type ApiKeyRow = {
   expiresAt: string | null;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  rotatedAt?: string | null;
   createdAt: string;
 };
 
@@ -141,6 +142,7 @@ export class ApiKeyRepository extends Repository {
         expiresAt: input.expiresAt,
         revokedAt: null,
         lastUsedAt: null,
+        rotatedAt: new Date().toISOString(),
       })
       .where({ id: keyId });
   }
@@ -157,6 +159,7 @@ export class ApiKeyRepository extends Repository {
       expiresAt: row.expiresAt,
       lastUsedAt: row.lastUsedAt,
       revokedAt: row.revokedAt,
+      rotatedAt: row.rotatedAt ?? null,
       createdAt: row.createdAt,
     };
   }

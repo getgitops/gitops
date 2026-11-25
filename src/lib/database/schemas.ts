@@ -65,6 +65,8 @@ export const ApiKeyEntity = entity('api_keys', {
   expiresAt: timestamp(),
   lastUsedAt: timestamp(),
   revokedAt: timestamp(),
+  /** Última vez que se regeneró el secreto de la clave; null si nunca se ha rotado. */
+  rotatedAt: timestamp(),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

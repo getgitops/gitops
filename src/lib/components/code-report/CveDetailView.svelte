@@ -1,27 +1,16 @@
-<script lang="ts">
-  import {
-    ArrowLeft,
-    Calendar,
-    ChevronLeft,
-    ChevronRight,
-    ExternalLink,
-    Gauge,
-    Info,
-    Search,
-    ShieldAlert,
-    TrendingUp,
-    Wrench,
-  } from '@lucide/svelte';
-  import {
-    renderVulnerabilityDescription,
-    vulnerabilitySourceLabel,
-  } from '#lib/code-report/vulnerability-format';
+<!--
+  Detalle de un CVE, reutilizable en cualquier ámbito (proyecto, organización…).
+  Quien lo usa decide los enlaces: `backHref` y `serviceHref` para cada servicio afectado.
+  `showProject` añade la columna de proyecto (vista global).
+-->
+<script lang="ts" module>
+  type Severity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
 
-  type CveDetail = {
+  export type CveDetail = {
     id: string;
     title: string;
     description: string;
-    severity: 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+    severity: Severity;
     cvssScore: number | null;
     epssScore: number | null;
     epssPercentile: number | null;
@@ -33,548 +22,452 @@
     lastModifiedDate: string | null;
   };
 
-  type Remediation = {
+  export type CveRemediation = {
     packageName: string;
-    installedVersion: string;
+    installedVersions: string[];
     fixedVersion: string;
-    status: string;
+    serviceCount: number;
   };
 
-  type AffectedService = {
-    serviceId: string;
+  export type CveAffected = {
     serviceSlug: string;
     serviceName: string;
-    projectName?: string;
+    projectSlug: string;
+    projectName: string;
     packageName: string;
     installedVersion: string;
     fixedVersion: string;
     target: string;
-    severity: string;
+    severity: Severity;
     status: string;
     scannedAt: string | null;
-    projectSlug?: string;
   };
+</script>
 
-  export let cve: CveDetail;
-  export let remediations: Remediation[] = [];
-  export let affectedServices: AffectedService[] = [];
-  export let cvesHref = '';
-  export let orgSlug = '';
-  export let defaultProjectSlug = '';
+<script lang="ts">
+  import {
+    ArrowLeft,
+    ArrowRight,
+    Calendar,
+    CircleAlert,
+    ExternalLink,
+    Search,
+    Wrench,
+  } from '@lucide/svelte';
+  import {
+    renderVulnerabilityDescription,
+    vulnerabilitySourceLabel,
+  } from '#lib/code-report/vulnerability-format';
+  import { SEVERITY_FILL, SEVERITY_LABEL, severityBadge } from '#lib/code-report/severity-ui';
+  import { locale } from '#lib/i18n';
 
-  const severityStyles: Record<string, string> = {
-    critical: 'border-red-200 bg-red-50 text-red-700',
-    high: 'border-orange-200 bg-orange-50 text-orange-700',
-    medium: 'border-amber-200 bg-amber-50 text-amber-700',
-    low: 'border-slate-200 bg-slate-50 text-slate-600',
-    unknown: 'border-slate-200 bg-slate-50 text-slate-600',
-  };
+  let {
+    cve,
+    remediations,
+    affected,
+    backHref = null,
+    backLabel = 'Volver a CVEs',
+    serviceHref,
+    showProject = false,
+  }: {
+    cve: CveDetail;
+    remediations: CveRemediation[];
+    affected: CveAffected[];
+    backHref?: string | null;
+    backLabel?: string;
+    serviceHref: (service: CveAffected) => string;
+    showProject?: boolean;
+  } = $props();
 
-  const severityBannerStyles: Record<string, string> = {
-    critical: 'border-red-200 bg-red-50 text-red-800',
-    high: 'border-orange-200 bg-orange-50 text-orange-800',
-    medium: 'border-amber-200 bg-amber-50 text-amber-800',
-    low: 'border-slate-200 bg-slate-50 text-slate-700',
-    unknown: 'border-slate-200 bg-slate-50 text-slate-700',
-  };
+  let query = $state('');
 
-  function cweUrl(cweId: string) {
-    const number = cweId.match(/\d+/)?.[0];
-    return number ? `https://cwe.mitre.org/data/definitions/${number}.html` : '';
-  }
+  const description = $derived(
+    cve.description ? renderVulnerabilityDescription(cve.description) : '',
+  );
+  const fixable = $derived(remediations.some((item) => item.fixedVersion));
+  const serviceCount = $derived(
+    new Set(affected.map((a) => `${a.projectSlug}/${a.serviceSlug}`)).size,
+  );
+  const projectCount = $derived(new Set(affected.map((a) => a.projectSlug)).size);
 
-  function splitTarget(target: string) {
-    if (!target) {
-      return { dirParts: [], file: '-' };
-    }
-
-    const parts = target.split(/[\\/]+/).filter(Boolean);
-    const file = parts.pop() ?? target;
-    return { dirParts: parts, file };
-  }
-
-  function splitVersions(value: string) {
-    return value
-      .split(',')
-      .map((version) => version.trim())
-      .filter(Boolean);
-  }
-
-  function serviceHref(service: AffectedService) {
-    const projectSlug = service.projectSlug || defaultProjectSlug;
-    if (!projectSlug) return '#';
-    return `/org/${orgSlug}/projects/${projectSlug}/code-report/services/${service.serviceSlug}`;
-  }
-
-  let activeTab: 'info' | 'services' = 'info';
-
-  let affectedServicesQuery = '';
-  const affectedServicesPerPageOptions = [10, 25, 50, 100];
-  let affectedServicesPerPage = 10;
-  let affectedServicesPage = 1;
-
-  $: tabs = [
-    { id: 'info' as const, label: 'Informacion' },
-    { id: 'services' as const, label: 'Servicios afectados', count: affectedServices.length },
-  ];
-
-  $: cvssPercent = cve.cvssScore !== null ? Math.min(100, (cve.cvssScore / 10) * 100) : 0;
-  $: epssScorePercent = cve.epssScore !== null ? Math.min(100, cve.epssScore * 100) : 0;
-  $: epssPercentilePercent =
-    cve.epssPercentile !== null ? Math.min(100, cve.epssPercentile * 100) : 0;
-  $: renderedDescription = cve.description ? renderVulnerabilityDescription(cve.description) : '';
-
-  $: filteredAffectedServices = affectedServices.filter((service) => {
-    const query = affectedServicesQuery.trim().toLowerCase();
-    if (!query) return true;
-
-    const serviceName = String(service.serviceName ?? '').toLowerCase();
-    const packageName = String(service.packageName ?? '').toLowerCase();
-    const target = String(service.target ?? '').toLowerCase();
-
-    return (
-      serviceName.includes(query) ||
-      packageName.includes(query) ||
-      target.includes(query)
+  const filtered = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    return affected.filter(
+      (item) =>
+        !q ||
+        [item.serviceName, item.projectName, item.packageName, item.target].some((value) =>
+          value.toLowerCase().includes(q),
+        ),
     );
   });
 
-  $: affectedServicesTotalPages = Math.max(
-    1,
-    Math.ceil(filteredAffectedServices.length / affectedServicesPerPage),
+  const cvssLabel = $derived(
+    cve.cvssScore === null
+      ? null
+      : cve.cvssScore >= 9
+        ? 'Crítica'
+        : cve.cvssScore >= 7
+          ? 'Alta'
+          : cve.cvssScore >= 4
+            ? 'Media'
+            : 'Baja',
   );
-  $: if (affectedServicesPage > affectedServicesTotalPages)
-    affectedServicesPage = affectedServicesTotalPages;
-  $: affectedServicesQuery, affectedServicesPerPage, (affectedServicesPage = 1);
-  $: paginatedAffectedServices = filteredAffectedServices.slice(
-    (affectedServicesPage - 1) * affectedServicesPerPage,
-    affectedServicesPage * affectedServicesPerPage,
-  );
-  $: affectedServicesRangeStart =
-    filteredAffectedServices.length === 0 ? 0 : (affectedServicesPage - 1) * affectedServicesPerPage + 1;
-  $: affectedServicesRangeEnd = Math.min(
-    affectedServicesPage * affectedServicesPerPage,
-    filteredAffectedServices.length,
-  );
+
+  function date(iso: string | null) {
+    if (!iso) return '—';
+    return new Intl.DateTimeFormat($locale ?? 'es', { dateStyle: 'medium' }).format(new Date(iso));
+  }
+
+  function cweUrl(id: string) {
+    const number = id.match(/\d+/)?.[0];
+    return number ? `https://cwe.mitre.org/data/definitions/${number}.html` : null;
+  }
+
+  function host(url: string) {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  }
 </script>
 
 <div class="space-y-6">
-  <a href={cvesHref} class="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
-    <ArrowLeft class="h-3.5 w-3.5" />Volver a CVEs
-  </a>
+  {#if backHref}
+    <a
+      href={backHref}
+      class="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-white"
+    >
+      <ArrowLeft class="h-3.5 w-3.5" />{backLabel}
+    </a>
+  {/if}
 
-  <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <div class="flex flex-wrap items-center gap-3">
-      <h1 class="font-mono text-2xl font-bold text-slate-950">{cve.id}</h1>
-      <span
-        class={`rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase ${severityStyles[cve.severity]}`}
-      >
-        {cve.severity}
-      </span>
-      {#if cve.cvssScore !== null}
-        <span class="text-xs font-semibold text-slate-500">CVSS {cve.cvssScore.toFixed(1)}</span>
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0 max-w-3xl">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="k-badge {severityBadge(cve.severity)} font-semibold"
+          >{SEVERITY_LABEL[cve.severity]}</span
+        >
+        {#if fixable}
+          <span class="k-badge k-badge-ok"><Wrench class="h-3 w-3" />Parche disponible</span>
+        {:else}
+          <span class="k-badge">Sin parche</span>
+        {/if}
+      </div>
+      <h1 class="mt-2 font-mono text-2xl font-semibold tracking-tight text-white">{cve.id}</h1>
+      {#if cve.title}<p class="mt-1 text-fg-muted">{cve.title}</p>{/if}
+      <p class="mt-2 text-sm text-fg-subtle">
+        Afecta a {serviceCount}
+        {serviceCount === 1 ? 'servicio' : 'servicios'}{#if showProject && projectCount > 1}
+          en {projectCount} proyectos{/if}.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      {#if cve.cveUrl}
+        <a
+          href={cve.cveUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          class="k-btn k-btn-secondary"
+        >
+          <ExternalLink class="h-4 w-4" />{vulnerabilitySourceLabel(cve.id)}
+        </a>
+      {/if}
+      {#if cve.primaryUrl && cve.primaryUrl !== cve.cveUrl}
+        <a
+          href={cve.primaryUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          class="k-btn k-btn-ghost"
+        >
+          <ExternalLink class="h-4 w-4" />Advisory
+        </a>
       {/if}
     </div>
-    {#if cve.title}
-      <p class="mt-2 text-sm text-slate-600">{cve.title}</p>
-    {/if}
-  </section>
+  </header>
 
-  <div class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Detalle del CVE">
-    {#each tabs as tab}
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === tab.id}
-        on:click={() => (activeTab = tab.id)}
-        class={`shrink-0 border-b-2 px-4 py-3 text-sm font-semibold ${
-          activeTab === tab.id
-            ? 'border-slate-900 text-slate-900'
-            : 'border-transparent text-slate-500 hover:text-slate-900'
-        }`}
-      >
-        {tab.label}
-        {#if tab.count !== undefined}<span class="ml-1 text-xs font-normal text-slate-400">{tab.count}</span>{/if}
-      </button>
-    {/each}
-  </div>
+  <div class="grid gap-4 lg:grid-cols-3">
+    <div class="min-w-0 space-y-4 lg:col-span-2">
+      <section class="k-card p-5" aria-labelledby="cve-description">
+        <h2 id="cve-description" class="font-semibold text-white">Descripción</h2>
+        {#if description}
+          <div class="cve-description mt-3 text-sm leading-6 text-fg-muted">
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -- markdown saneado en renderVulnerabilityDescription -->
+            {@html description}
+          </div>
+        {:else}
+          <p class="mt-3 text-sm text-fg-subtle">
+            El informe no incluye descripción para este CVE.
+          </p>
+        {/if}
+      </section>
 
-  {#if activeTab === 'info'}
-    <section
-      class={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-6 shadow-sm ${severityBannerStyles[cve.severity]}`}
-    >
-      <div class="flex items-center gap-4">
-        <ShieldAlert class="h-10 w-10 shrink-0" />
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wide opacity-70">Severidad</p>
-          <p class="text-3xl font-black uppercase leading-tight">{cve.severity}</p>
+      <section class="k-card overflow-hidden" aria-labelledby="cve-fix">
+        <div class="border-b border-white/8 px-5 py-4">
+          <h2 id="cve-fix" class="font-semibold text-white">Cómo corregirlo</h2>
+          <p class="text-xs text-fg-subtle">
+            Paquetes afectados y la versión a la que hay que actualizar
+          </p>
         </div>
-      </div>
-      {#if cve.publishedDate}
-        <div class="flex items-center gap-2 text-sm">
-          <Calendar class="h-4 w-4 shrink-0" />
-          <div>
-            <p class="text-xs opacity-70">Publicado</p>
-            <p class="font-semibold">{new Date(cve.publishedDate).toLocaleDateString()}</p>
+        <ul class="divide-y divide-white/6">
+          {#each remediations as item (item.packageName + item.fixedVersion)}
+            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
+              <span class="min-w-0 flex-1 truncate font-medium text-white">{item.packageName}</span>
+              <span class="font-mono text-xs">
+                <span class="text-red-300">{item.installedVersions.join(', ')}</span>
+                <span class="text-fg-subtle">→</span>
+                {#if item.fixedVersion}
+                  <span class="text-ok">{item.fixedVersion}</span>
+                {:else}
+                  <span class="text-fg-subtle">sin versión corregida</span>
+                {/if}
+              </span>
+              <span class="w-24 text-right text-xs text-fg-subtle">
+                {item.serviceCount}
+                {item.serviceCount === 1 ? 'servicio' : 'servicios'}
+              </span>
+            </li>
+          {/each}
+        </ul>
+        {#if !fixable}
+          <p
+            class="flex items-start gap-2 border-t border-white/8 px-5 py-3 text-xs text-amber-200"
+          >
+            <CircleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+            No hay versión corregida publicada. Valora mitigarlo (configuración, WAF) o sustituir el paquete.
+          </p>
+        {/if}
+      </section>
+
+      <section class="k-card overflow-hidden" aria-labelledby="cve-affected">
+        <div class="flex flex-wrap items-center gap-3 border-b border-white/8 px-5 py-4">
+          <div class="mr-auto">
+            <h2 id="cve-affected" class="font-semibold text-white">Servicios afectados</h2>
+            <p class="text-xs text-fg-subtle">Según el último análisis de cada servicio</p>
+          </div>
+          {#if affected.length > 5}
+            <label class="relative w-full sm:w-64">
+              <Search
+                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+              />
+              <input
+                type="search"
+                class="k-input h-9 pl-9"
+                placeholder="Buscar servicio o paquete…"
+                aria-label="Buscar servicios afectados"
+                bind:value={query}
+              />
+            </label>
+          {/if}
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-176 text-left text-sm">
+            <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+              <tr class="border-b border-white/8">
+                <th class="px-5 py-3 font-semibold">Servicio</th>
+                <th class="px-3 py-3 font-semibold">Paquete</th>
+                <th class="px-3 py-3 font-semibold">Versión</th>
+                <th class="px-3 py-3 font-semibold">Ubicación</th>
+                <th class="px-5 py-3 font-semibold">Analizado</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">
+              {#each filtered as item, index (item.projectSlug + item.serviceSlug + item.packageName + item.target + index)}
+                <tr class="transition-colors hover:bg-white/2.5">
+                  <td class="px-5 py-3">
+                    <a
+                      href={serviceHref(item)}
+                      class="group inline-flex items-center gap-1.5 font-medium text-white hover:text-brand-300"
+                    >
+                      {item.serviceName}
+                      <ArrowRight
+                        class="h-3 w-3 text-fg-subtle opacity-0 transition group-hover:opacity-100"
+                      />
+                    </a>
+                    {#if showProject}<p class="text-xs text-fg-subtle">{item.projectName}</p>{/if}
+                  </td>
+                  <td class="px-3 py-3 font-mono text-xs text-fg">{item.packageName}</td>
+                  <td class="px-3 py-3 font-mono text-xs">
+                    <span class="text-red-300">{item.installedVersion}</span>
+                    {#if item.fixedVersion}<span class="text-fg-subtle"> → </span><span
+                        class="text-ok">{item.fixedVersion}</span
+                      >{/if}
+                  </td>
+                  <td
+                    class="max-w-56 truncate px-3 py-3 font-mono text-[11px] text-fg-subtle"
+                    title={item.target}
+                  >
+                    {item.target || '—'}
+                  </td>
+                  <td class="whitespace-nowrap px-5 py-3 text-xs text-fg-subtle"
+                    >{date(item.scannedAt)}</td
+                  >
+                </tr>
+              {:else}
+                <tr>
+                  <td colspan="5" class="px-5 py-8 text-center text-sm text-fg-subtle"
+                    >Ningún servicio coincide.</td
+                  >
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <aside class="min-w-0 space-y-4">
+      <section class="k-card p-5" aria-label="Puntuaciones">
+        <div>
+          <div class="flex items-baseline justify-between">
+            <p class="text-sm text-fg-muted">CVSS v3</p>
+            {#if cvssLabel}<p class="text-xs text-fg-subtle">{cvssLabel}</p>{/if}
+          </div>
+          <p class="mt-1 text-3xl font-semibold tabular-nums text-white">
+            {cve.cvssScore !== null ? cve.cvssScore.toFixed(1) : '—'}<span
+              class="text-base text-fg-subtle"
+            >
+              / 10</span
+            >
+          </p>
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white/6">
+            <div
+              class="h-full rounded-full {SEVERITY_FILL[cve.severity]}"
+              style="width:{(cve.cvssScore ?? 0) * 10}%"
+            ></div>
           </div>
         </div>
-      {/if}
-    </section>
 
-    <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Overview</h2>
-      {#if renderedDescription}
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by renderVulnerabilityDescription -->
-        <div class="cve-description mt-2 text-sm text-slate-600">{@html renderedDescription}</div>
-      {:else}
-        <p class="mt-2 text-sm text-slate-600">Sin descripcion disponible.</p>
-      {/if}
-      {#if cve.lastModifiedDate}
-        <p class="mt-3 text-xs text-slate-400">
-          Ultima actualizacion: {new Date(cve.lastModifiedDate).toLocaleDateString()}
-        </p>
-      {/if}
-    </section>
-
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-900">CWE</h2>
-      {#if cve.cweIds.length === 0}
-        <p class="mt-3 text-sm text-slate-500">No se ha indicado una clasificacion CWE para este CVE.</p>
-      {:else}
-        <div class="mt-3 flex flex-wrap gap-2">
-          {#each cve.cweIds as cweId (cweId)}
-            <a
-              href={cweUrl(cweId)}
-              target="_blank"
-              rel="noreferrer noopener"
-              class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+        <div class="mt-5 border-t border-white/8 pt-5">
+          <div class="flex items-baseline justify-between">
+            <p class="text-sm text-fg-muted">EPSS</p>
+            <p class="text-xs text-fg-subtle">probabilidad de explotación en 30 días</p>
+          </div>
+          {#if cve.epssScore !== null}
+            <p
+              class="mt-1 text-3xl font-semibold tabular-nums {cve.epssScore >= 0.1
+                ? 'text-amber-300'
+                : 'text-white'}"
             >
-              <ExternalLink class="h-3 w-3" />{cweId}
-            </a>
-          {/each}
+              {(cve.epssScore * 100).toFixed(cve.epssScore < 0.01 ? 2 : 1)}<span
+                class="text-base text-fg-subtle"
+              >
+                %</span
+              >
+            </p>
+            {#if cve.epssPercentile !== null}
+              <p class="mt-1 text-xs text-fg-subtle">
+                Más probable que el {Math.round(cve.epssPercentile * 100)} % de los CVEs
+              </p>
+              <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white/6">
+                <div
+                  class="h-full rounded-full bg-warn"
+                  style="width:{cve.epssPercentile * 100}%"
+                ></div>
+              </div>
+            {/if}
+          {:else}
+            <p class="mt-1 text-sm text-fg-subtle">El informe no incluye EPSS.</p>
+          {/if}
         </div>
-      {/if}
-    </section>
+      </section>
 
-    <div class="grid gap-4 sm:grid-cols-3">
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <Gauge class="h-3.5 w-3.5" />
-          CVSS
-          <span title="Common Vulnerability Scoring System: mide la gravedad tecnica de la vulnerabilidad de 0 a 10.">
-            <Info class="h-3.5 w-3.5 cursor-help text-slate-400" />
-          </span>
-        </div>
-        <p class="mt-2 text-3xl font-black text-slate-900">
-          {cve.cvssScore !== null ? cve.cvssScore.toFixed(1) : '-'}
-        </p>
-        <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div class="h-2 rounded-full bg-red-500" style={`width: ${cvssPercent}%`}></div>
-        </div>
-        <p class="mt-1 text-[11px] text-slate-400">Escala 0-10</p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <TrendingUp class="h-3.5 w-3.5" />
-          EPSS Score
-          <span title="Exploit Prediction Scoring System: probabilidad estimada de que esta CVE sea explotada en los proximos 30 dias.">
-            <Info class="h-3.5 w-3.5 cursor-help text-slate-400" />
-          </span>
-        </div>
-        <p class="mt-2 text-3xl font-black text-slate-900">
-          {cve.epssScore !== null ? `${(cve.epssScore * 100).toFixed(3)}%` : '-'}
-        </p>
-        <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div class="h-2 rounded-full bg-amber-500" style={`width: ${epssScorePercent}%`}></div>
-        </div>
-        <p class="mt-1 text-[11px] text-slate-400">Probabilidad de explotacion</p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <Gauge class="h-3.5 w-3.5" />
-          EPSS Percentil
-          <span title="Indica en que percentil se encuentra esta CVE frente a todas las demas segun su probabilidad de explotacion.">
-            <Info class="h-3.5 w-3.5 cursor-help text-slate-400" />
-          </span>
-        </div>
-        <p class="mt-2 text-3xl font-black text-slate-900">
-          {cve.epssPercentile !== null ? `${(cve.epssPercentile * 100).toFixed(1)}%` : '-'}
-        </p>
-        <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div class="h-2 rounded-full bg-blue-500" style={`width: ${epssPercentilePercent}%`}></div>
-        </div>
-        <p class="mt-1 text-[11px] text-slate-400">Frente al resto de CVEs conocidas</p>
-      </div>
-    </div>
-
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-        <Wrench class="h-4 w-4" />Como solucionarlo
-      </h2>
-      {#if remediations.some((remediation) => remediation.fixedVersion)}
-        <ul class="mt-4 space-y-3">
-          {#each remediations as remediation (remediation.packageName)}
-            <li class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-              <span class="font-semibold text-slate-800">{remediation.packageName}</span>
-              {#if remediation.fixedVersion}
-                <div class="mt-2 flex flex-wrap items-center gap-2">
-                  <span class="font-mono text-xs font-semibold text-red-700">{remediation.installedVersion}</span>
-                  <span class="text-slate-400">-></span>
-                  {#each splitVersions(remediation.fixedVersion) as version (version)}
-                    <span
-                      class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 font-mono text-xs font-semibold text-emerald-700"
+      <section class="k-card p-5" aria-label="Datos">
+        <dl class="space-y-3 text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <dt class="flex items-center gap-2 text-fg-muted">
+              <Calendar class="h-3.5 w-3.5" />Publicado
+            </dt>
+            <dd class="text-fg">{date(cve.publishedDate)}</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="flex items-center gap-2 text-fg-muted">
+              <Calendar class="h-3.5 w-3.5" />Modificado
+            </dt>
+            <dd class="text-fg">{date(cve.lastModifiedDate)}</dd>
+          </div>
+          {#if cve.cweIds.length > 0}
+            <div class="border-t border-white/8 pt-3">
+              <dt class="text-fg-muted">Debilidad (CWE)</dt>
+              <dd class="mt-1.5 flex flex-wrap gap-1.5">
+                {#each cve.cweIds as id (id)}
+                  {@const href = cweUrl(id)}
+                  {#if href}
+                    <a
+                      {href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      class="k-badge font-mono hover:text-white">{id}</a
                     >
-                      {version}
-                    </span>
-                  {/each}
-                </div>
-              {:else}
-                <span class="text-slate-500"> - todavia no hay una version corregida publicada.</span>
-              {/if}
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="mt-3 text-sm text-slate-500">
-          Ninguno de los paquetes afectados tiene aun una version corregida publicada. Revisa el advisory
-          para posibles mitigaciones alternativas.
-        </p>
-      {/if}
-    </section>
-
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-900">References</h2>
-      {#if cve.references.length === 0 && !cve.primaryUrl}
-        <p class="mt-3 text-sm text-slate-500">No hay referencias disponibles para este CVE.</p>
-      {:else}
-        <ul class="mt-4 space-y-2">
-          <li>
-            <a
-              href={cve.cveUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:text-blue-900"
-            >
-              <ExternalLink class="h-3.5 w-3.5" />{vulnerabilitySourceLabel(cve.id)}: {cve.id}
-            </a>
-          </li>
-          {#if cve.primaryUrl}
-            <li>
-              <a
-                href={cve.primaryUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:text-blue-900"
-              >
-                <ExternalLink class="h-3.5 w-3.5" />Advisory principal
-              </a>
-            </li>
+                  {:else}
+                    <span class="k-badge font-mono">{id}</span>
+                  {/if}
+                {/each}
+              </dd>
+            </div>
           {/if}
-          {#each cve.references as reference (reference)}
-            <li>
-              <a
-                href={reference}
-                target="_blank"
-                rel="noreferrer noopener"
-                class="inline-flex items-center gap-1.5 break-all text-sm text-blue-700 hover:text-blue-900 hover:underline"
-              >
-                <ExternalLink class="h-3.5 w-3.5 shrink-0" />{reference}
-              </a>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-  {:else}
-    <div class="flex flex-col gap-3 sm:flex-row">
-      <label class="relative min-w-0 flex-1">
-        <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          bind:value={affectedServicesQuery}
-          placeholder="Buscar por servicio, paquete o nombre de archivo..."
-          class="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
-        />
-      </label>
-    </div>
+        </dl>
+      </section>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <table class="w-full text-left text-sm">
-        <thead class="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-          <tr>
-            <th class="px-5 py-3 font-semibold">Servicio</th>
-            <th class="px-5 py-3 font-semibold">Paquete</th>
-            <th class="px-5 py-3 font-semibold">Version instalada</th>
-            <th class="px-5 py-3 font-semibold">Version corregida</th>
-            <th class="px-5 py-3 font-semibold">Objetivo</th>
-            <th class="px-5 py-3 font-semibold">Ultimo escaneo</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {#each paginatedAffectedServices as service (service.serviceId + service.target + service.packageName)}
-            {@const target = splitTarget(service.target)}
-            <tr class="hover:bg-slate-50">
-              <td class="px-5 py-3">
-                <a href={serviceHref(service)} class="font-semibold text-slate-900 hover:underline">
-                  {service.serviceName}
-                </a>
-                {#if service.projectName || service.projectSlug}
-                  <p class="mt-1 text-xs text-slate-500">
-                    Proyecto:
-                    <span class="font-medium text-slate-700">{service.projectName || service.projectSlug}</span>
-                  </p>
-                {/if}
-              </td>
-              <td class="px-5 py-3 text-slate-700">{service.packageName}</td>
-              <td class="px-5 py-3 font-mono text-xs font-semibold text-red-700">
-                {service.installedVersion}
-              </td>
-              <td class="px-5 py-3">
-                {#if service.fixedVersion}
-                  <div class="flex flex-wrap gap-1.5">
-                    {#each splitVersions(service.fixedVersion) as version (version)}
-                      <span
-                        class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-700"
-                      >
-                        {version}
-                      </span>
-                    {/each}
-                  </div>
-                {:else}
-                  <span class="text-xs text-slate-400">No indicada</span>
-                {/if}
-              </td>
-              <td class="max-w-xs px-5 py-3 align-top" title={service.target}>
-                {#if target.dirParts.length > 0}
-                  <p class="wrap-break-word text-[11px] leading-snug text-slate-400">
-                    {#each target.dirParts as part, i (i)}{part}<wbr />{#if i < target.dirParts.length - 1}/<wbr />{/if}{/each}/
-                  </p>
-                {/if}
-                <p class="break-all font-mono text-xs font-semibold text-slate-800">{target.file}</p>
-              </td>
-              <td class="px-5 py-3 text-slate-500">
-                {service.scannedAt ? new Date(service.scannedAt).toLocaleString() : '-'}
-              </td>
-            </tr>
-          {/each}
-          {#if paginatedAffectedServices.length === 0}
-            <tr>
-              <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-500">
-                {affectedServices.length === 0
-                  ? 'No hay servicios afectados.'
-                  : 'Sin resultados para tu busqueda.'}
-              </td>
-            </tr>
-          {/if}
-        </tbody>
-      </table>
-    </section>
-
-    <div class="flex flex-col items-center justify-between gap-3 sm:flex-row">
-      <div class="flex items-center gap-2 text-sm text-slate-600">
-        <span>Mostrando {affectedServicesRangeStart}-{affectedServicesRangeEnd} de {filteredAffectedServices.length}</span>
-        <label class="flex items-center gap-1.5">
-          <span class="text-slate-500">Por pagina</span>
-          <select
-            bind:value={affectedServicesPerPage}
-            aria-label="Elementos por pagina"
-            class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"
+      {#if cve.references.length > 0}
+        <section class="k-card overflow-hidden" aria-labelledby="cve-references">
+          <h2
+            id="cve-references"
+            class="border-b border-white/8 px-5 py-3.5 text-sm font-semibold text-white"
           >
-            {#each affectedServicesPerPageOptions as option}
-              <option value={option}>{option}</option>
+            Referencias <span class="font-normal text-fg-subtle">{cve.references.length}</span>
+          </h2>
+          <ul class="max-h-72 divide-y divide-white/5 overflow-y-auto">
+            {#each cve.references as reference (reference)}
+              <li>
+                <a
+                  href={reference}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  class="flex items-center gap-2 px-5 py-2 text-xs transition-colors hover:bg-white/2.5"
+                  title={reference}
+                >
+                  <ExternalLink class="h-3 w-3 shrink-0 text-fg-subtle" />
+                  <span class="shrink-0 text-fg">{host(reference)}</span>
+                  <span class="truncate text-fg-subtle"
+                    >{reference.replace(/^https?:\/\/[^/]+/, '')}</span
+                  >
+                </a>
+              </li>
             {/each}
-          </select>
-        </label>
-      </div>
-
-      <div class="flex items-center gap-1">
-        <button
-          type="button"
-          disabled={affectedServicesPage === 1}
-          on:click={() => (affectedServicesPage -= 1)}
-          aria-label="Pagina anterior"
-          class="inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ChevronLeft class="h-4 w-4" />
-        </button>
-        <span class="px-3 text-sm text-slate-600">
-          Pagina {affectedServicesPage} de {affectedServicesTotalPages}
-        </span>
-        <button
-          type="button"
-          disabled={affectedServicesPage === affectedServicesTotalPages}
-          on:click={() => (affectedServicesPage += 1)}
-          aria-label="Pagina siguiente"
-          class="inline-flex items-center justify-center rounded-full border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ChevronRight class="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  {/if}
+          </ul>
+        </section>
+      {/if}
+    </aside>
+  </div>
 </div>
 
 <style>
-  .cve-description :global(h1),
-  .cve-description :global(h2),
-  .cve-description :global(h3),
-  .cve-description :global(h4) {
-    margin-top: 1.25rem;
-    margin-bottom: 0.5rem;
-    color: rgb(15 23 42);
-    font-weight: 700;
-  }
-
-  .cve-description :global(h3:first-child) {
-    margin-top: 0;
-  }
-
-  .cve-description :global(p),
-  .cve-description :global(ul),
-  .cve-description :global(ol),
-  .cve-description :global(pre) {
+  .cve-description :global(p + p) {
     margin-top: 0.75rem;
   }
-
-  .cve-description :global(ul),
-  .cve-description :global(ol) {
-    padding-left: 1.5rem;
-  }
-
-  .cve-description :global(ul) {
-    list-style: disc;
-  }
-
-  .cve-description :global(ol) {
-    list-style: decimal;
-  }
-
   .cve-description :global(a) {
-    color: rgb(29 78 216);
+    color: var(--color-brand-300);
     text-decoration: underline;
+    text-underline-offset: 2px;
   }
-
   .cve-description :global(code) {
     border-radius: 0.25rem;
-    background: rgb(51 65 85);
-    padding: 0.125rem 0.25rem;
-    color: rgb(241 245 249);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.875em;
+    background: rgb(255 255 255 / 0.06);
+    padding: 0.05rem 0.3rem;
+    font-size: 0.8em;
   }
-
   .cve-description :global(pre) {
+    margin-top: 0.75rem;
     overflow-x: auto;
     border-radius: 0.5rem;
-    background: rgb(15 23 42);
+    background: var(--color-ink-950);
     padding: 0.75rem;
-    color: rgb(241 245 249);
+    font-size: 0.75rem;
   }
-
-  .cve-description :global(pre code) {
-    background: transparent;
-    padding: 0;
+  .cve-description :global(ul) {
+    margin-top: 0.5rem;
+    list-style: disc;
+    padding-left: 1.25rem;
   }
 </style>

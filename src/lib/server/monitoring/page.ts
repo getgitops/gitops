@@ -2,7 +2,10 @@ import { error, fail, redirect, type RequestEvent } from '@sveltejs/kit';
 import { cancanService } from '#modules/auth';
 import { codeReportService } from '#modules/code-report';
 import { projectService } from '#modules/projects';
+import { MONITOR_METHODS } from '#lib/monitoring/types';
 import {
+  MONITOR_DEFAULTS,
+  MONITOR_INTERVAL_OPTIONS,
   MonitorNotFoundError,
   MonitorValidationError,
   monitorService,
@@ -90,6 +93,29 @@ export async function loadMonitorsWithStats(projectId: string) {
     monitors: monitors.map((monitor) => ({ monitor, stats: statsById.get(monitor.id) ?? null })),
     services,
     info: monitoringInfo(),
+  };
+}
+
+/** Valores iniciales del formulario de alta (página /monitors/new y modal "Nuevo monitor"). */
+export function newMonitorForm(services: ServiceOption[], presetServiceId = '') {
+  return {
+    methods: MONITOR_METHODS,
+    intervals: MONITOR_INTERVAL_OPTIONS,
+    values: {
+      name: '',
+      url: '',
+      method: MONITOR_DEFAULTS.method,
+      serviceId: services.some((service) => service.id === presetServiceId) ? presetServiceId : '',
+      headers: [] as { name: string; value: string }[],
+      body: '',
+      intervalSeconds: String(MONITOR_DEFAULTS.intervalSeconds),
+      timeoutMs: String(MONITOR_DEFAULTS.timeoutMs),
+      expectedStatus: MONITOR_DEFAULTS.expectedStatus,
+      degradedThresholdMs: String(MONITOR_DEFAULTS.degradedThresholdMs),
+      confirmations: String(MONITOR_DEFAULTS.confirmations),
+      followRedirects: MONITOR_DEFAULTS.followRedirects,
+      enabled: true,
+    },
   };
 }
 

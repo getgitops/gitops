@@ -61,9 +61,9 @@ export function summarizeConditions(
   return parts.join(` ${t(match === 'any' ? 'alerts.summary.or' : 'alerts.summary.and')} `);
 }
 
-/** "2 usuarios · Project Admin" */
+/** "Project Admin, ana, ops@example.com" — mail targets: roles, users and external addresses. */
 export function summarizeRecipients(
-  recipients: { userIds: string[]; roleIds: string[] },
+  recipients: { userIds: string[]; roleIds: string[]; emails?: string[] },
   users: AlertOption[],
   roles: AlertOption[],
   t: Translate,
@@ -71,6 +71,34 @@ export function summarizeRecipients(
   const names = [
     ...recipients.roleIds.map((id) => roles.find((role) => role.id === id)?.label ?? id),
     ...recipients.userIds.map((id) => users.find((user) => user.id === id)?.label ?? id),
+    ...(recipients.emails ?? []),
   ];
   return names.length > 0 ? names.join(', ') : t('alerts.summary.noRecipients');
+}
+
+/** Targets of one channel, ready to print: names for mail, `#canal` for Slack, spaces, URLs. */
+export function channelTargets(
+  channel: string,
+  recipients: {
+    userIds: string[];
+    roleIds: string[];
+    emails?: string[];
+    slackChannels?: string[];
+    googleChatSpaces?: string[];
+    webhookUrls?: string[];
+  },
+  users: AlertOption[],
+  roles: AlertOption[],
+): string[] {
+  if (channel === 'mail') {
+    return [
+      ...recipients.roleIds.map((id) => roles.find((role) => role.id === id)?.label ?? id),
+      ...recipients.userIds.map((id) => users.find((user) => user.id === id)?.label ?? id),
+      ...(recipients.emails ?? []),
+    ];
+  }
+  if (channel === 'slack') return recipients.slackChannels ?? [];
+  if (channel === 'google_chat') return recipients.googleChatSpaces ?? [];
+  if (channel === 'webhook') return recipients.webhookUrls ?? [];
+  return [];
 }

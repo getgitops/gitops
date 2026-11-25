@@ -75,7 +75,7 @@
     {
       id: 'dotnet',
       name: '.NET',
-      description: 'Anade el vault como configuration provider en .NET.',
+      description: 'Añade el vault como configuration provider en .NET.',
       logo: '/integrations/dotnet.svg',
     },
     {
@@ -87,7 +87,7 @@
     {
       id: 'sdk',
       name: 'SDK',
-      description: 'Consume el vault desde tu codigo con el SDK oficial.',
+      description: 'Consume el vault desde tu código con el SDK oficial.',
       icon: Package,
     },
   ];
@@ -122,13 +122,13 @@
   const sections: { id: string; title: string; description: string; items: Integration[] }[] = [
     {
       id: 'frameworks',
-      title: 'Framework Integrations',
-      description: 'Guias de integracion para frameworks, la CLI y el SDK.',
+      title: 'Frameworks',
+      description: 'Guías de integración para frameworks, la CLI y el SDK.',
       items: frameworks,
     },
     {
       id: 'cicd',
-      title: 'CI/CD Integrations',
+      title: 'CI/CD',
       description: 'Consume los secretos del vault desde tus pipelines.',
       items: cicd,
     },
@@ -136,51 +136,51 @@
 </script>
 
 <svelte:head>
-  <title>Vault integrations - GitOps</title>
+  <title>Integraciones del vault - GitOps</title>
 </svelte:head>
 
 <div class="space-y-6">
-  <section>
-    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Vault</p>
-    <h2 class="mt-1 text-2xl font-semibold text-slate-950">Integrations</h2>
-    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-      Conecta el vault de este proyecto con tu stack. Cada guia explica como cargar los secretos por
+  <header class="max-w-2xl">
+    <h1 class="text-2xl font-semibold tracking-tight text-white">Integraciones</h1>
+    <p class="mt-1 text-sm text-fg-muted">
+      Conecta el vault de este proyecto con tu stack. Cada guía explica cómo cargar los secretos por
       entorno sin escribirlos en el repositorio.
     </p>
-  </section>
+  </header>
 
   {#each sections as section (section.id)}
-    <section class="rounded-md border border-slate-200 bg-white p-6 shadow-sm">
-      <div>
-        <h3 class="text-sm font-semibold text-slate-900">{section.title}</h3>
-        <p class="mt-1 text-sm text-slate-500">{section.description}</p>
+    <section aria-labelledby="integraciones-{section.id}">
+      <div class="mb-3">
+        <h2 id="integraciones-{section.id}" class="font-semibold text-white">{section.title}</h2>
+        <p class="mt-0.5 text-sm text-fg-muted">{section.description}</p>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {#each section.items as integration (integration.id)}
           <a
             href={`${DOCS_BASE}/${integration.id}`}
             target="_blank"
             rel="noopener noreferrer"
-            class="group flex h-full items-start gap-3 rounded-md border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-slate-50"
+            class="k-card k-card-hover group flex h-full items-start gap-3 p-4"
           >
             <span
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white"
+              class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-ink-900"
             >
               {#if integration.logo}
-                <img src={integration.logo} alt="" class="h-7 w-7" loading="lazy" />
+                <img src={integration.logo} alt="" class="h-6 w-6" loading="lazy" />
               {:else if integration.icon}
-                <svelte:component this={integration.icon} class="h-6 w-6 text-slate-700" />
+                <integration.icon class="h-5 w-5 text-brand-400" />
               {/if}
             </span>
             <span class="min-w-0 flex-1">
-              <span class="flex items-center gap-1 text-sm font-semibold text-slate-900">
+              <span class="flex items-center gap-1 text-sm font-semibold text-white">
                 {integration.name}
                 <ArrowUpRight
-                  class="h-3.5 w-3.5 text-slate-400 transition-colors group-hover:text-slate-700"
+                  class="h-3.5 w-3.5 text-fg-subtle transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-brand-400"
                 />
+                <span class="sr-only">(se abre en una pestaña nueva)</span>
               </span>
-              <span class="mt-1 block text-sm leading-5 text-slate-500">
+              <span class="mt-1 block text-sm leading-5 text-fg-muted">
                 {integration.description}
               </span>
             </span>

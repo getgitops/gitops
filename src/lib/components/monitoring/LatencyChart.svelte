@@ -9,6 +9,7 @@
   import { onDestroy, untrack } from 'svelte';
   import type { Chart as ChartType, ChartDataset, ScriptableContext } from 'chart.js';
   import { _, locale } from '#lib/i18n';
+  import { Tabs, tabId, tabPanelId } from '#lib/components/ui';
   import { formatLatency } from '#lib/monitoring/format';
   import type { CheckOutcome } from '#lib/monitoring/types';
   import type { BarData } from './types';
@@ -27,16 +28,19 @@
     degradedThresholdMs: number;
   } = $props();
 
+  // paleta de /brand: series en orden fijo (series-1, series-2); los colores de estado solo
+  // marcan estado (puntos y tramos), nunca una serie
   const COLORS = {
-    avg: '#38bdf8',
-    p95: '#a78bfa',
+    avg: '#e14607',
+    p95: '#3b82f6',
     threshold: '#f59e0b',
-    up: '#34d399',
-    degraded: '#fbbf24',
-    down: '#fb7185',
-    grid: 'rgba(148, 163, 184, 0.08)',
-    tick: '#64748b',
+    up: '#22c55e',
+    degraded: '#f59e0b',
+    down: '#ef4444',
+    grid: 'rgba(255, 255, 255, 0.06)',
+    tick: '#72727e',
   };
+  const uid = $props.id();
 
   const withLatency = (bars: BarData[]) => bars.filter((bar) => bar.latencyAvg !== null).length;
 
@@ -119,10 +123,10 @@
 
   function areaGradient(context: ScriptableContext<'line'>) {
     const { ctx, chartArea } = context.chart;
-    if (!chartArea) return 'rgba(56, 189, 248, 0.15)';
+    if (!chartArea) return 'rgba(225, 70, 7, 0.12)';
     const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    gradient.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
-    gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    gradient.addColorStop(0, 'rgba(225, 70, 7, 0.28)');
+    gradient.addColorStop(1, 'rgba(225, 70, 7, 0)');
     return gradient;
   }
 
@@ -219,13 +223,13 @@
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#0b1829',
-            borderColor: '#1e3a5f',
+            backgroundColor: '#17171d',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
             borderWidth: 1,
-            titleColor: '#e2e8f0',
-            bodyColor: '#cbd5e1',
+            titleColor: '#e7e7ea',
+            bodyColor: '#a9a9b3',
             padding: 10,
-            cornerRadius: 10,
+            cornerRadius: 8,
             usePointStyle: true,
             boxPadding: 4,
             callbacks: {
@@ -243,7 +247,12 @@
           x: {
             grid: { display: false },
             border: { display: false },
-            ticks: { color: COLORS.tick, maxTicksLimit: 8, maxRotation: 0, font: { size: 10 } },
+            ticks: {
+              color: COLORS.tick,
+              maxTicksLimit: 8,
+              maxRotation: 0,
+              font: { size: 11, family: 'Inter, ui-sans-serif, system-ui' },
+            },
           },
           y: {
             beginAtZero: true,
@@ -252,7 +261,7 @@
             ticks: {
               color: COLORS.tick,
               maxTicksLimit: 5,
-              font: { size: 10 },
+              font: { size: 11, family: 'Inter, ui-sans-serif, system-ui' },
               callback: (value) => formatLatency(Number(value)),
             },
           },
@@ -280,78 +289,72 @@
 
   onDestroy(() => chart?.destroy());
 
-  const ranges: { key: Range; label: string }[] = [
-    { key: 'recent', label: '1 h' },
-    { key: 'hour', label: '24 h' },
-    { key: 'day', label: '90 d' },
+  const ranges = [
+    { value: 'recent', label: '1 h' },
+    { value: 'hour', label: '24 h' },
+    { value: 'day', label: '90 d' },
   ];
 </script>
 
-<section class="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+<section class="k-card p-5 sm:p-6">
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h2 class="text-sm font-semibold text-slate-100">{$_('monitoring.latency.title')}</h2>
-      <p class="mt-1 text-xs text-slate-500">
+      <h2 class="text-sm font-semibold text-white">{$_('monitoring.latency.title')}</h2>
+      <p class="mt-1 text-xs text-fg-subtle">
         {range === 'recent'
           ? $_('monitoring.latency.recentHelp')
           : $_('monitoring.latency.aggregateHelp')}
       </p>
     </div>
-    <div
-      class="flex gap-1 rounded-xl border border-[var(--border)] bg-black/20 p-1 text-xs font-semibold"
-    >
-      {#each ranges as option (option.key)}
-        <button
-          type="button"
-          class="rounded-lg px-3 py-1.5 transition {range === option.key
-            ? 'bg-[#16294a] text-white'
-            : 'text-slate-400 hover:text-slate-200'}"
-          onclick={() => (range = option.key)}
-        >
-          {option.label}
-        </button>
-      {/each}
-    </div>
+    <Tabs
+      variant="segmented"
+      size="sm"
+      label={$_('monitoring.latency.title')}
+      idPrefix="latency-{uid}"
+      items={ranges}
+      bind:value={() => range, (next) => (range = next as Range)}
+    />
   </div>
 
   {#if summary}
-    <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs">
-      <span class="inline-flex items-center gap-2 text-slate-400">
+    <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-fg-subtle">
+      <span class="inline-flex items-center gap-2">
         <span class="h-0.5 w-4 rounded" style="background: {COLORS.avg}"></span>
         {range === 'recent' ? $_('monitoring.latency.responseTime') : $_('monitoring.latency.avg')}
-        <strong class="tabular-nums text-slate-100">{formatLatency(summary.avg)}</strong>
+        <strong class="font-medium tabular-nums text-fg">{formatLatency(summary.avg)}</strong>
       </span>
-      <span class="inline-flex items-center gap-2 text-slate-400">
+      <span class="inline-flex items-center gap-2">
         {#if range !== 'recent'}
           <span class="h-0 w-4 border-t-2 border-dashed" style="border-color: {COLORS.p95}"></span>
         {/if}
-        p95 <strong class="tabular-nums text-slate-100">{formatLatency(summary.p95)}</strong>
+        p95 <strong class="font-medium tabular-nums text-fg">{formatLatency(summary.p95)}</strong>
       </span>
-      <span class="text-slate-400"
-        >min <strong class="tabular-nums text-slate-100">{formatLatency(summary.min)}</strong></span
-      >
-      <span class="text-slate-400"
-        >max <strong class="tabular-nums text-slate-100">{formatLatency(summary.max)}</strong></span
-      >
+      <span>min <strong class="font-medium tabular-nums text-fg">{formatLatency(summary.min)}</strong></span>
+      <span>max <strong class="font-medium tabular-nums text-fg">{formatLatency(summary.max)}</strong></span>
       {#if degradedThresholdMs > 0}
-        <span class="inline-flex items-center gap-2 text-slate-400">
+        <span class="inline-flex items-center gap-2">
           <span class="h-0 w-4 border-t border-dashed" style="border-color: {COLORS.threshold}"
           ></span>
           {$_('monitoring.latency.threshold')}
-          <strong class="tabular-nums text-amber-300">{formatLatency(degradedThresholdMs)}</strong>
+          <strong class="font-medium tabular-nums text-fg">{formatLatency(degradedThresholdMs)}</strong>
         </span>
       {/if}
     </div>
   {/if}
 
-  <div class="relative mt-4 h-64">
+  <div
+    class="relative mt-4 h-64"
+    role="tabpanel"
+    id={tabPanelId(`latency-${uid}`, range)}
+    aria-labelledby={tabId(`latency-${uid}`, range)}
+  >
     <canvas
       bind:this={canvas}
       class={hasData ? '' : 'invisible'}
       aria-label={$_('monitoring.latency.title')}
     ></canvas>
     {#if !hasData}
-      <p class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+      <p class="absolute inset-0 flex items-center justify-center text-sm text-fg-subtle">
         {$_('monitoring.latency.noData')}
       </p>
     {/if}

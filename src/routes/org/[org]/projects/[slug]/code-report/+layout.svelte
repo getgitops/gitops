@@ -1,21 +1,9 @@
 <script lang="ts">
-  import { createPageStore } from '#lib/page-store';
+  import type { Snippet } from 'svelte';
 
-  export let data: {
-    project?: {
-      slug?: string | null;
-      organization?: { slug?: string | null } | null;
-    };
-  };
-
-  $: orgSlug = data?.project?.organization?.slug ?? $page?.params?.org ?? '';
-  $: projectSlug = data?.project?.slug ?? $page?.params?.slug ?? '';
-  
-
-  const page = createPageStore();
+  let { children }: { children: Snippet } = $props();
 </script>
 
 <div class="space-y-6">
-
-  <slot />
+  {@render children()}
 </div>

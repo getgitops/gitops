@@ -1,6 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { cancanService } from '#modules/auth';
+import { cancanService, userAccessService } from '#modules/auth';
 import { organizationService } from '#modules/organization';
+import { projectService } from '#modules/projects';
 
 function errorResponse(error: unknown) {
   return fail(400, {
@@ -9,12 +10,29 @@ function errorResponse(error: unknown) {
 }
 
 export async function load({ params }) {
+  let organization;
   try {
-    const organization = await organizationService.findBySlug(params.org);
-    return { organization };
+    organization = await organizationService.findBySlug(params.org);
   } catch {
     throw error(404, 'Organization not found');
   }
+
+  const [projects, members] = await Promise.all([
+    projectService.listProjectsByOrganization(organization.id).catch(() => []),
+    userAccessService.listUsers('organization', organization.id).catch(() => []),
+  ]);
+
+  return {
+    organization,
+    projects: projects.map((project) => ({
+      id: project.id,
+      slug: project.slug ?? '',
+      name: project.name,
+      status: project.status,
+      modules: project.modules ?? null,
+    })),
+    memberCount: members.length,
+  };
 }
 
 export const actions = {

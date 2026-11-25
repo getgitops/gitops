@@ -74,10 +74,12 @@ test.describe('monitoring — access', () => {
     await expectDenied(page, `${base}/monitors/new`);
   });
 
-  test('the sidebar shows the Monitoring category', async ({ page, loginAs }) => {
+  test('the sidebar shows Monitoring as the current product', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     await page.goto(`${base}/dashboard`);
-    await expect(page.getByText('Monitorización', { exact: true })).toBeVisible();
+    const link = page.locator('aside').first().getByRole('link', { name: 'Monitoring' });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('aria-current', 'page');
   });
 });
 
@@ -163,7 +165,7 @@ test.describe('monitoring — monitors', () => {
     // the confirmation dialog is client-side: wait for the page to hydrate
     await page.waitForLoadState('networkidle');
     await page.getByTitle('Eliminar').click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Eliminar' }).click();
     await expect(page).toHaveURL(new RegExp(`${base}/monitors$`));
     await expect(page.getByText('E2E to delete')).toHaveCount(0);
   });

@@ -6,6 +6,11 @@ import {
   type AlertLocation,
   type AlertRow,
 } from '#modules/alerts';
+import {
+  ALERT_CHANNELS,
+  emptyRecipients,
+  type AlertChannel,
+} from '#modules/alerts/domain/alert.domain';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import {
@@ -84,7 +89,11 @@ async function recipientOptions(location: AlertLocation) {
   return {
     users: members
       .filter((member) => !member.disabled)
-      .map((member) => ({ id: member.userId, label: member.username }))
+      .map((member) => ({
+        id: member.userId,
+        label: member.username,
+        ...(member.email ? { hint: member.email } : {}),
+      }))
       .sort((a, b) => a.label.localeCompare(b.label)),
     roles: roles.map((role) => ({ id: role.id, label: role.name })),
   };
@@ -139,6 +148,8 @@ export async function loadAlertList(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    recipientUsers: own.users,
+    recipientRoles: own.roles,
     mailConfigured: isMailConfigured(),
     canCreate: allowed.canCreate,
     canUpdate: allowed.canUpdate,
@@ -154,7 +165,8 @@ function emptyDraft(eventType: string | null): AlertDraft {
     eventType: eventType ?? '',
     match: 'all',
     conditions: [],
-    recipients: { userIds: [], roleIds: [] },
+    channels: ['mail'],
+    recipients: emptyRecipients(),
     throttleMinutes: 0,
   };
 }
@@ -171,7 +183,8 @@ function toDraft(alert: AlertRow): AlertDraft {
       operator: condition.operator,
       value: condition.value === undefined ? '' : condition.value,
     })),
-    recipients: { ...alert.recipients },
+    channels: [...alert.channels],
+    recipients: { ...emptyRecipients(), ...alert.recipients },
     throttleMinutes: alert.throttleMinutes,
   };
 }
@@ -218,10 +231,22 @@ export async function loadAlertEditor(
     referenceOptions: references,
     users: recipients.users,
     roles: recipients.roles,
+    recipientUsers: recipients.users,
+    recipientRoles: recipients.roles,
     mailConfigured: isMailConfigured(),
     canSave: alert ? allowed.canUpdate : allowed.canCreate,
     canDelete: Boolean(alert) && allowed.canDelete,
   };
+}
+
+/** A list field: repeated inputs, or one text input with comma/newline-separated values (no-JS
+ * editor). */
+function listField(form: FormData, name: string): string[] {
+  return form
+    .getAll(name)
+    .flatMap((value) => String(value).split(/[\n,]/))
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 /** `conditions.<i>.<part>` names → condition list; rows without a field are dropped. */
@@ -258,9 +283,23 @@ export function parseAlertForm(form: FormData): AlertDraft {
     eventType: String(form.get('eventType') ?? ''),
     match: form.get('match') === 'any' ? 'any' : 'all',
     conditions,
+    channels: (() => {
+      const channels = form
+        .getAll('channels')
+        .map(String)
+        .filter((channel): channel is AlertChannel =>
+          (ALERT_CHANNELS as readonly string[]).includes(channel),
+        );
+      // the editor always posts at least `mail`; older clients post nothing
+      return channels.length > 0 ? [...new Set(channels)] : ['mail'];
+    })(),
     recipients: {
       userIds: form.getAll('userIds').map(String),
       roleIds: form.getAll('roleIds').map(String),
+      emails: listField(form, 'emails'),
+      slackChannels: listField(form, 'slackChannels'),
+      googleChatSpaces: listField(form, 'googleChatSpaces'),
+      webhookUrls: listField(form, 'webhookUrls'),
     },
     throttleMinutes: Number(form.get('throttleMinutes') ?? 0) || 0,
   };

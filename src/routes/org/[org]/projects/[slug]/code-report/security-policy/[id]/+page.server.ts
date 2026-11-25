@@ -6,6 +6,7 @@ import {
   codeReportService,
 } from '#modules/code-report';
 import { projectService } from '#modules/projects';
+import { revalidateProjectPolicies } from '#lib/server/code-report/policies';
 
 export async function load({ parent, params, locals }) {
   const { project } = await parent();
@@ -71,9 +72,21 @@ export async function load({ parent, params, locals }) {
     .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
     .sort((left, right) => right.failingAnalyses - left.failingAnalyses);
 
+  const permissionScope = {
+    scope: 'project' as const,
+    projectId: project.id,
+    organizationId: project.organization?.id,
+  };
+  const [canUpdate, canDelete] = await Promise.all([
+    cancanService.canSessionUser(locals.user, 'project:codereport:reports:update', permissionScope),
+    cancanService.canSessionUser(locals.user, 'project:codereport:reports:delete', permissionScope),
+  ]);
+
   return {
     policy,
     affectedServices,
+    canUpdate,
+    canDelete,
     services: services.map((service) => ({
       id: service.id,
       slug: service.slug,
@@ -120,6 +133,7 @@ export const actions = {
     try {
       const input = JSON.parse(String(formData.get('payload') || ''));
       await codeReportSecurityPolicyService.update(params.id, input);
+      await revalidateProjectPolicies(project.id, locals.logger);
       return { success: true };
     } catch (err) {
       return fail(400, {

@@ -1,5 +1,20 @@
 <script lang="ts">
-  import { ChevronLeft, ChevronRight, ExternalLink, Eye, Search, X } from '@lucide/svelte';
+  import {
+    CalendarClock,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronUp,
+    Database,
+    ExternalLink,
+    Eye,
+    GitCommit,
+    LoaderCircle,
+    Search,
+    ScrollText,
+    User,
+  } from '@lucide/svelte';
+  import { Drawer } from '#lib/components/ui';
   import { enhance } from '$app/forms';
   import { createPageStore } from '#lib/page-store';
   import type { SubmitFunction } from '$app/forms';
@@ -138,11 +153,14 @@
   }
 
   const actionStyles: Record<AuditAction, string> = {
-    insert: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    update: 'bg-amber-50 text-amber-700 border-amber-200',
-    delete: 'bg-red-50 text-red-700 border-red-200',
-    other: 'bg-slate-100 text-slate-600 border-slate-200',
+    insert: 'k-badge-ok',
+    update: 'k-badge-info',
+    delete: 'k-badge-danger',
+    other: '',
   };
+
+  let diffOpen = false;
+  $: if (!diffOpen && diffModalEvent) closeDiff();
 
   function formatDate(value: string) {
     if (!value) return '-';
@@ -161,6 +179,7 @@
   function submitDiff(event: AuditEvent): SubmitFunction {
     return () => {
       diffModalEvent = event;
+      diffOpen = true;
       diffError = '';
       diffChanges = [];
       diffLoading = true;
@@ -181,6 +200,24 @@
     };
   }
 
+  // formularios de cada fila: el drawer los reutiliza para ir al cambio anterior/siguiente
+  let rowForms: (HTMLFormElement | null)[] = [];
+  $: selectedIndex = diffModalEvent ? events.indexOf(diffModalEvent) : -1;
+  $: previousIndex = findNeighbour(selectedIndex, -1);
+  $: nextIndex = findNeighbour(selectedIndex, 1);
+
+  function findNeighbour(from: number, step: 1 | -1): number {
+    if (from < 0) return -1;
+    for (let index = from + step; index >= 0 && index < events.length; index += step) {
+      if (events[index].entity) return index;
+    }
+    return -1;
+  }
+
+  function showNeighbour(index: number) {
+    if (index >= 0) rowForms[index]?.requestSubmit();
+  }
+
   function closeDiff() {
     diffModalEvent = null;
     diffChanges = [];
@@ -194,29 +231,31 @@
 </svelte:head>
 
 <div class="space-y-6">
-  <section>
-    <h3 class="text-xl font-semibold text-slate-900">{resolvedTitle}</h3>
-    <p class="mt-2 text-sm text-slate-600">{resolvedDescription}</p>
-  </section>
+  <header>
+    <h1 class="text-2xl font-semibold tracking-tight text-white">{resolvedTitle}</h1>
+    <p class="mt-1 text-sm text-fg-muted">{resolvedDescription}</p>
+  </header>
 
-  <form method="GET" class="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-wrap">
-    <div class="relative flex-1 lg:min-w-60">
-      <Search
-        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-      />
-      <input
-        type="text"
-        name="search"
-        value={currentSearch}
-        placeholder={$_('auditLog.searchPlaceholder')}
-        class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
-      />
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
+  <div class="k-card overflow-hidden">
+    <form method="GET" class="flex flex-wrap items-center gap-2 border-b border-white/8 p-4">
+      <label class="relative min-w-56 flex-1">
+        <span class="sr-only">{$_('auditLog.searchPlaceholder')}</span>
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+        />
+        <input
+          type="text"
+          name="search"
+          value={currentSearch}
+          placeholder={$_('auditLog.searchPlaceholder')}
+          class="k-input h-9 pl-9"
+        />
+      </label>
       <select
         value={selectedPreset}
         on:change={handlePresetChange}
-        class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+        class="k-input h-9 w-auto"
+        aria-label={$_('auditLog.period')}
       >
         {#each DATE_PRESET_OPTIONS as option}
           <option value={option.value}>{option.label}</option>
@@ -227,106 +266,116 @@
           type="date"
           name="from"
           value={currentFrom}
-          title={$_('auditLog.fromDate')}
-          class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+          aria-label={$_('auditLog.fromDate')}
+          class="k-input h-9 w-auto"
         />
-        <span class="text-slate-400">–</span>
+        <span class="text-fg-subtle">–</span>
         <input
           type="date"
           name="to"
           value={currentTo}
-          title={$_('auditLog.toDate')}
-          class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+          aria-label={$_('auditLog.toDate')}
+          class="k-input h-9 w-auto"
         />
       {:else}
         <input type="hidden" name="from" value={currentFrom} />
         <input type="hidden" name="to" value={currentTo} />
       {/if}
-    </div>
-    {#if organizations}
-      <select
-        name="organizationId"
-        class="field-input rounded-md border px-3 py-2 text-sm outline-none transition"
+      {#if organizations}
+        <select
+          name="organizationId"
+          class="k-input h-9 w-auto"
+          aria-label={$_('auditLog.allOrganizations')}
+        >
+          <option value="">{$_('auditLog.allOrganizations')}</option>
+          {#each organizations as organization}
+            <option value={organization.id} selected={organization.id === currentOrganizationId}>
+              {organization.name}
+            </option>
+          {/each}
+        </select>
+      {/if}
+      <input type="hidden" name="perPage" value={pagination.perPage} />
+      <button type="submit" class="k-btn k-btn-secondary k-btn-sm h-9"
+        >{$_('auditLog.filter')}</button
       >
-        <option value="">{$_('auditLog.allOrganizations')}</option>
-        {#each organizations as organization}
-          <option value={organization.id} selected={organization.id === currentOrganizationId}>
-            {organization.name}
-          </option>
-        {/each}
-      </select>
-    {/if}
-    <input type="hidden" name="perPage" value={pagination.perPage} />
-    <button type="submit" class="btn-primary rounded-md px-3 py-2 text-sm font-medium">{$_('auditLog.filter')}</button>
-    {#if hasActiveFilters}
-      <a href="?" class="btn-secondary rounded-md px-3 py-2 text-sm font-medium">{$_('auditLog.clear')}</a>
-    {/if}
-  </form>
+      {#if hasActiveFilters}
+        <a href="?" class="k-btn k-btn-ghost k-btn-sm h-9">{$_('auditLog.clear')}</a>
+      {/if}
+    </form>
 
-  {#if events.length === 0}
-    <div
-      class="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-600"
-    >
-      {hasActiveFilters ? $_('auditLog.emptyFiltered') : $_('auditLog.empty') }
-    </div>
-  {:else}
-    <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
+    {#if events.length === 0}
+      <div class="flex flex-col items-center gap-3 px-6 py-14 text-center">
+        <span class="grid h-12 w-12 place-items-center rounded-xl bg-white/5 text-fg-subtle">
+          <ScrollText class="h-6 w-6" />
+        </span>
+        <p class="text-sm text-fg-muted">
+          {hasActiveFilters ? $_('auditLog.emptyFiltered') : $_('auditLog.empty')}
+        </p>
+      </div>
+    {:else}
       <div class="overflow-x-auto">
-        <table class="w-full min-w-160 text-sm">
-          <thead>
-            <tr
-              class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-            >
-              <th class="px-4 py-3">{$_('common.date')}</th>
-              <th class="px-4 py-3">{$_('auditLog.actionsLabel')}</th>
-              <th class="px-4 py-3">{$_('auditLog.entity')}</th>
-              <th class="px-4 py-3">{$_('auditLog.author')}</th>
-              <th class="px-4 py-3">{$_('auditLog.commit')}</th>
-              <th class="px-4 py-3 text-right">{$_('common.actions')}</th>
+        <table class="w-full min-w-176 text-left text-sm">
+          <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+            <tr class="border-b border-white/8">
+              <th class="px-5 py-3 font-semibold">{$_('common.date')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('auditLog.actionsLabel')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('auditLog.entity')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('auditLog.author')}</th>
+              <th class="px-3 py-3 font-semibold">{$_('auditLog.commit')}</th>
+              <th class="px-5 py-3"><span class="sr-only">{$_('common.actions')}</span></th>
             </tr>
           </thead>
-          <tbody>
-            {#each events as event (event.commitHash + event.reason)}
-              <tr class="border-t border-slate-100">
-                <td class="px-4 py-3 whitespace-nowrap text-slate-600">{formatDate(event.timestamp)}</td>
-                <td class="px-4 py-3">
-                  <span
-                    class={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${actionStyles[event.action]}`}
+          <tbody class="divide-y divide-white/5">
+            {#each events as event, index (event.commitHash + event.reason)}
+              <tr
+                class="transition-colors hover:bg-white/2.5 {diffOpen && diffModalEvent === event
+                  ? 'bg-brand-500/6'
+                  : ''}"
+              >
+                <td class="whitespace-nowrap px-5 py-3 text-xs text-fg-muted"
+                  >{formatDate(event.timestamp)}</td
+                >
+                <td class="px-3 py-3">
+                  <span class="k-badge h-6 px-2 text-[11px] {actionStyles[event.action]}"
+                    >{actionLabels[event.action]}</span
                   >
-                    {actionLabels[event.action]}
-                  </span>
                 </td>
-                <td class="px-4 py-3 font-medium text-slate-900">{event.entity ?? '-'}</td>
-                <td class="px-4 py-3 text-slate-600">{event.author}</td>
-                <td class="px-4 py-3 font-mono text-xs text-slate-500">{event.commitHash.slice(0, 7)}</td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex items-center justify-end gap-2">
-                    {#if commitBaseUrl}
-                      <a
-                        href={`${commitBaseUrl}/commit/${event.commitHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
-                        title={$_('auditLog.viewCommit')}
-                      >
-                        <ExternalLink class="h-3.5 w-3.5" />
-                        {$_('auditLog.commit')}
-                      </a>
-                    {/if}
-                    {#if event.entity}
-                      <form method="POST" action={diffAction} use:enhance={submitDiff(event)}>
-                        <input type="hidden" name="commit" value={event.commitHash} />
-                        <input type="hidden" name="entity" value={event.entity} />
-                        <button
-                          type="submit"
-                          class="btn-secondary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
-                        >
-                          <Eye class="h-3.5 w-3.5" />
-                          {$_('auditLog.viewChanges')}
-                        </button>
-                      </form>
-                    {/if}
-                  </div>
+                <td class="px-3 py-3 font-mono text-[13px] text-white">{event.entity ?? '—'}</td>
+                <td class="px-3 py-3 text-fg">{event.author}</td>
+                <td class="px-3 py-3">
+                  {#if commitBaseUrl}
+                    <a
+                      href={`${commitBaseUrl}/commit/${event.commitHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="inline-flex items-center gap-1 font-mono text-xs text-fg-muted hover:text-brand-300"
+                      title={$_('auditLog.viewCommit')}
+                    >
+                      <GitCommit class="h-3.5 w-3.5" />{event.commitHash.slice(0, 7)}
+                      <ExternalLink class="h-3 w-3" />
+                    </a>
+                  {:else}
+                    <span class="font-mono text-xs text-fg-subtle"
+                      >{event.commitHash.slice(0, 7)}</span
+                    >
+                  {/if}
+                </td>
+                <td class="px-5 py-3 text-right">
+                  {#if event.entity}
+                    <form
+                      method="POST"
+                      action={diffAction}
+                      use:enhance={submitDiff(event)}
+                      bind:this={rowForms[index]}
+                    >
+                      <input type="hidden" name="commit" value={event.commitHash} />
+                      <input type="hidden" name="entity" value={event.entity} />
+                      <button type="submit" class="k-btn k-btn-ghost k-btn-sm">
+                        <Eye class="h-3.5 w-3.5" />{$_('auditLog.viewChanges')}
+                      </button>
+                    </form>
+                  {/if}
                 </td>
               </tr>
             {/each}
@@ -335,180 +384,184 @@
       </div>
 
       <div
-        class="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-3 border-t border-white/8 px-5 py-3 text-xs text-fg-muted sm:flex-row sm:items-center sm:justify-between"
       >
-        <div class="flex items-center gap-2">
-          <span>
+        <div class="flex items-center gap-3">
+          <span class="tabular-nums">
             {(pagination.page - 1) * pagination.perPage + 1}–{Math.min(
               pagination.page * pagination.perPage,
               pagination.total,
-            )} {$_('common.of')} {pagination.total}
+            )}
+            {$_('common.of')}
+            {pagination.total}
           </span>
           <select
             value={String(pagination.perPage)}
             on:change={(event) => {
               window.location.href = hrefWithParam('perPage', event.currentTarget.value);
             }}
-            class="field-input rounded-md border px-2 py-1 text-xs outline-none transition"
+            class="k-input h-8 w-auto py-0 text-xs"
+            aria-label={$_('auditLog.perPage')}
           >
             {#each PER_PAGE_OPTIONS as size}
               <option value={String(size)}>{size} / {$_('auditLog.perPage')}</option>
             {/each}
           </select>
         </div>
-
-        <div class="flex items-center gap-2">
+        <nav class="flex items-center gap-2" aria-label={$_('auditLog.pagination')}>
           {#if pagination.page > 1}
             <a
               href={hrefWithParam('page', String(pagination.page - 1))}
-              class="btn-secondary inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+              class="k-btn k-btn-secondary k-btn-sm"
             >
-              <ChevronLeft class="h-3.5 w-3.5" />
-              {$_('auditLog.previous')}
+              <ChevronLeft class="h-3.5 w-3.5" />{$_('auditLog.previous')}
             </a>
           {:else}
             <span
-              class="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-300"
+              class="k-btn k-btn-secondary k-btn-sm pointer-events-none opacity-40"
+              aria-disabled="true"
             >
-              <ChevronLeft class="h-3.5 w-3.5" />
-              {$_('auditLog.previous')}
+              <ChevronLeft class="h-3.5 w-3.5" />{$_('auditLog.previous')}
             </span>
           {/if}
-
-          <span class="text-xs text-slate-500">{$_('auditLog.page')} {pagination.page} {$_('common.of')} {pagination.totalPages}</span>
-
+          <span class="tabular-nums"
+            >{$_('auditLog.page')} {pagination.page} {$_('common.of')} {pagination.totalPages}</span
+          >
           {#if pagination.page < pagination.totalPages}
             <a
               href={hrefWithParam('page', String(pagination.page + 1))}
-              class="btn-secondary inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
+              class="k-btn k-btn-secondary k-btn-sm"
             >
-              {$_('auditLog.next')}
-              <ChevronRight class="h-3.5 w-3.5" />
+              {$_('auditLog.next')}<ChevronRight class="h-3.5 w-3.5" />
             </a>
           {:else}
             <span
-              class="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-300"
+              class="k-btn k-btn-secondary k-btn-sm pointer-events-none opacity-40"
+              aria-disabled="true"
             >
-              {$_('auditLog.next')}
-              <ChevronRight class="h-3.5 w-3.5" />
+              {$_('auditLog.next')}<ChevronRight class="h-3.5 w-3.5" />
             </span>
+          {/if}
+        </nav>
+      </div>
+    {/if}
+  </div>
+</div>
+
+<Drawer
+  bind:open={diffOpen}
+  size="lg"
+  title={$_('auditLog.changeDetails')}
+  description={diffModalEvent?.entity ?? undefined}
+>
+  {#if diffModalEvent}
+    <div class="space-y-6">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="k-badge h-6 px-2 text-[11px] {actionStyles[diffModalEvent.action]}"
+          >{actionLabels[diffModalEvent.action]}</span
+        >
+        <span class="k-badge h-6 gap-1 px-2 font-mono text-[11px]"
+          ><Database class="h-3 w-3" />{diffModalEvent.entity ?? '—'}</span
+        >
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-xl border border-white/8 bg-white/2 p-3">
+          <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
+            <CalendarClock class="h-3.5 w-3.5" />{$_('common.date')}
+          </p>
+          <p class="mt-1 text-sm font-medium text-white">{formatDate(diffModalEvent.timestamp)}</p>
+        </div>
+        <div class="rounded-xl border border-white/8 bg-white/2 p-3">
+          <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
+            <User class="h-3.5 w-3.5" />{$_('auditLog.author')}
+          </p>
+          <p class="mt-1 truncate text-sm font-medium text-white">{diffModalEvent.author}</p>
+        </div>
+        <div class="col-span-2 rounded-xl border border-white/8 bg-white/2 p-3">
+          <p class="flex items-center gap-1.5 text-xs text-fg-subtle">
+            <GitCommit class="h-3.5 w-3.5" />{$_('auditLog.commit')}
+          </p>
+          <p class="mt-1 break-all font-mono text-xs text-fg">{diffModalEvent.commitHash}</p>
+          {#if diffModalEvent.message}
+            <p class="mt-2 whitespace-pre-wrap border-t border-white/6 pt-2 text-xs text-fg-muted">
+              {diffModalEvent.message}
+            </p>
           {/if}
         </div>
       </div>
-    </div>
-  {/if}
-</div>
 
-{#if diffModalEvent}
-  <button
-    type="button"
-    class="fixed inset-0 z-40 bg-slate-900/50"
-    on:click={closeDiff}
-    aria-label={$_('auditLog.closeChangesModal')}
-  ></button>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-    <div
-      class="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-md border border-slate-200 bg-white shadow-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label={$_('auditLog.changeDetails')}
-    >
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <div>
-          <h5 class="text-sm font-semibold text-slate-900">{$_('auditLog.changeDetails')}</h5>
-          <p class="mt-0.5 text-xs text-slate-500">
-            {formatDate(diffModalEvent.timestamp)} {$_('auditLog.by')} {diffModalEvent.author} · {diffModalEvent.commitHash.slice(0, 7)}
-          </p>
-        </div>
-        <button
-          type="button"
-          on:click={closeDiff}
-          class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
-          aria-label={$_('common.close')}
+      <div>
+        <p
+          class="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.08em] text-fg-subtle"
         >
-          <X class="h-4 w-4" />
-        </button>
-      </div>
-
-      <div class="overflow-y-auto px-4 py-4">
+          {$_('auditLog.changesTitle')}
+          {#if !diffLoading && diffChanges.length > 0}
+            <span class="k-badge h-5 px-1.5 text-[10px]">{diffChanges.length}</span>
+          {/if}
+        </p>
         {#if diffLoading}
-          <p class="text-sm text-slate-500">{$_('auditLog.loadingChanges')}</p>
+          <p class="flex items-center gap-2 text-sm text-fg-subtle">
+            <LoaderCircle class="h-4 w-4 animate-spin" />{$_('auditLog.loadingChanges')}
+          </p>
         {:else if diffError}
-          <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p class="rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-red-200">
             {diffError}
-          </div>
+          </p>
         {:else if diffChanges.length === 0}
-          <p class="text-sm text-slate-500">{$_('auditLog.noChanges')}</p>
-        {:else}
-          <div class="space-y-4">
+          <p class="text-sm text-fg-subtle">{$_('auditLog.noChanges')}</p>
+        {:else if diffModalEvent}
+          <div class="space-y-3">
             {#each diffChanges as change}
               {@const summary = summarizeChange(diffModalEvent.entity ?? '', change)}
               <div
-                class={`rounded-md border p-3 ${
-                  change.type === 'added'
-                    ? 'border-emerald-200 bg-emerald-50'
-                    : change.type === 'removed'
-                      ? 'border-red-200 bg-red-50'
-                      : 'border-amber-200 bg-amber-50'
-                }`}
+                class="rounded-xl border p-4 {change.type === 'added'
+                  ? 'border-ok/25 bg-ok/5'
+                  : change.type === 'removed'
+                    ? 'border-danger/25 bg-danger/5'
+                    : 'border-info/25 bg-info/5'}"
               >
-                <p class="text-sm font-medium text-slate-900">{summary.title}</p>
-
+                <p class="text-sm font-medium text-white">{summary.title}</p>
                 {#if summary.fields.length}
-                  <dl class="mt-2 space-y-2">
+                  <dl class="mt-3 space-y-3">
                     {#each summary.fields as field}
                       <div class="text-xs">
-                        <dt class="mb-1 font-medium text-slate-600">{field.label}</dt>
+                        <dt class="mb-1 font-medium text-fg-muted">{field.label}</dt>
                         <dd>
                           {#if change.type === 'modified'}
                             {#if field.before?.kind === 'text' && field.after?.kind === 'text'}
                               <AuditFieldValue value={field.before} tone="before" />
-                              <span class="mx-1 text-slate-400">→</span>
+                              <span class="mx-1 text-fg-subtle">→</span>
                               <AuditFieldValue value={field.after} tone="after" />
                             {:else if field.before?.kind === 'list' && field.after?.kind === 'list'}
                               <div class="flex flex-wrap gap-1.5">
                                 {#each diffListItems(field.before.items, field.after.items) as entry}
-                                  {@const [scope, action] = entry.item.split(':')}
                                   <span
-                                    class={`inline-flex items-center overflow-hidden rounded-full border text-[11px] font-medium ${
-                                      entry.status === 'added'
-                                        ? 'border-emerald-200'
-                                        : entry.status === 'removed'
-                                          ? 'border-red-200 line-through'
-                                          : 'border-slate-200'
-                                    }`}
+                                    class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[11px] {entry.status ===
+                                    'added'
+                                      ? 'border-ok/30 text-green-300'
+                                      : entry.status === 'removed'
+                                        ? 'border-danger/30 text-red-300 line-through'
+                                        : 'border-white/10 text-fg-muted'}"
                                   >
-                                    {#if entry.status !== 'unchanged'}
-                                      <span
-                                        class={`px-1.5 py-0.5 ${entry.status === 'added' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}
-                                        >{entry.status === 'added' ? '+' : '−'}</span
-                                      >
-                                    {/if}
-                                    {#if action}
-                                      <span
-                                        class={`px-2 py-0.5 ${entry.status === 'unchanged' ? 'bg-slate-50 text-slate-600' : 'bg-white text-slate-700'}`}
-                                        >{scope}</span
-                                      >
-                                      <span
-                                        class={`px-2 py-0.5 ${entry.status === 'unchanged' ? 'bg-slate-100 text-slate-500' : 'bg-slate-50 text-slate-500'}`}
-                                        >{action}</span
-                                      >
-                                    {:else}
-                                      <span class="px-2 py-0.5 text-slate-700">{entry.item}</span>
-                                    {/if}
+                                    {#if entry.status === 'added'}+{:else if entry.status === 'removed'}−{/if}{entry.item}
                                   </span>
                                 {/each}
                               </div>
                             {:else}
                               <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 <div>
-                                  <p class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                                  <p
+                                    class="mb-1 text-[10px] uppercase tracking-wide text-fg-subtle"
+                                  >
                                     {$_('auditLog.before')}
                                   </p>
                                   <AuditFieldValue value={field.before} />
                                 </div>
                                 <div>
-                                  <p class="mb-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                                  <p
+                                    class="mb-1 text-[10px] uppercase tracking-wide text-fg-subtle"
+                                  >
                                     {$_('auditLog.after')}
                                   </p>
                                   <AuditFieldValue value={field.after} />
@@ -529,5 +582,43 @@
         {/if}
       </div>
     </div>
-  </div>
-{/if}
+  {/if}
+  {#snippet footer()}
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        class="k-btn k-btn-secondary k-btn-icon"
+        disabled={previousIndex < 0 || diffLoading}
+        aria-label={$_('auditLog.previousChange')}
+        title={$_('auditLog.previousChange')}
+        on:click={() => showNeighbour(previousIndex)}
+      >
+        <ChevronUp class="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        class="k-btn k-btn-secondary k-btn-icon"
+        disabled={nextIndex < 0 || diffLoading}
+        aria-label={$_('auditLog.nextChange')}
+        title={$_('auditLog.nextChange')}
+        on:click={() => showNeighbour(nextIndex)}
+      >
+        <ChevronDown class="h-4 w-4" />
+      </button>
+    </div>
+    <span class="flex-1"></span>
+    {#if commitBaseUrl && diffModalEvent}
+      <a
+        href={`${commitBaseUrl}/commit/${diffModalEvent.commitHash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="k-btn k-btn-secondary"
+      >
+        <ExternalLink class="h-4 w-4" />{$_('auditLog.viewCommit')}
+      </a>
+    {/if}
+    <button type="button" class="k-btn k-btn-primary" on:click={() => (diffOpen = false)}
+      >{$_('common.close')}</button
+    >
+  {/snippet}
+</Drawer>

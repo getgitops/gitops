@@ -1,27 +1,29 @@
 <script lang="ts">
   import { deserialize, enhance } from '$app/forms';
   import { goto, invalidateAll } from '$app/navigation';
-  import { createPageStore } from '#lib/page-store';
   import type { SubmitFunction } from '$app/forms';
+  import { createPageStore } from '#lib/page-store';
   import {
-    Check,
-    CheckCircle,
     ChevronDown,
     ChevronRight,
+    Copy,
+    CopyPlus,
+    CornerLeftUp,
     Download,
-    Edit3,
     Eye,
     EyeOff,
+    FileUp,
     Folder,
-    FolderInput,
-    Info,
+    FolderPlus,
     Link2,
+    Pencil,
     Plus,
     Search,
-    Shield,
+    Trash2,
+    TriangleAlert,
     Upload,
-    X,
   } from '@lucide/svelte';
+  import { DropdownMenu, Field, MenuItem, Modal, Tabs, toast } from '#lib/components/ui';
 
   type VaultEnvironment = {
     id: string;
@@ -47,7 +49,7 @@
     values: Record<string, string>;
   };
 
-  export let data: {
+  type VaultPageData = {
     environments: VaultEnvironment[];
     folders: VaultFolder[];
     secrets: VaultSecret[];
@@ -60,152 +62,134 @@
     project?: { name?: string | null; slug?: string | null } | null;
   };
 
-  let selectedEnvironmentSlug = '';
-  let environmentMenuOpen = false;
-  let environmentMenuEl: HTMLDivElement | null = null;
-  let actionsMenuOpen = false;
-  let actionsMenuEl: HTMLDivElement | null = null;
-  let searchQuery = '';
-  let importOpen = false;
-  let importContent = '';
-  let copyEnvOpen = false;
-  let copySourceSlug = '';
-  let dropActive = false;
-  let dropError = '';
-  let createSecretOpen = false;
-  let createFolderOpen = false;
-  let linkFolderOpen = false;
-  let editingSecret: VaultSecret | null = null;
-  let deletingSecret: VaultSecret | null = null;
-  let deletingFolder: VaultFolder | null = null;
-  let revealed: Record<string, boolean> = {};
-  let formError = '';
-  let success = '';
-  let submitting = false;
+  let { data }: { data: VaultPageData } = $props();
 
-  let newSecretKey = '';
-  let newSecretValue = '';
+  const page = createPageStore();
+  const orgSlug = $derived($page.params.org);
+  const projectSlug = $derived($page.params.slug);
 
-  let editSecretKey = '';
-  let editSecretDescription = '';
-  let editSecretFolderId = '';
-  let editSecretValues: Record<string, string> = {};
-
-  let newFolderName = '';
-
-  let linkedFolderPath = '';
-
-  $: orgSlug = $page.params.org;
-  $: projectSlug = $page.params.slug;
-  $: currentFolderId = data.currentFolder?.id ?? null;
-  $: currentPath = data.currentPath ?? '/';
-  $: if (!selectedEnvironmentSlug && data.environments[0]) {
-    selectedEnvironmentSlug = data.currentEnvironment?.slug ?? data.environments[0].slug;
-  }
-
-  $: if (
-    data.currentEnvironment?.slug &&
-    selectedEnvironmentSlug !== data.currentEnvironment.slug
-  ) {
-    selectedEnvironmentSlug = data.currentEnvironment.slug;
-  }
-
-  $: selectedEnvironment =
-    data.environments.find((environment) => environment.slug === selectedEnvironmentSlug) ??
-    data.environments[0] ??
-    null;
-  $: selectedFolder = data.folders.find((folder) => folder.id === currentFolderId) ?? null;
-  $: childFolders = data.folders.filter((folder) => folder.parentFolderId === currentFolderId);
-  $: visibleSecretFolderIds = selectedFolder ? folderScopeIds(selectedFolder) : [null];
-  $: visibleSecrets = data.secrets.filter((secret) =>
-    visibleSecretFolderIds.includes(secret.folderId),
+  const environmentSlug = $derived(
+    data.currentEnvironment?.slug ?? data.environments[0]?.slug ?? '',
   );
-  $: filteredFolders = childFolders.filter((folder) => {
-    const query = searchQuery.trim().toLowerCase();
-    return !query || folder.name.toLowerCase().includes(query);
-  });
-  $: filteredSecrets = visibleSecrets.filter((secret) => {
-    const query = searchQuery.trim().toLowerCase();
-    return !query || secret.key.toLowerCase().includes(query);
-  });
-  $: allRevealed =
-    visibleSecrets.length > 0 &&
-    visibleSecrets.every((secret) => revealed[`${secret.id}:${selectedEnvironmentSlug}`]);
-  $: parentFolder = selectedFolder?.parentFolderId
-    ? (data.folders.find((folder) => folder.id === selectedFolder?.parentFolderId) ?? null)
-    : null;
+  const environment = $derived(
+    data.environments.find((candidate) => candidate.slug === environmentSlug) ?? null,
+  );
+  const environmentName = $derived(environment?.name ?? environmentSlug);
+  const isProduction = $derived(/^prod/i.test(environmentSlug));
+  const otherEnvironments = $derived(
+    data.environments.filter((candidate) => candidate.slug !== environmentSlug),
+  );
 
-  function flashSuccess(message: string) {
-    success = message;
-    setTimeout(() => {
-      success = '';
-    }, 2500);
-  }
+  const currentFolderId = $derived(data.currentFolder?.id ?? null);
+  const currentPath = $derived(data.currentPath ?? '/');
+  const currentFolder = $derived(
+    data.folders.find((folder) => folder.id === currentFolderId) ?? null,
+  );
+  const parentFolder = $derived(
+    currentFolder?.parentFolderId
+      ? (data.folders.find((folder) => folder.id === currentFolder.parentFolderId) ?? null)
+      : null,
+  );
+  const pathSegments = $derived(
+    currentPath
+      .split('/')
+      .filter(Boolean)
+      .map((name, index, all) => ({ name, path: `/${all.slice(0, index + 1).join('/')}` })),
+  );
 
-  function folderScopeIds(folder: VaultFolder): Array<string | null> {
+  let searchQuery = $state('');
+  const query = $derived(searchQuery.trim().toLowerCase());
+
+  const childFolders = $derived(
+    data.folders.filter((folder) => folder.parentFolderId === currentFolderId),
+  );
+  const visibleSecrets = $derived.by(() => {
+    const ids = currentFolder ? folderScopeIds(currentFolder) : [null];
+    return data.secrets.filter((secret) => ids.includes(secret.folderId));
+  });
+  const filteredFolders = $derived(
+    childFolders.filter((folder) => !query || folder.name.toLowerCase().includes(query)),
+  );
+  const filteredSecrets = $derived(
+    visibleSecrets.filter((secret) => !query || secret.key.toLowerCase().includes(query)),
+  );
+  const isEmpty = $derived(childFolders.length === 0 && visibleSecrets.length === 0);
+
+  // valores visibles, por secreto y entorno
+  let revealed = $state<Record<string, boolean>>({});
+  const revealKey = (secret: VaultSecret) => `${secret.id}:${environmentSlug}`;
+  const allRevealed = $derived(
+    visibleSecrets.length > 0 && visibleSecrets.every((secret) => revealed[revealKey(secret)]),
+  );
+
+  function folderScopeIds(folder: VaultFolder, seen = new Set<string>()): Array<string | null> {
+    if (seen.has(folder.id)) return [];
+    seen.add(folder.id);
     const ids: Array<string | null> = [folder.id];
-
     if (folder.linkedFolderId) {
-      const linkedFolder = data.folders.find((candidate) => candidate.id === folder.linkedFolderId);
-      if (linkedFolder) ids.push(...folderScopeIds(linkedFolder));
+      const linked = data.folders.find((candidate) => candidate.id === folder.linkedFolderId);
+      if (linked) ids.push(...folderScopeIds(linked, seen));
     }
-
     return [...new Set(ids)];
   }
 
-  function pathToUrl(path: string) {
-    if (path === '/')
-      return `/org/${orgSlug}/projects/${projectSlug}/vault/${selectedEnvironmentSlug}`;
-    const encodedPath = path
+  function linkedPath(folder: VaultFolder) {
+    return data.folders.find((candidate) => candidate.id === folder.linkedFolderId)?.path ?? null;
+  }
+
+  function vaultUrl(path: string, slug = environmentSlug) {
+    const base = `/org/${orgSlug}/projects/${projectSlug}/vault/${slug}`;
+    if (path === '/') return base;
+    const encoded = path
       .split('/')
       .filter(Boolean)
       .map((segment) => encodeURIComponent(segment))
       .join('/');
-    return `/org/${orgSlug}/projects/${projectSlug}/vault/${selectedEnvironmentSlug}/${encodedPath}`;
+    return `${base}/${encoded}`;
   }
 
   function goToFolder(folder: VaultFolder | null) {
-    void goto(pathToUrl(folder?.path ?? '/'));
-  }
-
-  function changeEnvironment() {
-    void goto(pathToUrl(currentPath));
+    void goto(vaultUrl(folder?.path ?? '/'));
   }
 
   function selectEnvironment(slug: string) {
-    environmentMenuOpen = false;
-    if (slug === selectedEnvironmentSlug) return;
-    selectedEnvironmentSlug = slug;
-    changeEnvironment();
-  }
-
-  function handleWindowClick(event: MouseEvent) {
-    const target = event.target as Node;
-    if (environmentMenuOpen && environmentMenuEl && !environmentMenuEl.contains(target)) {
-      environmentMenuOpen = false;
-    }
-    if (actionsMenuOpen && actionsMenuEl && !actionsMenuEl.contains(target)) {
-      actionsMenuOpen = false;
-    }
+    if (slug !== data.currentEnvironment?.slug) void goto(vaultUrl(currentPath, slug));
   }
 
   function toggleReveal(secret: VaultSecret) {
-    const key = `${secret.id}:${selectedEnvironmentSlug}`;
+    const key = revealKey(secret);
     revealed = { ...revealed, [key]: !revealed[key] };
   }
 
   function toggleRevealAll() {
     revealed = allRevealed
       ? {}
-      : Object.fromEntries(
-          visibleSecrets.map((secret) => [`${secret.id}:${selectedEnvironmentSlug}`, true]),
-        );
+      : Object.fromEntries(visibleSecrets.map((secret) => [revealKey(secret), true]));
   }
+
+  async function copyValue(secret: VaultSecret) {
+    const value = secret.values?.[environmentSlug];
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Valor copiado', `${secret.key} · ${environmentSlug}`);
+    } catch {
+      toast.error('No se pudo copiar', 'El navegador no permite acceder al portapapeles.');
+    }
+  }
+
+  function normalizeKey(value: string) {
+    return data.capitalizeSecrets ? value.toUpperCase() : value;
+  }
+
+  // ---------- importar arrastrando un .env ----------
+
+  let dropActive = $state(false);
 
   async function uploadEnvContent(content: string) {
     const body = new FormData();
     body.set('folderId', currentFolderId ?? '');
-    body.set('environmentSlug', selectedEnvironmentSlug);
+    body.set('environmentSlug', environmentSlug);
     body.set('content', content);
 
     const response = await fetch('?/importSecrets', {
@@ -216,25 +200,27 @@
     const result = deserialize(await response.text());
 
     if (result.type !== 'success') {
-      dropError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : 'No se pudo importar el archivo';
+      toast.error(
+        'No se pudo importar el archivo',
+        result.type === 'failure' && result.data?.error ? String(result.data.error) : undefined,
+      );
       return;
     }
 
-    dropError = '';
     await invalidateAll();
-    flashSuccess('Secretos importados');
+    toast.success('Secretos importados', `${environmentName} · ${currentPath}`);
   }
 
   async function handleDrop(event: DragEvent) {
+    event.preventDefault();
     dropActive = false;
     const file = event.dataTransfer?.files?.[0];
-    if (!file) return;
+    if (file) await uploadEnvContent(await file.text());
+  }
 
-    dropError = '';
-    await uploadEnvContent(await file.text());
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    dropActive = true;
   }
 
   function handleDragLeave(event: DragEvent) {
@@ -242,6 +228,17 @@
     if (related && (event.currentTarget as HTMLElement).contains(related)) return;
     dropActive = false;
   }
+
+  let fileInput = $state<HTMLInputElement>();
+
+  async function handleFilePicked(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) await uploadEnvContent(await file.text());
+  }
+
+  // ---------- exportar ----------
 
   async function downloadEnvFile() {
     const response = await fetch('?/exportSecrets', {
@@ -252,7 +249,10 @@
     const result = deserialize(await response.text());
 
     if (result.type !== 'success' || !result.data) {
-      formError = 'No se pudieron exportar los secretos';
+      toast.error(
+        'No se pudieron exportar los secretos',
+        result.type === 'failure' && result.data?.error ? String(result.data.error) : undefined,
+      );
       return;
     }
 
@@ -263,766 +263,930 @@
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+    toast.success('Archivo descargado', filename);
   }
 
-  function normalizeKeyInput(event: Event) {
-    const value = (event.target as HTMLInputElement).value;
-    return data.capitalizeSecrets ? value.toUpperCase() : value;
-  }
+  // ---------- modales ----------
 
-  function resetSecretForm() {
-    newSecretKey = '';
-    newSecretValue = '';
-  }
+  let createSecretOpen = $state(false);
+  let editSecretOpen = $state(false);
+  let deleteSecretOpen = $state(false);
+  let deleteFolderOpen = $state(false);
+  let createFolderOpen = $state(false);
+  let linkFolderOpen = $state(false);
+  let importOpen = $state(false);
+  let copyEnvOpen = $state(false);
+  let submitting = $state(false);
+
+  let newSecretKey = $state('');
+  let newSecretValue = $state('');
+  let newSecretVisible = $state(false);
+
+  let editingSecret = $state<VaultSecret | null>(null);
+  let editSecretKey = $state('');
+  let editSecretDescription = $state('');
+  let editSecretValues = $state<Record<string, string>>({});
+  let editSecretVisible = $state(false);
+
+  let deletingSecret = $state<VaultSecret | null>(null);
+  let deletingFolder = $state<VaultFolder | null>(null);
+
+  let newFolderName = $state('');
+  let linkedFolderPath = $state('');
+  let importContent = $state('');
+  let copySourceSlug = $state('');
 
   function openCreateSecret() {
-    formError = '';
-    resetSecretForm();
+    newSecretKey = '';
+    newSecretValue = '';
+    newSecretVisible = false;
     createSecretOpen = true;
   }
 
   function openEditSecret(secret: VaultSecret) {
-    formError = '';
     editingSecret = secret;
     editSecretKey = secret.key;
     editSecretDescription = secret.description ?? '';
-    editSecretFolderId = secret.folderId ?? '';
+    editSecretVisible = false;
     editSecretValues = Object.fromEntries(
-      data.environments.map((environment) => [
-        environment.slug,
-        secret.values?.[environment.slug] ?? '',
-      ]),
+      data.environments.map((candidate) => [candidate.slug, secret.values?.[candidate.slug] ?? '']),
     );
+    editSecretOpen = true;
+  }
+
+  function openDeleteSecret(secret: VaultSecret) {
+    deletingSecret = secret;
+    deleteSecretOpen = true;
+  }
+
+  function openDeleteFolder(folder: VaultFolder) {
+    deletingFolder = folder;
+    deleteFolderOpen = true;
   }
 
   function openCreateFolder() {
-    formError = '';
     newFolderName = '';
     createFolderOpen = true;
   }
 
   function openLinkFolder() {
-    formError = '';
     linkedFolderPath = '';
     linkFolderOpen = true;
   }
 
   function openImportSecrets() {
-    formError = '';
     importContent = '';
     importOpen = true;
   }
 
   function openCopyEnvironment() {
-    formError = '';
-    copySourceSlug =
-      data.environments.find((environment) => environment.slug !== selectedEnvironmentSlug)?.slug ??
-      '';
+    copySourceSlug = otherEnvironments[0]?.slug ?? '';
     copyEnvOpen = true;
   }
 
-  const handleSubmit: SubmitFunction = () => {
-    formError = '';
-    submitting = true;
-    return async ({ result, update }) => {
-      await update();
-      submitting = false;
-
-      if (result.type === 'success') {
-        createSecretOpen = false;
-        createFolderOpen = false;
-        linkFolderOpen = false;
-        importOpen = false;
-        copyEnvOpen = false;
-        editingSecret = null;
-        deletingSecret = null;
-        deletingFolder = null;
-        flashSuccess('Cambios guardados');
-        return;
-      }
-
-      formError =
-        result.type === 'failure' && result.data?.error
-          ? String(result.data.error)
-          : 'No se pudieron guardar los cambios';
-    };
-  };
-
-  function maskValue(value: string | undefined) {
-    if (!value) return 'Sin valor';
-    return '************';
+  function closeModals() {
+    createSecretOpen = false;
+    editSecretOpen = false;
+    deleteSecretOpen = false;
+    deleteFolderOpen = false;
+    createFolderOpen = false;
+    linkFolderOpen = false;
+    importOpen = false;
+    copyEnvOpen = false;
   }
-  const page = createPageStore();
+
+  const submitWith =
+    (success: () => [string, string?]): SubmitFunction =>
+    () => {
+      submitting = true;
+      const [title, description] = success();
+      return async ({ result, update }) => {
+        submitting = false;
+        if (result.type === 'success') {
+          closeModals();
+          toast.success(title, description);
+          await update();
+        } else if (result.type === 'failure') {
+          toast.error(
+            'No se pudieron guardar los cambios',
+            result.data?.error ? String(result.data.error) : undefined,
+          );
+        } else {
+          await update();
+        }
+      };
+    };
 </script>
 
 <svelte:head>
   <title>Vault - GitOps</title>
 </svelte:head>
 
-<svelte:window on:click={handleWindowClick} />
-
 <div class="space-y-6">
-  {#if success}
+  <header class="flex flex-wrap items-start justify-between gap-4">
+    <div class="max-w-2xl">
+      <h1 class="text-2xl font-semibold tracking-tight text-white">Secretos</h1>
+      <p class="mt-1 text-sm text-fg-muted">
+        Variables cifradas por entorno de {data.project?.name ?? projectSlug}. Cada cambio queda
+        como un commit en GitDB.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        class="k-btn k-btn-secondary k-btn-icon"
+        onclick={downloadEnvFile}
+        aria-label="Descargar .env"
+        title="Descargar .env"
+      >
+        <Download class="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        class="k-btn k-btn-secondary k-btn-icon"
+        onclick={toggleRevealAll}
+        disabled={visibleSecrets.length === 0}
+        aria-label={allRevealed ? 'Ocultar valores' : 'Mostrar valores'}
+        title={allRevealed ? 'Ocultar valores' : 'Mostrar valores'}
+      >
+        {#if allRevealed}<EyeOff class="h-4 w-4" />{:else}<Eye class="h-4 w-4" />{/if}
+      </button>
+
+      {#if data.canManageSecrets}
+        <div class="flex">
+          <button
+            type="button"
+            class="k-btn k-btn-primary rounded-r-none"
+            onclick={openCreateSecret}
+          >
+            <Plus class="h-4 w-4" />Nuevo secreto
+          </button>
+          <DropdownMenu label="Más acciones" align="end">
+            {#snippet trigger(props)}
+              <button
+                class="k-btn k-btn-primary k-btn-icon rounded-l-none border-l border-black/25"
+                aria-label="Más acciones"
+                {...props}
+              >
+                <ChevronDown class="h-4 w-4" />
+              </button>
+            {/snippet}
+            <MenuItem icon={FolderPlus} onclick={openCreateFolder}>Nueva carpeta</MenuItem>
+            <MenuItem icon={Link2} onclick={openLinkFolder}>Enlazar carpeta</MenuItem>
+            <MenuItem icon={Upload} onclick={openImportSecrets}>Importar .env</MenuItem>
+            <MenuItem
+              icon={CopyPlus}
+              disabled={otherEnvironments.length === 0}
+              onclick={openCopyEnvironment}>Copiar desde otro entorno</MenuItem
+            >
+          </DropdownMenu>
+        </div>
+      {/if}
+    </div>
+  </header>
+
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex min-w-0 flex-wrap items-center gap-3">
+      {#if data.environments.length > 0}
+        <div class="max-w-full overflow-x-auto">
+          <Tabs
+            variant="segmented"
+            label="Entorno"
+            value={environmentSlug}
+            items={data.environments.map((candidate) => ({
+              value: candidate.slug,
+              label: candidate.name,
+            }))}
+            onchange={selectEnvironment}
+          />
+        </div>
+      {/if}
+
+      <nav class="flex min-w-0 items-center gap-1 text-sm text-fg-subtle" aria-label="Carpeta">
+        <a
+          href={vaultUrl('/')}
+          class="rounded px-1 font-mono hover:text-white"
+          aria-current={currentPath === '/' ? 'page' : undefined}>/</a
+        >
+        {#each pathSegments as segment, index (segment.path)}
+          {#if index > 0}<ChevronRight class="h-3.5 w-3.5 shrink-0" />{/if}
+          {#if index === pathSegments.length - 1}
+            <span class="truncate font-mono text-white" aria-current="page">{segment.name}</span>
+          {:else}
+            <a
+              href={vaultUrl(segment.path)}
+              class="truncate rounded px-1 font-mono hover:text-white">{segment.name}</a
+            >
+          {/if}
+        {/each}
+      </nav>
+    </div>
+
+    <div class="relative w-full lg:max-w-xs">
+      <Search
+        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+      />
+      <input
+        type="search"
+        bind:value={searchQuery}
+        placeholder="Buscar clave o carpeta"
+        aria-label="Buscar clave o carpeta"
+        class="k-input h-9 pl-9"
+      />
+    </div>
+  </div>
+
+  {#if isProduction && data.canManageSecrets}
     <div
-      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+      class="flex items-center gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/6 px-3 py-2 text-xs text-amber-200"
     >
-      <span class="inline-flex items-center gap-2"><CheckCircle class="h-4 w-4" /> {success}</span>
+      <TriangleAlert class="h-4 w-4 shrink-0 text-amber-400" />Estás editando el entorno
+      {environmentName}: los cambios afectan a producción.
     </div>
   {/if}
 
-  <section class="space-y-4">
-    <div
-      class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
-    >
-      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100">
-        <Shield class="h-4 w-4 text-slate-600" />
-      </span>
-
-      <span class="truncate font-semibold text-slate-900">
-        {data.project?.name ?? projectSlug}
-      </span>
-
-      <span class="text-slate-300">/</span>
-
-      <div class="relative" bind:this={environmentMenuEl}>
-        <button
-          type="button"
-          on:click={() => (environmentMenuOpen = !environmentMenuOpen)}
-          aria-haspopup="listbox"
-          aria-expanded={environmentMenuOpen}
-          class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium text-slate-700 transition hover:bg-slate-100"
-        >
-          {selectedEnvironment?.name ?? selectedEnvironmentSlug}
-          <ChevronDown class="h-3.5 w-3.5 text-slate-400" />
-        </button>
-
-        {#if environmentMenuOpen}
-          <ul
-            class="absolute left-0 z-20 mt-1 min-w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg"
-            role="listbox"
-          >
-            {#each data.environments as environment (environment.id)}
-              <li>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={environment.slug === selectedEnvironmentSlug}
-                  on:click={() => selectEnvironment(environment.slug)}
-                  class="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <span class="truncate">{environment.name}</span>
-                  {#if environment.slug === selectedEnvironmentSlug}
-                    <Check class="h-3.5 w-3.5 text-slate-500" />
-                  {/if}
-                </button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
-
-      {#if currentPath !== '/'}
-        <span class="text-slate-300">/</span>
-        <span class="truncate font-mono text-slate-500">{currentPath.replace(/^\//, '')}</span>
-      {/if}
-    </div>
-
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div class="relative w-full sm:max-w-xs">
-        <Search
-          class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-        />
-        <input
-          type="text"
-          bind:value={searchQuery}
-          placeholder="Buscar key o carpeta"
-          class="field-input w-full rounded-md border py-2 pl-9 pr-3 text-sm outline-none transition"
-        />
-      </div>
-
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          on:click={downloadEnvFile}
-          aria-label="Descargar secretos"
-          title="Descargar .env"
-          class="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50"
-        >
-          <Download class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          on:click={toggleRevealAll}
-          aria-label={allRevealed ? 'Ocultar secretos' : 'Ver secretos'}
-          title={allRevealed ? 'Ocultar secretos' : 'Ver secretos'}
-          class="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:bg-slate-50"
-        >
-          {#if allRevealed}
-            <EyeOff class="h-4 w-4" />
+  <div
+    class="k-card overflow-hidden transition-colors {dropActive
+      ? 'border-brand-500/60 bg-brand-500/5'
+      : ''}"
+    role="region"
+    aria-label="Secretos de {environmentName}"
+    ondragenter={data.canManageSecrets ? handleDragOver : undefined}
+    ondragover={data.canManageSecrets ? handleDragOver : undefined}
+    ondragleave={data.canManageSecrets ? handleDragLeave : undefined}
+    ondrop={data.canManageSecrets ? handleDrop : undefined}
+  >
+    {#if isEmpty && !currentFolderId}
+      <div class="flex flex-col items-center gap-3 px-6 py-14 text-center">
+        <span class="grid h-12 w-12 place-items-center rounded-full bg-white/4 text-2xl">🦊</span>
+        <p class="text-sm font-medium text-white">Aún no hay secretos en {environmentName}</p>
+        <p class="max-w-sm text-sm text-fg-muted">
+          {#if data.canManageSecrets}
+            Crea el primero, arrastra aquí un archivo <span class="font-mono">.env</span> o copia los
+            valores de otro entorno.
           {:else}
-            <Eye class="h-4 w-4" />
+            Cuando alguien del proyecto añada secretos, aparecerán aquí.
           {/if}
-        </button>
-
+        </p>
         {#if data.canManageSecrets}
-          <div class="relative flex" bind:this={actionsMenuEl}>
-            <button
-              type="button"
-              on:click={openCreateSecret}
-              class="btn-primary inline-flex items-center gap-2 rounded-l-md px-3 py-2 text-sm font-medium"
-            >
-              <Plus class="h-4 w-4" /> Nuevo secreto
+          <div class="mt-1 flex flex-wrap justify-center gap-2">
+            <button type="button" class="k-btn k-btn-primary k-btn-sm" onclick={openCreateSecret}>
+              <Plus class="h-3.5 w-3.5" />Nuevo secreto
             </button>
             <button
               type="button"
-              on:click={() => (actionsMenuOpen = !actionsMenuOpen)}
-              aria-haspopup="menu"
-              aria-expanded={actionsMenuOpen}
-              aria-label="Más acciones"
-              class="btn-primary inline-flex items-center rounded-r-md border-l border-white/20 px-2 py-2"
+              class="k-btn k-btn-secondary k-btn-sm"
+              onclick={() => fileInput?.click()}
             >
-              <ChevronDown class="h-4 w-4" />
+              <FileUp class="h-3.5 w-3.5" />Subir .env
             </button>
-
-            {#if actionsMenuOpen}
-              <div
-                role="menu"
-                class="absolute right-0 top-full z-20 mt-1 min-w-48 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+            {#if otherEnvironments.length > 0}
+              <button
+                type="button"
+                class="k-btn k-btn-secondary k-btn-sm"
+                onclick={openCopyEnvironment}
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  on:click={() => {
-                    actionsMenuOpen = false;
-                    openCreateFolder();
-                  }}
-                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Folder class="h-4 w-4 text-slate-500" /> Add Folder
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  on:click={() => {
-                    actionsMenuOpen = false;
-                    openLinkFolder();
-                  }}
-                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Link2 class="h-4 w-4 text-slate-500" /> Link Folder
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  on:click={() => {
-                    actionsMenuOpen = false;
-                    openImportSecrets();
-                  }}
-                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Upload class="h-4 w-4 text-slate-500" /> Import Secrets
-                </button>
-              </div>
+                <CopyPlus class="h-3.5 w-3.5" />Copiar de otro entorno
+              </button>
             {/if}
           </div>
         {/if}
       </div>
-    </div>
-
-    <div class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+    {:else}
       <div class="overflow-x-auto">
-        <table class="w-full min-w-160 text-sm">
-          <thead>
-            <tr
-              class="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-            >
-              <th class="px-4 py-3">Key</th>
-              <th class="px-4 py-3">Value</th>
-              <th class="px-4 py-3 text-right"></th>
+        <table class="w-full min-w-160 text-left text-sm">
+          <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+            <tr class="border-b border-white/8">
+              <th class="px-5 py-3 font-semibold">Clave</th>
+              <th class="px-3 py-3 font-semibold">Valor · {environmentSlug}</th>
+              <th class="px-5 py-3"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
-          <tbody>
-            {#if filteredFolders.length === 0 && filteredSecrets.length === 0}
-              <tr>
-                <td class="px-4 py-8 text-center text-sm text-slate-500" colspan="3">
-                  No hay carpetas ni secretos en esta vista.
+          <tbody class="divide-y divide-white/5">
+            {#if currentFolderId}
+              <tr
+                class="cursor-pointer transition-colors hover:bg-white/2.5"
+                onclick={() => goToFolder(parentFolder)}
+              >
+                <td class="px-5 py-3" colspan="3">
+                  <a
+                    href={vaultUrl(parentFolder?.path ?? '/')}
+                    class="inline-flex items-center gap-2 text-fg-muted hover:text-white"
+                    onclick={(event) => event.stopPropagation()}
+                  >
+                    <CornerLeftUp class="h-4 w-4" />
+                    <span class="font-mono">..</span>
+                  </a>
                 </td>
               </tr>
-            {:else}
-              {#if currentFolderId}
-                <tr
-                  class="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
-                  on:click={() => goToFolder(parentFolder)}
-                >
-                  <td class="px-4 py-3">
+            {/if}
+
+            {#each filteredFolders as folder (folder.id)}
+              {@const linkTarget = folder.linkedFolderId ? linkedPath(folder) : null}
+              <tr
+                class="group cursor-pointer transition-colors hover:bg-white/2.5"
+                onclick={() => goToFolder(folder)}
+              >
+                <td class="px-5 py-3" colspan="2">
+                  <a
+                    href={vaultUrl(folder.path)}
+                    class="inline-flex min-w-0 items-center gap-2.5"
+                    onclick={(event) => event.stopPropagation()}
+                  >
                     <span
-                      class="inline-flex min-w-0 items-center gap-2 font-semibold text-slate-900"
+                      class="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/4 text-fg-muted group-hover:text-brand-400"
                     >
-                      <ChevronRight class="h-4 w-4 rotate-180 text-slate-500" />
-                      <span class="truncate">..</span>
+                      {#if folder.linkedFolderId}<Link2 class="h-3.5 w-3.5" />{:else}<Folder
+                          class="h-3.5 w-3.5"
+                        />{/if}
                     </span>
-                  </td>
-                  <td class="px-4 py-3 text-slate-500"></td>
-                  <td class="px-4 py-3 text-right">
-                    <ChevronRight class="ml-auto h-4 w-4 text-slate-400" />
-                  </td>
-                </tr>
-              {/if}
-              {#each filteredFolders as folder (folder.id)}
-                <tr
-                  class="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
-                  on:click={() => goToFolder(folder)}
-                >
-                  <td class="px-4 py-3">
-                    <span
-                      class="inline-flex min-w-0 items-center gap-2 font-semibold text-slate-900"
+                    <span class="truncate font-medium text-white">{folder.name}</span>
+                    {#if linkTarget}
+                      <span class="k-badge k-badge-info font-mono">→ {linkTarget}</span>
+                    {/if}
+                  </a>
+                </td>
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end gap-1">
+                    {#if data.canDeleteSecrets}
+                      <button
+                        type="button"
+                        class="k-btn k-btn-ghost k-btn-icon k-btn-sm hover:text-red-400"
+                        aria-label="Borrar carpeta {folder.name}"
+                        onclick={(event) => {
+                          event.stopPropagation();
+                          openDeleteFolder(folder);
+                        }}
+                      >
+                        <Trash2 class="h-3.5 w-3.5" />
+                      </button>
+                    {/if}
+                    <ChevronRight
+                      class="h-4 w-4 text-fg-subtle transition group-hover:translate-x-0.5 group-hover:text-brand-400"
+                    />
+                  </div>
+                </td>
+              </tr>
+            {/each}
+
+            {#each filteredSecrets as secret (secret.id)}
+              {@const value = secret.values?.[environmentSlug]}
+              {@const shown = revealed[revealKey(secret)]}
+              <tr class="transition-colors hover:bg-white/2.5">
+                <td class="px-5 py-3 align-top">
+                  <p class="font-mono text-[13px] font-medium text-white">{secret.key}</p>
+                  {#if secret.description}
+                    <p
+                      class="mt-0.5 max-w-sm truncate text-xs text-fg-subtle"
+                      title={secret.description}
                     >
-                      {#if folder.linkedFolderId}
-                        <Link2 class="h-4 w-4 shrink-0 text-slate-500" />
-                      {:else}
-                        <Folder class="h-4 w-4 shrink-0 text-slate-500" />
-                      {/if}
-                      <span class="truncate">{folder.name}</span>
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 text-slate-500"></td>
-                  <td class="px-4 py-3 text-right">
-                    <div class="flex items-center justify-end gap-2">
-                      {#if data.canDeleteSecrets}
-                        <button
-                          type="button"
-                          on:click|stopPropagation={() => (deletingFolder = folder)}
-                          class="inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
-                          aria-label="Borrar carpeta"
-                        >
-                          <X class="h-4 w-4" />
-                        </button>
-                      {/if}
-                      <ChevronRight class="h-4 w-4 text-slate-400" />
-                    </div>
-                  </td>
-                </tr>
-              {/each}
-              {#each filteredSecrets as secret (secret.id)}
-                <tr class="border-t border-slate-100 align-top">
-                  <td class="px-4 py-3">
-                    <span class="inline-flex items-center gap-1.5">
-                      <p class="font-mono text-sm font-semibold text-slate-900">{secret.key}</p>
-                      {#if secret.description}
-                        <span class="group relative inline-flex">
-                          <Info class="h-3.5 w-3.5 shrink-0 cursor-help text-slate-400" />
-                          <span
-                            role="tooltip"
-                            class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-64 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100"
-                          >
-                            {secret.description}
-                            <span
-                              class="absolute left-1/2 top-full -mt-1 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900"
-                            ></span>
-                          </span>
-                        </span>
-                      {/if}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3">
+                      {secret.description}
+                    </p>
+                  {/if}
+                </td>
+                <td class="px-3 py-3 align-top">
+                  {#if !value}
+                    <span class="k-badge k-badge-warn">Sin valor</span>
+                  {:else}
                     <button
                       type="button"
-                      on:click={() => toggleReveal(secret)}
-                      title={revealed[`${secret.id}:${selectedEnvironmentSlug}`]
-                        ? 'Ocultar valor'
-                        : 'Mostrar valor'}
-                      class="block w-60 truncate text-left font-mono text-sm text-slate-700 hover:text-slate-900"
+                      class="block max-w-72 truncate rounded text-left font-mono text-[13px] {shown
+                        ? 'text-fg'
+                        : 'tracking-widest text-fg-subtle'} hover:text-white"
+                      onclick={() => toggleReveal(secret)}
+                      title={shown ? 'Ocultar valor' : 'Mostrar valor'}
                     >
-                      {#if revealed[`${secret.id}:${selectedEnvironmentSlug}`]}
-                        {secret.values?.[selectedEnvironmentSlug] || 'Sin valor'}
-                      {:else}
-                        {maskValue(secret.values?.[selectedEnvironmentSlug])}
-                      {/if}
+                      {shown ? value : '••••••••••••'}
                     </button>
-                  </td>
-                  <td class="px-4 py-3 text-right">
+                  {/if}
+                </td>
+                <td class="px-5 py-2.5 align-top">
+                  <div class="flex items-center justify-end gap-1">
+                    {#if value}
+                      <button
+                        type="button"
+                        class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                        aria-label={shown ? `Ocultar ${secret.key}` : `Mostrar ${secret.key}`}
+                        onclick={() => toggleReveal(secret)}
+                      >
+                        {#if shown}<EyeOff class="h-3.5 w-3.5" />{:else}<Eye
+                            class="h-3.5 w-3.5"
+                          />{/if}
+                      </button>
+                      <button
+                        type="button"
+                        class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                        aria-label="Copiar {secret.key}"
+                        onclick={() => copyValue(secret)}
+                      >
+                        <Copy class="h-3.5 w-3.5" />
+                      </button>
+                    {/if}
                     {#if data.canManageSecrets}
                       <button
                         type="button"
-                        on:click={() => openEditSecret(secret)}
-                        class="inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                        aria-label="Editar secreto"
+                        class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                        aria-label="Editar {secret.key}"
+                        onclick={() => openEditSecret(secret)}
                       >
-                        <Edit3 class="h-4 w-4" />
+                        <Pencil class="h-3.5 w-3.5" />
                       </button>
                     {/if}
                     {#if data.canDeleteSecrets}
                       <button
                         type="button"
-                        on:click={() => (deletingSecret = secret)}
-                        class="ml-2 inline-flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-red-50 hover:text-red-600"
-                        aria-label="Borrar secreto"
+                        class="k-btn k-btn-ghost k-btn-icon k-btn-sm hover:text-red-400"
+                        aria-label="Borrar {secret.key}"
+                        onclick={() => openDeleteSecret(secret)}
                       >
-                        <X class="h-4 w-4" />
+                        <Trash2 class="h-3.5 w-3.5" />
                       </button>
                     {/if}
-                  </td>
-                </tr>
-              {/each}
+                  </div>
+                </td>
+              </tr>
+            {/each}
+
+            {#if filteredFolders.length === 0 && filteredSecrets.length === 0}
+              <tr>
+                <td class="px-5 py-10 text-center text-sm text-fg-subtle" colspan="3">
+                  {query
+                    ? `Nada coincide con «${searchQuery.trim()}».`
+                    : 'Esta carpeta está vacía.'}
+                </td>
+              </tr>
             {/if}
           </tbody>
         </table>
       </div>
-    </div>
 
-    {#if data.canManageSecrets}
-      <div
-        role="region"
-        aria-label="Importar archivo .env"
-        on:dragenter|preventDefault|stopPropagation={() => (dropActive = true)}
-        on:dragover|preventDefault|stopPropagation={() => (dropActive = true)}
-        on:dragleave|preventDefault|stopPropagation={handleDragLeave}
-        on:drop|preventDefault|stopPropagation={handleDrop}
-        class="flex min-h-40 flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-16 text-center transition {dropActive
-          ? 'border-slate-400 bg-slate-50'
-          : 'border-slate-200 bg-white'}"
-      >
-        <p class="text-sm text-slate-600">
-          Drag and drop .env, or
+      {#if data.canManageSecrets}
+        <div
+          class="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 border-t border-dashed border-white/10 px-5 py-4 text-xs text-fg-subtle"
+        >
+          <FileUp class="h-3.5 w-3.5" />
+          Arrastra aquí un archivo <span class="font-mono">.env</span>, o
           <button
             type="button"
-            on:click={openImportSecrets}
-            class="font-medium text-slate-900 underline underline-offset-2">import .env</button
+            class="font-medium text-brand-400 hover:text-brand-300"
+            onclick={() => fileInput?.click()}>elígelo</button
           >
-        </p>
-        <p class="mt-1 text-sm text-slate-500">
-          OR
-          <button
-            type="button"
-            on:click={openCopyEnvironment}
-            class="font-medium text-slate-900 underline underline-offset-2"
-            >Copy from environment</button
-          >
-        </p>
-        {#if dropError}
-          <p class="mt-2 text-sm text-red-600">{dropError}</p>
-        {/if}
-      </div>
+          {#if otherEnvironments.length > 0}
+            · <button
+              type="button"
+              class="font-medium text-brand-400 hover:text-brand-300"
+              onclick={openCopyEnvironment}>copia de otro entorno</button
+            >
+          {/if}
+        </div>
+      {/if}
     {/if}
-  </section>
+
+    {#if dropActive}
+      <p class="sr-only" aria-live="polite">
+        Suelta el archivo para importarlo en {environmentName}
+      </p>
+    {/if}
+  </div>
+
+  {#if data.canManageSecrets}
+    <input
+      bind:this={fileInput}
+      type="file"
+      accept=".env,text/plain"
+      class="hidden"
+      onchange={handleFilePicked}
+    />
+  {/if}
 </div>
 
-{#if createSecretOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action="?/createSecret"
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
-    >
-      <h3 class="text-lg font-semibold text-slate-900">Crear secreto</h3>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
-      <div class="mt-5 space-y-4">
-        <label class="block text-sm font-medium text-slate-700"
-          >Key<input
-            name="key"
-            value={newSecretKey}
-            on:input={(event) => (newSecretKey = normalizeKeyInput(event))}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"
-          /></label
-        >
-        <label class="block text-sm font-medium text-slate-700"
-          >Value<input
-            name={`value:${selectedEnvironmentSlug}`}
-            bind:value={newSecretValue}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm"
-          /></label
-        >
-      </div>
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (createSecretOpen = false)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button disabled={submitting} class="btn-primary rounded-md px-3 py-2 text-sm"
-          >Guardar</button
-        >
-      </div>
-    </form>
-  </div>
-{/if}
+<!-- ================= MODALES ================= -->
 
-{#if editingSecret}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+<Modal
+  bind:open={createSecretOpen}
+  title="Nuevo secreto"
+  description="Se cifra antes de guardarse en GitDB, en {environmentName} · {currentPath}."
+  dismissible={!submitting}
+>
+  <form
+    id="form-crear-secreto"
+    method="POST"
+    action="?/createSecret"
+    class="space-y-5"
+    use:enhance={submitWith(() => ['Secreto creado', `${newSecretKey} · ${environmentSlug}`])}
+  >
+    <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
+    <Field
+      label="Clave"
+      help={data.capitalizeSecrets
+        ? 'Se guarda en mayúsculas. Por ejemplo: STRIPE_SECRET_KEY'
+        : 'Por ejemplo: STRIPE_SECRET_KEY'}
+      required
+    >
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          name="key"
+          placeholder="DATABASE_URL"
+          autocomplete="off"
+          spellcheck="false"
+          data-autofocus
+          value={newSecretKey}
+          oninput={(event) => (newSecretKey = normalizeKey(event.currentTarget.value))}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    <Field label="Valor en {environmentName}">
+      {#snippet children(control)}
+        <div class="relative">
+          <input
+            class="k-input pr-10 font-mono text-[13px]"
+            type={newSecretVisible ? 'text' : 'password'}
+            name="value:{environmentSlug}"
+            placeholder="••••••••"
+            autocomplete="off"
+            spellcheck="false"
+            bind:value={newSecretValue}
+            {...control}
+          />
+          <button
+            type="button"
+            class="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-fg-subtle hover:bg-white/5 hover:text-white"
+            aria-label={newSecretVisible ? 'Ocultar valor' : 'Mostrar valor'}
+            onclick={() => (newSecretVisible = !newSecretVisible)}
+          >
+            {#if newSecretVisible}<EyeOff class="h-4 w-4" />{:else}<Eye class="h-4 w-4" />{/if}
+          </button>
+        </div>
+      {/snippet}
+    </Field>
+    {#if isProduction}
+      <div
+        class="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/6 p-3 text-xs text-amber-200"
+      >
+        <TriangleAlert class="h-4 w-4 shrink-0 text-amber-400" />Vas a guardar un secreto de
+        producción.
+      </div>
+    {/if}
+  </form>
+  {#snippet footer()}
+    <span class="mr-auto hidden items-center gap-1 text-xs text-fg-subtle sm:flex"
+      ><span class="k-kbd">Esc</span> para cerrar</span
+    >
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (createSecretOpen = false)}
+      >Cancelar</button
+    >
+    <button
+      type="submit"
+      form="form-crear-secreto"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !newSecretKey.trim()}>Guardar secreto</button
+    >
+  {/snippet}
+</Modal>
+
+<Modal
+  bind:open={editSecretOpen}
+  title="Editar secreto"
+  description="Cambia la clave, la descripción o el valor en {environmentName}."
+  dismissible={!submitting}
+>
+  {#if editingSecret}
     <form
+      id="form-editar-secreto"
       method="POST"
       action="?/updateSecret"
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
+      class="space-y-5"
+      use:enhance={submitWith(() => ['Secreto guardado', `${editSecretKey} · ${environmentSlug}`])}
     >
       <input type="hidden" name="id" value={editingSecret.id} />
-      <input type="hidden" name="folderId" value={editSecretFolderId} />
-      {#each data.environments as environment (environment.id)}
-        {#if environment.slug !== selectedEnvironmentSlug}
-          <input
-            type="hidden"
-            name={`value:${environment.slug}`}
-            value={editSecretValues[environment.slug] ?? ''}
-          />
-        {/if}
+      <input type="hidden" name="folderId" value={editingSecret.folderId ?? ''} />
+      {#each otherEnvironments as other (other.id)}
+        <input type="hidden" name="value:{other.slug}" value={editSecretValues[other.slug] ?? ''} />
       {/each}
-      <h3 class="text-lg font-semibold text-slate-900">Detalle del secreto</h3>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <div class="mt-5 space-y-4">
-        <label class="block text-sm font-medium text-slate-700"
-          >Key<input
+      <Field label="Clave" required>
+        {#snippet children(control)}
+          <input
+            class="k-input font-mono text-[13px]"
             name="key"
+            autocomplete="off"
+            spellcheck="false"
             value={editSecretKey}
-            on:input={(event) => (editSecretKey = normalizeKeyInput(event))}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"
-          /></label
-        >
-        <label class="block text-sm font-medium text-slate-700"
-          >Value<input
-            name={`value:${selectedEnvironmentSlug}`}
-            bind:value={editSecretValues[selectedEnvironmentSlug]}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm"
-          /></label
-        >
-        <label class="block text-sm font-medium text-slate-700"
-          >Descripcion<textarea
+            oninput={(event) => (editSecretKey = normalizeKey(event.currentTarget.value))}
+            {...control}
+          />
+        {/snippet}
+      </Field>
+      <Field label="Valor en {environmentName}">
+        {#snippet children(control)}
+          <div class="relative">
+            <input
+              class="k-input pr-10 font-mono text-[13px]"
+              type={editSecretVisible ? 'text' : 'password'}
+              name="value:{environmentSlug}"
+              autocomplete="off"
+              spellcheck="false"
+              data-autofocus
+              bind:value={editSecretValues[environmentSlug]}
+              {...control}
+            />
+            <button
+              type="button"
+              class="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-fg-subtle hover:bg-white/5 hover:text-white"
+              aria-label={editSecretVisible ? 'Ocultar valor' : 'Mostrar valor'}
+              onclick={() => (editSecretVisible = !editSecretVisible)}
+            >
+              {#if editSecretVisible}<EyeOff class="h-4 w-4" />{:else}<Eye class="h-4 w-4" />{/if}
+            </button>
+          </div>
+        {/snippet}
+      </Field>
+      <Field label="Descripción" help="Para qué sirve; se muestra bajo la clave.">
+        {#snippet aside()}Opcional{/snippet}
+        {#snippet children(control)}
+          <textarea
+            class="k-input"
             name="description"
+            rows="3"
             bind:value={editSecretDescription}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"></textarea></label
-        >
-      </div>
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (editingSecret = null)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button disabled={submitting} class="btn-primary rounded-md px-3 py-2 text-sm"
-          >Guardar</button
-        >
-      </div>
+            {...control}></textarea>
+        {/snippet}
+      </Field>
     </form>
-  </div>
-{/if}
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (editSecretOpen = false)}
+      >Cancelar</button
+    >
+    <button
+      type="submit"
+      form="form-editar-secreto"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !editSecretKey.trim()}>Guardar cambios</button
+    >
+  {/snippet}
+</Modal>
 
-{#if deletingSecret}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+<Modal
+  bind:open={deleteSecretOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!submitting}
+  title="¿Borrar el secreto?"
+  description="Se borrará {deletingSecret?.key ??
+    ''} en todos los entornos. Quedará un commit en GitDB, pero no se puede deshacer desde la interfaz."
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  {#snippet footer()}
     <form
+      id="form-borrar-secreto"
       method="POST"
       action="?/deleteSecret"
-      use:enhance={handleSubmit}
-      class="w-full max-w-sm rounded-md bg-white p-6 shadow-xl"
+      hidden
+      use:enhance={submitWith(() => ['Secreto borrado', deletingSecret?.key])}
     >
-      <input type="hidden" name="id" value={deletingSecret.id} />
-      <h3 class="text-lg font-semibold text-slate-900">Borrar secreto</h3>
-      <p class="mt-2 text-sm text-slate-600">
-        Se borrara <span class="font-mono font-medium text-slate-900">{deletingSecret.key}</span> de
-        forma permanente.
-      </p>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (deletingSecret = null)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button
-          disabled={submitting}
-          class="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
-          >Borrar</button
-        >
-      </div>
+      <input type="hidden" name="id" value={deletingSecret?.id ?? ''} />
     </form>
-  </div>
-{/if}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteSecretOpen = false)}
+      >Cancelar</button
+    >
+    <button
+      form="form-borrar-secreto"
+      class="k-btn k-btn-danger"
+      disabled={submitting}
+      data-autofocus>Borrar secreto</button
+    >
+  {/snippet}
+</Modal>
 
-{#if deletingFolder}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+<Modal
+  bind:open={deleteFolderOpen}
+  role="alertdialog"
+  size="sm"
+  dismissible={!submitting}
+  title="¿Borrar la carpeta?"
+  description="Se borrará {deletingFolder?.path ??
+    ''}. Tiene que estar vacía: sin secretos, subcarpetas ni enlaces que apunten a ella."
+>
+  {#snippet icon()}
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+      ><Trash2 class="h-5 w-5" /></span
+    >
+  {/snippet}
+  {#snippet footer()}
     <form
+      id="form-borrar-carpeta"
       method="POST"
       action="?/deleteFolder"
-      use:enhance={handleSubmit}
-      class="w-full max-w-sm rounded-md bg-white p-6 shadow-xl"
+      hidden
+      use:enhance={submitWith(() => ['Carpeta borrada', deletingFolder?.path])}
     >
-      <input type="hidden" name="id" value={deletingFolder.id} />
-      <h3 class="text-lg font-semibold text-slate-900">Borrar carpeta</h3>
-      <p class="mt-2 text-sm text-slate-600">
-        Se borrara <span class="font-mono font-medium text-slate-900">{deletingFolder.name}</span>
-        de forma permanente. Debe estar vacia.
-      </p>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (deletingFolder = null)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button
-          disabled={submitting}
-          class="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500"
-          >Borrar</button
-        >
-      </div>
+      <input type="hidden" name="id" value={deletingFolder?.id ?? ''} />
     </form>
-  </div>
-{/if}
-
-{#if createFolderOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action="?/createFolder"
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (deleteFolderOpen = false)}
+      >Cancelar</button
     >
-      <h3 class="text-lg font-semibold text-slate-900">Crear carpeta</h3>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <input type="hidden" name="parentFolderId" value={currentFolderId ?? ''} />
-      <div class="mt-5">
-        <label class="block text-sm font-medium text-slate-700"
-          >Nombre<input
-            name="name"
-            bind:value={newFolderName}
-            class="field-input mt-1 w-full rounded-md border px-3 py-2"
-          /></label
-        >
-        <p class="mt-2 text-xs text-slate-500">
-          Se creara en <span class="font-mono">{currentPath}</span>
-        </p>
-      </div>
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (createFolderOpen = false)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button disabled={submitting} class="btn-primary rounded-md px-3 py-2 text-sm"
-          ><FolderInput class="mr-2 inline h-4 w-4" />Crear</button
-        >
-      </div>
-    </form>
-  </div>
-{/if}
-
-{#if linkFolderOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action="?/linkFolder"
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
+    <button
+      form="form-borrar-carpeta"
+      class="k-btn k-btn-danger"
+      disabled={submitting}
+      data-autofocus>Borrar carpeta</button
     >
-      <h3 class="text-lg font-semibold text-slate-900">Enlazar carpeta</h3>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <input type="hidden" name="parentFolderId" value={currentFolderId ?? ''} />
-      <div class="mt-5">
-        <label class="block text-sm font-medium text-slate-700"
-          >Path a enlazar<input
-            name="linkedPath"
-            bind:value={linkedFolderPath}
-            placeholder="/common/database"
-            class="field-input mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm"
-          /></label
-        >
-      </div>
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (linkFolderOpen = false)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button
-          disabled={submitting || !linkedFolderPath.trim()}
-          class="btn-primary rounded-md px-3 py-2 text-sm">Enlazar</button
-        >
-      </div>
-    </form>
-  </div>
-{/if}
+  {/snippet}
+</Modal>
 
-{#if importOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action="?/importSecrets"
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
+<Modal
+  bind:open={createFolderOpen}
+  size="sm"
+  title="Nueva carpeta"
+  description="Se creará dentro de {currentPath}. Las carpetas son comunes a todos los entornos."
+  dismissible={!submitting}
+>
+  <form
+    id="form-crear-carpeta"
+    method="POST"
+    action="?/createFolder"
+    use:enhance={submitWith(() => ['Carpeta creada', newFolderName])}
+  >
+    <input type="hidden" name="parentFolderId" value={currentFolderId ?? ''} />
+    <Field label="Nombre" required>
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          name="name"
+          placeholder="database"
+          autocomplete="off"
+          data-autofocus
+          bind:value={newFolderName}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (createFolderOpen = false)}
+      >Cancelar</button
     >
-      <h3 class="text-lg font-semibold text-slate-900">Importar secretos</h3>
-      <p class="mt-1 text-sm text-slate-600">
-        Pega el contenido de un archivo .env para el entorno {selectedEnvironment?.name ??
-          selectedEnvironmentSlug}.
-      </p>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
-      <input type="hidden" name="environmentSlug" value={selectedEnvironmentSlug} />
-      <textarea
-        name="content"
-        bind:value={importContent}
-        rows="10"
-        placeholder={'API_KEY=123\nDATABASE_URL=postgres://...'}
-        class="field-input mt-4 w-full rounded-md border px-3 py-2 font-mono text-sm"
-      ></textarea>
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (importOpen = false)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button
-          disabled={submitting || !importContent.trim()}
-          class="btn-primary rounded-md px-3 py-2 text-sm">Importar</button
-        >
-      </div>
-    </form>
-  </div>
-{/if}
+    <button
+      type="submit"
+      form="form-crear-carpeta"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !newFolderName.trim()}
+      ><FolderPlus class="h-4 w-4" />Crear carpeta</button
+    >
+  {/snippet}
+</Modal>
 
-{#if copyEnvOpen}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-    <form
-      method="POST"
-      action="?/copyEnvironment"
-      use:enhance={handleSubmit}
-      class="w-full max-w-lg rounded-md bg-white p-6 shadow-xl"
+<Modal
+  bind:open={linkFolderOpen}
+  title="Enlazar carpeta"
+  description="La carpeta enlazada aparece en {currentPath} y sus secretos se heredan aquí sin duplicarlos."
+  dismissible={!submitting}
+>
+  <form
+    id="form-enlazar-carpeta"
+    method="POST"
+    action="?/linkFolder"
+    use:enhance={submitWith(() => ['Carpeta enlazada', linkedFolderPath])}
+  >
+    <input type="hidden" name="parentFolderId" value={currentFolderId ?? ''} />
+    <Field label="Ruta a enlazar" help="Ruta absoluta de una carpeta existente." required>
+      {#snippet children(control)}
+        <input
+          class="k-input font-mono text-[13px]"
+          name="linkedPath"
+          placeholder="/common/database"
+          autocomplete="off"
+          list="vault-folder-paths"
+          data-autofocus
+          bind:value={linkedFolderPath}
+          {...control}
+        />
+      {/snippet}
+    </Field>
+    <datalist id="vault-folder-paths">
+      {#each data.folders.filter((folder) => !folder.linkedFolderId) as folder (folder.id)}
+        <option value={folder.path}></option>
+      {/each}
+    </datalist>
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (linkFolderOpen = false)}
+      >Cancelar</button
     >
-      <h3 class="text-lg font-semibold text-slate-900">Copiar desde otro entorno</h3>
-      <p class="mt-1 text-sm text-slate-600">
-        Copia los valores de los secretos de <span class="font-mono">{currentPath}</span> hacia
-        {selectedEnvironment?.name ?? selectedEnvironmentSlug}.
-      </p>
-      {#if formError}<p class="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {formError}
-        </p>{/if}
-      <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
-      <label class="mt-5 block text-sm font-medium text-slate-700"
-        >Entorno origen<select
+    <button
+      type="submit"
+      form="form-enlazar-carpeta"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !linkedFolderPath.trim()}><Link2 class="h-4 w-4" />Enlazar</button
+    >
+  {/snippet}
+</Modal>
+
+<Modal
+  bind:open={importOpen}
+  size="lg"
+  title="Importar .env"
+  description="Pega el contenido de un archivo .env. Se importa en {environmentName} · {currentPath}."
+  dismissible={!submitting}
+>
+  <form
+    id="form-importar"
+    method="POST"
+    action="?/importSecrets"
+    use:enhance={submitWith(() => ['Secretos importados', `${environmentName} · ${currentPath}`])}
+  >
+    <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
+    <input type="hidden" name="environmentSlug" value={environmentSlug} />
+    <Field label="Contenido" required>
+      {#snippet children(control)}
+        <textarea
+          class="k-input font-mono text-[13px]"
+          name="content"
+          rows="10"
+          spellcheck="false"
+          placeholder={'API_KEY=123\nDATABASE_URL=postgres://...'}
+          data-autofocus
+          bind:value={importContent}
+          {...control}></textarea>
+      {/snippet}
+    </Field>
+  </form>
+  {#snippet footer()}
+    <button
+      type="button"
+      class="k-btn k-btn-ghost mr-auto"
+      onclick={() => {
+        importOpen = false;
+        fileInput?.click();
+      }}><FileUp class="h-4 w-4" />Subir archivo</button
+    >
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (importOpen = false)}
+      >Cancelar</button
+    >
+    <button
+      type="submit"
+      form="form-importar"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !importContent.trim()}><Upload class="h-4 w-4" />Importar</button
+    >
+  {/snippet}
+</Modal>
+
+<Modal
+  bind:open={copyEnvOpen}
+  size="sm"
+  title="Copiar desde otro entorno"
+  description="Copia los valores de los secretos de {currentPath} hacia {environmentName}."
+  dismissible={!submitting}
+>
+  <form
+    id="form-copiar-entorno"
+    method="POST"
+    action="?/copyEnvironment"
+    class="space-y-4"
+    use:enhance={submitWith(() => ['Valores copiados', `${copySourceSlug} → ${environmentSlug}`])}
+  >
+    <input type="hidden" name="folderId" value={currentFolderId ?? ''} />
+    <Field label="Entorno de origen" required>
+      {#snippet children(control)}
+        <select
+          class="k-input"
           name="sourceEnvironment"
+          data-autofocus
           bind:value={copySourceSlug}
-          class="field-input mt-1 w-full rounded-md border px-3 py-2"
-          >{#each data.environments.filter((environment) => environment.slug !== selectedEnvironmentSlug) as environment (environment.id)}<option
-              value={environment.slug}>{environment.name}</option
-            >{/each}</select
-        ></label
-      >
-      <div class="mt-6 flex justify-end gap-2">
-        <button
-          type="button"
-          on:click={() => (copyEnvOpen = false)}
-          class="rounded-md border border-slate-200 px-3 py-2 text-sm">Cancelar</button
-        ><button disabled={submitting || !copySourceSlug} class="btn-primary rounded-md px-3 py-2 text-sm"
-          >Copiar</button
+          {...control}
         >
+          {#each otherEnvironments as other (other.id)}
+            <option value={other.slug}>{other.name}</option>
+          {/each}
+        </select>
+      {/snippet}
+    </Field>
+    {#if isProduction}
+      <div
+        class="flex gap-2.5 rounded-lg border border-amber-500/25 bg-amber-500/6 p-3 text-xs text-amber-200"
+      >
+        <TriangleAlert class="h-4 w-4 shrink-0 text-amber-400" />El destino es producción. Revisa
+        los valores antes de desplegar.
       </div>
-    </form>
-  </div>
-{/if}
+    {/if}
+  </form>
+  {#snippet footer()}
+    <button type="button" class="k-btn k-btn-secondary" onclick={() => (copyEnvOpen = false)}
+      >Cancelar</button
+    >
+    <button
+      type="submit"
+      form="form-copiar-entorno"
+      class="k-btn k-btn-primary"
+      disabled={submitting || !copySourceSlug}><CopyPlus class="h-4 w-4" />Copiar</button
+    >
+  {/snippet}
+</Modal>
