@@ -209,6 +209,17 @@ and `/api/state-iac/backends/**` check `organization:stateiac:backends:<action>`
 `test`); a backend of another organization answers 404. Read failures are stored as short codes in
 `lastError` (`access_denied`, `bucket_not_found`…), never the provider message.
 
+Reading states: `stateIacService` uses a `StateEngine` (`PulumiStateEngine`: both layouts, `.gz`)
+that turns checkpoints and history into the normalized model in `domain/iac.model.ts`; secrets are
+replaced by `{ $iac: 'secret' }` while parsing (`pulumi-state.ts`), and `secrets_providers`, emails
+and local paths never leave it. A project sees only the stacks its bindings cover (any other stack
+is a 404) with `project:stateiac:stacks:read`, and resources/outputs need `project:stateiac:states:read`;
+`/org/<org>/state-iac` shows every stack with `organization:stateiac:stacks:read`. Listings are cached
+for `STATE_IAC_CACHE_SECONDS` and states by object version, so an unchanged state is read once;
+`?refresh=1` skips the cache. States over `STATE_IAC_MAX_STATE_MB` fail with `too_large`. In e2e the
+dev server reads the fixtures through a local S3 endpoint (`e2e/fixtures/fake-s3.ts`, seeded backend
+`e2e-shared-state`: `acme-infra` → primary project, `acme-platform` → secondary project).
+
 ## Domain events
 
 Services announce what happened on an in-process event bus in `#lib/server/events`; the design is

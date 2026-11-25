@@ -8,7 +8,14 @@ import { listAll, readText, type ObjectStore } from '../../object-store/object-s
 
 export type PulumiLayout = 'project' | 'legacy' | 'empty';
 
-export type DiscoveredStack = { name: string; key: string; size: number; updatedAt: string | null };
+export type DiscoveredStack = {
+  name: string;
+  key: string;
+  size: number;
+  updatedAt: string | null;
+  /** ETag / generation: changes whenever the state does (cache key). */
+  version: string | null;
+};
 
 export type DiscoveredProject = {
   /** `null` for legacy stacks whose project can't be found (no resources yet). */
@@ -74,7 +81,10 @@ export async function detectPulumiLayout(
   return { layout: 'empty', metaVersion: null };
 }
 
-function stacksIn(objects: { key: string; size: number; updatedAt: string | null }[], dir: string) {
+function stacksIn(
+  objects: { key: string; size: number; updatedAt: string | null; version: string | null }[],
+  dir: string,
+) {
   const byName = new Map<string, DiscoveredStack>();
   for (const object of objects) {
     const name = stackNameOf(object.key.slice(dir.length));
@@ -82,7 +92,13 @@ function stacksIn(objects: { key: string; size: number; updatedAt: string | null
     const current = byName.get(name);
     // `x.json` and `x.json.gz` at once: the most recently modified wins, like Pulumi does
     if (!current || (object.updatedAt ?? '') >= (current.updatedAt ?? '')) {
-      byName.set(name, { name, key: object.key, size: object.size, updatedAt: object.updatedAt });
+      byName.set(name, {
+        name,
+        key: object.key,
+        size: object.size,
+        updatedAt: object.updatedAt,
+        version: object.version,
+      });
     }
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));

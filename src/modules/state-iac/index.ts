@@ -4,6 +4,9 @@ import { passwordService } from '../auth';
 import { projectService } from '../projects';
 import { StateBackendService } from './application/state-backend.service';
 import { StateBindingService } from './application/state-binding.service';
+import { StateIacService } from './application/state-iac.service';
+import { readStateIacConfig } from './infrastructure/config';
+import { PulumiStateEngine } from './infrastructure/engines/pulumi/pulumi-state-engine';
 import { createCredentialsCipher } from './infrastructure/crypto/credentials-cipher';
 import { createObjectStore } from './infrastructure/object-store/factory';
 import { StateBackendRepository } from './infrastructure/repositories/state-backend.repository';
@@ -29,6 +32,14 @@ export const stateBindingService = new StateBindingService(
     },
   },
   { events: eventBus, logger: log },
+);
+
+export const stateIacService = new StateIacService(
+  stateBackendService,
+  bindingRepository,
+  new PulumiStateEngine(),
+  readStateIacConfig,
+  { logger: log },
 );
 
 const SUBSCRIBED_KEY = Symbol.for('gitops.state-iac.subscribed');
@@ -64,3 +75,10 @@ export type {
 } from './application/state-backend.service';
 export type { BindingInput } from './application/state-binding.service';
 export type { PulumiLayout } from './infrastructure/engines/pulumi/pulumi-discovery';
+export {
+  UNKNOWN_PROJECT,
+  type BackendStacks,
+  type StackDetail,
+  type StackListItem,
+} from './application/state-iac.service';
+export type * from './domain/iac.model';

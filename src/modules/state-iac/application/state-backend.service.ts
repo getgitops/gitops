@@ -30,6 +30,11 @@ import {
   type PulumiDiscovery,
   type PulumiLayout,
 } from '../infrastructure/engines/pulumi/pulumi-discovery';
+import {
+  InvalidStateError,
+  UnsupportedStateVersionError,
+} from '../infrastructure/engines/pulumi/pulumi-state';
+import { StackStateMissingError } from '../infrastructure/engines/pulumi/pulumi-state-engine';
 import type { ObjectStoreFactory } from '../infrastructure/object-store/factory';
 import {
   classifyStoreError,
@@ -57,7 +62,23 @@ export type BackendInput = {
   enabled?: unknown;
 };
 
-export type BackendErrorCode = StoreErrorCode | 'unsupported_layout' | 'undecryptable';
+export type BackendErrorCode =
+  | StoreErrorCode
+  | 'unsupported_layout'
+  | 'unsupported_state'
+  | 'invalid_state'
+  | 'state_missing'
+  | 'undecryptable';
+
+/** Short code of a failed read: stored in `lastError` and shown translated, never the message. */
+export function readErrorCode(error: unknown): BackendErrorCode {
+  if (error instanceof UnsupportedLayoutError || error instanceof UnsupportedStateVersionError) {
+    return error instanceof UnsupportedLayoutError ? 'unsupported_layout' : 'unsupported_state';
+  }
+  if (error instanceof InvalidStateError) return 'invalid_state';
+  if (error instanceof StackStateMissingError) return 'state_missing';
+  return classifyStoreError(error);
+}
 
 export type BackendTestResult =
   | {
@@ -272,8 +293,7 @@ export class StateBackendService {
       await this.recordOutcome(backend, null);
       return { ok: true, ...discovery };
     } catch (error) {
-      const code: BackendErrorCode =
-        error instanceof UnsupportedLayoutError ? 'unsupported_layout' : classifyStoreError(error);
+      const code = readErrorCode(error);
       // the provider message may echo the bucket or the account: only the code is kept
       this.log.error(
         { backendId: backend.id, code, err: error instanceof Error ? error.name : 'unknown' },
@@ -282,6 +302,11 @@ export class StateBackendService {
       await this.recordOutcome(backend, code);
       return { ok: false, error: code };
     }
+  }
+
+  /** Records the outcome of a read made elsewhere (stack listings): the same rules as `test`. */
+  reportRead(backend: StateBackendDomain, error: BackendErrorCode | null): Promise<void> {
+    return this.recordOutcome(backend, error);
   }
 
   /** Each write is a commit: only when the error changes or the scan stamp got old. */

@@ -10,6 +10,9 @@ import {
 } from '../infrastructure/repositories/in-memory.repositories';
 import { StateBackendService } from './state-backend.service';
 import { StateBindingService } from './state-binding.service';
+import { StateIacService } from './state-iac.service';
+import { PulumiStateEngine } from '../infrastructure/engines/pulumi/pulumi-state-engine';
+import type { StateIacConfig } from '../infrastructure/config';
 
 /** `test/fixtures/state-iac/<name>`: buckets copied from real (anonymized) Pulumi state. */
 export function fixtureDir(name: 'project-layout' | 'legacy-layout'): string {
@@ -61,7 +64,24 @@ export function createStateIacFixture() {
     { getProject: async (id) => projects.get(id) ?? null },
     { events, generateId },
   );
+  const config: StateIacConfig = { maxStateBytes: 50 * 1024 * 1024, cacheTtlMs: 60_000 };
+  let clock = 1_000_000;
+  const stateIacService = new StateIacService(
+    backendService,
+    bindings,
+    new PulumiStateEngine(),
+    () => config,
+    {
+      now: () => clock,
+    },
+  );
   return {
+    config,
+    /** Moves the cache clock forward. */
+    advance(ms: number) {
+      clock += ms;
+    },
+    stateIacService,
     backends,
     bindings,
     events,

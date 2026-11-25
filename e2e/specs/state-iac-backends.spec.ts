@@ -44,7 +44,8 @@ test.describe('state iac backends — org admin', () => {
     await expect(submit).toBeDisabled();
     await confirm.getByLabel('Escribe e2e-gcs para confirmar').fill('e2e-gcs');
     await submit.click();
-    await expect(page.getByTestId('state-backends-empty')).toBeVisible();
+    // the seeded backend stays; only the one created here is gone
+    await expect(card).toHaveCount(0);
   });
 
   test('the API never returns the credentials', async ({ page, loginAs }) => {

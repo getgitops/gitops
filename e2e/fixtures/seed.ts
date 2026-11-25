@@ -3,6 +3,10 @@ import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { codeReportService } from '#modules/code-report';
 import { NotificationSettingsRepository } from '#modules/notifications/infrastructure/repositories/notification-settings.repository';
+import { StateBackendRepository } from '#modules/state-iac/infrastructure/repositories/state-backend.repository';
+import { StateBindingRepository } from '#modules/state-iac/infrastructure/repositories/state-binding.repository';
+import { FAKE_S3_BUCKET } from './fake-s3';
+import { E2E_S3_ENDPOINT } from '../global-setup';
 
 export const E2E_PASSWORD = 'E2ePassword!123';
 
@@ -37,6 +41,11 @@ export type SeedOutput = {
   primaryOrgSlug: string;
   primaryOrgId: string;
   primaryProjectSlug: string;
+  primaryProjectId: string;
+  projectViewerRoleId: string;
+  /** Second project of the primary org: shares the State IaC bucket with the primary one. */
+  secondaryProjectSlug: string;
+  stateBackendId: string;
   outsiderOrgSlug: string;
   outsiderProjectSlug: string;
   seededServiceSlug: string;
@@ -294,6 +303,52 @@ export async function seedAll(): Promise<SeedOutput> {
     stateiacStacksOnlyRole.id,
   );
 
+  // --- State IaC: one bucket (the fake S3 over test/fixtures/state-iac), two projects ----------
+  const secondaryProject = await projectService.createProject({
+    organizationId: primaryOrg.id,
+    name: 'E2E Secondary Project',
+    slug: 'e2e-project-b',
+    modules: { vault: false, codereport: false, stateiac: true, monitoring: false },
+  });
+  const now = new Date().toISOString();
+  const stateBackendId = crypto.randomUUID();
+  // written directly: the API refuses loopback endpoints on purpose (anti-SSRF)
+  await new StateBackendRepository().create({
+    id: stateBackendId,
+    organizationId: primaryOrg.id,
+    name: 'e2e-shared-state',
+    engine: 'pulumi',
+    provider: 's3',
+    bucket: FAKE_S3_BUCKET,
+    prefix: null,
+    region: 'us-east-1',
+    endpoint: E2E_S3_ENDPOINT,
+    forcePathStyle: true,
+    auth: 'ambient',
+    credentials: null,
+    enabled: true,
+    lastScanAt: null,
+    lastError: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const bindings = new StateBindingRepository();
+  for (const [pulumiProject, projectId] of [
+    ['acme-infra', primaryProject.id],
+    ['acme-platform', secondaryProject.id],
+  ] as const) {
+    await bindings.create({
+      id: crypto.randomUUID(),
+      organizationId: primaryOrg.id,
+      backendId: stateBackendId,
+      pulumiProject,
+      stacks: [],
+      projectId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
   const seededService = await codeReportService.createService({
     project: requireSeedSlug(primaryProject.slug, 'primary project'),
     name: 'E2E Seeded Service',
@@ -416,6 +471,10 @@ export async function seedAll(): Promise<SeedOutput> {
     primaryOrgSlug: primaryOrg.slug,
     primaryOrgId: primaryOrg.id,
     primaryProjectSlug: requireSeedSlug(primaryProject.slug, 'primary project'),
+    primaryProjectId: primaryProject.id,
+    projectViewerRoleId,
+    secondaryProjectSlug: requireSeedSlug(secondaryProject.slug, 'secondary project'),
+    stateBackendId,
     outsiderOrgSlug: requireSeedSlug(outsiderOrg.slug, 'outsider organization'),
     outsiderProjectSlug: requireSeedSlug(outsiderProject.slug, 'outsider project'),
     seededServiceSlug: seededService.slug,

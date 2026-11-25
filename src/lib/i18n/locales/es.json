@@ -2398,7 +2398,72 @@
       "too_large": "Un fichero de estado supera el tamaño máximo",
       "unsupported_layout": "Versión de meta.yaml no soportada",
       "undecryptable": "No se pueden descifrar las credenciales (¿ha cambiado GITDB_ENCRYPTION_KEY?)",
-      "unknown": "Error desconocido"
+      "unknown": "Error desconocido",
+      "unsupported_state": "Versión del fichero de estado no soportada",
+      "invalid_state": "El fichero de estado no es válido",
+      "state_missing": "El fichero de estado ha desaparecido; refresca"
+    },
+    "stacks": {
+      "search": "Buscar stack, proyecto o backend",
+      "refresh": "Refrescar",
+      "backendFailed": "No se pudo leer este backend: {error}",
+      "noMatches": "Ningún stack coincide con la búsqueda.",
+      "backendEmpty": "No hay stacks en este backend.",
+      "stack": "Stack",
+      "resources": "Recursos",
+      "lastUpdate": "Último update",
+      "assignedProject": "Proyecto asignado",
+      "lockedSince": "Operación en curso desde {date}",
+      "locked": "En curso",
+      "pending": "{count} operaciones pendientes",
+      "count": "{count} stacks",
+      "projectDescription": "Stacks de Pulumi asignados a este proyecto. GitOps solo lee el estado del bucket.",
+      "emptyTitle": "No hay stacks asignados a este proyecto",
+      "emptyDescription": "Los backends y las asignaciones se configuran en los ajustes de la organización (State IaC). Pide a un administrador que asigne aquí los proyectos de Pulumi.",
+      "organizationTitle": "State IaC",
+      "organizationDescription": "Todos los stacks de los backends de la organización, asignados o no a un proyecto.",
+      "manageBackends": "Gestionar backends",
+      "assignedTo": "asignado a {project}"
+    },
+    "kinds": {
+      "update": "Update",
+      "refresh": "Refresh",
+      "destroy": "Destroy",
+      "import": "Import",
+      "rename": "Rename",
+      "other": "Otra operación"
+    },
+    "results": {
+      "succeeded": "correcto",
+      "failed": "fallido",
+      "in-progress": "en curso",
+      "unknown": "desconocido"
+    },
+    "detail": {
+      "back": "Volver a los stacks",
+      "secretHelp": "Valor secreto: GitOps nunca lo descifra.",
+      "toolVersion": "Versión de Pulumi",
+      "pendingOperations": "Operaciones pendientes",
+      "noStatesPermission": "No tienes permiso para ver los recursos y outputs de este stack (project:stateiac:states:read).",
+      "tabs": "Contenido del stack",
+      "outputs": "Outputs",
+      "searchResources": "Buscar recurso por nombre, tipo o ID",
+      "type": "Tipo",
+      "allTypes": "Todos los tipos",
+      "provider": "Provider",
+      "allProviders": "Todos los providers",
+      "protectedOnly": "Solo protegidos",
+      "expand": "Desplegar",
+      "collapse": "Plegar",
+      "protected": "Protegido contra borrado",
+      "pendingChange": "Cambio pendiente",
+      "noResources": "Ningún recurso coincide.",
+      "noOutputs": "Este stack no tiene outputs.",
+      "parent": "Padre",
+      "modified": "Modificado",
+      "resourceTabs": "Datos del recurso",
+      "inputs": "Inputs",
+      "dependencies": "Dependencias"
     }
   }
 }
