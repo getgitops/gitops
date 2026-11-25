@@ -7,7 +7,7 @@ import {
   notificationSettingsService,
   type ExternalRecipientView,
 } from '#modules/notifications';
-import { isMailConfigured } from '#modules/alerts';
+import { alertService, isMailConfigured } from '#modules/alerts';
 import { readPublicOrigin } from '#lib/server/infra/notifications';
 import { callerCan, type AlertLocals } from '#lib/server/alerts/access';
 import type { NotificationSettingsPage } from '#lib/notifications/types';
@@ -90,6 +90,28 @@ export async function saveAllowedDomains(
   } catch (error) {
     if (error instanceof NotificationSettingsValidationError) {
       return { ok: false, status: 400, error: 'Invalid settings', errors: error.errors };
+    }
+    throw error;
+  }
+}
+
+export async function removeExternalRecipient(
+  locals: AlertLocals,
+  organizationId: string,
+  recipientId: string,
+): Promise<SettingsResult<{ email: string; alerts: number }>> {
+  const context = { scope: 'organization' as const, organizationId };
+  if (!(await callerCan(locals, 'organization:notifications:update', context))) return forbidden;
+  try {
+    const removed = await externalRecipientService.remove(organizationId, recipientId);
+    const alerts = await alertService.removeEmail(organizationId, removed.email);
+    return { ok: true, data: { email: removed.email, alerts } };
+  } catch (error) {
+    if (error instanceof ExternalRecipientNotFoundError) {
+      return { ok: false, status: 404, error: 'not_found' };
+    }
+    if (error instanceof ExternalRecipientStateError) {
+      return { ok: false, status: 409, error: 'invalid_status' };
     }
     throw error;
   }

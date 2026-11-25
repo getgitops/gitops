@@ -2099,7 +2099,11 @@
       "resend": "Resend confirmation",
       "resent": "Confirmation email sent again.",
       "back": "Back to alerts",
-      "domainsSavedTitle": "Domains saved"
+      "domainsSavedTitle": "Domains saved",
+      "remove": "Remove",
+      "removeTitle": "Remove this recipient?",
+      "removeDescription": "{email} hasn't confirmed yet. Its confirmation link will stop working and it will be removed from every alert of the organization.",
+      "removed": "{email} removed"
     },
     "errors": {
       "invalid": "The value is not valid.",

@@ -122,8 +122,10 @@ gestionan destinatarios externos (personas sin cuenta GitOps: vendors, on-call m
 `*.partner.com` para subdominos, normalizado a punycode); en alertas, se agregan addresses en `recipients.emails`.
 Cada dirección nueva es `pending` y genera email de confirmación (token aleatorio, hash almacenado, 7 días TTL,
 single use, rate limitado 3/h por address y 30/h por org). Solo addresses `verified` se entregan; estados:
-`pending` → `verified` → `unsubscribed`, o `blocked` si su dominio se quita de la lista permitida. Las rutas
-públicas `/notifications/verify` y `/notifications/unsubscribe` aceptan POST con tokens (no requieren sesión,
+`pending` → `verified` → `unsubscribed`, o `blocked` si su dominio se quita de la lista permitida. Una dirección
+`pending` agregada por error puede quitarse desde Settings antes de confirmar: su enlace de confirmación se anula
+y se quita de todas las alertas de la organización (`alertService.removeEmail()`). Las rutas públicas
+`/notifications/verify` y `/notifications/unsubscribe` aceptan POST con tokens (no requieren sesión,
 no permiten GET para evitar que scanners abran URLs). Emails a externos usan template reducido (sin campos
 `sensitive`, sin links a la app) con footer de desuscripción y `List-Unsubscribe` HMAC stateless (90 días TTL).
 Sin `ORIGIN` no se envía nada. Infra: `src/lib/server/infra/tokens.ts` (HMAC con `GITDB_ENCRYPTION_KEY`) y

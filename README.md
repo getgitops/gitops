@@ -177,7 +177,9 @@ Alerts can also email people without a GitOps account (a vendor, an on-call mail
    `organization:notifications:update` or `project:notifications:update`). The API takes them in
    `recipients.emails`.
 3. Each new address gets a confirmation email and receives nothing until its owner confirms. Every
-   alert email carries an unsubscribe link.
+   alert email carries an unsubscribe link. An address added by mistake can be removed from
+   **Settings** while it is still pending: its confirmation link stops working and it is taken out
+   of every alert.
 
 External recipients are not checked against GitOps permissions, so their emails leave out
 sensitive fields and links into the app. Removing a domain blocks its addresses without deleting

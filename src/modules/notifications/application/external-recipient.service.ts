@@ -188,6 +188,19 @@ export class ExternalRecipientService {
     return (await this.repository.findById(id))!.toView();
   }
 
+  /** Deletes a `pending` address (added by mistake): its confirmation link stops working. */
+  async remove(organizationId: string, id: string): Promise<ExternalRecipientView> {
+    const recipient = await this.repository.findById(id);
+    if (!recipient || recipient.organizationId !== organizationId) {
+      throw new ExternalRecipientNotFoundError(id);
+    }
+    if (recipient.status !== 'pending') {
+      throw new ExternalRecipientStateError(recipient.status);
+    }
+    await this.repository.delete(id);
+    return recipient.toView();
+  }
+
   /** What a confirmation link points at, without using it (the GET page). */
   async inspectVerification(token: string): Promise<ExternalRecipientDomain> {
     const value = token.trim();

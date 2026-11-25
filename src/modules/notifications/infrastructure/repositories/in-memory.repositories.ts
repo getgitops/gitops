@@ -70,4 +70,8 @@ export class InMemoryExternalRecipientRepository implements ExternalRecipientRep
         : row,
     );
   }
+
+  async delete(id: string) {
+    this.rows = this.rows.filter((row) => row.id !== id);
+  }
 }

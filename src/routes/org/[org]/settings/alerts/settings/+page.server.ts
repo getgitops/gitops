@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { organizationService } from '#modules/organization';
 import {
   loadNotificationSettings,
+  removeExternalRecipient,
   resendVerification,
   saveAllowedDomains,
 } from '#lib/server/notifications/settings';
@@ -32,6 +33,15 @@ export const actions = {
     const result = await resendVerification(locals, organization.id, recipientId);
     if (!result.ok) return fail(result.status, { recipientId, resendError: result.error });
     return { resent: recipientId };
+  },
+
+  async remove({ request, locals, params }) {
+    const organization = await organizationOf(params.org);
+    const form = await request.formData();
+    const recipientId = String(form.get('recipientId') ?? '');
+    const result = await removeExternalRecipient(locals, organization.id, recipientId);
+    if (!result.ok) return fail(result.status, { recipientId, removeError: result.error });
+    return { removed: result.data.email, removedFromAlerts: result.data.alerts };
   },
 };
 

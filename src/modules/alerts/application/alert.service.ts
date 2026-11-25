@@ -252,6 +252,22 @@ export class AlertService {
     }
   }
 
+  /** Drops `email` from every alert of the organization (and of its projects) that has it. */
+  async removeEmail(organizationId: string, email: string): Promise<number> {
+    const alerts = await this.repository.listByOrganization(organizationId);
+    const affected = alerts.filter((alert) => alert.recipients.emails.includes(email));
+    for (const alert of affected) {
+      await this.repository.update(alert.id, {
+        recipients: {
+          ...alert.recipients,
+          emails: alert.recipients.emails.filter((candidate) => candidate !== email),
+        },
+      });
+    }
+    if (affected.length > 0) this.onChange();
+    return affected.length;
+  }
+
   async delete(id: string): Promise<void> {
     await this.get(id);
     await this.repository.delete(id);

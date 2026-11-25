@@ -18,7 +18,16 @@ vi.mock('#modules/auth', () => ({
 }));
 vi.mock('#modules/projects', () => ({ projectService: {} }));
 vi.mock('#modules/organization', () => ({ organizationService: {} }));
-vi.mock('#modules/alerts', () => ({ isMailConfigured: () => true }));
+const removedFromAlerts: Array<{ organizationId: string; email: string }> = [];
+vi.mock('#modules/alerts', () => ({
+  isMailConfigured: () => true,
+  alertService: {
+    removeEmail: async (organizationId: string, email: string) => {
+      removedFromAlerts.push({ organizationId, email });
+      return 2;
+    },
+  },
+}));
 
 vi.mock('#modules/notifications', async () => {
   const { createNotificationsFixture } = await import('#modules/notifications/application/testing');
@@ -40,6 +49,7 @@ const notifications = (await import('#modules/notifications')) as unknown as {
 const {
   canOpenNotificationSettings,
   loadNotificationSettings,
+  removeExternalRecipient,
   resendVerification,
   saveAllowedDomains,
 } = await import('./settings');
@@ -132,6 +142,27 @@ describe('notification settings authorization', () => {
     // another organization's grants don't reach this one
     expect(await resendVerification(as('notificationsManager'), 'org-2', id)).toMatchObject({
       status: 403,
+    });
+  });
+
+  it('removes pending recipients, and from the alerts, only with organization:notifications:update', async () => {
+    removedFromAlerts.length = 0;
+    const [{ id }] = notifications.fixture.recipientRepository.rows;
+    for (const user of ['viewer', 'settingsEditor', 'developer']) {
+      expect(await removeExternalRecipient(as(user), ORG, id)).toMatchObject({ status: 403 });
+    }
+    expect(await removeExternalRecipient(as('notificationsManager'), 'org-2', id)).toMatchObject({
+      status: 403,
+    });
+    expect(removedFromAlerts).toEqual([]);
+
+    expect(await removeExternalRecipient(as('notificationsManager'), ORG, id)).toEqual({
+      ok: true,
+      data: { email: 'ana@partner.com', alerts: 2 },
+    });
+    expect(removedFromAlerts).toEqual([{ organizationId: ORG, email: 'ana@partner.com' }]);
+    expect(await removeExternalRecipient(as('notificationsManager'), ORG, id)).toMatchObject({
+      status: 404,
     });
   });
 });

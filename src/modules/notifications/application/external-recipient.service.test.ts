@@ -165,6 +165,30 @@ describe('ExternalRecipientService', () => {
       await expect(f.recipients.resendVerification(OTHER_ORG, id)).rejects.toThrow(/not found/);
     });
 
+    it('removes a pending address: its confirmation link stops working', async () => {
+      await f.recipients.register(ORG, ['typo@partner.com'], 'admin');
+      const token = f.notifier.tokenFor('typo@partner.com');
+      const [{ id }] = f.recipientRepository.rows;
+
+      await expect(f.recipients.remove(OTHER_ORG, id)).rejects.toThrow(/not found/);
+      await expect(f.recipients.remove(ORG, id)).resolves.toMatchObject({
+        email: 'typo@partner.com',
+        status: 'pending',
+      });
+      expect(f.recipientRepository.rows).toEqual([]);
+      await expect(f.recipients.verify(token)).rejects.toBeInstanceOf(InvalidNotificationLinkError);
+    });
+
+    it('only removes pending addresses', async () => {
+      await f.recipients.register(ORG, ['ana@partner.com'], 'admin');
+      await f.recipients.verify(f.notifier.tokenFor('ana@partner.com'));
+      const [{ id }] = f.recipientRepository.rows;
+      await expect(f.recipients.remove(ORG, id)).rejects.toBeInstanceOf(
+        ExternalRecipientStateError,
+      );
+      expect(f.recipientRepository.rows).toHaveLength(1);
+    });
+
     it('builds no link without ORIGIN, so nothing is sent', async () => {
       f = createNotificationsFixture({ origin: null });
       await f.settings.setAllowedDomains(ORG, ['partner.com']);

@@ -2099,7 +2099,11 @@
       "resend": "Reenviar confirmación",
       "resent": "Email de confirmación reenviado.",
       "back": "Volver a alertas",
-      "domainsSavedTitle": "Dominios guardados"
+      "domainsSavedTitle": "Dominios guardados",
+      "remove": "Quitar",
+      "removeTitle": "¿Quitar este destinatario?",
+      "removeDescription": "{email} todavía no ha confirmado. Se anulará su enlace de confirmación y se quitará de todas las alertas de la organización.",
+      "removed": "{email} quitado"
     },
     "errors": {
       "invalid": "El valor no es válido.",

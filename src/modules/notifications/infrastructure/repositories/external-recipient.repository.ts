@@ -17,6 +17,7 @@ export interface ExternalRecipientRepositoryPort {
   listByOrganization(organizationId: string): Promise<ExternalRecipientDomain[]>;
   create(row: ExternalRecipientRow): Promise<void>;
   update(id: string, changes: ExternalRecipientChanges): Promise<void>;
+  delete(id: string): Promise<void>;
 }
 
 export class ExternalRecipientRepository
@@ -67,5 +68,9 @@ export class ExternalRecipientRepository
       .update(ExternalRecipientEntity)
       .set({ ...changes, updatedAt: new Date().toISOString() })
       .where({ id });
+  }
+
+  async delete(id: string) {
+    await this.db.delete(ExternalRecipientEntity).where({ id });
   }
 }

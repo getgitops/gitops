@@ -339,6 +339,31 @@ describe('AlertService', () => {
   });
 
   describe('recipients', () => {
+    it('removes an external address from every alert of the organization', async () => {
+      const alert = await service.create(
+        projectLocation,
+        guidedExample({ recipients: { emails: ['typo@example.com', 'ops@example.com'] } }),
+        actor(),
+      );
+      repository.rows.push(
+        {
+          ...alert.toJson(),
+          id: 'alert-2',
+          recipients: { ...alert.recipients, emails: ['typo@example.com'] },
+        },
+        { ...alert.toJson(), id: 'other-org', organizationId: 'org-2' },
+      );
+      onChange.mockClear();
+
+      expect(await service.removeEmail(ORG, 'typo@example.com')).toBe(2);
+      const emails = (id: string) =>
+        repository.rows.find((row) => row.id === id)?.recipients.emails;
+      expect(emails('alert-1')).toEqual(['ops@example.com']);
+      expect(emails('alert-2')).toEqual([]);
+      expect(emails('other-org')).toEqual(['typo@example.com', 'ops@example.com']);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
     it('rejects users and roles outside the location', async () => {
       const errors = await validationErrors(
         service.create(

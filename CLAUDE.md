@@ -307,7 +307,9 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
 - Alert settings (`#lib/server/notifications/settings.ts`): allowed domains (read with
   `organization:settings:read` or `organization:notifications:read`, changed with
   `organization:settings:update`) and the external recipients status
-  (`organization:notifications:read`, resend confirmation with `organization:notifications:update`).
+  (`organization:notifications:read`; resend a confirmation, or remove a `pending` address added by
+  mistake, with `organization:notifications:update`: removing deletes the recipient, so its link
+  stops working, and `alertService.removeEmail()` drops it from every alert of the organization).
   The "Settings" button of the alert lists (organization and project ones, no sidebar entry) opens
   them in a modal (`AlertSettingsPanel`, data in `AlertListData.settings`) whose forms post to the
   actions of `/org/<org>/settings/alerts/settings`, the same page browsers without JavaScript get.
