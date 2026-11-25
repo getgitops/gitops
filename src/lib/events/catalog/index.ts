@@ -5,6 +5,7 @@ import { projectEvents } from './projects.events';
 import { organizationEvents } from './organization.events';
 import { accessEvents } from './access.events';
 import { monitoringEvents } from './monitoring.events';
+import { stateIacEvents } from './state-iac.events';
 import type {
   EventCatalog,
   EventDefinition,
@@ -21,6 +22,7 @@ export { PROJECT_CHANGED_FIELDS } from './projects.events';
 export { ORGANIZATION_CHANGED_FIELDS } from './organization.events';
 export { ACCESS_SCOPES } from './access.events';
 export { MONITORING_CAUSES } from './monitoring.events';
+export { STATE_IAC_BACKEND_CHANGED_FIELDS, STATE_IAC_PROVIDERS } from './state-iac.events';
 export {
   PROJECT_SCOPE_FIELD,
   isScopeField,
@@ -53,6 +55,7 @@ export const EVENT_CATALOG: EventCatalog = defineEventCatalog({
   ...organizationEvents,
   ...accessEvents,
   ...monitoringEvents,
+  ...stateIacEvents,
 });
 
 export function isEventType(value: string): value is EventType {

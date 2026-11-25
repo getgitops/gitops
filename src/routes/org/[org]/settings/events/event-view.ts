@@ -13,6 +13,7 @@ export const EVENT_MODULES: readonly EventModule[] = [
   'projects',
   'organization',
   'access',
+  'state_iac',
 ];
 
 export type EventStatusFilter = 'all' | 'pending' | 'acked';

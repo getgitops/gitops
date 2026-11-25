@@ -167,7 +167,7 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 `*.data.ts`) for configuration constants: role permissions, default project settings, risk weights,
 and tool policy mappings.
 
-Current modules include `auth`, `config`, `organization`, `projects`, `storage`,
+Current modules include `auth`, `config`, `organization`, `projects`, `state-iac`,
 `code-report`, `vault`, `audit`, `alerts`, `monitoring`, and `notifications`. The `notifications`
 module handles external email recipients of alerts (allowed domains, verification tokens,
 unsubscribe tracking). Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
@@ -193,6 +193,21 @@ header, preventing bypasses when running behind a proxy that rewrites Host heade
 origin of the absolute links in emails (`absoluteUrl()`); only under `vite dev` do those links use
 the origin of the requests the dev server receives instead (`rememberDevOrigin()` in
 `hooks.server.ts`), so they work on port 5173 whatever `ORIGIN` says.
+
+## State IaC
+
+`$modules/state-iac` reads IaC state from the buckets where teams keep it; design and Pulumi DIY
+layout in `docs/adr/0003-state-iac.md`, anonymized real buckets in `test/fixtures/state-iac/`
+(load them with `fixtureStore()` from `application/testing.ts`). GitDB only stores configuration:
+`state_backends` (one bucket/prefix per row, per organization; credentials AES-GCM encrypted with
+the backend id as AAD, never returned, only `hasCredentials`) and `state_bindings` (one per Pulumi
+project of a backend → a GitOps project of the same organization; `stacks` empty = all). Bindings
+go with their backend and with their GitOps project (`registerStateIac()` listens to
+`project.deleted`). Buckets are only read through `ObjectStore` (`GcsObjectStore`, `S3ObjectStore`,
+`InMemoryObjectStore` in tests): never add a write. Org settings page `/org/<org>/settings/state-iac`
+and `/api/state-iac/backends/**` check `organization:stateiac:backends:<action>` (actions include
+`test`); a backend of another organization answers 404. Read failures are stored as short codes in
+`lastError` (`access_denied`, `bucket_not_found`…), never the provider message.
 
 ## Domain events
 

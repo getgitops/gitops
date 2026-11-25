@@ -14,6 +14,7 @@ export type PersonaKey =
   | 'orgOutsider'
   | 'orgNone'
   | 'orgProjectsReadOnly'
+  | 'orgStateIacReader'
   | 'projectAdmin'
   | 'projectDeveloper'
   | 'projectViewer'
@@ -144,6 +145,22 @@ export async function seedAll(): Promise<SeedOutput> {
     password: E2E_PASSWORD,
     roleId: orgProjectsReadOnlyRole.id,
     email: 'org-projects-read-only@e2e.test',
+  });
+
+  // sees the State IaC backends and their assignments, can't change them
+  const orgStateIacReaderRole = await roleService.createRole({
+    name: 'E2E Org State IaC Reader',
+    slug: 'e2e-org-stateiac-reader',
+    scope: 'organization',
+    organizationId: primaryOrg.id,
+    permissions: ['organization:stateiac:backends:read'],
+  });
+  const orgStateIacReader = await userAccessService.createOrganizationUser({
+    organizationId: primaryOrg.id,
+    username: 'e2e-org-stateiac-reader',
+    password: E2E_PASSWORD,
+    roleId: orgStateIacReaderRole.id,
+    email: 'org-stateiac-reader@e2e.test',
   });
 
   // --- primary project under the primary org ----------------------------------------------
@@ -352,6 +369,10 @@ export async function seedAll(): Promise<SeedOutput> {
       orgProjectsReadOnly: {
         userId: orgProjectsReadOnly.userId,
         username: orgProjectsReadOnly.username,
+      },
+      orgStateIacReader: {
+        userId: orgStateIacReader.userId,
+        username: orgStateIacReader.username,
       },
       projectAdmin: { userId: projectAdminUser.userId, username: projectAdminUser.username },
       projectDeveloper: {

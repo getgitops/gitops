@@ -14,6 +14,7 @@ const settingsRoutes = [
   `/org/${org}/settings/audit`,
   `/org/${org}/settings/events`,
   `/org/${org}/settings/alerts`,
+  `/org/${org}/settings/state-iac`,
 ];
 
 test.describe('organization settings — org admin', () => {
