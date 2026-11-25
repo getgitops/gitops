@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { resolvePublicAddresses, type FetchLike, type Resolver } from './guarded-fetch';
 
 /** Why a webhook URL is refused; the UI maps them to `notifications.errors.<code>`. */
 export type WebhookUrlError =
@@ -8,7 +9,9 @@ export type WebhookUrlError =
   | 'ip_address'
   | 'port'
   | 'host_not_allowed'
-  | 'path_not_allowed';
+  | 'path_not_allowed'
+  | 'private_address'
+  | 'unresolvable';
 
 export type WebhookUrlRule = {
   /** Exact host names the URL may point at (`hooks.slack.com`). */
@@ -49,6 +52,43 @@ export function validateWebhookUrl(
   return { ok: true, url };
 }
 
+export type OpenWebhookUrlOptions = {
+  /** Accepts `http:` (local development only). */
+  allowHttp?: boolean;
+  /** Skips the address checks (local development and e2e only). */
+  allowPrivateTargets?: boolean;
+  resolve?: Resolver;
+};
+
+/**
+ * Anti-SSRF check of a URL anyone can type (generic webhooks): there is no host allow-list, so the
+ * hostname is resolved and refused when **any** of its addresses is private, loopback, link-local,
+ * CGNAT, multicast or the cloud metadata one (IPv4 and IPv6, mapped forms included). `https` only
+ * and no credentials. Run before saving and before every send; the request itself then connects
+ * only to checked addresses (`createGuardedFetch`), which closes the DNS rebinding window.
+ */
+export async function validateOpenWebhookUrl(
+  raw: unknown,
+  options: OpenWebhookUrlOptions = {},
+): Promise<{ ok: true; url: URL } | { ok: false; error: WebhookUrlError }> {
+  if (typeof raw !== 'string' || !raw.trim() || raw.length > MAX_URL_LENGTH) {
+    return { ok: false, error: 'invalid_url' };
+  }
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return { ok: false, error: 'invalid_url' };
+  }
+  const httpAllowed = options.allowHttp && url.protocol === 'http:';
+  if (url.protocol !== 'https:' && !httpAllowed) return { ok: false, error: 'not_https' };
+  if (url.username || url.password) return { ok: false, error: 'credentials' };
+  if (!url.hostname) return { ok: false, error: 'invalid_url' };
+  if (options.allowPrivateTargets) return { ok: true, url };
+  const checked = await resolvePublicAddresses(url.hostname, options.resolve);
+  return checked.ok ? { ok: true, url } : { ok: false, error: checked.error };
+}
+
 /** A webhook delivery that failed; `retryable` tells whether trying again may help. */
 export class WebhookDeliveryError extends Error {
   constructor(
@@ -57,7 +97,7 @@ export class WebhookDeliveryError extends Error {
     readonly retryable: boolean,
     /** `Retry-After` of a 429, in ms. */
     readonly retryAfterMs: number | null = null,
-    readonly reason: 'timeout' | 'network' | 'redirect' | 'http' = 'http',
+    readonly reason: 'timeout' | 'network' | 'redirect' | 'blocked' | 'http' = 'http',
   ) {
     super(
       status === null ? `Webhook delivery failed (${reason})` : `Webhook answered HTTP ${status}`,
@@ -68,7 +108,7 @@ export class WebhookDeliveryError extends Error {
   /** Short description for `lastError` and the logs: never the URL nor the response body. */
   get summary(): string {
     if (this.status !== null) return `HTTP ${this.status}`;
-    return this.reason;
+    return this.reason === 'blocked' ? 'blocked_target' : this.reason;
   }
 }
 
@@ -87,21 +127,30 @@ function parseRetryAfter(value: string | null, now: number): number | null {
 export type PostJsonOptions = {
   timeoutMs?: number;
   headers?: Record<string, string>;
-  fetch?: typeof fetch;
+  /** `createGuardedFetch()` for anti-SSRF delivery; global `fetch` by default. */
+  fetch?: FetchLike;
   now?: () => number;
 };
 
 /**
  * POSTs `body` as JSON. Any 2xx is a success; the response body is discarded. Redirects are not
  * followed (they would bypass the URL check). Throws `WebhookDeliveryError`: retryable for network
- * errors, timeouts, 429 (with its `Retry-After`) and 5xx; permanent for 3xx and other 4xx.
+ * errors, timeouts, 429 (with its `Retry-After`) and 5xx; permanent for 3xx, other 4xx and blocked
+ * destinations.
  */
-export async function postJson(
+export function postJson(url: string, body: unknown, options: PostJsonOptions = {}): Promise<void> {
+  return postRawJson(url, JSON.stringify(body), options);
+}
+
+/**
+ * `postJson` with an already serialized body: what is signed must be byte for byte what is sent.
+ */
+export async function postRawJson(
   url: string,
-  body: unknown,
+  rawBody: string,
   options: PostJsonOptions = {},
 ): Promise<void> {
-  const send = options.fetch ?? fetch;
+  const send: FetchLike = options.fetch ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? WEBHOOK_TIMEOUT_MS);
   let response: Response;
@@ -109,11 +158,14 @@ export async function postJson(
     response = await send(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...options.headers },
-      body: JSON.stringify(body),
+      body: rawBody,
       redirect: 'manual',
       signal: controller.signal,
     });
-  } catch {
+  } catch (error) {
+    if ((error as { code?: unknown })?.code === 'EBLOCKEDTARGET') {
+      throw new WebhookDeliveryError(null, false, null, 'blocked');
+    }
     throw new WebhookDeliveryError(
       null,
       true,

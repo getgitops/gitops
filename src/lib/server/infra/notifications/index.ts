@@ -27,6 +27,7 @@ export { emailButton, emailNote } from './email-parts';
 export {
   CHAT_CHANNEL_TYPES,
   ChatNotification,
+  ChatTransportUnavailableError,
   availableChatTypes,
   getChatTransport,
   isChatChannelType,
@@ -36,6 +37,7 @@ export {
   type ChatChannelType,
   type ChatNotificationInput,
   type ChatTransport,
+  type DestinationCheck,
 } from './chat-notification';
 export { DeliveryQueue, defaultErrorCode, type DeliveryQueueOptions } from './delivery-queue';
 export { MailQueue, recipientHash, type MailContext, type MailQueueOptions } from './mail-queue';

@@ -49,11 +49,12 @@ vi.mock('#modules/organization', () => ({
 }));
 
 vi.mock('#modules/notifications', async () => {
-  const { createChannelsFixture } = await import('#modules/notifications/application/testing');
+  const { createChannelsFixture, FakeChatTransport } =
+    await import('#modules/notifications/application/testing');
   const domain = await import('#modules/notifications/domain/notification-channel.domain');
   const { buildChannelTestMessage } =
     await import('#modules/notifications/infrastructure/channel-test-message');
-  const fixture = createChannelsFixture();
+  const fixture = createChannelsFixture({ transports: { webhook: new FakeChatTransport(true) } });
   return {
     ...domain,
     buildChannelTestMessage,
@@ -70,6 +71,7 @@ const notifications = (await import('#modules/notifications')) as unknown as {
 const collection = await import('./+server');
 const item = await import('./[id]/+server');
 const test = await import('./[id]/test/+server');
+const rotate = await import('./[id]/rotate-secret/+server');
 
 const HOOK = 'https://hooks.example.com/hook/T0/B0/topsecret1a2b';
 const ORG_ADMIN = ['read', 'create', 'update', 'delete'].map(
@@ -256,5 +258,59 @@ describe('/api/notification-channels', () => {
       (await call(item.DELETE, { locals: as('orgAdmin'), params: { id: created.id } })).status,
     ).toBe(200);
     expect(notifications.fixture.repository.rows).toHaveLength(0);
+  });
+
+  it('returns a webhook signing secret only when creating or rotating it', async () => {
+    const created = await call(collection.POST, {
+      locals: as('orgAdmin'),
+      body: { organizationId: 'org-1', type: 'webhook', name: 'SIEM', destination: HOOK },
+    });
+    expect(created.status).toBe(201);
+    const body = (await created.json()) as { id: string; signingSecret: string; signed: boolean };
+    expect(body.signingSecret).toMatch(/^whsec_/);
+    expect(body.signed).toBe(true);
+    const first = body.signingSecret;
+
+    const listed = await call(collection.GET, {
+      locals: as('orgAdmin'),
+      url: 'http://localhost/api/notification-channels?organizationId=org-1',
+    });
+    const fetched = await call(item.GET, { locals: as('orgAdmin'), params: { id: body.id } });
+    const patched = await call(item.PATCH, {
+      locals: as('orgAdmin'),
+      params: { id: body.id },
+      body: { name: 'SIEM 2' },
+    });
+    for (const response of [listed, fetched, patched]) {
+      expect(response.status).toBe(200);
+      const text = await response.text();
+      expect(text).not.toContain('whsec_');
+      expect(text).not.toContain('signingSecret');
+      expect(text).not.toContain('topsecret');
+    }
+
+    // rotating needs update
+    expect(
+      (await call(rotate.POST, { locals: as('orgReader'), params: { id: body.id } })).status,
+    ).toBe(403);
+    const rotated = await call(rotate.POST, { locals: as('orgAdmin'), params: { id: body.id } });
+    expect(rotated.status).toBe(200);
+    const next = (await rotated.json()) as { signingSecret: string; rotationEndsAt: string };
+    expect(next.signingSecret).toMatch(/^whsec_/);
+    expect(next.signingSecret).not.toBe(first);
+    expect(next.rotationEndsAt).toBeTruthy();
+  });
+
+  it('cannot rotate a channel type that does not sign', async () => {
+    const created = await createOrgChannel();
+    const response = await call(rotate.POST, {
+      locals: as('orgAdmin'),
+      params: { id: created.id },
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ errors: { type: 'not_signed' } });
+    expect(
+      (await call(rotate.POST, { locals: as('orgAdmin'), params: { id: 'missing' } })).status,
+    ).toBe(404);
   });
 });

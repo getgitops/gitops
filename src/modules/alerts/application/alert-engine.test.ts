@@ -503,6 +503,28 @@ describe('AlertEngine', () => {
       ]);
     });
 
+    it('tells the creator of a channel that disabled itself', async () => {
+      await engine.handle({
+        id: 'event-channel',
+        type: 'notifications.channel.disabled',
+        occurredAt: TIMESTAMP,
+        actor: { kind: 'system' },
+        scope: { organizationId: 'org-1', projectId: null },
+        payload: {
+          channelId: 'c1',
+          name: 'SIEM',
+          type: 'webhook',
+          reason: 'failures',
+          failures: 20,
+          lastError: 'HTTP 410',
+          createdByUserId: 'ana',
+        },
+      });
+      expect(notifier.system).toMatchObject([
+        { kind: 'channel_disabled', recipient: { userId: 'ana' } },
+      ]);
+    });
+
     it('runs before the alerts of the same event', async () => {
       const order: string[] = [];
       notifier.sendSystemNotification = async () => void order.push('system');

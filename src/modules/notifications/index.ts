@@ -1,12 +1,15 @@
 import {
   ChatNotification,
+  ChatTransportUnavailableError,
   DeliveryQueue,
   absoluteUrl,
   availableChatTypes,
   getChatTransport,
   notify,
-  sendWithLatestNotify,
+  registerChatTransport,
 } from '#lib/server/infra/notifications';
+import { createWebhookTransport } from '#lib/server/infra/notifications/webhook/webhook.transport';
+import { eventBus } from '#lib/server/events';
 import { isRetryableWebhookError, webhookRetryAfter } from '#lib/server/infra/http/webhook-request';
 import { RateLimiter } from '#lib/server/infra/rate-limit';
 import { createLogger } from '#lib/server/logger';
@@ -19,6 +22,7 @@ import {
   type ChannelDelivery,
 } from './application/notification-channel.service';
 import { createChannelCipher } from './infrastructure/crypto/channel-cipher';
+import { readWebhookChannelConfig } from './infrastructure/config/webhook.config';
 import { NotificationChannelRepository } from './infrastructure/repositories/notification-channel.repository';
 import { ExternalRecipientMailNotifier } from './infrastructure/external-recipient-mail.notifier';
 import { ExternalRecipientRepository } from './infrastructure/repositories/external-recipient.repository';
@@ -61,6 +65,10 @@ export const notificationSettingsService = new NotificationSettingsService(
   externalRecipientService,
 );
 
+// transports of the channel types this build supports; Slack (#97) and Google Chat (#98) add
+// theirs here. Registering again on HMR just replaces the previous one
+registerChatTransport('webhook', createWebhookTransport(readWebhookChannelConfig()));
+
 const CHANNEL_QUEUE_KEY = Symbol.for('gitops.notifications.channel-queue');
 const CHANNEL_SHUTDOWN_KEY = Symbol.for('gitops.notifications.channel-shutdown');
 type GlobalWithChannelQueue = typeof globalThis & {
@@ -71,14 +79,22 @@ type GlobalWithChannelQueue = typeof globalThis & {
 export const channelQueue: DeliveryQueue<ChannelDelivery> = ((globalThis as GlobalWithChannelQueue)[
   CHANNEL_QUEUE_KEY
 ] ??= new DeliveryQueue<ChannelDelivery>({
-  send: (delivery) =>
-    sendWithLatestNotify(
-      new ChatNotification({
-        channel: delivery.type,
-        destination: delivery.destination,
-        message: delivery.message,
-      }),
-    ),
+  // the transport comes from the process-wide registry, not from `notify()`: in dev the server code
+  // runs in more than one Vite module runner (and HMR reloads it), and each copy of `notify` has
+  // its own transport map, where the chat transports may be missing
+  send: async (delivery) => {
+    const transport = getChatTransport(delivery.type);
+    if (!transport) throw new ChatTransportUnavailableError(delivery.type);
+    const notification = new ChatNotification({
+      channel: delivery.type,
+      destination: delivery.destination,
+      message: delivery.message,
+      deliveryId: delivery.deliveryId,
+      signingSecrets: delivery.signingSecrets,
+    });
+    notification.validate();
+    await transport.send(notification);
+  },
   concurrency: 3,
   retry: { isRetryable: isRetryableWebhookError, retryAfterMs: webhookRetryAfter },
   logger: createLogger('channels'),
@@ -92,7 +108,7 @@ export const notificationChannelService = new NotificationChannelService(
   createChannelCipher(() => passwordService.ensureEncryptionKey()),
   { get: (type) => getChatTransport(type), available: () => availableChatTypes() },
   channelQueue,
-  { logger: log },
+  { logger: log, events: eventBus },
 );
 
 export function registerChannelShutdown(): void {
@@ -127,9 +143,10 @@ export type { NotificationSettings } from './domain/notification-settings.domain
 export {
   NotificationChannelNotFoundError,
   NotificationChannelValidationError,
+  MAX_CONSECUTIVE_FAILURES,
   type ChannelLocation,
   type NotificationChannelView,
 } from './domain/notification-channel.domain';
-export type { ChannelInput } from './application/notification-channel.service';
+export type { ChannelInput, IssuedChannel } from './application/notification-channel.service';
 export { buildChannelTestMessage } from './infrastructure/channel-test-message';
 export { normalizeEmail } from './domain/email-address';

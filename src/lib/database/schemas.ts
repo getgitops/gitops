@@ -449,6 +449,15 @@ export const NotificationChannelEntity = entity('notification_channels', {
     .$defaultFn(() => new Date().toISOString()),
   lastDeliveryAt: timestamp(),
   lastError: text(),
+  /** Signing secret of signed types (`webhook`), encrypted like `webhookUrl`. */
+  signingSecret: text(),
+  /** Previous signing secret, still used to sign until `previousSecretExpiresAt` (rotation). */
+  previousSigningSecret: text(),
+  previousSecretExpiresAt: timestamp(),
+  /** Definitive delivery failures in a row; the channel disables itself at the limit. */
+  consecutiveFailures: integer().notNull().default(0),
+  /** Why the platform disabled it (`failures`); `null` when enabled or disabled by a person. */
+  disabledReason: text(),
 });
 
 relations.for(ProjectEntity, ({ one, many }) => ({

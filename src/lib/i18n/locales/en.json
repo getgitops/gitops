@@ -599,7 +599,8 @@
         "projects": "Projects",
         "organization": "Organization",
         "access": "Access",
-        "monitoring": "Monitoring"
+        "monitoring": "Monitoring",
+        "notifications": "Notifications"
       }
     },
     "current": "Current",
@@ -1404,6 +1405,11 @@
         "too_many_redirects": "Too many redirects",
         "invalid_url": "Invalid URL",
         "error": "Error"
+      },
+      "channelType": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
       }
     },
     "vault": {
@@ -1621,6 +1627,20 @@
           }
         }
       }
+    },
+    "notifications": {
+      "channel": {
+        "disabled": {
+          "label": "Channel disabled automatically",
+          "description": "A notification channel failed too many deliveries in a row and was disabled.",
+          "fields": {
+            "type": "Channel type",
+            "name": "Channel name",
+            "failures": "Failures in a row",
+            "lastError": "Last error"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1650,7 +1670,12 @@
           "body": "The personal API key “{name}” ({prefix}…) was created on your account.",
           "warning": "If it wasn’t you, revoke the API key and change your password as soon as possible."
         },
-        "openProfile": "Open my profile"
+        "openProfile": "Open my profile",
+        "channel_disabled": {
+          "subject": "The channel “{name}” was disabled",
+          "body": "The notification channel “{name}” in {target} failed {failures} deliveries in a row (last error: {error}) and GitOps disabled it. Alerts will not post to it until it is enabled again.",
+          "warning": "Check that the destination still works, then enable the channel again from the alert settings."
+        }
       },
       "manageAlert": "Manage the alert",
       "viewInApp": "View in GitOps",
@@ -1674,7 +1699,8 @@
         "policyViolated": "“{policy}” violated ({count})",
         "monitorDown": "{name} is down ({cause})",
         "monitorDegraded": "{name} is degraded",
-        "monitorRecovered": "{name} recovered after {minutes} min"
+        "monitorRecovered": "{name} recovered after {minutes} min",
+        "channelDisabled": "{name} disabled after {failures} failures"
       },
       "externalFooter": "You receive this email because {organization} added your address to the alert “{alert}”.",
       "unsubscribe": "Unsubscribe",
@@ -1723,8 +1749,8 @@
       "invalid_url": "Use a valid http(s) URL.",
       "domain_not_allowed": "The domain is not allowed for external recipients.",
       "forbidden_external": "You are not allowed to add external recipients.",
-      "mail_not_configured": "SMTP is not configured: the test email can't be sent.",
-      "test_rate_limited": "You sent too many test emails. Wait a few minutes.",
+      "mail_not_configured": "SMTP is not configured and the alert has no channels: there is nowhere to send the test.",
+      "test_rate_limited": "You sent too many tests. Wait a few minutes.",
       "unknown_channel": "Some channel does not exist or can't be used from here.",
       "forbidden_channel": "You are not allowed to add channels to the alert."
     },
@@ -1819,9 +1845,9 @@
       "externalDisabled": "The organization does not allow external recipients.",
       "externalSettingsLink": "Configure allowed domains",
       "externalStatus": "Status of the external emails",
-      "sendTest": "Send test email",
+      "sendTest": "Send test",
       "sendingTest": "Sending…",
-      "sendTestHelp": "Sends a real email with an example event to the alert's recipients that would get it (external ones only once confirmed).",
+      "sendTestHelp": "Sends an example event to every destination of the alert: an email to the recipients that would get it (external ones only once confirmed) and a message to each selected channel.",
       "channelsHelp": "The email goes to the recipients above. You can also post the alert to chat channels or webhooks: one message per channel.",
       "noChannels": "There are no channels for this scope.",
       "channelsSettingsLink": "Configure channels",
@@ -1835,10 +1861,10 @@
       "recipients": "It would be sent to: {names}",
       "noRecipients": "It would not be sent to anyone.",
       "denied": "{count} recipients would not get it because they cannot view this event.",
-      "nothingSent": "This is a test: no email was sent.",
+      "nothingSent": "This is a dry run: nothing was sent.",
       "externalDelivers": "would get it",
       "externalSkipped": "would not get it ({status})",
-      "delivered": "Test email sent: {sent} sent, {failed} failed.",
+      "delivered": "Test sent: {sent} delivered, {failed} failed.",
       "externalVerificationSent": "does not get the test until it confirms: the confirmation email was sent. Once confirmed, send the test again.",
       "channelDelivers": "would get the message",
       "channelSkipped": "would not get it (disabled or deleted)"
@@ -2143,7 +2169,10 @@
       "ip_address": "The URL can't point to an IP address.",
       "port": "The URL can't use another port.",
       "host_not_allowed": "That domain is not allowed for this channel type.",
-      "path_not_allowed": "The URL path does not match this channel type."
+      "path_not_allowed": "The URL path does not match this channel type.",
+      "private_address": "The URL points to a private or internal address.",
+      "unresolvable": "The URL host could not be resolved.",
+      "not_signed": "This channel type does not sign its messages."
     },
     "link": {
       "invalid": "This link is not valid or has already been used.",
@@ -2217,7 +2246,22 @@
       "deleted": "Channel deleted",
       "disabledToast": "Channel disabled",
       "enabledToast": "Channel enabled",
-      "deleteTitle": "Delete the channel?"
+      "deleteTitle": "Delete the channel?",
+      "autoDisabled": "Disabled after {failures} failed deliveries in a row",
+      "signed": "Signed",
+      "rotate": "Rotate signing secret",
+      "rotateTitle": "Rotate the signing secret?",
+      "confirmRotate": "A new secret will be generated. For the next 24 hours deliveries are signed with both the new and the current secret, so the receiver can switch over; after that only the new one is valid.",
+      "rotated": "Signing secret rotated",
+      "rotationEndsAt": "Previous secret valid until {date}",
+      "secretTitle": "Signing secret",
+      "secretDescription": "Copy it now and configure it in the receiver: it will not be shown again. Each delivery carries an X-GitOps-Signature header made with it.",
+      "secretCopy": "Copy",
+      "secretCopied": "Secret copied",
+      "secretDone": "I have saved it",
+      "secretDocs": "How to verify the signature",
+      "webhookHelp": "Any public https URL. GitOps signs each request with HMAC-SHA256 and never follows redirects.",
+      "comingSoon": "Coming soon"
     }
   }
 }

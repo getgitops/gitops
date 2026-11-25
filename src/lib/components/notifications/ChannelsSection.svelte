@@ -3,12 +3,16 @@
   import type { SubmitFunction } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import {
+    Check,
+    Copy,
     Hash,
+    KeyRound,
     LoaderCircle,
     MessageSquare,
     Pencil,
     Plus,
     Power,
+    RefreshCw,
     Send,
     ShieldAlert,
     Trash2,
@@ -31,6 +35,14 @@
     webhook: Webhook,
   };
 
+  /** Every channel type, available or not: the ones without a transport show as coming soon. */
+  const CHANNEL_TYPES = ['webhook', 'slack', 'google-chat'] as const;
+  const typeDescriptions: Record<(typeof CHANNEL_TYPES)[number], string> = {
+    webhook: 'alerts.wizard.webhookDescription',
+    slack: 'alerts.wizard.slackDescription',
+    'google-chat': 'alerts.wizard.googleChatDescription',
+  };
+
   let busy = $state<string | null>(null);
   let createErrors = $state<Record<string, string>>({});
   let editErrors = $state<Record<string, string>>({});
@@ -38,6 +50,43 @@
   let editOpen = $state(false);
   let deleteTarget = $state<ChannelView | null>(null);
   let deleteOpen = $state(false);
+  let rotateTarget = $state<ChannelView | null>(null);
+  let rotateOpen = $state(false);
+  /** Secret just issued (create / rotate): shown once, dropped when the modal closes. */
+  let issuedSecret = $state<{ channelId: string; secret: string; rotated?: boolean } | null>(null);
+  let secretOpen = $state(false);
+  let createType = $state('');
+  const selectedType = $derived(
+    createType || (form?.channelDraft?.type ?? data.availableTypes[0] ?? ''),
+  );
+
+  function showSecret(data: Record<string, unknown> | undefined) {
+    const issued = data?.channelSecret as typeof issuedSecret;
+    if (!issued?.secret) return;
+    issuedSecret = issued;
+    secretOpen = true;
+  }
+
+  $effect(() => {
+    // nothing of the secret stays in memory once the modal is closed
+    if (!secretOpen) issuedSecret = null;
+  });
+
+  async function copySecret() {
+    if (!issuedSecret) return;
+    try {
+      await navigator.clipboard.writeText(issuedSecret.secret);
+      toast.success($_('notifications.channels.secretCopied'));
+    } catch {
+      toast.error($_('alerts.wizard.failed'));
+    }
+  }
+
+  function openRotate(event: MouseEvent, channel: ChannelView) {
+    event.preventDefault();
+    rotateTarget = channel;
+    rotateOpen = true;
+  }
 
   const formCreateErrors = $derived(
     form?.channelForm === 'create' ? (form.channelErrors ?? {}) : {},
@@ -94,9 +143,15 @@
       };
     };
 
-  const create = submit('create', () => {
+  const create = submit('create', (result) => {
     createErrors = {};
     toast.success($_('notifications.channels.created'));
+    showSecret(result);
+  });
+  const rotate = submit('rotate', (result) => {
+    rotateOpen = false;
+    toast.success($_('notifications.channels.rotated'));
+    showSecret(result);
   });
   const edit = submit('edit', () => {
     editOpen = false;
@@ -145,6 +200,19 @@
     {$_('notifications.channels.privacyNotice')}
   </p>
 
+  {#if form?.channelSecret}
+    <!-- without JavaScript the action result is the only place the secret is ever shown -->
+    <div class="k-card space-y-2 p-4" role="status" data-testid="channel-secret-nojs">
+      <p class="flex items-center gap-2 text-sm font-semibold text-white">
+        <KeyRound class="h-4 w-4" />{$_('notifications.channels.secretTitle')}
+      </p>
+      <p class="text-xs text-fg-muted">{$_('notifications.channels.secretDescription')}</p>
+      <code class="block break-all rounded-lg bg-ink-900 px-3 py-2 font-mono text-xs text-white"
+        >{form.channelSecret.secret}</code
+      >
+    </div>
+  {/if}
+
   {#if form?.channelTest}
     <p
       class="text-xs {form.channelTest.sent ? 'text-ok' : 'text-red-300'}"
@@ -184,8 +252,17 @@
                 {$_(`notifications.channels.types.${channel.type}`)}
               </span>
               {#if !channel.enabled}
-                <span class="k-badge h-5 px-2 text-[10px]">
+                <span
+                  class="k-badge h-5 px-2 text-[10px] {channel.disabledReason
+                    ? 'k-badge-danger'
+                    : ''}"
+                >
                   {$_('notifications.channels.disabled')}
+                </span>
+              {/if}
+              {#if channel.signed}
+                <span class="k-badge h-5 gap-1 px-2 text-[10px]">
+                  <KeyRound class="h-3 w-3" />{$_('notifications.channels.signed')}
                 </span>
               {/if}
               {#if !channel.available}
@@ -205,6 +282,20 @@
             {#if channel.lastError}
               <p class="mt-0.5 text-xs text-red-300">
                 {$_('notifications.channels.lastError', { values: { error: channel.lastError } })}
+              </p>
+            {/if}
+            {#if !channel.enabled && channel.disabledReason === 'failures'}
+              <p class="mt-0.5 text-xs text-red-300" data-testid="channel-auto-disabled">
+                {$_('notifications.channels.autoDisabled', {
+                  values: { failures: channel.consecutiveFailures },
+                })}
+              </p>
+            {/if}
+            {#if channel.rotationEndsAt}
+              <p class="mt-0.5 text-xs text-fg-subtle">
+                {$_('notifications.channels.rotationEndsAt', {
+                  values: { date: formatDate(channel.rotationEndsAt) },
+                })}
               </p>
             {/if}
           </div>
@@ -243,6 +334,22 @@
                   <Power class="h-4 w-4" />
                 </button>
               </form>
+              {#if channel.signed && channel.available}
+                <form method="POST" action="{action}?/rotateChannelSecret">
+                  <input type="hidden" name="channelId" value={channel.id} />
+                  <button
+                    type="submit"
+                    class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+                    title={$_('notifications.channels.rotate')}
+                    aria-label="{$_('notifications.channels.rotate')}: {channel.name}"
+                    disabled={busy !== null}
+                    onclick={(event) => openRotate(event, channel)}
+                    data-testid="channel-rotate"
+                  >
+                    <RefreshCw class="h-4 w-4" />
+                  </button>
+                </form>
+              {/if}
               <button
                 type="button"
                 class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
@@ -310,26 +417,66 @@
           method="POST"
           action="{action}?/createChannel"
           use:enhance={create}
-          class="grid gap-3 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]"
+          class="grid gap-3 sm:grid-cols-2"
         >
-          <div>
-            <label class="k-label" for="channel-type">{$_('notifications.channels.type')}</label>
-            <select
-              id="channel-type"
-              name="type"
-              class="k-input"
-              value={form?.channelDraft?.type ?? data.availableTypes[0]}
-              aria-invalid={Boolean(errors.type) || undefined}
-            >
-              {#each data.availableTypes as type (type)}
-                <option value={type}>{$_(`notifications.channels.types.${type}`)}</option>
+          <!-- native radios styled as cards: the form keeps working without JavaScript -->
+          <fieldset
+            class="sm:col-span-2"
+            aria-describedby={errors.type ? 'channel-type-error' : undefined}
+            data-testid="channel-type-cards"
+          >
+            <legend class="k-label">{$_('notifications.channels.type')}</legend>
+            <div class="grid gap-2 sm:grid-cols-3">
+              {#each CHANNEL_TYPES as type (type)}
+                {@const Icon = typeIcons[type] ?? Webhook}
+                {@const available = data.availableTypes.includes(type)}
+                {@const on = available && selectedType === type}
+                <label
+                  class="relative flex flex-col items-start gap-2 rounded-xl border p-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-500/60 {on
+                    ? 'border-brand-500/50 bg-brand-500/8'
+                    : available
+                      ? 'cursor-pointer border-white/10 hover:border-white/20 hover:bg-white/2'
+                      : 'cursor-not-allowed border-white/8 opacity-55'}"
+                  data-channel-type={type}
+                >
+                  <input
+                    type="radio"
+                    name="type"
+                    value={type}
+                    class="sr-only"
+                    checked={on}
+                    disabled={!available}
+                    onchange={() => (createType = type)}
+                  />
+                  <span
+                    class="grid h-8 w-8 place-items-center rounded-lg {on
+                      ? 'bg-brand-500/15 text-brand-400'
+                      : 'bg-white/5 text-fg-subtle'}"><Icon class="h-4 w-4" /></span
+                  >
+                  <span class="text-sm font-medium text-white">
+                    {$_(`notifications.channels.types.${type}`)}
+                  </span>
+                  <span class="text-xs text-fg-subtle">{$_(typeDescriptions[type])}</span>
+                  {#if available}
+                    <span
+                      class="pointer-events-none absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-full border {on
+                        ? 'border-brand-500 bg-brand-500 text-white'
+                        : 'border-white/15'}"
+                      >{#if on}<Check class="h-3.5 w-3.5" />{/if}</span
+                    >
+                  {:else}
+                    <span class="k-badge absolute right-3 top-3 h-5 px-1.5 text-[10px]"
+                      >{$_('notifications.channels.comingSoon')}</span
+                    >
+                  {/if}
+                </label>
               {/each}
-            </select>
-            {#if errors.type}<p class="mt-1 text-xs text-red-300">
+            </div>
+            {#if errors.type}<p id="channel-type-error" class="mt-1 text-xs text-red-300">
                 {errorText(errors, 'type')}
               </p>{/if}
-          </div>
-          <div>
+          </fieldset>
+          <div class="sm:col-span-2">
             <label class="k-label" for="channel-name">{$_('notifications.channels.name')}</label>
             <input
               id="channel-name"
@@ -359,6 +506,8 @@
             />
             {#if errors.destination}
               <p class="mt-1 text-xs text-red-300">{errorText(errors, 'destination')}</p>
+            {:else if selectedType === 'webhook'}
+              <p class="k-help mt-1">{$_('notifications.channels.webhookHelp')}</p>
             {/if}
           </div>
           <div class="sm:col-span-2">
@@ -479,3 +628,82 @@
     {/snippet}
   </Modal>
 {/if}
+
+{#if data.canUpdate}
+  <Modal
+    bind:open={rotateOpen}
+    role="alertdialog"
+    size="sm"
+    title={$_('notifications.channels.rotateTitle')}
+    description={$_('notifications.channels.confirmRotate')}
+  >
+    {#snippet icon()}
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-warn/10 text-warn"
+        ><RefreshCw class="h-5 w-5" /></span
+      >
+    {/snippet}
+    <form
+      id="channel-rotate-form"
+      method="POST"
+      action="{action}?/rotateChannelSecret"
+      use:enhance={rotate}
+    >
+      <input type="hidden" name="channelId" value={rotateTarget?.id ?? ''} />
+    </form>
+    {#snippet footer()}
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (rotateOpen = false)}
+        >{$_('common.cancel')}</button
+      >
+      <button
+        type="submit"
+        form="channel-rotate-form"
+        class="k-btn k-btn-primary"
+        disabled={busy !== null}
+        data-autofocus
+        data-testid="channel-rotate-confirm"
+      >
+        {#if busy === 'rotate'}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
+        {$_('notifications.channels.rotate')}
+      </button>
+    {/snippet}
+  </Modal>
+{/if}
+
+<Modal
+  bind:open={secretOpen}
+  size="md"
+  title={$_('notifications.channels.secretTitle')}
+  description={$_('notifications.channels.secretDescription')}
+>
+  {#snippet icon()}
+    <span
+      class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/12 text-brand-400"
+      ><KeyRound class="h-5 w-5" /></span
+    >
+  {/snippet}
+  {#if issuedSecret}
+    <div class="flex items-center gap-2">
+      <code
+        class="block min-w-0 flex-1 break-all rounded-lg bg-ink-900 px-3 py-2 font-mono text-xs text-white"
+        data-testid="channel-secret">{issuedSecret.secret}</code
+      >
+      <button
+        type="button"
+        class="k-btn k-btn-secondary k-btn-sm"
+        onclick={copySecret}
+        aria-label={$_('notifications.channels.secretCopy')}
+      >
+        <Copy class="h-4 w-4" />{$_('notifications.channels.secretCopy')}
+      </button>
+    </div>
+  {/if}
+  {#snippet footer()}
+    <button
+      type="button"
+      class="k-btn k-btn-primary"
+      onclick={() => (secretOpen = false)}
+      data-autofocus
+      data-testid="channel-secret-done">{$_('notifications.channels.secretDone')}</button
+    >
+  {/snippet}
+</Modal>

@@ -30,7 +30,14 @@ export type ChannelMessage = {
   /** A test from the UI, not a real event. */
   test: boolean;
   /** Raw event data for formats that carry it (generic webhooks); absent for test messages. */
-  event?: { id: string; type: string; occurredAt: string; scope: Record<string, unknown> };
+  event?: {
+    id: string;
+    type: string;
+    occurredAt: string;
+    scope: Record<string, unknown>;
+    /** Catalog field values by key, sensitive ones left out (no labels, no formatting). */
+    fields?: Record<string, unknown>;
+  };
   alert?: { id: string; name: string };
 };
 
@@ -39,18 +46,29 @@ export type ChatNotificationInput = {
   /** Destination URL in clear: only ever held in memory, right before sending. */
   destination: string;
   message: ChannelMessage;
+  /** Same for every attempt of one delivery, so receivers can deduplicate retries. */
+  deliveryId?: string;
+  /**
+   * Signing secrets in clear, newest first (two during a rotation's grace period). Only for
+   * transports with `signed: true`; only ever held in memory, right before sending.
+   */
+  signingSecrets?: string[];
 };
 
 export class ChatNotification extends Notification {
   readonly channel: ChatChannelType;
   readonly destination: string;
   readonly message: ChannelMessage;
+  readonly deliveryId: string;
+  readonly signingSecrets: readonly string[];
 
   constructor(input: ChatNotificationInput) {
     super();
     this.channel = input.channel;
     this.destination = input.destination;
     this.message = input.message;
+    this.deliveryId = input.deliveryId ?? crypto.randomUUID();
+    this.signingSecrets = input.signingSecrets ?? [];
   }
 
   validate(): void {
@@ -59,12 +77,28 @@ export class ChatNotification extends Notification {
   }
 }
 
+export type DestinationCheck = { ok: true; url: URL } | { ok: false; error: WebhookUrlError };
+
 /**
- * Transport of one chat channel type. `validateDestination` is the anti-SSRF check of the
- * provider's URL, run before saving a channel and again before every send.
+ * Transport of one chat channel type; registering it is all a new provider needs (the entity,
+ * cipher, queue, retries, permissions, UI and test message are shared).
+ *
+ * - `validateDestination` is the anti-SSRF check of the URL, run before saving a channel and
+ *   again before every send. It may be async (free URLs resolve DNS).
+ * - `signed: true` makes the service generate a signing secret per channel (shown once, rotatable
+ *   with a grace period) and hand the active ones to `send()` in `signingSecrets`.
  */
 export interface ChatTransport extends NotificationTransport<ChatNotification> {
-  validateDestination(raw: unknown): { ok: true; url: URL } | { ok: false; error: WebhookUrlError };
+  validateDestination(raw: unknown): DestinationCheck | Promise<DestinationCheck>;
+  readonly signed?: boolean;
+}
+
+/** No transport is registered for a channel type (recorded as the channel's `lastError`). */
+export class ChatTransportUnavailableError extends Error {
+  constructor(type: ChatChannelType) {
+    super(`No transport registered for channel type ${type}`);
+    this.name = 'TransportUnavailable';
+  }
 }
 
 const CHAT_TRANSPORTS_KEY = Symbol.for('gitops.notifications.chat-transports');

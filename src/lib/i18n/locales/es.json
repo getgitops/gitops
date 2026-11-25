@@ -599,7 +599,8 @@
         "projects": "Proyectos",
         "organization": "Organización",
         "access": "Accesos",
-        "monitoring": "Monitoring"
+        "monitoring": "Monitoring",
+        "notifications": "Notificaciones"
       }
     },
     "current": "Actual",
@@ -1404,6 +1405,11 @@
         "too_many_redirects": "Demasiadas redirecciones",
         "invalid_url": "URL no válida",
         "error": "Error"
+      },
+      "channelType": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
       }
     },
     "vault": {
@@ -1621,6 +1627,20 @@
           }
         }
       }
+    },
+    "notifications": {
+      "channel": {
+        "disabled": {
+          "label": "Canal deshabilitado automáticamente",
+          "description": "Un canal de notificaciones ha fallado demasiados envíos seguidos y se ha deshabilitado.",
+          "fields": {
+            "type": "Tipo de canal",
+            "name": "Nombre del canal",
+            "failures": "Fallos seguidos",
+            "lastError": "Último error"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1650,7 +1670,12 @@
           "body": "Se ha creado la API key personal «{name}» ({prefix}…) en tu cuenta.",
           "warning": "Si no has sido tú, revoca la API key y cambia tu contraseña cuanto antes."
         },
-        "openProfile": "Abrir mi perfil"
+        "openProfile": "Abrir mi perfil",
+        "channel_disabled": {
+          "subject": "Se ha deshabilitado el canal «{name}»",
+          "body": "El canal de notificaciones «{name}» de {target} ha fallado {failures} envíos seguidos (último error: {error}) y GitOps lo ha deshabilitado. Las alertas no publicarán en él hasta que se vuelva a habilitar.",
+          "warning": "Comprueba que el destino sigue funcionando y vuelve a habilitar el canal desde los ajustes de alertas."
+        }
       },
       "manageAlert": "Gestionar la alerta",
       "viewInApp": "Ver en GitOps",
@@ -1674,7 +1699,8 @@
         "policyViolated": "«{policy}» incumplida ({count})",
         "monitorDown": "{name} está caído ({cause})",
         "monitorDegraded": "{name} responde degradado",
-        "monitorRecovered": "{name} se ha recuperado tras {minutes} min"
+        "monitorRecovered": "{name} se ha recuperado tras {minutes} min",
+        "channelDisabled": "{name} deshabilitado tras {failures} fallos"
       },
       "externalFooter": "Recibes este email porque {organization} añadió tu dirección a la alerta “{alert}”.",
       "unsubscribe": "Darme de baja",
@@ -1723,8 +1749,8 @@
       "invalid_url": "Usa una URL http(s) válida.",
       "domain_not_allowed": "El dominio no está permitido para destinatarios externos.",
       "forbidden_external": "No tienes permiso para añadir destinatarios externos.",
-      "mail_not_configured": "El SMTP no está configurado: no se puede enviar el email de prueba.",
-      "test_rate_limited": "Has enviado demasiados emails de prueba. Espera unos minutos.",
+      "mail_not_configured": "El SMTP no está configurado y la alerta no tiene canales: no hay a dónde enviar la prueba.",
+      "test_rate_limited": "Has enviado demasiadas pruebas. Espera unos minutos.",
       "unknown_channel": "Algún canal no existe o no se puede usar desde aquí.",
       "forbidden_channel": "No tienes permiso para añadir canales a la alerta."
     },
@@ -1819,9 +1845,9 @@
       "externalDisabled": "La organización no permite destinatarios externos.",
       "externalSettingsLink": "Configurar dominios permitidos",
       "externalStatus": "Estado de los emails externos",
-      "sendTest": "Enviar email de prueba",
+      "sendTest": "Enviar prueba",
       "sendingTest": "Enviando…",
-      "sendTestHelp": "Envía un email real con un evento de ejemplo a los destinatarios de la alerta que lo recibirían (los externos solo si están confirmados).",
+      "sendTestHelp": "Envía un evento de ejemplo a todos los destinos de la alerta: email a los destinatarios que lo recibirían (los externos solo si están confirmados) y un mensaje a cada canal seleccionado.",
       "channelsHelp": "El email llega a los destinatarios de arriba. Además, puedes publicar la alerta en canales de chat o webhooks: un mensaje por canal.",
       "noChannels": "No hay canales configurados para este ámbito.",
       "channelsSettingsLink": "Configurar canales",
@@ -1835,10 +1861,10 @@
       "recipients": "Se enviaría a: {names}",
       "noRecipients": "No se enviaría a nadie.",
       "denied": "{count} destinatarios no lo recibirían porque no pueden ver este evento.",
-      "nothingSent": "Es una prueba: no se ha enviado ningún email.",
+      "nothingSent": "Es una simulación: no se ha enviado nada.",
       "externalDelivers": "lo recibiría",
       "externalSkipped": "no lo recibiría ({status})",
-      "delivered": "Email de prueba enviado: {sent} enviados, {failed} fallidos.",
+      "delivered": "Prueba enviada: {sent} entregadas, {failed} fallidas.",
       "externalVerificationSent": "no recibe la prueba hasta que confirme: se le ha enviado el email de confirmación. Cuando confirme, vuelve a enviar la prueba.",
       "channelDelivers": "recibiría el mensaje",
       "channelSkipped": "no lo recibiría (deshabilitado o eliminado)"
@@ -2143,7 +2169,10 @@
       "ip_address": "La URL no puede apuntar a una dirección IP.",
       "port": "La URL no puede usar otro puerto.",
       "host_not_allowed": "Ese dominio no está permitido para este tipo de canal.",
-      "path_not_allowed": "La ruta de la URL no corresponde a este tipo de canal."
+      "path_not_allowed": "La ruta de la URL no corresponde a este tipo de canal.",
+      "private_address": "La URL apunta a una dirección privada o interna.",
+      "unresolvable": "No se ha podido resolver el dominio de la URL.",
+      "not_signed": "Este tipo de canal no firma sus mensajes."
     },
     "link": {
       "invalid": "Este enlace no es válido o ya se ha usado.",
@@ -2217,7 +2246,22 @@
       "deleted": "Canal eliminado",
       "disabledToast": "Canal deshabilitado",
       "enabledToast": "Canal habilitado",
-      "deleteTitle": "¿Eliminar el canal?"
+      "deleteTitle": "¿Eliminar el canal?",
+      "autoDisabled": "Deshabilitado tras {failures} envíos fallidos seguidos",
+      "signed": "Firmado",
+      "rotate": "Rotar el secreto de firma",
+      "rotateTitle": "¿Rotar el secreto de firma?",
+      "confirmRotate": "Se generará un secreto nuevo. Durante las próximas 24 horas los envíos se firman con el nuevo y con el actual, para que el receptor pueda migrar; después solo vale el nuevo.",
+      "rotated": "Secreto de firma rotado",
+      "rotationEndsAt": "El secreto anterior es válido hasta {date}",
+      "secretTitle": "Secreto de firma",
+      "secretDescription": "Cópialo ahora y configúralo en el receptor: no se volverá a mostrar. Cada envío lleva una cabecera X-GitOps-Signature hecha con él.",
+      "secretCopy": "Copiar",
+      "secretCopied": "Secreto copiado",
+      "secretDone": "Ya lo he guardado",
+      "secretDocs": "Cómo verificar la firma",
+      "webhookHelp": "Cualquier URL https pública. GitOps firma cada petición con HMAC-SHA256 y nunca sigue redirecciones.",
+      "comingSoon": "Próximamente"
     }
   }
 }

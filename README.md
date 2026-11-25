@@ -139,8 +139,9 @@ vulnerabilities*.
    *greater than* `0`.
 4. Recipients: the **Project Admin** role. Throttle: one email every **30** minutes at most.
 5. **Test alert** shows whether an example event matches and who would get the email, without
-   sending anything. **Send test email** also emails those recipients with an example event and a
-   `[Test]` subject (external addresses only once confirmed). Then **Create alert**.
+   sending anything. **Send test** also sends the example event to every destination: an email
+   with a `[Test]` subject to those recipients (external addresses only once confirmed) and a
+   message to each selected channel. Then **Create alert**.
 
 The same alert through the API (`gvs_` project keys only manage alerts of their own project):
 
@@ -198,8 +199,15 @@ emails or the other channels.
 
 Adding channels to an alert needs `organization:notifications:update` or
 `project:notifications:update`: people reading a channel may have no access to the resource.
-Messages leave out sensitive fields. Channel types become available as their transports land
-(generic webhooks, Slack and Google Chat); until then the settings say no type is available yet.
+Messages leave out sensitive fields. Channel types become available as their transports land:
+generic webhooks are available; Slack and Google Chat are not yet.
+
+A **webhook** channel posts a versioned JSON body to any public `https` URL, signed with
+HMAC-SHA256 in `X-GitOps-Signature`. Its signing secret is shown once when the channel is created
+(and when it is rotated; the previous secret keeps signing for 24 hours). Private, loopback,
+link-local and cloud metadata addresses are refused, and redirects are never followed. A channel
+that fails 20 deliveries in a row disables itself and its creator is emailed. The request format,
+retries and how to verify the signature are in [docs/webhooks](docs/webhooks/README.md).
 
 ### Monitoring
 

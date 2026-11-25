@@ -6,7 +6,19 @@ import {
 } from '../../domain/notification-channel.domain';
 
 export type NotificationChannelChanges = Partial<
-  Pick<NotificationChannelRow, 'name' | 'webhookUrl' | 'enabled' | 'lastDeliveryAt' | 'lastError'>
+  Pick<
+    NotificationChannelRow,
+    | 'name'
+    | 'webhookUrl'
+    | 'enabled'
+    | 'lastDeliveryAt'
+    | 'lastError'
+    | 'signingSecret'
+    | 'previousSigningSecret'
+    | 'previousSecretExpiresAt'
+    | 'consecutiveFailures'
+    | 'disabledReason'
+  >
 >;
 
 /** Persistence port; `InMemoryNotificationChannelRepository` implements it in tests. */

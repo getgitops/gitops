@@ -6,9 +6,12 @@ const KEY_SALT = 'gitops:notifications:channel-destination:v1';
 const IV_BYTES = 12;
 const AUTH_TAG_BYTES = 16;
 
+/** What an encrypted value is: a ciphertext of one purpose doesn't decrypt as another. */
+export type ChannelSecretPurpose = 'destination' | 'signing-secret';
+
 export interface ChannelCipher {
-  encrypt(channelId: string, value: string): string;
-  decrypt(channelId: string, stored: string): string;
+  encrypt(channelId: string, value: string, purpose?: ChannelSecretPurpose): string;
+  decrypt(channelId: string, stored: string, purpose?: ChannelSecretPurpose): string;
 }
 
 /**
@@ -26,15 +29,22 @@ export function createChannelCipher(secret: () => string): ChannelCipher {
     }
     return cached.key;
   };
-  const aad = (channelId: string) => Buffer.from(`${VERSION}:channel:${channelId}`, 'utf8');
+  // the destination keeps the original AAD, so channels stored before purposes existed decrypt
+  const aad = (channelId: string, purpose: ChannelSecretPurpose = 'destination') =>
+    Buffer.from(
+      purpose === 'destination'
+        ? `${VERSION}:channel:${channelId}`
+        : `${VERSION}:channel:${channelId}:${purpose}`,
+      'utf8',
+    );
 
   return {
-    encrypt(channelId, value) {
+    encrypt(channelId, value, purpose) {
       const iv = crypto.randomBytes(IV_BYTES);
       const cipher = crypto.createCipheriv(ALGORITHM, key(), iv, {
         authTagLength: AUTH_TAG_BYTES,
       });
-      cipher.setAAD(aad(channelId));
+      cipher.setAAD(aad(channelId, purpose));
       const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
       return [
         VERSION,
@@ -43,7 +53,7 @@ export function createChannelCipher(secret: () => string): ChannelCipher {
         ciphertext.toString('base64'),
       ].join(':');
     },
-    decrypt(channelId, stored) {
+    decrypt(channelId, stored, purpose) {
       const [version, iv, authTag, ciphertext, ...rest] = stored.split(':');
       if (version !== VERSION || !iv || !authTag || !ciphertext || rest.length > 0) {
         throw new Error(`Channel ${channelId} has no encrypted destination`);
@@ -52,7 +62,7 @@ export function createChannelCipher(secret: () => string): ChannelCipher {
         const decipher = crypto.createDecipheriv(ALGORITHM, key(), Buffer.from(iv, 'base64'), {
           authTagLength: AUTH_TAG_BYTES,
         });
-        decipher.setAAD(aad(channelId));
+        decipher.setAAD(aad(channelId, purpose));
         decipher.setAuthTag(Buffer.from(authTag, 'base64'));
         return Buffer.concat([
           decipher.update(Buffer.from(ciphertext, 'base64')),

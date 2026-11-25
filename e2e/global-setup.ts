@@ -66,6 +66,8 @@ function buildEnv(): Record<string, string | undefined> {
     MONITORING_INTERNAL_HOSTS: '',
     MONITORING_EMBEDDED_WORKER: 'true',
     MONITORING_ALLOW_PRIVATE_TARGETS: 'true',
+    // webhook channels are created with a URL nobody resolves; no delivery is attempted
+    NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS: 'true',
     PORT: String(E2E_PORT),
   };
 }

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { ChannelMessage } from '#lib/server/infra/notifications';
 import { NotificationChannelValidationError } from '../domain/notification-channel.domain';
-import { createChannelsFixture } from './testing';
+import { RecordingEventBus } from '#lib/server/events/testing';
+import { createChannelCipher } from '../infrastructure/crypto/channel-cipher';
+import { createChannelsFixture, FakeChatTransport } from './testing';
 
 const ORG = 'org-1';
 const orgLocation = { scope: 'organization' as const, organizationId: ORG, projectId: null };
@@ -32,9 +34,13 @@ describe('NotificationChannelService', () => {
     f = createChannelsFixture();
   });
 
+  /** Creates a channel and returns it (without the issued secret). */
+  const create = (...args: Parameters<typeof f.service.create>) =>
+    f.service.create(...args).then((issued) => issued.channel);
+
   describe('create and storage', () => {
     it('stores the destination encrypted and only ever shows it masked', async () => {
-      const channel = await f.service.create(
+      const channel = await create(
         orgLocation,
         { type: 'slack', name: ' #alertas ', destination: HOOK },
         'admin',
@@ -92,7 +98,7 @@ describe('NotificationChannelService', () => {
     });
 
     it('keeps the destination when an update leaves it empty, and re-encrypts a new one', async () => {
-      const channel = await f.service.create(
+      const channel = await create(
         orgLocation,
         { type: 'slack', name: 'a', destination: HOOK },
         'x',
@@ -110,13 +116,9 @@ describe('NotificationChannelService', () => {
 
   describe('scopes', () => {
     it('lets a project channel serve only its project, and an organization channel all of them', async () => {
-      const org = await f.service.create(
-        orgLocation,
-        { type: 'slack', name: 'org', destination: HOOK },
-        'a',
-      );
-      const own = await f.service.create(p1, { type: 'slack', name: 'p1', destination: HOOK }, 'a');
-      await f.service.create(
+      const org = await create(orgLocation, { type: 'slack', name: 'org', destination: HOOK }, 'a');
+      const own = await create(p1, { type: 'slack', name: 'p1', destination: HOOK }, 'a');
+      await create(
         { ...p1, projectId: 'p2' },
         { type: 'slack', name: 'p2', destination: HOOK },
         'a',
@@ -136,9 +138,8 @@ describe('NotificationChannelService', () => {
     let channelId: string;
 
     beforeEach(async () => {
-      channelId = (
-        await f.service.create(orgLocation, { type: 'slack', name: 'a', destination: HOOK }, 'x')
-      ).id;
+      channelId = (await create(orgLocation, { type: 'slack', name: 'a', destination: HOOK }, 'x'))
+        .id;
     });
 
     it('sends to the decrypted destination', async () => {
@@ -207,7 +208,7 @@ describe('NotificationChannelService', () => {
       const g = createChannelsFixture({ logger: { warn: record, error: record, debug: record } });
       const id = (
         await g.service.create(orgLocation, { type: 'slack', name: 'a', destination: HOOK }, 'x')
-      ).id;
+      ).channel.id;
       g.transport.failWith = [503, 503, 503, 503];
       await g.service.deliver(id, message, { alertId: 'alert-1' });
 
@@ -236,5 +237,231 @@ describe('NotificationChannelService', () => {
       expect(g.repository.rows[0].lastError).toBe('unavailable');
       expect(g.service.toView(await g.service.get(channelId)).available).toBe(false);
     });
+  });
+});
+
+describe('NotificationChannelService: signed channels and failure streaks', () => {
+  const webhook = (overrides: Partial<Parameters<typeof createChannelsFixture>[0]> = {}) => {
+    const signed = new FakeChatTransport(true);
+    const events = new RecordingEventBus();
+    const lines: unknown[] = [];
+    const record = (...args: unknown[]) => void lines.push(args);
+    const fixture = createChannelsFixture({
+      transports: { webhook: signed },
+      events,
+      logger: { warn: record, error: record, debug: record },
+      ...overrides,
+    });
+    return { ...fixture, signed, events, lines };
+  };
+
+  it('issues a signing secret once, stores it encrypted and never shows it again', async () => {
+    const f = webhook();
+    const issued = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'admin',
+    );
+    expect(issued.signingSecret).toBe('whsec_test1');
+
+    const [row] = f.repository.rows;
+    expect(row.signingSecret).toBeTruthy();
+    expect(row.signingSecret).not.toContain('whsec_test1');
+    const view = f.service.toView(await f.service.get(issued.channel.id));
+    expect(view.signed).toBe(true);
+    expect(JSON.stringify(view)).not.toContain('whsec_');
+    expect(view).not.toHaveProperty('signingSecret');
+    expect(view).not.toHaveProperty('previousSigningSecret');
+
+    // unsigned types get none
+    const slack = await f.service.create(
+      orgLocation,
+      { type: 'slack', name: '#a', destination: HOOK },
+      'admin',
+    );
+    expect(slack.signingSecret).toBeNull();
+    await expect(f.service.rotateSecret(slack.channel.id)).rejects.toBeInstanceOf(
+      NotificationChannelValidationError,
+    );
+  });
+
+  it('signs each delivery with a delivery id and the active secret', async () => {
+    const f = webhook();
+    const { channel } = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'admin',
+    );
+    await f.service.deliver(channel.id, message);
+    await f.service.deliver(channel.id, message);
+    expect(f.signed.sent.map((sent) => sent.signingSecrets)).toEqual([
+      ['whsec_test1'],
+      ['whsec_test1'],
+    ]);
+    expect(f.signed.sent.map((sent) => sent.deliveryId)).toEqual(['delivery-1', 'delivery-2']);
+  });
+
+  it('keeps the previous secret signing for 24 h after a rotation', async () => {
+    const f = webhook();
+    const { channel } = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'admin',
+    );
+    const rotated = await f.service.rotateSecret(channel.id);
+    expect(rotated.signingSecret).toBe('whsec_test2');
+    expect(f.service.toView(rotated.channel).rotationEndsAt).toBe('2026-11-25T10:00:00.000Z');
+
+    await f.service.deliver(channel.id, message);
+    expect(f.signed.sent.at(-1)!.signingSecrets).toEqual(['whsec_test2', 'whsec_test1']);
+
+    f.advance(24 * 60 * 60 * 1000);
+    await f.service.deliver(channel.id, message);
+    expect(f.signed.sent.at(-1)!.signingSecrets).toEqual(['whsec_test2']);
+    expect(f.service.toView(await f.service.get(channel.id)).rotationEndsAt).toBeNull();
+
+    // a second rotation drops the oldest secret
+    await f.service.rotateSecret(channel.id);
+    await f.service.rotateSecret(channel.id);
+    await f.service.deliver(channel.id, message);
+    expect(f.signed.sent.at(-1)!.signingSecrets).toEqual(['whsec_test4', 'whsec_test3']);
+  });
+
+  it('refuses to deliver a signed channel without a secret', async () => {
+    const f = webhook();
+    const { channel } = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'admin',
+    );
+    await f.repository.update(channel.id, { signingSecret: null });
+    expect(await f.service.deliver(channel.id, message)).toBe(false);
+    expect(f.signed.attempts).toHaveLength(0);
+    expect((await f.service.get(channel.id)).lastError).toBe('missing_secret');
+  });
+
+  it('disables a channel after N definitive failures in a row and announces it once', async () => {
+    const f = webhook({ maxConsecutiveFailures: 3 });
+    const { channel } = await f.service.create(
+      p1,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'creator',
+    );
+    f.signed.failWith = [410, 410];
+    await f.service.deliver(channel.id, message);
+    await f.service.deliver(channel.id, message);
+    expect(await f.service.get(channel.id)).toMatchObject({
+      enabled: true,
+      consecutiveFailures: 2,
+    });
+
+    // a success ends the streak
+    await f.service.deliver(channel.id, message);
+    expect((await f.service.get(channel.id)).consecutiveFailures).toBe(0);
+
+    f.signed.failWith = [404, 404, 404];
+    for (let i = 0; i < 3; i += 1) await f.service.deliver(channel.id, message);
+    const disabled = await f.service.get(channel.id);
+    expect(disabled).toMatchObject({
+      enabled: false,
+      disabledReason: 'failures',
+      consecutiveFailures: 3,
+      lastError: 'HTTP 404',
+    });
+
+    const announced = f.events.ofType('notifications.channel.disabled');
+    expect(announced).toHaveLength(1);
+    expect(announced[0]).toMatchObject({
+      actor: { kind: 'system' },
+      scope: { organizationId: ORG, projectId: 'p1' },
+      payload: {
+        channelId: channel.id,
+        name: 'SIEM',
+        type: 'webhook',
+        reason: 'failures',
+        failures: 3,
+        lastError: 'HTTP 404',
+        createdByUserId: 'creator',
+      },
+    });
+    expect(JSON.stringify(announced)).not.toContain('hooks.example.com');
+
+    // a disabled channel gets nothing else, and doesn't announce again
+    expect(await f.service.deliver(channel.id, message)).toBe(false);
+    expect(f.events.ofType('notifications.channel.disabled')).toHaveLength(1);
+
+    // enabling it again starts a new streak
+    await f.service.update(channel.id, { enabled: true });
+    expect(await f.service.get(channel.id)).toMatchObject({
+      enabled: true,
+      disabledReason: null,
+      consecutiveFailures: 0,
+    });
+  });
+
+  it('counts a destination that became invalid, but never test messages', async () => {
+    const f = webhook({ maxConsecutiveFailures: 2 });
+    const { channel } = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'creator',
+    );
+    f.signed.failWith = [500, 500, 500, 500, 500, 500, 500, 500];
+    await f.service.test(channel.id, { ...message, test: true });
+    await f.service.test(channel.id, { ...message, test: true });
+    expect(await f.service.get(channel.id)).toMatchObject({
+      enabled: true,
+      consecutiveFailures: 0,
+    });
+
+    await f.repository.update(channel.id, {
+      webhookUrl: createChannelCipher(() => 'test-encryption-key').encrypt(
+        channel.id,
+        'https://169.254.169.254/hook/x',
+      ),
+    });
+    await f.service.deliver(channel.id, message);
+    await f.service.deliver(channel.id, message);
+    expect(await f.service.get(channel.id)).toMatchObject({
+      enabled: false,
+      lastError: 'invalid_destination',
+    });
+  });
+
+  it('never counts alert test sends toward disabling the channel', async () => {
+    const f = webhook({ maxConsecutiveFailures: 1 });
+    const { channel } = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'creator',
+    );
+    f.signed.failWith = [410, 410];
+    // what AlertEngine.sendTest delivers: a real-looking message flagged as a test
+    expect(
+      await f.service.deliver(channel.id, { ...message, test: true }, { kind: 'alert_test' }),
+    ).toBe(false);
+    expect(await f.service.get(channel.id)).toMatchObject({
+      enabled: true,
+      consecutiveFailures: 0,
+      lastError: 'HTTP 410',
+    });
+    expect(f.events.ofType('notifications.channel.disabled')).toHaveLength(0);
+  });
+
+  it('never logs the secret nor the destination', async () => {
+    const f = webhook({ maxConsecutiveFailures: 1 });
+    const { channel } = await f.service.create(
+      orgLocation,
+      { type: 'webhook', name: 'SIEM', destination: HOOK },
+      'creator',
+    );
+    await f.service.rotateSecret(channel.id);
+    f.signed.failWith = [503, 503, 503, 503];
+    await f.service.deliver(channel.id, message);
+    expect(f.lines.length).toBeGreaterThan(0);
+    const logged = JSON.stringify(f.lines);
+    expect(logged).toContain(channel.id);
+    expect(logged).not.toContain('whsec_');
+    expect(logged).not.toContain('hooks.example.com');
   });
 });

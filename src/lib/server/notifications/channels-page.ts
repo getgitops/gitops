@@ -7,6 +7,7 @@ import {
   createChannel,
   deleteChannel,
   listChannels,
+  rotateChannelSecret,
   testChannel,
   updateChannel,
 } from './channels';
@@ -50,7 +51,30 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
           channelErrors: result.errors ?? {},
         });
       }
-      return { channelSaved: result.data.id };
+      // the signing secret is shown this once: the page renders it from the action result
+      return {
+        channelSaved: result.data.id,
+        ...(result.data.signingSecret
+          ? { channelSecret: { channelId: result.data.id, secret: result.data.signingSecret } }
+          : {}),
+      };
+    },
+
+    async rotateChannelSecret(event: ActionEvent) {
+      await resolve(event);
+      const form = await event.request.formData();
+      const channelId = String(form.get('channelId') ?? '');
+      const result = await rotateChannelSecret(event.locals, channelId);
+      if (!result.ok || !result.data.signingSecret) {
+        return fail(result.ok ? 400 : result.status, {
+          channelForm: channelId,
+          channelError: result.ok ? 'not_signed' : result.error,
+        });
+      }
+      return {
+        channelSaved: channelId,
+        channelSecret: { channelId, secret: result.data.signingSecret, rotated: true },
+      };
     },
 
     async updateChannel(event: ActionEvent) {
