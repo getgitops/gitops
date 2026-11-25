@@ -22,6 +22,8 @@
     MessageSquare,
     Save,
     Search,
+    Send,
+    ShieldAlert,
     User,
     Users,
     Webhook,
@@ -47,7 +49,9 @@
     AlertTestView,
     CatalogEntry,
     DraftCondition,
+    ExternalRecipientsEditorData,
   } from '#lib/alerts/types';
+  import { statusBadgeClass } from '#lib/notifications/status';
   import ConditionBuilder from './ConditionBuilder.svelte';
   import { DELIVERED_CHANNELS } from '#modules/alerts/domain/alert.domain';
 
@@ -59,6 +63,7 @@
     recipientUsers: AlertOption[];
     recipientRoles: AlertOption[];
     mailConfigured: boolean;
+    external: ExternalRecipientsEditorData;
   };
 
   let {
@@ -77,7 +82,7 @@
   let step = $state<Step>('event');
   let errors = $state<Record<string, string>>({});
   let message = $state('');
-  let busy = $state<'save' | 'test' | null>(null);
+  let busy = $state<'save' | 'test' | 'send' | null>(null);
   let test = $state<AlertTestView | null>(null);
   let eventQuery = $state('');
   let sampleProjectId = $state('');
@@ -231,13 +236,44 @@
     if (kind === 'user') {
       return { label: data.recipientUsers.find((user) => user.id === id)?.label ?? id, icon: User };
     }
-    return { label: id, icon: AtSign };
+    const status = data.external.statuses[id];
+    return {
+      label: status ? `${id} · ${$_(`notifications.status.${status}`)}` : id,
+      icon: AtSign,
+    };
   }
 
+  const canAddExternal = $derived(
+    data.external.canManage && data.external.allowedDomains.length > 0,
+  );
+  function domainAllowed(email: string) {
+    const domain = email.split('@').pop() ?? '';
+    return data.external.allowedDomains.some((allowed) =>
+      allowed.startsWith('*.') ? domain.endsWith(allowed.slice(1)) : domain === allowed,
+    );
+  }
   const parseEmail = (text: string) => {
     const email = text.trim().toLowerCase();
-    return EMAIL_PATTERN.test(email) ? `email:${email}` : null;
+    if (!canAddExternal || !EMAIL_PATTERN.test(email) || !domainAllowed(email)) return null;
+    return `email:${email}`;
   };
+  const emailRejection = $derived(
+    !data.external.allowedDomains.length
+      ? $_('alerts.editor.externalDisabled')
+      : !data.external.canManage
+        ? $_('alerts.editor.externalReadonly')
+        : $_('alerts.editor.externalHelp', {
+            values: { domains: data.external.allowedDomains.join(', ') },
+          }),
+  );
+  const externalErrors = $derived(
+    Object.entries(errors)
+      .filter(([key]) => /^recipients\.emails\.\d+$/.test(key))
+      .map(([key, code]) => ({
+        email: draft.recipients.emails[Number(key.split('.').pop())] ?? '',
+        code,
+      })),
+  );
   const parseSlack = (text: string) => {
     const name = text.trim().toLowerCase().replace(/^#/, '');
     return /^[a-z0-9][a-z0-9._-]{0,79}$/.test(name) ? `#${name}` : null;
@@ -292,9 +328,11 @@
   }
 
   // ---------- enviar ----------
-  async function post(action: 'save' | 'test') {
+  const OPERATION_ERRORS = ['mail_not_configured', 'test_rate_limited'];
+
+  async function post(action: 'save' | 'test', send = false) {
     if (!draft.name.trim() && definition) draft.name = $_(definition.label);
-    busy = action;
+    busy = send ? 'send' : action;
     message = '';
     try {
       const response = await fetch(`${data.basePath}?/${action}`, {
@@ -303,14 +341,18 @@
         body: draftToFormData(draft, {
           alertId: alert?.id,
           sampleProjectId: action === 'test' ? sampleProjectId : null,
+          send: send ? 'true' : null,
         }),
       });
       const result = deserialize(await response.text());
       if (result.type === 'failure') {
         errors = (result.data?.errors as Record<string, string>) ?? {};
+        const code = String(result.data?.error ?? '');
         message = Object.keys(errors).length
           ? $_('alerts.editor.fixErrors')
-          : String(result.data?.error ?? $_('alerts.wizard.failed'));
+          : OPERATION_ERRORS.includes(code)
+            ? $_(`alerts.errors.${code}`)
+            : code || $_('alerts.wizard.failed');
         if (action === 'test') test = null;
         const first = STEPS.find((candidate) => stepErrors[candidate]);
         if (first) step = first;
@@ -571,11 +613,33 @@
                     parse={parseEmail}
                     describe={describeMail}
                     placeholder={$_('alerts.wizard.mailPlaceholder')}
-                    invalidMessage={$_('alerts.errors.invalid_email')}
+                    invalidMessage={emailRejection}
                     onchange={setMailValues}
                   />
                 {/snippet}
               </Field>
+              {#if externalErrors.length > 0}
+                <ul class="mt-2 list-disc pl-4 text-xs text-red-300" role="alert">
+                  {#each externalErrors as failure (failure.email + failure.code)}
+                    <li>{failure.email}: {$_(`alerts.errors.${failure.code}`)}</li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if draft.recipients.emails.length > 0}
+                <p
+                  class="mt-3 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
+                >
+                  <ShieldAlert class="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
+                  {$_('alerts.editor.externalNotice')}
+                </p>
+              {:else if !data.external.allowedDomains.length && data.external.settingsPath}
+                <p class="mt-3 text-xs text-fg-subtle">
+                  {$_('alerts.editor.externalDisabled')}
+                  <a class="text-brand-400 hover:text-brand-300" href={data.external.settingsPath}
+                    >{$_('alerts.editor.externalSettingsLink')}</a
+                  >
+                </p>
+              {/if}
               <p class="mt-3 flex items-start gap-2 text-xs text-fg-subtle">
                 <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />{$_('alerts.editor.recipientsNotice')}
               </p>
@@ -807,7 +871,33 @@
                   {$_('alerts.test.denied', { values: { count: test.deniedCount } })}
                 </p>
               {/if}
-              <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+              {#if test.external.length > 0}
+                <ul class="mt-1 text-xs">
+                  {#each test.external as recipient (recipient.email)}
+                    <li class="flex flex-wrap items-center gap-1.5">
+                      <span class="{statusBadgeClass(recipient.status)} h-5 px-1.5 text-[10px]"
+                        >{$_(`notifications.status.${recipient.status}`)}</span
+                      >
+                      {recipient.email}: {recipient.delivers
+                        ? $_('alerts.test.externalDelivers')
+                        : test.delivery && recipient.status === 'pending'
+                          ? $_('alerts.test.externalVerificationSent')
+                          : $_('alerts.test.externalSkipped', {
+                              values: { status: $_(`notifications.status.${recipient.status}`) },
+                            })}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if test.delivery}
+                <p class="mt-1 font-medium" data-testid="alert-test-delivery">
+                  {$_('alerts.test.delivered', {
+                    values: { sent: test.delivery.sent, failed: test.delivery.failed },
+                  })}
+                </p>
+              {:else}
+                <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+              {/if}
             </div>
           {/if}
         </div>
@@ -850,6 +940,19 @@
             class="h-4 w-4"
           />{/if}
         {$_('alerts.editor.test')}
+      </button>
+      <button
+        type="button"
+        class="k-btn k-btn-secondary"
+        disabled={busy !== null || !data.mailConfigured || !draft.channels.includes('mail')}
+        title={$_('alerts.editor.sendTestHelp')}
+        onclick={() => post('test', true)}
+        data-testid="alert-send-test"
+      >
+        {#if busy === 'send'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Send
+            class="h-4 w-4"
+          />{/if}
+        {busy === 'send' ? $_('alerts.editor.sendingTest') : $_('alerts.editor.sendTest')}
       </button>
       <button
         type="button"

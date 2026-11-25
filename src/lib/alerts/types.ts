@@ -3,6 +3,7 @@
  * components (`#lib/components/alerts`). Type-only: safe to import from the client.
  */
 import type { EventDefinition, Operator } from '#lib/events/catalog';
+import type { NotificationSettingsPage } from '#lib/notifications/types';
 import type {
   AlertChannel,
   AlertRecipients,
@@ -43,6 +44,13 @@ export type AlertDraft = {
   throttleMinutes: number;
 };
 
+export type ExternalRecipientsEditorData = {
+  canManage: boolean;
+  allowedDomains: string[];
+  statuses: Record<string, string>;
+  settingsPath: string | null;
+};
+
 type Shared = {
   basePath: string;
   scope: AlertScope;
@@ -57,9 +65,11 @@ type Shared = {
   recipientRoles: AlertOption[];
   /** `false` when SMTP is not configured: alerts are saved but nothing is sent. */
   mailConfigured: boolean;
+  external: ExternalRecipientsEditorData;
 };
 
 export type AlertListData = Shared & {
+  settings: NotificationSettingsPage | null;
   alerts: AlertRow[];
   /** Organization alerts that also fire for this project (project pages only). */
   inherited: AlertRow[];
@@ -79,6 +89,8 @@ export type AlertTestView = {
   matched: boolean;
   recipients: Array<{ userId: string; username: string }>;
   deniedCount: number;
+  external: Array<{ email: string; status: string; delivers: boolean }>;
+  delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };
 };
 

@@ -25,9 +25,11 @@ export function describeEventFields(
   event: AnyDomainEvent,
   definition: EventDefinition,
   names: ReadonlyMap<string, string> = new Map(),
+  options: { omitSensitive?: boolean } = {},
 ): EventFieldLine[] {
   const lines: EventFieldLine[] = [];
   for (const field of definition.fields) {
+    if (options.omitSensitive && field.sensitive) continue;
     const value = safeValue(event, field.key as string);
     if (value === undefined || value === null || value === '') continue;
     if (Array.isArray(value) && value.length === 0) continue;

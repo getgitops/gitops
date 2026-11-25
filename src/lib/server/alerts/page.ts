@@ -11,6 +11,7 @@ import {
   emptyRecipients,
   type AlertChannel,
 } from '#modules/alerts/domain/alert.domain';
+import { externalRecipientService, notificationSettingsService } from '#modules/notifications';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import {
@@ -26,8 +27,13 @@ import type {
   AlertListData,
   AlertOption,
   DraftCondition,
+  ExternalRecipientsEditorData,
 } from '#lib/alerts/types';
-import { canManageAlerts, type AlertLocals } from './access';
+import {
+  canOpenNotificationSettings,
+  loadNotificationSettings,
+} from '#lib/server/notifications/settings';
+import { callerCan, canManageAlerts, contextOf, type AlertLocals } from './access';
 import {
   createAlert,
   deleteAlert,
@@ -99,6 +105,29 @@ async function recipientOptions(location: AlertLocation) {
   };
 }
 
+async function externalRecipientsData(
+  locals: AlertLocals,
+  location: AlertLocation,
+  emails: string[],
+): Promise<ExternalRecipientsEditorData> {
+  const [canManage, settings, statuses, canOpenSettings, organization] = await Promise.all([
+    callerCan(locals, `${location.scope}:notifications:update`, contextOf(location)),
+    notificationSettingsService.get(location.organizationId).catch(() => null),
+    externalRecipientService
+      .statuses(location.organizationId, [...new Set(emails)])
+      .catch(() => new Map<string, string>()),
+    canOpenNotificationSettings(locals, location.organizationId),
+    organizationService.getOrganization(location.organizationId).catch(() => null),
+  ]);
+  return {
+    canManage,
+    allowedDomains: settings?.allowedExternalEmailDomains ?? [],
+    statuses: Object.fromEntries(statuses),
+    settingsPath:
+      canOpenSettings && organization ? `/org/${organization.slug}/settings/alerts/settings` : null,
+  };
+}
+
 export async function loadAlertList(
   locals: AlertLocals,
   context: AlertPageContext,
@@ -121,10 +150,15 @@ export async function loadAlertList(
     scope: 'organization',
     projectId: null,
   };
-  const [references, own, organizationRecipients] = await Promise.all([
+  const [references, own, organizationRecipients, external] = await Promise.all([
     referenceOptions([...catalog, ...inheritedCatalog], organizationLocation),
     recipientOptions(location),
     location.scope === 'project' ? recipientOptions(organizationLocation) : null,
+    externalRecipientsData(
+      locals,
+      location,
+      listed.data.alerts.flatMap((alert) => alert.recipients.emails ?? []),
+    ),
   ]);
   // names for the recipients of the location's alerts and of the inherited organization ones
   const merge = (a: AlertOption[], b: AlertOption[] = []) => [
@@ -151,6 +185,12 @@ export async function loadAlertList(
     recipientUsers: own.users,
     recipientRoles: own.roles,
     mailConfigured: isMailConfigured(),
+    external,
+    settings: external.settingsPath
+      ? await loadNotificationSettings(locals, location.organizationId).then((result) =>
+          result.ok ? result.data : null,
+        )
+      : null,
     canCreate: allowed.canCreate,
     canUpdate: allowed.canUpdate,
     canDelete: allowed.canDelete,
@@ -212,9 +252,10 @@ export async function loadAlertEditor(
   }
 
   const catalog = await listCatalog(locals, location);
-  const [references, recipients] = await Promise.all([
+  const [references, recipients, external] = await Promise.all([
     referenceOptions(catalog, location),
     recipientOptions(location),
+    externalRecipientsData(locals, location, alert?.recipients.emails ?? []),
   ]);
 
   const draft = alert ? toDraft(alert) : emptyDraft(options.eventType ?? null);
@@ -234,6 +275,7 @@ export async function loadAlertEditor(
     recipientUsers: recipients.users,
     recipientRoles: recipients.roles,
     mailConfigured: isMailConfigured(),
+    external,
     canSave: alert ? allowed.canUpdate : allowed.canCreate,
     canDelete: Boolean(alert) && allowed.canDelete,
   };
@@ -374,6 +416,8 @@ export function alertActions(
       const result = await testDraftAlert(event.locals, context.location, {
         ...toInput(draft),
         sampleProjectId,
+        alertId: String(form.get('alertId') ?? '') || undefined,
+        send: form.get('send') === 'true',
       });
       if (!result.ok) {
         return fail(result.status, { draft, error: result.error, errors: result.errors ?? {} });

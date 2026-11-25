@@ -13,11 +13,14 @@ import {
   alertEngine,
   alertService,
   buildSampleEvent,
+  isMailConfigured,
   type AlertInput,
   type AlertLocation,
   type AlertRow,
 } from '#modules/alerts';
 import type { CatalogEntry } from '#lib/alerts/types';
+import type { AnyDomainEvent } from '#lib/server/events';
+import { RateLimiter } from '#lib/server/infra/rate-limit';
 import { actorFor, callerCan, canManageAlerts, contextOf, type AlertLocals } from './access';
 
 export type { CatalogEntry };
@@ -169,28 +172,62 @@ export async function deleteAlert(
 
 /** `payload` overrides the invented sample; `sampleProjectId` picks the project of a project event
  * for an organization alert. */
-export type AlertTestInput = { payload?: unknown; sampleProjectId?: unknown };
+export type AlertTestInput = {
+  payload?: unknown;
+  sampleProjectId?: unknown;
+  alertId?: unknown;
+  send?: unknown;
+};
+
+const TEST_SEND_LIMIT = { limit: 5, windowMs: 10 * 60 * 1000 };
+const TEST_LIMITER_KEY = Symbol.for('gitops.alerts.test-send-limiter');
+const testSendLimiter = ((globalThis as typeof globalThis & { [TEST_LIMITER_KEY]?: RateLimiter })[
+  TEST_LIMITER_KEY
+] ??= new RateLimiter(TEST_SEND_LIMIT));
 
 export type AlertTestResult = {
   matched: boolean;
   recipients: Array<{ userId: string; username: string }>;
   /** Selected users left out because they can't read the event. */
   deniedCount: number;
+  external: Array<{ email: string; status: string; delivers: boolean }>;
+  delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };
 };
 
 /**
- * Evaluates an alert against an example event and tells who would receive it. Nothing is sent and
- * the throttle is not touched.
+ * Evaluates an alert against an example event and tells who would receive it. The throttle is not
+ * touched.
  */
 async function dryRun(
+  locals: AlertLocals,
   alert: Pick<
     AlertDomain,
-    'eventType' | 'scope' | 'conditions' | 'match' | 'recipients' | 'location' | 'appliesTo'
+    | 'id'
+    | 'name'
+    | 'description'
+    | 'organizationId'
+    | 'eventType'
+    | 'scope'
+    | 'conditions'
+    | 'match'
+    | 'recipients'
+    | 'location'
+    | 'appliesTo'
   >,
   input: AlertTestInput,
 ): Promise<AlertResult<AlertTestResult>> {
   if (!isEventType(alert.eventType)) return { ok: false, status: 400, error: 'Unknown event type' };
+  const send = input.send === true || input.send === 'true';
+  const actor = actorFor(locals);
+  if (send) {
+    if (!isMailConfigured()) {
+      return { ok: false, status: 409, error: 'mail_not_configured' };
+    }
+    if (!actor || !testSendLimiter.consume(actor.userId).allowed) {
+      return { ok: false, status: 429, error: 'test_rate_limited' };
+    }
+  }
   const definition = getEventDefinition(alert.eventType) as EventDefinition;
   const location = alert.location;
 
@@ -201,6 +238,7 @@ async function dryRun(
       ? (input.payload as Record<string, unknown>)
       : undefined;
   const sample = buildSampleEvent(definition, alert, {
+    complete: send,
     payload: payloadOverride,
     projectId: requestedProjectId,
   });
@@ -220,11 +258,26 @@ async function dryRun(
     projectId = sample.projectId;
   }
 
+  if (send && actor && alert.recipients.emails.length > 0) {
+    await alertService.registerExternal(location, alert.recipients.emails, actor);
+  }
+
   const result = await alertEngine.dryRun(alert, {
     type: alert.eventType,
     payload: sample.payload as never,
     scope: { organizationId: location.organizationId, projectId },
   });
+
+  const delivery = send
+    ? await alertEngine.sendTest(alert, {
+        id: `test-${crypto.randomUUID()}`,
+        type: alert.eventType,
+        occurredAt: new Date().toISOString(),
+        actor: actor ? { kind: 'user', userId: actor.userId } : { kind: 'system' },
+        scope: { organizationId: location.organizationId, projectId },
+        payload: sample.payload,
+      } as AnyDomainEvent)
+    : undefined;
 
   return {
     ok: true,
@@ -233,6 +286,8 @@ async function dryRun(
       matched: result.matched,
       recipients: result.recipients.map(({ userId, username }) => ({ userId, username })),
       deniedCount: result.denied.length,
+      external: result.external,
+      ...(delivery ? { delivery } : {}),
       event: { type: alert.eventType, payload: sample.payload, projectId },
     },
   };
@@ -245,7 +300,7 @@ export async function testAlert(
 ): Promise<AlertResult<AlertTestResult>> {
   const loaded = await loadAuthorized(locals, id, 'update');
   if (!loaded.ok) return loaded;
-  return dryRun(loaded.data, input);
+  return dryRun(locals, loaded.data, input);
 }
 
 /** "Test alert" before saving: validates the draft and dry-runs it. */
@@ -260,10 +315,23 @@ export async function testDraftAlert(
   if (!canWrite) return forbidden;
   const actor = actorFor(locals);
   if (!actor) return forbidden;
+  const existing =
+    typeof input.alertId === 'string' && input.alertId
+      ? await alertService.get(input.alertId).catch(() => null)
+      : null;
+  const sameLocation =
+    existing &&
+    existing.organizationId === location.organizationId &&
+    existing.projectId === location.projectId;
+  const previousExternal = sameLocation ? existing.recipients.emails : [];
   try {
-    const fields = await alertService.validate(location, input, actor);
-    const draft = new AlertDomain({ id: 'draft', ...location, ...fields });
-    return dryRun(draft, input);
+    const fields = await alertService.validate(location, input, actor, previousExternal);
+    const draft = new AlertDomain({
+      id: sameLocation ? existing.id : 'draft',
+      ...location,
+      ...fields,
+    });
+    return dryRun(locals, draft, input);
   } catch (error) {
     return failure(error);
   }

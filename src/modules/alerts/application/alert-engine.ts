@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import { recipientHash } from '#lib/server/infra/notifications/mail-queue';
 import { getEventDefinition, isEventType, type EventDefinition } from '#lib/events/catalog';
 import type { AnyDomainEvent, EventBus, Unsubscribe } from '#lib/server/events';
 import { DELIVERED_CHANNELS, type AlertDomain } from '../domain/alert.domain';
@@ -10,10 +11,18 @@ import {
 import type { AlertRepositoryPort } from '../infrastructure/repositories/alert.repository';
 import { AlertThrottle } from './alert-throttle';
 import { RecipientResolver, type Recipient } from './recipient-resolver';
-import { eventContext, type AlertDirectory, type ResolvedNames } from './types';
+import {
+  eventContext,
+  type AlertDirectory,
+  type ExternalRecipientsPort,
+  type ResolvedNames,
+} from './types';
+
+export type AlertEmailRecipient =
+  ({ kind: 'member' } & Recipient) | { kind: 'external'; email: string; unsubscribeUrl: string };
 
 export type AlertEmail = {
-  recipient: Recipient;
+  recipient: AlertEmailRecipient;
   alert: Pick<AlertDomain, 'id' | 'name' | 'description' | 'scope'>;
   event: AnyDomainEvent;
   definition: EventDefinition;
@@ -23,6 +32,12 @@ export type AlertEmail = {
   names: ReadonlyMap<string, string>;
   /** Names and slugs of where the event happened, for the texts and the links. */
   where: ResolvedNames;
+  test?: boolean;
+};
+
+export type AlertTestDelivery = {
+  sent: number;
+  failed: number;
 };
 
 export type SystemEmail = {
@@ -40,7 +55,8 @@ export interface AlertNotifierPort {
 export type AlertEngineOptions = {
   repository: Pick<AlertRepositoryPort, 'listEnabledByEventType'>;
   directory: AlertDirectory;
-  recipients: RecipientResolver;
+  recipients: Pick<RecipientResolver, 'resolve'>;
+  externalRecipients?: Pick<ExternalRecipientsPort, 'deliverable' | 'statuses'>;
   notifier: AlertNotifierPort;
   throttle?: AlertThrottle;
   logger: Pick<Logger, 'info' | 'warn' | 'error' | 'debug'>;
@@ -56,6 +72,7 @@ export type AlertDryRun = {
   recipients: Recipient[];
   /** Selected users that would not get it because they can't read the event. */
   denied: string[];
+  external: Array<{ email: string; status: string; delivers: boolean }>;
 };
 
 const DEFAULT_CACHE_TTL_MS = 60_000;
@@ -132,14 +149,31 @@ export class AlertEngine {
     const definition = getEventDefinition(event.type) as EventDefinition;
     const matched = alert.appliesTo(event.scope) && matches(event, alert, definition);
     const context = eventContext(event.scope);
-    if (!context) return { matched, recipients: [], denied: [] };
+    if (!context) return { matched, recipients: [], denied: [], external: [] };
     const resolved = await this.options.recipients.resolve(
       alert.location,
       alert.recipients,
       definition.readPermission,
       context,
     );
-    return { matched, ...resolved };
+    return { matched, ...resolved, external: await this.externalPreview(alert) };
+  }
+
+  private async externalPreview(alert: Pick<AlertDomain, 'location' | 'recipients'>) {
+    const emails = alert.recipients.emails;
+    const port = this.options.externalRecipients;
+    if (!port || emails.length === 0) return [];
+    const organizationId = alert.location.organizationId;
+    const [statuses, deliverable] = await Promise.all([
+      port.statuses(organizationId, emails),
+      port.deliverable(organizationId, emails),
+    ]);
+    const delivering = new Set(deliverable.map((recipient) => recipient.email));
+    return emails.map((email) => ({
+      email,
+      status: statuses.get(email) ?? 'missing',
+      delivers: delivering.has(email),
+    }));
   }
 
   private async alertsFor(eventType: string): Promise<AlertDomain[]> {
@@ -176,6 +210,49 @@ export class AlertEngine {
       return;
     }
 
+    const delivery = await this.deliver(alert, event, definition, decision.suppressed, false);
+    log.info(
+      {
+        alertId: alert.id,
+        eventType: event.type,
+        eventId: event.id,
+        ...delivery,
+        previouslySuppressed: decision.suppressed,
+      },
+      '[alerts] alert fired',
+    );
+  }
+
+  async sendTest(
+    alert: Pick<
+      AlertDomain,
+      'id' | 'name' | 'description' | 'scope' | 'organizationId' | 'location' | 'recipients'
+    >,
+    event: AnyDomainEvent,
+  ): Promise<AlertTestDelivery> {
+    const definition = getEventDefinition(event.type) as EventDefinition;
+    const { sent, failed } = await this.deliver(alert, event, definition, 0, true);
+    this.options.logger.info(
+      { alertId: alert.id, eventType: event.type, sent, failed, test: true },
+      '[alerts] test email sent',
+    );
+    return { sent, failed };
+  }
+
+  private async deliver(
+    alert: Pick<
+      AlertDomain,
+      'id' | 'name' | 'description' | 'scope' | 'organizationId' | 'location' | 'recipients'
+    >,
+    event: AnyDomainEvent,
+    definition: EventDefinition,
+    suppressed: number,
+    test: boolean,
+  ): Promise<{ recipients: number; externalRecipients: number; sent: number; failed: number }> {
+    const log = this.options.logger;
+    const context = eventContext(event.scope);
+    if (!context) return { recipients: 0, externalRecipients: 0, sent: 0, failed: 0 };
+
     const { recipients, denied } = await this.options.recipients.resolve(
       alert.location,
       alert.recipients,
@@ -199,43 +276,73 @@ export class AlertEngine {
       })
       .catch(() => ({}));
 
+    const memberEmails = new Set(recipients.map((recipient) => recipient.email.toLowerCase()));
+    const external = (await this.externalRecipientsOf(alert)).filter(
+      (recipient) => !memberEmails.has(recipient.email.toLowerCase()),
+    );
+
+    const targets: AlertEmailRecipient[] = [
+      ...recipients.map((recipient) => ({ kind: 'member' as const, ...recipient })),
+      ...external.map((recipient) => ({ kind: 'external' as const, ...recipient })),
+    ];
+
     let sent = 0;
     // one email per recipient: addresses are never shared, and a failure only affects one person
-    for (const recipient of recipients) {
+    for (const recipient of targets) {
       try {
         await this.options.notifier.sendAlert({
           recipient,
           alert,
           event,
           definition,
-          suppressed: decision.suppressed,
+          suppressed,
           names,
           where,
+          ...(test ? { test: true } : {}),
         });
         sent += 1;
       } catch (error) {
         log.warn(
-          { err: error, alertId: alert.id, eventId: event.id, userId: recipient.userId },
+          {
+            err: error,
+            alertId: alert.id,
+            eventId: event.id,
+            ...(recipient.kind === 'member'
+              ? { userId: recipient.userId }
+              : { recipient: recipientHash(recipient.email) }),
+          },
           '[alerts] email to recipient failed',
         );
       }
     }
 
-    log.info(
-      {
-        alertId: alert.id,
-        eventType: event.type,
-        eventId: event.id,
-        recipients: recipients.length,
-        sent,
-        previouslySuppressed: decision.suppressed,
-      },
-      '[alerts] alert fired',
-    );
+    return {
+      recipients: recipients.length,
+      externalRecipients: external.length,
+      sent,
+      failed: targets.length - sent,
+    };
+  }
+
+  private async externalRecipientsOf(
+    alert: Pick<AlertDomain, 'id' | 'organizationId' | 'recipients'>,
+  ) {
+    const port = this.options.externalRecipients;
+    const emails = alert.recipients.emails;
+    if (!port || emails.length === 0) return [];
+    try {
+      return await port.deliverable(alert.organizationId, emails);
+    } catch (error) {
+      this.options.logger.warn(
+        { err: error, alertId: alert.id },
+        '[alerts] external recipients could not be resolved',
+      );
+      return [];
+    }
   }
 
   private async referenceNames(
-    alert: AlertDomain,
+    alert: Pick<AlertDomain, 'location'>,
     definition: EventDefinition,
   ): Promise<Map<string, string>> {
     const references = new Set(

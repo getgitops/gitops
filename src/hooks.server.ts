@@ -5,16 +5,16 @@ import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { registerAlertEngine } from '#modules/alerts';
 import { getMonitoringConfig, startMonitoring } from '#modules/monitoring';
-import { isInternalMonitoringRequest, verifyWorkerRequest } from '#lib/server/monitoring/internal-auth';
+import {
+  isInternalMonitoringRequest,
+  verifyWorkerRequest,
+} from '#lib/server/monitoring/internal-auth';
 import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstrap';
 import { startGitDb } from '#lib/server/gitdb';
-import {
-  getServerReadyState,
-  markServerFailed,
-  markServerReady,
-} from '#lib/server/server-ready';
+import { getServerReadyState, markServerFailed, markServerReady } from '#lib/server/server-ready';
 import { renderStartingPage } from '#lib/server/starting-page';
 import { runWithActor } from '#lib/server/request-context';
+import { rememberDevOrigin } from '#lib/server/infra/notifications';
 import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
 const startupLog = createLogger('startup');
@@ -28,7 +28,9 @@ const serverReady = (async () => {
   await refreshBootstrapState();
   markServerReady();
   // monitoring needs GitDB; if its repository or runtime can't start, the rest of the app still does
-  startMonitoring().catch((error) => startupLog.error(error, '[startup] monitoring failed to start'));
+  startMonitoring().catch((error) =>
+    startupLog.error(error, '[startup] monitoring failed to start'),
+  );
 })();
 
 serverReady.catch((error) => {
@@ -64,6 +66,7 @@ const requestLogger: Handle = async ({ event, resolve }) => {
 
 const authGuard: Handle = async ({ event, resolve }) => {
   const pathname = event.url.pathname;
+  if (import.meta.env.DEV) rememberDevOrigin(event.url.origin);
   const isApiRequest = pathname.startsWith('/api/');
 
   if (pathname === '/health') {
@@ -127,9 +130,9 @@ const authGuard: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  // sign-in, sign-out, self-registration, password recovery, invitation acceptance and the Google
-  // SSO round trip must work without (or with a broken) session; each route re-checks what it needs
   if (
+    pathname === '/notifications/verify' ||
+    pathname === '/notifications/unsubscribe' ||
     pathname === '/auth/login' ||
     pathname === '/auth/sso/google/start' ||
     pathname === '/auth/sso/google/callback' ||

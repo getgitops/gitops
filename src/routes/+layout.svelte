@@ -40,7 +40,10 @@
 
   const pathname = $derived(page.url.pathname);
   const isBareLayout = $derived(
-    pathname.startsWith('/auth/') || pathname.startsWith('/bootstrap') || pathname === '/brand',
+    pathname.startsWith('/auth/') ||
+      pathname.startsWith('/bootstrap') ||
+      pathname.startsWith('/notifications/') ||
+      pathname === '/brand',
   );
 
   // el menú móvil se cierra al navegar

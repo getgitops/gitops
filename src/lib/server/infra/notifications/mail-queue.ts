@@ -9,7 +9,7 @@ export type MailContext = { alertId?: string; eventId?: string; kind?: string };
 type Job = {
   notification: MailNotification;
   context: MailContext;
-  done: () => void;
+  done: (sent: boolean) => void;
 };
 
 export type MailQueueOptions = {
@@ -44,9 +44,8 @@ export class MailQueue {
     this.concurrency = Math.max(1, options.concurrency ?? 3);
   }
 
-  /** Queues one email; resolves once it was sent or definitively failed. */
-  enqueue(notification: MailNotification, context: MailContext = {}): Promise<void> {
-    return new Promise<void>((resolve) => {
+  enqueue(notification: MailNotification, context: MailContext = {}): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
       this.pending.push({ notification, context, done: resolve });
       this.pump();
     });
@@ -84,20 +83,25 @@ export class MailQueue {
     while (this.active < this.concurrency && this.pending.length > 0) {
       const job = this.pending.shift()!;
       this.active += 1;
-      void this.run(job).finally(() => {
-        this.active -= 1;
-        job.done();
-        if (this.size === 0) {
-          for (const resolve of [...this.idle]) resolve();
-          this.idle.clear();
-        } else {
-          this.pump();
-        }
-      });
+      let sent = false;
+      void this.run(job)
+        .then((result) => {
+          sent = result;
+        })
+        .finally(() => {
+          this.active -= 1;
+          job.done(sent);
+          if (this.size === 0) {
+            for (const resolve of [...this.idle]) resolve();
+            this.idle.clear();
+          } else {
+            this.pump();
+          }
+        });
     }
   }
 
-  private async run(job: Job): Promise<void> {
+  private async run(job: Job): Promise<boolean> {
     const recipients = job.notification.to.map(recipientHash);
     try {
       await withRetry(() => this.options.send(job.notification), {
@@ -109,18 +113,24 @@ export class MailQueue {
             '[mail] retrying email',
           ),
       });
+      return true;
     } catch (error) {
       this.options.logger.error(
         // only the error code: SMTP messages may quote the recipient address
         { ...job.context, recipients, code: errorCode(error) },
         '[mail] email could not be sent',
       );
+      return false;
     }
   }
 }
 
 function errorCode(error: unknown): unknown {
   if (!error || typeof error !== 'object') return undefined;
-  const { code, responseCode } = error as { code?: unknown; responseCode?: unknown };
-  return responseCode ?? code;
+  const { code, responseCode, name } = error as {
+    code?: unknown;
+    responseCode?: unknown;
+    name?: unknown;
+  };
+  return responseCode ?? code ?? name;
 }

@@ -126,7 +126,8 @@ class RecordingNotifier implements AlertNotifierPort {
   failFor = new Set<string>();
 
   async sendAlert(email: AlertEmail) {
-    if (this.failFor.has(email.recipient.userId)) throw new Error('SMTP down');
+    const key = email.recipient.kind === 'member' ? email.recipient.userId : email.recipient.email;
+    if (this.failFor.has(key)) throw new Error('SMTP down');
     this.alerts.push(email);
   }
 
@@ -148,7 +149,12 @@ describe('AlertEngine', () => {
     debug: ReturnType<typeof vi.fn>;
   };
 
-  const sentTo = () => notifier.alerts.map((email) => email.recipient.userId).sort();
+  const sentTo = () =>
+    notifier.alerts
+      .map((email) =>
+        email.recipient.kind === 'member' ? email.recipient.userId : email.recipient.email,
+      )
+      .sort();
 
   beforeEach(() => {
     repository = new InMemoryAlertRepository();
@@ -240,13 +246,15 @@ describe('AlertEngine', () => {
 
   it('skips disabled users and users without an email', async () => {
     repository.rows = [
-      alertRow({ recipients: { ...emptyRecipients(), userIds: ['carl', 'nomail', 'ana'], roleIds: [] } }),
+      alertRow({
+        recipients: { ...emptyRecipients(), userIds: ['carl', 'nomail', 'ana'], roleIds: [] },
+      }),
     ];
     await engine.handle(completed());
     expect(sentTo()).toEqual(['ana']);
   });
 
-  it('also emails external addresses, once each', async () => {
+  it('never emails external addresses that are not verified external recipients', async () => {
     repository.rows = [
       alertRow({
         recipients: {
@@ -257,12 +265,14 @@ describe('AlertEngine', () => {
       }),
     ];
     await engine.handle(completed());
-    expect(sentTo()).toEqual(['ana', 'email:oncall@example.com']);
+    expect(sentTo()).toEqual(['ana']);
   });
 
   it('does not email recipients without the read permission, most-specific-wins included', async () => {
     repository.rows = [
-      alertRow({ recipients: { ...emptyRecipients(), userIds: ['ana', 'dora', 'eli', 'fran'], roleIds: [] } }),
+      alertRow({
+        recipients: { ...emptyRecipients(), userIds: ['ana', 'dora', 'eli', 'fran'], roleIds: [] },
+      }),
     ];
     await engine.handle(completed());
 
@@ -278,7 +288,11 @@ describe('AlertEngine', () => {
   it('only fires alerts whose scope covers the event', async () => {
     repository.rows = [
       alertRow({ id: 'p1-alert' }),
-      alertRow({ id: 'p2-alert', projectId: 'p2', recipients: { ...emptyRecipients(), userIds: ['pia'], roleIds: [] } }),
+      alertRow({
+        id: 'p2-alert',
+        projectId: 'p2',
+        recipients: { ...emptyRecipients(), userIds: ['pia'], roleIds: [] },
+      }),
       alertRow({
         id: 'org-alert',
         scope: 'organization',
@@ -310,7 +324,10 @@ describe('AlertEngine', () => {
 
   it('throttles an alert and reports the suppressed events in the next email', async () => {
     repository.rows = [
-      alertRow({ throttleMinutes: 30, recipients: { ...emptyRecipients(), userIds: ['ana'], roleIds: [] } }),
+      alertRow({
+        throttleMinutes: 30,
+        recipients: { ...emptyRecipients(), userIds: ['ana'], roleIds: [] },
+      }),
     ];
 
     await engine.handle(completed({}, undefined, 'e1'));

@@ -9,10 +9,13 @@
     LoaderCircle,
     MailWarning,
     Save,
+    Send,
+    ShieldAlert,
     Trash2,
   } from '@lucide/svelte';
   import { Modal } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
+  import { statusBadgeClass } from '#lib/notifications/status';
   import type {
     AlertEditorData,
     AlertFormResult,
@@ -42,7 +45,7 @@
   let message = $state(initial.message);
   let test = $state(initial.test);
   let droppedConditions = $state(0);
-  let busy = $state<'save' | 'test' | null>(null);
+  let busy = $state<'save' | 'test' | 'send' | null>(null);
   let sampleProjectId = $state('');
   let deleteOpen = $state(false);
 
@@ -74,21 +77,44 @@
     test = null;
   }
 
+  let externalEnabled = $derived(
+    data.external.allowedDomains.length > 0 || draft.recipients.emails.length > 0,
+  );
+  let externalErrors = $derived(
+    Object.entries(errors)
+      .filter(([key]) => /^recipients\.emails\.\d+$/.test(key))
+      .map(([key, code]) => ({
+        email: draft.recipients.emails[Number(key.split('.').pop())] ?? '',
+        code,
+      })),
+  );
+  function updateEmails(text: string) {
+    draft.recipients.emails = text
+      .split(/[\n,;]+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  const OPERATION_ERRORS = ['mail_not_configured', 'test_rate_limited'];
+
   function errorFor(key: string) {
     return errors[key] ? $_(`alerts.errors.${errors[key]}`) : '';
   }
 
-  const submit: SubmitFunction = ({ action }) => {
+  const submit: SubmitFunction = ({ action, submitter }) => {
     const intent = action.search.includes('test') ? 'test' : 'save';
-    busy = intent;
+    busy = submitter?.getAttribute('name') === 'send' ? 'send' : intent;
     message = '';
     return async ({ result, update }) => {
       busy = null;
       if (result.type === 'failure') {
         errors = (result.data?.errors as Record<string, string>) ?? {};
+        const code = String(result.data?.error ?? '');
         message = result.data?.errors
           ? $_('alerts.editor.fixErrors')
-          : String(result.data?.error ?? '');
+          : OPERATION_ERRORS.includes(code)
+            ? $_(`alerts.errors.${code}`)
+            : code;
         if (intent === 'test') test = null;
         return;
       }
@@ -337,20 +363,68 @@
       </p>
     {/if}
 
-    <!-- canales y destinos sin JavaScript: listas separadas por comas (el asistente usa etiquetas) -->
-    <div class="flex flex-col gap-1">
+    <div class="flex flex-col gap-1.5" data-testid="alert-external-emails">
       <label for="alert-emails" class="k-label mb-0">{$_('alerts.editor.externalEmails')}</label>
-      <input
-        id="alert-emails"
-        name="emails"
-        class="k-input"
-        value={draft.recipients.emails.join(', ')}
-        placeholder="ops@example.com, oncall@example.com"
-        disabled={!data.canSave}
-        aria-invalid={Boolean(errors['recipients.emails']) || undefined}
-      />
-      {#if errors['recipients.emails']}
-        <p class="text-xs text-red-300" role="alert">{errorFor('recipients.emails')}</p>
+      {#if externalEnabled}
+        <p
+          class="flex items-start gap-2 rounded-xl border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
+        >
+          <ShieldAlert class="mt-0.5 h-4 w-4 shrink-0 text-warn" />
+          {$_('alerts.editor.externalNotice')}
+        </p>
+        <textarea
+          id="alert-emails"
+          name="emails"
+          rows="3"
+          class="k-input h-auto py-2 font-mono"
+          placeholder="ana@partner.com"
+          value={draft.recipients.emails.join('\n')}
+          oninput={(event) => updateEmails(event.currentTarget.value)}
+          readonly={!data.canSave || !data.external.canManage}
+          aria-invalid={Boolean(errors['recipients.emails']) || undefined}
+          aria-describedby="alert-emails-help{errors['recipients.emails']
+            ? ' alert-emails-error'
+            : ''}"></textarea>
+        <p id="alert-emails-help" class="k-help">
+          {#if data.external.canManage}
+            {$_('alerts.editor.externalHelp', {
+              values: { domains: data.external.allowedDomains.join(', ') || '—' },
+            })}
+          {:else}
+            {$_('alerts.editor.externalReadonly')}
+          {/if}
+        </p>
+        {#if errors['recipients.emails']}
+          <div id="alert-emails-error" class="text-xs text-red-300" role="alert">
+            {#if externalErrors.length > 0}
+              <ul class="list-disc pl-4">
+                {#each externalErrors as failure (failure.email + failure.code)}
+                  <li>{failure.email}: {$_(`alerts.errors.${failure.code}`)}</li>
+                {/each}
+              </ul>
+            {:else}
+              {errorFor('recipients.emails')}
+            {/if}
+          </div>
+        {/if}
+        {#if Object.keys(data.external.statuses).length > 0}
+          <ul class="flex flex-wrap gap-2" aria-label={$_('alerts.editor.externalStatus')}>
+            {#each Object.entries(data.external.statuses) as [email, status] (email)}
+              <li class="{statusBadgeClass(status)} h-6 px-2 text-[11px]">
+                {email} · {$_(`notifications.status.${status}`)}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {:else}
+        <p class="k-help">
+          {$_('alerts.editor.externalDisabled')}
+          {#if data.external.settingsPath}
+            <a class="text-brand-400 hover:text-brand-300" href={data.external.settingsPath}>
+              {$_('alerts.editor.externalSettingsLink')}
+            </a>
+          {/if}
+        </p>
       {/if}
     </div>
 
@@ -481,7 +555,30 @@
             {$_('alerts.test.denied', { values: { count: test.deniedCount } })}
           </p>
         {/if}
-        <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+        {#if test.external.length > 0}
+          <ul class="mt-1 text-xs">
+            {#each test.external as recipient (recipient.email)}
+              <li>
+                {recipient.email}: {recipient.delivers
+                  ? $_('alerts.test.externalDelivers')
+                  : test.delivery && recipient.status === 'pending'
+                    ? $_('alerts.test.externalVerificationSent')
+                    : $_('alerts.test.externalSkipped', {
+                        values: { status: $_(`notifications.status.${recipient.status}`) },
+                      })}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        {#if test.delivery}
+          <p class="mt-1 font-medium" data-testid="alert-test-delivery">
+            {$_('alerts.test.delivered', {
+              values: { sent: test.delivery.sent, failed: test.delivery.failed },
+            })}
+          </p>
+        {:else}
+          <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+        {/if}
       </div>
     {/if}
 
@@ -497,6 +594,21 @@
               class="h-4 w-4"
             />{/if}
           {$_('alerts.editor.test')}
+        </button>
+        <button
+          type="submit"
+          formaction="?/test"
+          name="send"
+          value="true"
+          class="k-btn k-btn-secondary"
+          disabled={busy !== null || !data.mailConfigured}
+          title={$_('alerts.editor.sendTestHelp')}
+          data-testid="alert-send-test"
+        >
+          {#if busy === 'send'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Send
+              class="h-4 w-4"
+            />{/if}
+          {busy === 'send' ? $_('alerts.editor.sendingTest') : $_('alerts.editor.sendTest')}
         </button>
         <button type="submit" class="k-btn k-btn-primary" disabled={busy !== null}>
           {#if busy === 'save'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Save

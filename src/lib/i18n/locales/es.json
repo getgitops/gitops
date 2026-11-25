@@ -1672,7 +1672,11 @@
         "monitorDown": "{name} está caído ({cause})",
         "monitorDegraded": "{name} responde degradado",
         "monitorRecovered": "{name} se ha recuperado tras {minutes} min"
-      }
+      },
+      "externalFooter": "Recibes este email porque {organization} añadió tu dirección a la alerta “{alert}”.",
+      "unsubscribe": "Darme de baja",
+      "testSubject": "[Prueba] {subject}",
+      "testNote": "Esto es un email de prueba enviado desde el editor de alertas con un evento de ejemplo: no ha ocurrido nada."
     },
     "operators": {
       "eq": "es",
@@ -1713,7 +1717,11 @@
       "invalid_channel": "Canal no disponible.",
       "invalid_email": "Algún email no es válido.",
       "invalid_slack_channel": "Usa nombres de canal de Slack como #alertas.",
-      "invalid_url": "Usa una URL http(s) válida."
+      "invalid_url": "Usa una URL http(s) válida.",
+      "domain_not_allowed": "El dominio no está permitido para destinatarios externos.",
+      "forbidden_external": "No tienes permiso para añadir destinatarios externos.",
+      "mail_not_configured": "El SMTP no está configurado: no se puede enviar el email de prueba.",
+      "test_rate_limited": "Has enviado demasiados emails de prueba. Espera unos minutos."
     },
     "channels": {
       "mail": "Email",
@@ -1749,7 +1757,8 @@
       "inheritedDescription": "Estas alertas se definen en la organización y también se disparan con los eventos de este proyecto. Solo se pueden cambiar desde los ajustes de la organización.",
       "deleted": "Alerta eliminada",
       "deleteTitle": "¿Borrar la alerta?",
-      "channelsColumn": "Destinos"
+      "channelsColumn": "Destinos",
+      "settings": "Configuración"
     },
     "editor": {
       "newTitle": "Nueva alerta",
@@ -1798,7 +1807,16 @@
         "slack": "Canales de Slack, p. ej. #alertas",
         "google_chat": "Espacios de Google Chat",
         "webhook": "URLs de webhook"
-      }
+      },
+      "externalNotice": "Los destinatarios externos no tienen cuenta en GitOps: reciben el email sin comprobar sus permisos. No se incluyen los campos sensibles ni enlaces a la aplicación, y cada dirección debe confirmar su suscripción antes de recibir nada.",
+      "externalHelp": "Un email por línea. Dominios permitidos: {domains}. Las direcciones nuevas reciben un email de confirmación.",
+      "externalReadonly": "Solo quien puede gestionar las notificaciones puede añadir emails externos.",
+      "externalDisabled": "La organización no permite destinatarios externos.",
+      "externalSettingsLink": "Configurar dominios permitidos",
+      "externalStatus": "Estado de los emails externos",
+      "sendTest": "Enviar email de prueba",
+      "sendingTest": "Enviando…",
+      "sendTestHelp": "Envía un email real con un evento de ejemplo a los destinatarios de la alerta que lo recibirían (los externos solo si están confirmados)."
     },
     "test": {
       "matched": "El evento de ejemplo cumple las condiciones.",
@@ -1806,7 +1824,11 @@
       "recipients": "Se enviaría a: {names}",
       "noRecipients": "No se enviaría a nadie.",
       "denied": "{count} destinatarios no lo recibirían porque no pueden ver este evento.",
-      "nothingSent": "Es una prueba: no se ha enviado ningún email."
+      "nothingSent": "Es una prueba: no se ha enviado ningún email.",
+      "externalDelivers": "lo recibiría",
+      "externalSkipped": "no lo recibiría ({status})",
+      "delivered": "Email de prueba enviado: {sent} enviados, {failed} fallidos.",
+      "externalVerificationSent": "no recibe la prueba hasta que confirme: se le ha enviado el email de confirmación. Cuando confirme, vuelve a enviar la prueba."
     },
     "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán.",
     "wizard": {
@@ -2045,5 +2067,77 @@
       "noData": "Aún no hay tiempos de respuesta en este periodo."
     },
     "created": "Monitor creado"
+  },
+  "notifications": {
+    "status": {
+      "pending": "Pendiente de confirmar",
+      "verified": "Confirmado",
+      "unsubscribed": "Dado de baja",
+      "blocked": "Bloqueado",
+      "missing": "Sin añadir"
+    },
+    "settings": {
+      "title": "Configuración de alertas",
+      "description": "Dominios permitidos y destinatarios externos: cómo salen las alertas de la organización fuera de GitOps.",
+      "mailNotConfigured": "El SMTP no está configurado: no se enviarán emails de confirmación ni alertas.",
+      "originNotConfigured": "ORIGIN no está configurado: no se pueden generar los enlaces de confirmación y de baja, así que los destinatarios externos no recibirán nada.",
+      "domainsTitle": "Dominios permitidos para emails externos",
+      "domainsDescription": "Las alertas solo pueden enviar a direcciones fuera de GitOps de estos dominios. Si la lista está vacía, no se permiten destinatarios externos.",
+      "domainsLabel": "Dominios (uno por línea)",
+      "domainsHelp": "Coincidencia exacta: empresa.com no incluye sus subdominios. Usa *.empresa.com para permitirlos. Al quitar un dominio, sus destinatarios quedan bloqueados (no se borran).",
+      "domainsReadonly": "Necesitas el permiso organization:settings:update para cambiar los dominios.",
+      "domainsSaved": "Dominios guardados. Bloqueados: {blocked}. Reactivados: {restored}.",
+      "saveDomains": "Guardar dominios",
+      "recipientsTitle": "Destinatarios externos",
+      "recipientsDescription": "Direcciones fuera de GitOps que usan las alertas de la organización. Solo reciben alertas una vez confirmadas.",
+      "recipientsEmpty": "Todavía no hay destinatarios externos. Se añaden desde el editor de alertas.",
+      "email": "Email",
+      "status": "Estado",
+      "verifiedAt": "Confirmado el",
+      "lastSent": "Último email de confirmación",
+      "actions": "Acciones",
+      "resend": "Reenviar confirmación",
+      "resent": "Email de confirmación reenviado.",
+      "back": "Volver a alertas",
+      "domainsSavedTitle": "Dominios guardados"
+    },
+    "errors": {
+      "invalid": "El valor no es válido.",
+      "invalid_domain": "Algún dominio no es válido.",
+      "too_many": "Hay demasiados dominios.",
+      "not_found": "El destinatario no existe.",
+      "invalid_status": "Este destinatario no necesita confirmación.",
+      "rate_limited": "Se han enviado demasiados emails de confirmación. Inténtalo más tarde.",
+      "send_failed": "No se ha podido enviar el email de confirmación.",
+      "Forbidden": "No tienes permiso para hacer esto."
+    },
+    "link": {
+      "invalid": "Este enlace no es válido o ya se ha usado.",
+      "expired": "Este enlace ha caducado."
+    },
+    "verify": {
+      "title": "Confirmar suscripción",
+      "question": "{organization} quiere enviar alertas de GitOps a {email}. ¿Quieres recibirlas?",
+      "confirm": "Sí, quiero recibir las alertas",
+      "done": "Listo: {email} recibirá las alertas de {organization}. Cada email incluye un enlace para darte de baja."
+    },
+    "unsubscribe": {
+      "title": "Darse de baja",
+      "question": "¿Dejar de enviar alertas de {organization} a {email}?",
+      "confirm": "Darme de baja",
+      "done": "{email} ya no recibirá alertas de {organization}."
+    },
+    "email": {
+      "verify": {
+        "subject": "[GitOps] Confirma que quieres recibir las alertas de {organization}",
+        "title": "Confirma tu email",
+        "intro": "{organization} ha añadido {email} como destinatario de sus alertas en GitOps.",
+        "explanation": "No recibirás ninguna alerta hasta que lo confirmes. Cada alerta incluirá un enlace para darte de baja.",
+        "action": "Confirmar suscripción",
+        "expiry": "Este enlace caduca el {date}.",
+        "ignore": "Si no esperabas este email, ignóralo: no recibirás nada.",
+        "footer": "Recibes este email porque alguien de una organización de GitOps añadió tu dirección a una alerta."
+      }
+    }
   }
 }

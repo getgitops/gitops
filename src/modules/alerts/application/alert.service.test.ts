@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { createNotificationsFixture } from '#modules/notifications/application/testing';
 import { AlertValidationError, type AlertInput, type AlertLocation } from '../domain/alert.domain';
 import { InMemoryAlertRepository } from '../infrastructure/repositories/in-memory-alert.repository';
 import { AlertService } from './alert.service';
@@ -35,7 +36,9 @@ describe('AlertService', () => {
   let onChange: Mock<() => void>;
   let service: AlertService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const notifications = createNotificationsFixture();
+    await notifications.settings.setAllowedDomains(ORG, ['example.com']);
     repository = new InMemoryAlertRepository();
     directory = new FakeAlertDirectory();
     directory.members = [
@@ -77,6 +80,7 @@ describe('AlertService', () => {
       generateId: () => 'alert-1',
       now: () => new Date('2026-11-20T10:00:00.000Z'),
       onChange,
+      externalRecipients: notifications.recipients,
     });
   });
 
@@ -317,6 +321,7 @@ describe('AlertService', () => {
       );
       expect(errors).toEqual({
         'recipients.emails': 'invalid_email',
+        'recipients.emails.0': 'invalid_email',
         'recipients.slackChannels': 'invalid_slack_channel',
         'recipients.googleChatSpaces': 'required',
         'recipients.webhookUrls': 'invalid_url',

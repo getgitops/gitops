@@ -67,6 +67,7 @@ test.describe('project alerts', () => {
     await page.getByRole('option', { name: 'Project Admin', exact: true }).click();
     await targets.fill('oncall@example.com');
     await targets.press('Enter');
+    await targets.press('Escape');
     await wizard.getByRole('radio', { name: '1 hora' }).click();
     await wizard.getByRole('button', { name: 'Siguiente' }).click();
 
@@ -77,6 +78,7 @@ test.describe('project alerts', () => {
     await expect(result).toContainText('El evento de ejemplo cumple las condiciones.');
     await expect(result).toContainText(seed.personas.projectAdmin.username);
     await expect(result).toContainText('oncall@example.com');
+    await expect(result).toContainText('Sin añadir');
     await expect(result).toContainText('no se ha enviado ningún email');
 
     await wizard.getByRole('button', { name: 'Crear alerta' }).click();
@@ -215,10 +217,48 @@ test.describe('organization alerts', () => {
     await expect(inherited.getByRole('link', { name: 'Editar' })).toHaveCount(0);
     await expect(inherited.getByRole('switch')).toHaveCount(0);
   });
+
+  test('the alert settings open in a modal from the list and save the allowed domains', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('orgAdmin');
+    await page.goto(orgAlertsUrl);
+    await page.waitForLoadState('networkidle');
+    await page.getByTestId('alert-settings').click();
+    const dialog = page.getByRole('dialog', { name: 'Configuración de alertas' });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}$`));
+
+    const domains = dialog.getByLabel('Dominios (uno por línea)');
+    await expect(domains).toHaveValue('example.com');
+    await domains.fill('example.com\npartner.com');
+    await dialog.getByRole('button', { name: 'Guardar dominios' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Dominios guardados' })).toBeVisible();
+    await expect(domains).toHaveValue('example.com\npartner.com');
+  });
+
+  test('project admins without organization access get no settings button', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('projectAdmin');
+    await page.goto(alertsUrl);
+    await expect(page.getByTestId('alert-settings')).toHaveCount(0);
+  });
 });
 
 test.describe('without JavaScript', () => {
   test.use({ javaScriptEnabled: false });
+
+  test('the alert settings button opens the settings page', async ({ page, loginAs }) => {
+    await loginAs('orgAdmin');
+    await page.goto(orgAlertsUrl);
+    await page.getByTestId('alert-settings').click();
+    await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}/settings$`));
+    await expect(page.getByRole('heading', { name: 'Configuración de alertas' })).toBeVisible();
+    await expect(page.getByLabel('Dominios (uno por línea)')).toHaveValue(/example\.com/);
+  });
 
   test('the editor still creates an alert through form actions', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');

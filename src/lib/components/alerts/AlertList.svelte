@@ -9,9 +9,11 @@
     MessageSquare,
     Pencil,
     Plus,
+    Settings,
     Trash2,
     Webhook,
   } from '@lucide/svelte';
+  import AlertSettingsPanel from './AlertSettingsPanel.svelte';
   import AlertWizard from './AlertWizard.svelte';
   import { Modal, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
@@ -61,6 +63,13 @@
     wizardOpen = true;
   }
 
+  let settingsOpen = $state(false);
+  function openSettings(event: MouseEvent) {
+    if (!data.settings || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    settingsOpen = true;
+  }
+
   let deleteTarget = $state<AlertRow | null>(null);
   let deleteOpen = $state(false);
   let deleting = $state(false);
@@ -76,15 +85,27 @@
           : $_('alerts.list.descriptionOrganization')}
       </p>
     </div>
-    {#if data.canCreate && data.alerts.length > 0}
-      <a
-        href="{data.basePath}/new"
-        class="k-btn k-btn-primary"
-        onclick={(event) => openWizard(event, null)}
-      >
-        <Plus class="h-4 w-4" />{$_('alerts.list.create')}
-      </a>
-    {/if}
+    <div class="flex flex-wrap items-center gap-2">
+      {#if data.external.settingsPath}
+        <a
+          href={data.external.settingsPath}
+          class="k-btn k-btn-secondary"
+          onclick={openSettings}
+          data-testid="alert-settings"
+        >
+          <Settings class="h-4 w-4" />{$_('alerts.list.settings')}
+        </a>
+      {/if}
+      {#if data.canCreate && data.alerts.length > 0}
+        <a
+          href="{data.basePath}/new"
+          class="k-btn k-btn-primary"
+          onclick={(event) => openWizard(event, null)}
+        >
+          <Plus class="h-4 w-4" />{$_('alerts.list.create')}
+        </a>
+      {/if}
+    </div>
   </header>
 
   {#if !data.mailConfigured}
@@ -324,4 +345,26 @@
 
 {#if data.canCreate || data.canUpdate}
   <AlertWizard bind:open={wizardOpen} alert={wizardAlert} {data} />
+{/if}
+
+{#if data.settings && data.external.settingsPath}
+  <Modal
+    bind:open={settingsOpen}
+    size="xl"
+    title={$_('notifications.settings.title')}
+    description={$_('notifications.settings.description')}
+  >
+    {#snippet icon()}
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/12 text-brand-400"
+        ><Settings class="h-5 w-5" /></span
+      >
+    {/snippet}
+    <AlertSettingsPanel data={data.settings} action={data.external.settingsPath} />
+    {#snippet footer()}
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (settingsOpen = false)}
+        >{$_('common.close')}</button
+      >
+    {/snippet}
+  </Modal>
 {/if}

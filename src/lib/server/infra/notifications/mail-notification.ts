@@ -5,13 +5,17 @@ export type MailNotificationInput = {
   subject: string;
   /** HTML body, usually produced by `renderTemplate()`. */
   content: string;
+  headers?: Record<string, string>;
 };
+
+const HEADER_NAME = /^[A-Za-z0-9-]+$/;
 
 export class MailNotification extends Notification {
   readonly channel: NotificationChannel = 'mail';
   readonly to: string[];
   readonly subject: string;
   readonly content: string;
+  readonly headers: Record<string, string>;
 
   constructor(input: MailNotificationInput) {
     super();
@@ -20,6 +24,7 @@ export class MailNotification extends Notification {
       .filter(Boolean);
     this.subject = input.subject?.trim() ?? '';
     this.content = input.content ?? '';
+    this.headers = { ...input.headers };
   }
 
   validate(): void {
@@ -36,6 +41,11 @@ export class MailNotification extends Notification {
     }
     if (!this.content.trim()) {
       throw new Error('MailNotification requires a content');
+    }
+    for (const [name, value] of Object.entries(this.headers)) {
+      if (!HEADER_NAME.test(name) || /[\r\n]/.test(value)) {
+        throw new Error(`MailNotification header is not valid: ${name}`);
+      }
     }
   }
 }

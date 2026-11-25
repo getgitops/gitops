@@ -2,6 +2,7 @@ import { apiKeysService, roleService, userAccessService } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { codeReportService } from '#modules/code-report';
+import { NotificationSettingsRepository } from '#modules/notifications/infrastructure/repositories/notification-settings.repository';
 
 export const E2E_PASSWORD = 'E2ePassword!123';
 
@@ -110,6 +111,7 @@ export async function seedAll(): Promise<SeedOutput> {
     slug: 'e2e-primary',
   });
   await roleService.createDefaultOrganizationRoles(primaryOrg.id);
+  await new NotificationSettingsRepository().setAllowedDomains(primaryOrg.id, ['example.com']);
   const primaryOrgRoles = await roleService.listRoles('organization', primaryOrg.id);
   const orgAdminRoleId = roleIdBySlug(primaryOrgRoles, 'org-admin');
   const orgDeveloperRoleId = roleIdBySlug(primaryOrgRoles, 'org-developer');
@@ -192,7 +194,11 @@ export async function seedAll(): Promise<SeedOutput> {
     ],
   });
   const serverKeysNoDeleteUser = await bareUser('e2e-server-keys-no-delete');
-  await assignProjectRole(primaryProject.id, serverKeysNoDeleteUser.userId, serverKeysNoDeleteRole.id);
+  await assignProjectRole(
+    primaryProject.id,
+    serverKeysNoDeleteUser.userId,
+    serverKeysNoDeleteRole.id,
+  );
 
   const serverKeysNoUpdateRole = await roleService.createRole({
     name: 'E2E Server Keys No Update',
@@ -202,7 +208,11 @@ export async function seedAll(): Promise<SeedOutput> {
     permissions: ['project:project:read', 'project:server-keys:read', 'project:server-keys:create'],
   });
   const serverKeysNoUpdateUser = await bareUser('e2e-server-keys-no-update');
-  await assignProjectRole(primaryProject.id, serverKeysNoUpdateUser.userId, serverKeysNoUpdateRole.id);
+  await assignProjectRole(
+    primaryProject.id,
+    serverKeysNoUpdateUser.userId,
+    serverKeysNoUpdateRole.id,
+  );
 
   await apiKeysService.createProjectApiKey({
     projectId: primaryProject.id,

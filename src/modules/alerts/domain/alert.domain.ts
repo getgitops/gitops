@@ -33,7 +33,6 @@ export type AlertRecipients = {
   userIds: string[];
   /** mail: every member holding one of these roles */
   roleIds: string[];
-  /** mail: addresses outside the platform */
   emails: string[];
   /** slack: channel names, stored with their `#` */
   slackChannels: string[];
@@ -138,7 +137,14 @@ export class AlertDomain implements AlertRow {
     this.recipients = {
       userIds: stringArray(row.recipients?.userIds),
       roleIds: stringArray(row.recipients?.roleIds),
-      emails: stringArray(row.recipients?.emails),
+      emails: [
+        ...new Set([
+          ...stringArray(row.recipients?.emails),
+          ...stringArray(
+            (row.recipients as { externalEmails?: unknown } | undefined)?.externalEmails,
+          ),
+        ]),
+      ],
       slackChannels: stringArray(row.recipients?.slackChannels),
       googleChatSpaces: stringArray(row.recipients?.googleChatSpaces),
       webhookUrls: stringArray(row.recipients?.webhookUrls),

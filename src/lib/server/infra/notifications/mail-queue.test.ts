@@ -120,11 +120,13 @@ describe('MailQueue', () => {
 
     const first = queue.enqueue(mail('ok@example.com'), { alertId: 'a1', eventId: 'e1' });
     await vi.advanceTimersByTimeAsync(1000);
-    await first;
+    await expect(first).resolves.toBe(true);
     expect(send).toHaveBeenCalledTimes(2);
     expect(log.error).not.toHaveBeenCalled();
 
-    await queue.enqueue(mail('gone@example.com'), { alertId: 'a1', eventId: 'e2' });
+    await expect(
+      queue.enqueue(mail('gone@example.com'), { alertId: 'a1', eventId: 'e2' }),
+    ).resolves.toBe(false);
     expect(send).toHaveBeenCalledTimes(3);
     expect(log.error).toHaveBeenCalledTimes(1);
     const [fields] = log.error.mock.calls[0];
