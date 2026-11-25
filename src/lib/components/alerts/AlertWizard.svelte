@@ -49,6 +49,7 @@
     DraftCondition,
   } from '#lib/alerts/types';
   import ConditionBuilder from './ConditionBuilder.svelte';
+  import { DELIVERED_CHANNELS } from '#modules/alerts/domain/alert.domain';
 
   type WizardData = {
     basePath: string;
@@ -167,7 +168,11 @@
     },
   ]);
 
+  // canales sin envío todavía: no se pueden activar (sí desactivar si una alerta ya los tenía)
+  const isSoon = (channel: AlertChannel) => !DELIVERED_CHANNELS.includes(channel);
+
   function toggleChannel(channel: AlertChannel) {
+    if (isSoon(channel) && !draft.channels.includes(channel)) return;
     draft.channels = draft.channels.includes(channel)
       ? draft.channels.filter((item) => item !== channel)
       : [...draft.channels, channel].sort(
@@ -491,13 +496,18 @@
           <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {#each channelMeta as meta (meta.key)}
               {@const on = draft.channels.includes(meta.key)}
+              {@const soon = isSoon(meta.key) && !on}
               <button
                 type="button"
                 role="checkbox"
                 aria-checked={on}
-                class="relative flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors {on
+                aria-disabled={soon || undefined}
+                disabled={soon}
+                class="relative flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed {on
                   ? 'border-brand-500/50 bg-brand-500/8'
-                  : 'border-white/10 hover:border-white/20 hover:bg-white/2'}"
+                  : soon
+                    ? 'border-white/8 opacity-55'
+                    : 'border-white/10 hover:border-white/20 hover:bg-white/2'}"
                 onclick={() => toggleChannel(meta.key)}
               >
                 <span
@@ -507,12 +517,18 @@
                 >
                 <span class="text-sm font-medium text-white">{meta.label}</span>
                 <span class="text-xs text-fg-subtle">{meta.description}</span>
-                <span
-                  class="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-md border {on
-                    ? 'border-brand-500 bg-brand-500 text-white'
-                    : 'border-white/15'}"
-                  >{#if on}<Check class="h-3.5 w-3.5" />{/if}</span
-                >
+                {#if soon}
+                  <span class="k-badge absolute right-3 top-3 h-5 px-1.5 text-[10px] uppercase"
+                    >{$_('alerts.channels.soon')}</span
+                  >
+                {:else}
+                  <span
+                    class="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-md border {on
+                      ? 'border-brand-500 bg-brand-500 text-white'
+                      : 'border-white/15'}"
+                    >{#if on}<Check class="h-3.5 w-3.5" />{/if}</span
+                  >
+                {/if}
               </button>
             {/each}
           </div>

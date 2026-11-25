@@ -93,7 +93,7 @@ test.describe('project alerts', () => {
     await expect(row.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('an alert can notify several channels and is edited in the same wizard', async ({
+  test('only email can be enabled and the alert is edited in the same wizard', async ({
     page,
     loginAs,
   }) => {
@@ -106,25 +106,22 @@ test.describe('project alerts', () => {
     await expect(wizard.getByLabel('Nombre', { exact: true })).toHaveValue(GUIDED_NAME);
 
     await wizard.getByRole('button', { name: /Destinos/ }).click();
-    await wizard.getByRole('checkbox', { name: /^Slack/ }).click();
-    await wizard.getByRole('checkbox', { name: /^Webhook/ }).click();
-    // a destination without targets keeps "Next" disabled
-    await expect(wizard.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
-    const slack = wizard.getByLabel('Canales de Slack');
-    await slack.fill('Alertas Prod');
-    await slack.press('Enter');
-    await expect(wizard.getByText('Usa nombres de canal de Slack como #alertas.')).toBeVisible();
-    await slack.fill('alertas-prod');
-    await slack.press('Enter');
-    const webhook = wizard.getByLabel('URLs');
-    await webhook.fill('https://hooks.example.com/gitops');
-    await webhook.press('Enter');
+    // Slack, Google Chat and Webhook have no notifier yet: shown as "soon" and not selectable
+    for (const channel of [/^Slack/, /^Google Chat/, /^Webhook/]) {
+      const card = wizard.getByRole('checkbox', { name: channel });
+      await expect(card).toBeDisabled();
+      await expect(card).toContainText('Próximamente');
+      await expect(card).toHaveAttribute('aria-checked', 'false');
+    }
+
+    const targets = wizard.getByLabel('Destinatarios');
+    await targets.fill('ops@example.com');
+    await targets.press('Enter');
     await wizard.getByRole('button', { name: 'Siguiente' }).click();
     await wizard.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(wizard).toBeHidden();
 
-    await expect(row).toContainText('#alertas-prod');
-    await expect(row).toContainText('https://hooks.example.com/gitops');
+    await expect(row).toContainText('ops@example.com');
     await expect(row).toContainText('oncall@example.com');
   });
 

@@ -20,6 +20,7 @@
     DraftCondition,
   } from '#lib/alerts/types';
   import ConditionBuilder from './ConditionBuilder.svelte';
+  import { DELIVERED_CHANNELS } from '#modules/alerts/domain/alert.domain';
   import OptionPicker from './OptionPicker.svelte';
 
   type Props = { data: AlertEditorData; form: AlertFormResult };
@@ -34,6 +35,9 @@
     test: form?.test ?? null,
   }));
   let draft = $state(initial.draft);
+  // canales sin envío todavía: solo se pueden mantener (o quitar) si la alerta ya los tenía
+  const initialChannels: string[] = [...initial.draft.channels];
+  const isSoon = (channel: string) => !(DELIVERED_CHANNELS as readonly string[]).includes(channel);
   let errors = $state<Record<string, string>>(initial.errors);
   let message = $state(initial.message);
   let test = $state(initial.test);
@@ -361,11 +365,17 @@
               name="channels"
               value={channel.key}
               bind:group={draft.channels}
-              disabled={!data.canSave}
+              disabled={!data.canSave ||
+                (isSoon(channel.key) && !initialChannels.includes(channel.key))}
             />
             {$_(`alerts.channels.${channel.key}`)}
+            {#if isSoon(channel.key)}
+              <span class="k-badge h-5 px-2 text-[10px] uppercase"
+                >{$_('alerts.channels.soon')}</span
+              >
+            {/if}
           </label>
-          {#if channel.list}
+          {#if channel.list && (!isSoon(channel.key) || initialChannels.includes(channel.key))}
             <input
               name={channel.list}
               class="k-input"
