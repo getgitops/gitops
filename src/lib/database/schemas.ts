@@ -431,6 +431,26 @@ export const ExternalRecipientEntity = entity('external_recipients', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const NotificationChannelEntity = entity('notification_channels', {
+  id: uuid().primaryKey(),
+  type: text().notNull(),
+  name: text().notNull(),
+  scope: text().notNull(),
+  organizationId: uuid().notNull(),
+  projectId: uuid().$defaultFn(() => null),
+  webhookUrl: text().notNull(),
+  enabled: bool().notNull().default(true),
+  createdByUserId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  lastDeliveryAt: timestamp(),
+  lastError: text(),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),

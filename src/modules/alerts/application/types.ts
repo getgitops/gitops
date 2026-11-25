@@ -72,6 +72,26 @@ export interface ExternalRecipientsPort {
   statuses(organizationId: string, emails: readonly string[]): Promise<Map<string, string>>;
 }
 
+export type UsableChannel = {
+  id: string;
+  name: string;
+  type: string;
+  scope: 'organization' | 'project';
+  enabled: boolean;
+};
+
+export interface NotificationChannelsPort {
+  listUsable(location: {
+    organizationId: string;
+    projectId: string | null;
+  }): Promise<UsableChannel[]>;
+  deliver(
+    channelId: string,
+    message: import('#lib/server/infra/notifications/chat-notification').ChannelMessage,
+    context?: Record<string, unknown>,
+  ): Promise<boolean>;
+}
+
 export type AlertActor = {
   userId: string;
   canRead(permission: PermissionGrant, context: PermissionContext): Promise<boolean>;

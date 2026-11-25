@@ -16,3 +16,40 @@ export type NotificationSettingsPage = {
 export type NotificationLinkState =
   | { state: 'ready' | 'done'; email: string; organization: string }
   | { state: 'invalid' | 'expired' };
+
+export type ChannelView = {
+  id: string;
+  type: string;
+  name: string;
+  scope: 'organization' | 'project';
+  organizationId: string;
+  projectId: string | null;
+  enabled: boolean;
+  destinationMasked: string;
+  available: boolean;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastDeliveryAt: string | null;
+  lastError: string | null;
+};
+
+export type ChannelsSectionData = {
+  scope: 'organization' | 'project';
+  channels: ChannelView[];
+  inherited: ChannelView[];
+  availableTypes: string[];
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+};
+
+export type ChannelsFormResult = {
+  channelForm?: string;
+  channelDraft?: { type: string; name: string };
+  channelError?: string;
+  channelErrors?: Record<string, string>;
+  channelSaved?: string;
+  channelDeleted?: string;
+  channelTest?: { channelId: string; sent: boolean; error: string | null };
+} | null;

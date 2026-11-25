@@ -15,10 +15,10 @@ import {
   type MailLocale,
   type Translate,
 } from '#lib/server/infra/notifications/i18n';
-import { getFieldValue, type EventDefinition, type EventMessage } from '#lib/events/catalog';
+import { getFieldValue, type EventDefinition } from '#lib/events/catalog';
 import type { CodeReportAnalysisCompletedPayload } from '#lib/events/domain-events';
 import type { AlertEmail, AlertNotifierPort, SystemEmail } from '../application/alert-engine';
-import { describeEventFields } from './event-summary';
+import { describeEventFields, eventResourcePath, eventSummaryText } from './event-summary';
 
 export { DEFAULT_MAIL_LOCALE, translateKey, type MailLocale };
 
@@ -31,14 +31,6 @@ export class MailNotSentError extends Error {
   constructor() {
     super('Email could not be sent');
     this.name = 'MailNotSentError';
-  }
-}
-
-function safely<T>(run: () => T): T | undefined {
-  try {
-    return run();
-  } catch {
-    return undefined;
   }
 }
 
@@ -76,27 +68,16 @@ export class AlertMailNotifier implements AlertNotifierPort {
     const locale = external ? DEFAULT_MAIL_LOCALE : mailLocale(recipient.locale);
     const t: Translate = translator(locale);
     const { event, where } = email;
-    const definition = email.definition as EventDefinition & {
-      link?: (context: unknown) => string | null;
-      mailSummary?: (payload: unknown) => EventMessage;
-    };
+    const definition = email.definition as EventDefinition & { mailTemplate?: string };
 
     const eventLabel = t(definition.label);
-    const message = safely(() => definition.mailSummary?.(event.payload));
-    const summary = message ? t(message.key, message.values) : eventLabel;
+    const summary = eventSummaryText(event, definition, t);
     const baseSubject = t('alerts.email.alertSubject', { alert: email.alert.name, summary });
     const subject = email.test
       ? t('alerts.email.testSubject', { subject: baseSubject })
       : baseSubject;
 
-    const resourcePath =
-      safely(() =>
-        definition.link?.({
-          payload: event.payload,
-          organizationSlug: where.organizationSlug ?? null,
-          projectSlug: where.projectSlug ?? null,
-        }),
-      ) ?? null;
+    const resourcePath = eventResourcePath(event, definition, where);
     const scopeName =
       email.alert.scope === 'project' && where.project ? where.project : (where.organization ?? '');
 

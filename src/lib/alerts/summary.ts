@@ -67,29 +67,31 @@ export function summarizeRecipients(
   users: AlertOption[],
   roles: AlertOption[],
   t: Translate,
+  channels: { ids: string[]; options: Array<{ id: string; name: string }> } = {
+    ids: [],
+    options: [],
+  },
 ): string {
   const names = [
     ...recipients.roleIds.map((id) => roles.find((role) => role.id === id)?.label ?? id),
     ...recipients.userIds.map((id) => users.find((user) => user.id === id)?.label ?? id),
     ...(recipients.emails ?? []),
+    ...channels.ids.map((id) => channels.options.find((option) => option.id === id)?.name ?? id),
   ];
   return names.length > 0 ? names.join(', ') : t('alerts.summary.noRecipients');
 }
 
-/** Targets of one channel, ready to print: names for mail, `#canal` for Slack, spaces, URLs. */
 export function channelTargets(
   channel: string,
-  recipients: {
-    userIds: string[];
-    roleIds: string[];
-    emails?: string[];
-    slackChannels?: string[];
-    googleChatSpaces?: string[];
-    webhookUrls?: string[];
+  alert: {
+    recipients: { userIds: string[]; roleIds: string[]; emails?: string[] };
+    channelIds?: string[];
   },
   users: AlertOption[],
   roles: AlertOption[],
+  channels: Array<{ id: string; name: string; type: string }> = [],
 ): string[] {
+  const { recipients } = alert;
   if (channel === 'mail') {
     return [
       ...recipients.roleIds.map((id) => roles.find((role) => role.id === id)?.label ?? id),
@@ -97,8 +99,8 @@ export function channelTargets(
       ...(recipients.emails ?? []),
     ];
   }
-  if (channel === 'slack') return recipients.slackChannels ?? [];
-  if (channel === 'google_chat') return recipients.googleChatSpaces ?? [];
-  if (channel === 'webhook') return recipients.webhookUrls ?? [];
-  return [];
+  return (alert.channelIds ?? [])
+    .map((id) => channels.find((option) => option.id === id))
+    .filter((option) => option?.type === channel)
+    .map((option) => option!.name);
 }
