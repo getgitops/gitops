@@ -396,6 +396,61 @@ export const AlertEntity = entity('alerts', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const NotificationSettingsEntity = entity('notification_settings', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  allowedExternalEmailDomains: json()
+    .notNull()
+    .$defaultFn(() => []),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const ExternalRecipientEntity = entity('external_recipients', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  email: text().notNull(),
+  status: text().notNull().default('pending'),
+  verifiedAt: timestamp(),
+  unsubscribedAt: timestamp(),
+  blockedAt: timestamp(),
+  verificationTokenHash: text(),
+  verificationExpiresAt: timestamp(),
+  lastVerificationSentAt: timestamp(),
+  unsubscribeVersion: integer().notNull().default(0),
+  createdByUserId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const NotificationChannelEntity = entity('notification_channels', {
+  id: uuid().primaryKey(),
+  type: text().notNull(),
+  name: text().notNull(),
+  scope: text().notNull(),
+  organizationId: uuid().notNull(),
+  projectId: uuid().$defaultFn(() => null),
+  webhookUrl: text().notNull(),
+  enabled: bool().notNull().default(true),
+  createdByUserId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  lastDeliveryAt: timestamp(),
+  lastError: text(),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),

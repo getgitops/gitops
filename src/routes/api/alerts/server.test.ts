@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Grants = Record<string, string[]>;
 
+const { sentEmails, mail } = vi.hoisted(() => ({
+  sentEmails: [] as unknown[],
+  mail: { configured: true },
+}));
+
 // grants per caller and context key (`org:<id>` / `project:<id>`)
 const grants: { users: Record<string, Grants>; apiKeys: Record<string, string[]> } = {
   users: {},
@@ -56,6 +61,9 @@ vi.mock('#modules/alerts', async () => {
   const { InMemoryAlertRepository } =
     await import('#modules/alerts/infrastructure/repositories/in-memory-alert.repository');
   const { buildSampleEvent } = await import('#modules/alerts/domain/sample-event');
+  const { createNotificationsFixture } = await import('#modules/notifications/application/testing');
+  const notifications = createNotificationsFixture();
+  await notifications.settings.setAllowedDomains('org-1', ['partner.com']);
 
   const repository = new InMemoryAlertRepository();
   const directory = new FakeAlertDirectory();
@@ -76,12 +84,19 @@ vi.mock('#modules/alerts', async () => {
   let id = 0;
   const alertService = new AlertService(repository, directory, {
     generateId: () => `alert-${++id}`,
+    externalRecipients: notifications.recipients,
   });
   const alertEngine = new AlertEngine({
     repository,
     directory,
     recipients: new RecipientResolver(directory, async () => true),
-    notifier: { sendAlert: async () => {}, sendSystemNotification: async () => {} },
+    externalRecipients: notifications.recipients,
+    notifier: {
+      sendAlert: async (email: unknown) => {
+        sentEmails.push(email);
+      },
+      sendSystemNotification: async () => {},
+    },
     logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
   });
   return {
@@ -91,6 +106,8 @@ vi.mock('#modules/alerts', async () => {
     alertDirectory: directory,
     buildSampleEvent,
     repository,
+    notifications,
+    isMailConfigured: () => mail.configured,
   };
 });
 
@@ -99,6 +116,14 @@ const repository = (alerts as unknown as { repository: { rows: unknown[] } }).re
 const collection = await import('./+server');
 const item = await import('./[id]/+server');
 const test = await import('./[id]/test/+server');
+const draftTest = await import('./test/+server');
+const notifications = (
+  alerts as unknown as {
+    notifications: ReturnType<
+      typeof import('#modules/notifications/application/testing').createNotificationsFixture
+    >;
+  }
+).notifications;
 
 const ADMIN_GRANTS = [
   'project:alerts:read',
@@ -141,7 +166,7 @@ describe('/api/alerts', () => {
   beforeEach(() => {
     repository.rows = [];
     grants.users = {
-      admin: { 'project:p1': ADMIN_GRANTS },
+      admin: { 'project:p1': [...ADMIN_GRANTS] },
       viewer: { 'project:p1': ['project:alerts:read', 'project:codereport:reports:read'] },
       // can manage alerts but not read code reports
       vaultAdmin: { 'project:p1': ['project:alerts:create', 'project:vault:secrets:read'] },
@@ -188,6 +213,150 @@ describe('/api/alerts', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Invalid alert',
       errors: { 'conditions.0.operator': 'invalid_operator' },
+    });
+  });
+
+  describe('test emails', () => {
+    beforeEach(() => {
+      sentEmails.length = 0;
+      mail.configured = true;
+    });
+
+    it('only dry-runs unless send is true', async () => {
+      const created = await call(collection.POST, { locals: admin, body: guided });
+      const { id } = (await created.json()) as { id: string };
+
+      const dry = await call(test.POST, { locals: admin, params: { id }, body: {} });
+      expect(dry.status).toBe(200);
+      expect(await dry.json()).not.toHaveProperty('delivery');
+      expect(sentEmails).toHaveLength(0);
+
+      const sent = await call(test.POST, { locals: admin, params: { id }, body: { send: true } });
+      expect(sent.status).toBe(200);
+      await expect(sent.json()).resolves.toMatchObject({ delivery: { sent: 1, failed: 0 } });
+      expect(sentEmails).toEqual([
+        expect.objectContaining({
+          test: true,
+          alert: expect.objectContaining({ id }),
+          recipient: expect.objectContaining({ kind: 'member', userId: 'admin' }),
+        }),
+      ]);
+    });
+
+    it('refuses to send without SMTP and limits test emails per caller', async () => {
+      const created = await call(collection.POST, { locals: admin, body: guided });
+      const { id } = (await created.json()) as { id: string };
+
+      mail.configured = false;
+      const noSmtp = await call(test.POST, { locals: admin, params: { id }, body: { send: true } });
+      expect(noSmtp.status).toBe(409);
+      await expect(noSmtp.json()).resolves.toEqual({ error: 'mail_not_configured' });
+
+      mail.configured = true;
+      const caller = { user: { id: 'limited' } };
+      grants.users.limited = { 'project:p1': [...ADMIN_GRANTS] };
+      const statuses = [];
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const response = await call(test.POST, {
+          locals: caller,
+          params: { id },
+          body: { send: true },
+        });
+        statuses.push(response.status);
+      }
+      expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+    });
+
+    it('asks new external addresses of a draft to confirm, then sends them the test', async () => {
+      grants.users.admin['project:p1'].push('project:notifications:update');
+      const body = {
+        ...guided,
+        recipients: { emails: ['draft-test@partner.com'] },
+        send: true,
+      };
+
+      const first = await call(draftTest.POST, { locals: admin, body });
+      expect(first.status).toBe(200);
+      await expect(first.json()).resolves.toMatchObject({
+        external: [{ email: 'draft-test@partner.com', status: 'pending', delivers: false }],
+        delivery: { sent: 0, failed: 0 },
+      });
+      expect(notifications.notifier.sent.map((email) => email.email)).toContain(
+        'draft-test@partner.com',
+      );
+      expect(repository.rows).toHaveLength(0);
+      expect(sentEmails).toHaveLength(0);
+
+      await notifications.recipients.verify(
+        notifications.notifier.tokenFor('draft-test@partner.com'),
+      );
+      const second = await call(draftTest.POST, { locals: admin, body });
+      await expect(second.json()).resolves.toMatchObject({
+        external: [{ email: 'draft-test@partner.com', status: 'verified', delivers: true }],
+        delivery: { sent: 1, failed: 0 },
+      });
+      expect(sentEmails).toEqual([
+        expect.objectContaining({
+          test: true,
+          recipient: expect.objectContaining({ kind: 'external', email: 'draft-test@partner.com' }),
+        }),
+      ]);
+    });
+
+    it('still needs alert write permission', async () => {
+      const created = await call(collection.POST, { locals: admin, body: guided });
+      const { id } = (await created.json()) as { id: string };
+      const response = await call(test.POST, {
+        locals: viewer,
+        params: { id },
+        body: { send: true },
+      });
+      expect(response.status).toBe(403);
+      expect(sentEmails).toHaveLength(0);
+    });
+  });
+
+  describe('external email recipients', () => {
+    const external = (emails: string[]) => ({
+      ...guided,
+      recipients: { roleIds: ['r-admin'], emails: emails },
+    });
+
+    it('rejects addresses outside the allowed domains', async () => {
+      grants.users.admin['project:p1'].push('project:notifications:update');
+      const response = await call(collection.POST, {
+        locals: admin,
+        body: external(['ana@partner.com', 'bob@evil.com']),
+      });
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        errors: {
+          'recipients.emails': 'domain_not_allowed',
+          'recipients.emails.1': 'domain_not_allowed',
+        },
+      });
+      expect(repository.rows).toHaveLength(0);
+    });
+
+    it('needs project:notifications:update to add them', async () => {
+      const refused = await call(collection.POST, {
+        locals: admin,
+        body: external(['ana@partner.com']),
+      });
+      expect(refused.status).toBe(400);
+      await expect(refused.json()).resolves.toMatchObject({
+        errors: { 'recipients.emails': 'forbidden_external' },
+      });
+
+      grants.users.admin['project:p1'].push('project:notifications:update');
+      const created = await call(collection.POST, {
+        locals: admin,
+        body: external(['Ana@Partner.com']),
+      });
+      expect(created.status).toBe(201);
+      await expect(created.json()).resolves.toMatchObject({
+        recipients: { emails: ['ana@partner.com'] },
+      });
     });
   });
 

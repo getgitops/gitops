@@ -69,6 +69,10 @@ const permissions = {
           resource: 'alerts',
           permissions: grantsFor('organization', 'alerts'),
         },
+        notifications: {
+          resource: 'notifications',
+          permissions: grantsFor('organization', 'notifications'),
+        },
       },
     },
     project: {
@@ -95,6 +99,10 @@ const permissions = {
         alerts: {
           resource: 'alerts',
           permissions: grantsFor('project', 'alerts'),
+        },
+        notifications: {
+          resource: 'notifications',
+          permissions: grantsFor('project', 'notifications'),
         },
         modules: {
           resource: 'modules',

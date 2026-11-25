@@ -74,12 +74,27 @@ export function formatSender(config: SmtpConfig): string {
   return config.fromName ? `${config.fromName} <${config.from}>` : config.from;
 }
 
+const DEV_ORIGIN_KEY = Symbol.for('gitops.notifications.dev-origin');
+type GlobalWithDevOrigin = typeof globalThis & { [DEV_ORIGIN_KEY]?: string };
+
+export function rememberDevOrigin(origin: string): void {
+  if (!import.meta.env.DEV) return;
+  (globalThis as GlobalWithDevOrigin)[DEV_ORIGIN_KEY] = origin;
+}
+
+export function resetDevOrigin(): void {
+  delete (globalThis as GlobalWithDevOrigin)[DEV_ORIGIN_KEY];
+}
+
 /**
  * Public origin used for absolute links in emails (`ORIGIN`, e.g. `https://gitops.example.com`),
  * without a trailing slash. `null` when unset or not an http(s) URL: emails then go without links.
  */
 export function readPublicOrigin(): string | null {
-  const raw = value('ORIGIN');
+  const devOrigin = import.meta.env.DEV
+    ? (globalThis as GlobalWithDevOrigin)[DEV_ORIGIN_KEY]
+    : undefined;
+  const raw = devOrigin ?? value('ORIGIN');
   if (!raw) return null;
   try {
     const url = new URL(raw);

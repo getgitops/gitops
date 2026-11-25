@@ -9,9 +9,11 @@
     MessageSquare,
     Pencil,
     Plus,
+    Settings,
     Trash2,
     Webhook,
   } from '@lucide/svelte';
+  import AlertSettingsPanel from './AlertSettingsPanel.svelte';
   import AlertWizard from './AlertWizard.svelte';
   import { Modal, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
@@ -49,7 +51,12 @@
 
   const examples = ['alerts.list.example1', 'alerts.list.example2', 'alerts.list.example3'];
 
-  const channelIcons = { mail: Mail, slack: Hash, google_chat: MessageSquare, webhook: Webhook };
+  const channelIcons = {
+    mail: Mail,
+    slack: Hash,
+    'google-chat': MessageSquare,
+    webhook: Webhook,
+  };
 
   // el asistente: "Crear alerta" y "Editar" lo abren; sus enlaces siguen funcionando sin JS
   let wizardOpen = $state(false);
@@ -59,6 +66,13 @@
     event.preventDefault();
     wizardAlert = alert;
     wizardOpen = true;
+  }
+
+  let settingsOpen = $state(false);
+  function openSettings(event: MouseEvent) {
+    if (!data.configPath || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    settingsOpen = true;
   }
 
   let deleteTarget = $state<AlertRow | null>(null);
@@ -76,15 +90,27 @@
           : $_('alerts.list.descriptionOrganization')}
       </p>
     </div>
-    {#if data.canCreate && data.alerts.length > 0}
-      <a
-        href="{data.basePath}/new"
-        class="k-btn k-btn-primary"
-        onclick={(event) => openWizard(event, null)}
-      >
-        <Plus class="h-4 w-4" />{$_('alerts.list.create')}
-      </a>
-    {/if}
+    <div class="flex flex-wrap items-center gap-2">
+      {#if data.configPath}
+        <a
+          href={data.configPath}
+          class="k-btn k-btn-secondary"
+          onclick={openSettings}
+          data-testid="alert-settings"
+        >
+          <Settings class="h-4 w-4" />{$_('alerts.list.settings')}
+        </a>
+      {/if}
+      {#if data.canCreate && data.alerts.length > 0}
+        <a
+          href="{data.basePath}/new"
+          class="k-btn k-btn-primary"
+          onclick={(event) => openWizard(event, null)}
+        >
+          <Plus class="h-4 w-4" />{$_('alerts.list.create')}
+        </a>
+      {/if}
+    </div>
   </header>
 
   {#if !data.mailConfigured}
@@ -197,7 +223,7 @@
                   <li class="flex items-start gap-1.5">
                     <Icon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-subtle" />
                     <span
-                      >{channelTargets(channel, alert.recipients, data.users, data.roles).join(
+                      >{channelTargets(channel, alert, data.users, data.roles, data.channels).join(
                         ', ',
                       ) || $_('alerts.summary.noRecipients')}</span
                     >
@@ -323,5 +349,39 @@
 </Modal>
 
 {#if data.canCreate || data.canUpdate}
-  <AlertWizard bind:open={wizardOpen} alert={wizardAlert} {data} />
+  <AlertWizard
+    bind:open={wizardOpen}
+    alert={wizardAlert}
+    {data}
+    onConfigure={() => (settingsOpen = true)}
+  />
+{/if}
+
+{#if data.configPath}
+  <Modal
+    bind:open={settingsOpen}
+    size="xl"
+    title={$_('notifications.settings.title')}
+    description={data.scope === 'project'
+      ? $_('notifications.settings.descriptionProject')
+      : $_('notifications.settings.description')}
+  >
+    {#snippet icon()}
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-500/12 text-brand-400"
+        ><Settings class="h-5 w-5" /></span
+      >
+    {/snippet}
+    <AlertSettingsPanel
+      data={data.settings}
+      channels={data.channelsSection}
+      organizationSettingsPath={data.scope === 'project' ? data.external.settingsPath : null}
+      action={data.configPath}
+    />
+    {#snippet footer()}
+      <button type="button" class="k-btn k-btn-secondary" onclick={() => (settingsOpen = false)}
+        >{$_('common.close')}</button
+      >
+    {/snippet}
+  </Modal>
 {/if}

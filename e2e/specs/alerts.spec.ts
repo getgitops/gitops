@@ -67,6 +67,7 @@ test.describe('project alerts', () => {
     await page.getByRole('option', { name: 'Project Admin', exact: true }).click();
     await targets.fill('oncall@example.com');
     await targets.press('Enter');
+    await targets.press('Escape');
     await wizard.getByRole('radio', { name: '1 hora' }).click();
     await wizard.getByRole('button', { name: 'Siguiente' }).click();
 
@@ -77,6 +78,7 @@ test.describe('project alerts', () => {
     await expect(result).toContainText('El evento de ejemplo cumple las condiciones.');
     await expect(result).toContainText(seed.personas.projectAdmin.username);
     await expect(result).toContainText('oncall@example.com');
+    await expect(result).toContainText('Sin añadir');
     await expect(result).toContainText('no se ha enviado ningún email');
 
     await wizard.getByRole('button', { name: 'Crear alerta' }).click();
@@ -93,7 +95,7 @@ test.describe('project alerts', () => {
     await expect(row.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('only email can be enabled and the alert is edited in the same wizard', async ({
+  test('without channels only email can be picked and the alert is edited in the same wizard', async ({
     page,
     loginAs,
   }) => {
@@ -106,12 +108,13 @@ test.describe('project alerts', () => {
     await expect(wizard.getByLabel('Nombre', { exact: true })).toHaveValue(GUIDED_NAME);
 
     await wizard.getByRole('button', { name: /Destinos/ }).click();
-    // Slack, Google Chat and Webhook have no notifier yet: shown as "soon" and not selectable
-    for (const channel of [/^Slack/, /^Google Chat/, /^Webhook/]) {
-      const card = wizard.getByRole('checkbox', { name: channel });
-      await expect(card).toBeDisabled();
-      await expect(card).toContainText('Próximamente');
-      await expect(card).toHaveAttribute('aria-checked', 'false');
+    const channels = wizard.getByTestId('alert-channels');
+    await expect(channels.getByRole('checkbox', { name: /^Email/ })).toBeEnabled();
+    for (const type of ['slack', 'google-chat', 'webhook']) {
+      const card = channels.locator(`[data-channel-type="${type}"]`);
+      await expect(card.getByRole('checkbox')).toBeDisabled();
+      await expect(card).toContainText('No configurado');
+      await expect(card.getByRole('link', { name: 'Configurar' })).toBeVisible();
     }
 
     const targets = wizard.getByLabel('Destinatarios');
@@ -215,10 +218,59 @@ test.describe('organization alerts', () => {
     await expect(inherited.getByRole('link', { name: 'Editar' })).toHaveCount(0);
     await expect(inherited.getByRole('switch')).toHaveCount(0);
   });
+
+  test('the alert settings open in a modal from the list and save the allowed domains', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('orgAdmin');
+    await page.goto(orgAlertsUrl);
+    await page.waitForLoadState('networkidle');
+    await page.getByTestId('alert-settings').click();
+    const dialog = page.getByRole('dialog', { name: 'Configuración de alertas' });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}$`));
+
+    const domains = dialog.getByLabel('Dominios (uno por línea)');
+    await expect(domains).toHaveValue('example.com');
+    await domains.fill('example.com\npartner.com');
+    await dialog.getByRole('button', { name: 'Guardar dominios' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Dominios guardados' })).toBeVisible();
+    await expect(domains).toHaveValue('example.com\npartner.com');
+  });
+
+  test('project admins manage the project channels, not the organization domains', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('projectAdmin');
+    await page.goto(alertsUrl);
+    await page.waitForLoadState('networkidle');
+    await page.getByTestId('alert-settings').click();
+    const dialog = page.getByRole('dialog', { name: 'Configuración de alertas' });
+    await expect(dialog.getByTestId('notification-channels')).toBeVisible();
+    await expect(dialog.getByTestId('channel-types-unavailable')).toBeVisible();
+    await expect(dialog.getByLabel('Dominios (uno por línea)')).toHaveCount(0);
+  });
+
+  test('a project viewer gets no settings button', async ({ page, loginAs }) => {
+    await loginAs('projectViewer');
+    await page.goto(alertsUrl);
+    await expect(page.getByTestId('alert-settings')).toHaveCount(0);
+  });
 });
 
 test.describe('without JavaScript', () => {
   test.use({ javaScriptEnabled: false });
+
+  test('the alert settings button opens the settings page', async ({ page, loginAs }) => {
+    await loginAs('orgAdmin');
+    await page.goto(orgAlertsUrl);
+    await page.getByTestId('alert-settings').click();
+    await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}/settings$`));
+    await expect(page.getByRole('heading', { name: 'Configuración de alertas' })).toBeVisible();
+    await expect(page.getByLabel('Dominios (uno por línea)')).toHaveValue(/example\.com/);
+  });
 
   test('the editor still creates an alert through form actions', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');

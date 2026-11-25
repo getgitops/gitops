@@ -72,3 +72,30 @@ describe('MailNotification', () => {
     });
   });
 });
+
+describe('MailNotification headers', () => {
+  const base = { to: 'user@example.com', subject: 'Welcome', content: '<p>Hi</p>' };
+
+  it('keeps single-line headers', () => {
+    const notification = new MailNotification({
+      ...base,
+      headers: { 'List-Unsubscribe': '<https://gitops.example.com/u?token=x>' },
+    });
+    expect(() => notification.validate()).not.toThrow();
+    expect(notification.headers).toEqual({
+      'List-Unsubscribe': '<https://gitops.example.com/u?token=x>',
+    });
+  });
+
+  it('rejects header injection', () => {
+    expect(() =>
+      new MailNotification({
+        ...base,
+        headers: { 'X-A': 'ok\r\nBcc: evil@example.com' },
+      }).validate(),
+    ).toThrow(/header is not valid/);
+    expect(() => new MailNotification({ ...base, headers: { 'X A': 'ok' } }).validate()).toThrow(
+      /header is not valid/,
+    );
+  });
+});

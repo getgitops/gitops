@@ -1675,7 +1675,11 @@
         "monitorDown": "{name} is down ({cause})",
         "monitorDegraded": "{name} is degraded",
         "monitorRecovered": "{name} recovered after {minutes} min"
-      }
+      },
+      "externalFooter": "You receive this email because {organization} added your address to the alert “{alert}”.",
+      "unsubscribe": "Unsubscribe",
+      "testSubject": "[Test] {subject}",
+      "testNote": "This is a test email sent from the alert editor with an example event: nothing actually happened."
     },
     "operators": {
       "eq": "is",
@@ -1716,7 +1720,13 @@
       "invalid_channel": "Channel not available.",
       "invalid_email": "Some email is not valid.",
       "invalid_slack_channel": "Use Slack channel names like #alerts.",
-      "invalid_url": "Use a valid http(s) URL."
+      "invalid_url": "Use a valid http(s) URL.",
+      "domain_not_allowed": "The domain is not allowed for external recipients.",
+      "forbidden_external": "You are not allowed to add external recipients.",
+      "mail_not_configured": "SMTP is not configured: the test email can't be sent.",
+      "test_rate_limited": "You sent too many test emails. Wait a few minutes.",
+      "unknown_channel": "Some channel does not exist or can't be used from here.",
+      "forbidden_channel": "You are not allowed to add channels to the alert."
     },
     "channels": {
       "mail": "Email",
@@ -1752,7 +1762,8 @@
       "inheritedDescription": "These alerts are defined in the organization and also fire for this project’s events. They can only be changed from the organization settings.",
       "deleted": "Alert deleted",
       "deleteTitle": "Delete the alert?",
-      "channelsColumn": "Destinations"
+      "channelsColumn": "Destinations",
+      "settings": "Settings"
     },
     "editor": {
       "newTitle": "New alert",
@@ -1801,7 +1812,22 @@
         "slack": "Slack channels, e.g. #alerts",
         "google_chat": "Google Chat spaces",
         "webhook": "Webhook URLs"
-      }
+      },
+      "externalNotice": "External recipients have no GitOps account: they get the email without any permission check. Sensitive fields and links to the app are left out, and each address must confirm before it receives anything.",
+      "externalHelp": "One email per line. Allowed domains: {domains}. New addresses get a confirmation email.",
+      "externalReadonly": "Only people who manage notifications can add external emails.",
+      "externalDisabled": "The organization does not allow external recipients.",
+      "externalSettingsLink": "Configure allowed domains",
+      "externalStatus": "Status of the external emails",
+      "sendTest": "Send test email",
+      "sendingTest": "Sending…",
+      "sendTestHelp": "Sends a real email with an example event to the alert's recipients that would get it (external ones only once confirmed).",
+      "channelsHelp": "The email goes to the recipients above. You can also post the alert to chat channels or webhooks: one message per channel.",
+      "noChannels": "There are no channels for this scope.",
+      "channelsSettingsLink": "Configure channels",
+      "channelFromOrganization": "(from the organization)",
+      "channelsNotice": "A channel is read by people who may not be allowed to see this event. The message leaves out sensitive fields.",
+      "channelsReadonly": "Only people who manage notifications can add channels."
     },
     "test": {
       "matched": "The example event matches the conditions.",
@@ -1809,7 +1835,13 @@
       "recipients": "It would be sent to: {names}",
       "noRecipients": "It would not be sent to anyone.",
       "denied": "{count} recipients would not get it because they cannot view this event.",
-      "nothingSent": "This is a test: no email was sent."
+      "nothingSent": "This is a test: no email was sent.",
+      "externalDelivers": "would get it",
+      "externalSkipped": "would not get it ({status})",
+      "delivered": "Test email sent: {sent} sent, {failed} failed.",
+      "externalVerificationSent": "does not get the test until it confirms: the confirmation email was sent. Once confirmed, send the test again.",
+      "channelDelivers": "would get the message",
+      "channelSkipped": "would not get it (disabled or deleted)"
     },
     "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent.",
     "wizard": {
@@ -1856,7 +1888,9 @@
       "skipConditions": "No conditions",
       "created": "Alert created",
       "saved": "Alert saved",
-      "failed": "Could not complete it. Try again."
+      "failed": "Could not complete it. Try again.",
+      "notConfigured": "Not configured",
+      "configure": "Configure"
     }
   },
   "monitoring": {
@@ -2048,5 +2082,142 @@
       "noData": "No response times in this period yet."
     },
     "created": "Monitor created"
+  },
+  "notifications": {
+    "status": {
+      "pending": "Waiting for confirmation",
+      "verified": "Confirmed",
+      "unsubscribed": "Unsubscribed",
+      "blocked": "Blocked",
+      "missing": "Not added"
+    },
+    "settings": {
+      "title": "Alert settings",
+      "description": "Allowed domains and external recipients: how the organization's alerts leave GitOps.",
+      "mailNotConfigured": "SMTP is not configured: no confirmation emails or alerts will be sent.",
+      "originNotConfigured": "ORIGIN is not set: confirmation and unsubscribe links can't be built, so external recipients will not get anything.",
+      "domainsTitle": "Allowed domains for external emails",
+      "domainsDescription": "Alerts can only email addresses outside GitOps from these domains. An empty list means no external recipients.",
+      "domainsLabel": "Domains (one per line)",
+      "domainsHelp": "Exact match: company.com does not include its subdomains. Use *.company.com to allow them. Removing a domain blocks its recipients (they are not deleted).",
+      "domainsReadonly": "You need the organization:settings:update permission to change the domains.",
+      "domainsSaved": "Domains saved. Blocked: {blocked}. Restored: {restored}.",
+      "saveDomains": "Save domains",
+      "recipientsTitle": "External recipients",
+      "recipientsDescription": "Addresses outside GitOps used by the organization's alerts. They only get alerts once confirmed.",
+      "recipientsEmpty": "No external recipients yet. Add them from the alert editor.",
+      "email": "Email",
+      "status": "Status",
+      "verifiedAt": "Confirmed on",
+      "lastSent": "Last confirmation email",
+      "actions": "Actions",
+      "resend": "Resend confirmation",
+      "resent": "Confirmation email sent again.",
+      "back": "Back to alerts",
+      "domainsSavedTitle": "Domains saved",
+      "remove": "Remove",
+      "removeTitle": "Remove this recipient?",
+      "removeDescription": "{email} hasn't confirmed yet. Its confirmation link will stop working and it will be removed from every alert of the organization.",
+      "removed": "{email} removed",
+      "projectDescription": "Chat channels and webhooks this project's alerts can use.",
+      "descriptionProject": "This project's chat channels and webhooks.",
+      "organizationDomains": "Allowed domains and external recipients are managed in the organization.",
+      "organizationDomainsLink": "Open organization settings"
+    },
+    "errors": {
+      "invalid": "The value is not valid.",
+      "invalid_domain": "Some domain is not valid.",
+      "too_many": "There are too many domains.",
+      "not_found": "The recipient does not exist.",
+      "invalid_status": "This recipient does not need a confirmation.",
+      "rate_limited": "Too many confirmation emails were sent. Try again later.",
+      "send_failed": "The confirmation email could not be sent.",
+      "Forbidden": "You are not allowed to do this.",
+      "required": "This field is required.",
+      "too_long": "It is too long.",
+      "invalid_type": "Invalid channel type.",
+      "type_unavailable": "This channel type is not available yet.",
+      "invalid_url": "The URL is not valid.",
+      "not_https": "The URL must use https.",
+      "credentials": "The URL can't include a user or a password.",
+      "ip_address": "The URL can't point to an IP address.",
+      "port": "The URL can't use another port.",
+      "host_not_allowed": "That domain is not allowed for this channel type.",
+      "path_not_allowed": "The URL path does not match this channel type."
+    },
+    "link": {
+      "invalid": "This link is not valid or has already been used.",
+      "expired": "This link has expired."
+    },
+    "verify": {
+      "title": "Confirm subscription",
+      "question": "{organization} wants to send GitOps alerts to {email}. Do you want to receive them?",
+      "confirm": "Yes, send me the alerts",
+      "done": "Done: {email} will receive the alerts of {organization}. Every email includes a link to unsubscribe."
+    },
+    "unsubscribe": {
+      "title": "Unsubscribe",
+      "question": "Stop sending alerts of {organization} to {email}?",
+      "confirm": "Unsubscribe",
+      "done": "{email} will no longer receive alerts of {organization}."
+    },
+    "email": {
+      "verify": {
+        "subject": "[GitOps] Confirm that you want to receive the alerts of {organization}",
+        "title": "Confirm your email",
+        "intro": "{organization} added {email} as a recipient of its alerts in GitOps.",
+        "explanation": "You will not get any alert until you confirm. Every alert will include a link to unsubscribe.",
+        "action": "Confirm subscription",
+        "expiry": "This link expires on {date}.",
+        "ignore": "If you did not expect this email, ignore it: you will not get anything.",
+        "footer": "You receive this email because someone in a GitOps organization added your address to an alert."
+      }
+    },
+    "channels": {
+      "title": "Channels",
+      "descriptionOrganization": "Chat channels and webhooks the alerts of the organization and its projects can post to.",
+      "descriptionProject": "Channels only this project's alerts can use.",
+      "privacyNotice": "A channel is read by people who may have no GitOps account or permissions. The channel URL is stored encrypted and never shown in full again.",
+      "empty": "No channels yet.",
+      "types": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
+      },
+      "disabled": "Disabled",
+      "unavailable": "Type not available",
+      "lastDelivery": "Last delivery: {date}",
+      "lastError": "Last error: {error}",
+      "test": "Send test message",
+      "testSent": "Test message sent.",
+      "testFailed": "The test message could not be sent ({reason}).",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "confirmDelete": "Delete this channel? Alerts using it will stop posting to it.",
+      "edit": "Edit",
+      "name": "Name",
+      "newDestination": "New URL (empty keeps the current one)",
+      "save": "Save",
+      "inheritedTitle": "Organization channels",
+      "inheritedDescription": "This project's alerts can also use these channels. They are managed from the organization settings.",
+      "create": "Add channel",
+      "noTypes": "No channel type is available yet.",
+      "type": "Type",
+      "destination": "Webhook URL",
+      "testMessage": {
+        "title": "GitOps test message for {channel}",
+        "summary": "This channel will get the alerts of {where}.",
+        "event": "Test message",
+        "channel": "Channel",
+        "open": "Open in GitOps"
+      },
+      "created": "Channel added",
+      "saved": "Channel saved",
+      "deleted": "Channel deleted",
+      "disabledToast": "Channel disabled",
+      "enabledToast": "Channel enabled",
+      "deleteTitle": "Delete the channel?"
+    }
   }
 }

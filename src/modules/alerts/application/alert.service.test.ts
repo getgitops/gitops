@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { createNotificationsFixture } from '#modules/notifications/application/testing';
 import { AlertValidationError, type AlertInput, type AlertLocation } from '../domain/alert.domain';
 import { InMemoryAlertRepository } from '../infrastructure/repositories/in-memory-alert.repository';
 import { AlertService } from './alert.service';
@@ -35,7 +36,9 @@ describe('AlertService', () => {
   let onChange: Mock<() => void>;
   let service: AlertService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const notifications = createNotificationsFixture();
+    await notifications.settings.setAllowedDomains(ORG, ['example.com']);
     repository = new InMemoryAlertRepository();
     directory = new FakeAlertDirectory();
     directory.members = [
@@ -77,6 +80,7 @@ describe('AlertService', () => {
       generateId: () => 'alert-1',
       now: () => new Date('2026-11-20T10:00:00.000Z'),
       onChange,
+      externalRecipients: notifications.recipients,
     });
   });
 
@@ -105,7 +109,7 @@ describe('AlertService', () => {
     const errors = await validationErrors(
       service.create(
         projectLocation,
-        { name: ' ', match: 'some', recipients: {}, throttleMinutes: -1, channels: ['sms'] },
+        { name: ' ', match: 'some', recipients: {}, throttleMinutes: -1, channels: ['pigeon'] },
         actor(),
       ),
     );
@@ -115,7 +119,6 @@ describe('AlertService', () => {
       eventType: 'required',
       recipients: 'required',
       throttleMinutes: 'invalid',
-      channels: 'invalid_channel',
     });
     expect(repository.rows).toHaveLength(0);
     expect(onChange).not.toHaveBeenCalled();
@@ -263,63 +266,30 @@ describe('AlertService', () => {
   });
 
   describe('channels', () => {
-    it('keeps the targets of every enabled channel and normalizes them', async () => {
+    it('derives the channels from the recipients and ignores what the client sends', async () => {
       const alert = await service.create(
         projectLocation,
         guidedExample({
-          channels: ['mail', 'slack', 'google_chat', 'webhook'],
-          recipients: {
-            roleIds: ['role-project-admin'],
-            emails: [' Ops@Example.com ', 'ops@example.com'],
-            slackChannels: ['Alerts', '#alerts'],
-            googleChatSpaces: ['Incidencias'],
-            webhookUrls: ['https://hooks.example.com/gitops'],
-          },
+          channels: ['slack', 'pigeon'],
+          recipients: { emails: [' Ops@Example.com ', 'ops@example.com'] },
         }),
         actor(),
       );
-      expect(alert.channels).toEqual(['mail', 'slack', 'google_chat', 'webhook']);
-      expect(alert.recipients).toMatchObject({
-        emails: ['ops@example.com'],
-        slackChannels: ['#alerts'],
-        googleChatSpaces: ['Incidencias'],
-        webhookUrls: ['https://hooks.example.com/gitops'],
-      });
+      expect(alert.channels).toEqual(['mail']);
+      expect(alert.recipients.emails).toEqual(['ops@example.com']);
     });
 
-    it('drops the targets of disabled channels', async () => {
-      const alert = await service.create(
-        projectLocation,
-        guidedExample({
-          channels: ['slack'],
-          recipients: { roleIds: ['role-project-admin'], slackChannels: ['#alerts'] },
-        }),
-        actor(),
-      );
-      expect(alert.recipients.roleIds).toEqual([]);
-      expect(alert.recipients.slackChannels).toEqual(['#alerts']);
-    });
-
-    it('requires a valid target for each enabled channel', async () => {
+    it('reports an invalid external address per index', async () => {
       const errors = await validationErrors(
         service.create(
           projectLocation,
-          guidedExample({
-            channels: ['mail', 'slack', 'google_chat', 'webhook'],
-            recipients: {
-              emails: ['not-an-email'],
-              slackChannels: ['bad channel!'],
-              webhookUrls: ['ftp://example.com'],
-            },
-          }),
+          guidedExample({ recipients: { emails: ['not-an-email'] } }),
           actor(),
         ),
       );
       expect(errors).toEqual({
         'recipients.emails': 'invalid_email',
-        'recipients.slackChannels': 'invalid_slack_channel',
-        'recipients.googleChatSpaces': 'required',
-        'recipients.webhookUrls': 'invalid_url',
+        'recipients.emails.0': 'invalid_email',
       });
     });
 
@@ -334,6 +304,31 @@ describe('AlertService', () => {
   });
 
   describe('recipients', () => {
+    it('removes an external address from every alert of the organization', async () => {
+      const alert = await service.create(
+        projectLocation,
+        guidedExample({ recipients: { emails: ['typo@example.com', 'ops@example.com'] } }),
+        actor(),
+      );
+      repository.rows.push(
+        {
+          ...alert.toJson(),
+          id: 'alert-2',
+          recipients: { ...alert.recipients, emails: ['typo@example.com'] },
+        },
+        { ...alert.toJson(), id: 'other-org', organizationId: 'org-2' },
+      );
+      onChange.mockClear();
+
+      expect(await service.removeEmail(ORG, 'typo@example.com')).toBe(2);
+      const emails = (id: string) =>
+        repository.rows.find((row) => row.id === id)?.recipients.emails;
+      expect(emails('alert-1')).toEqual(['ops@example.com']);
+      expect(emails('alert-2')).toEqual([]);
+      expect(emails('other-org')).toEqual(['typo@example.com', 'ops@example.com']);
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+
     it('rejects users and roles outside the location', async () => {
       const errors = await validationErrors(
         service.create(

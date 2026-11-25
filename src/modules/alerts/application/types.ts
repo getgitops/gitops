@@ -59,7 +59,39 @@ export type ResolvedNames = {
   role?: string;
 };
 
-/** Who creates or edits an alert; `canRead` checks a grant in a context for that actor. */
+export interface ExternalRecipientsPort {
+  check(
+    organizationId: string,
+    emails: readonly unknown[],
+  ): Promise<{ emails: string[]; errors: Record<number, string> }>;
+  register(organizationId: string, emails: readonly string[], actorUserId: string): Promise<void>;
+  deliverable(
+    organizationId: string,
+    emails: readonly string[],
+  ): Promise<Array<{ email: string; unsubscribeUrl: string }>>;
+  statuses(organizationId: string, emails: readonly string[]): Promise<Map<string, string>>;
+}
+
+export type UsableChannel = {
+  id: string;
+  name: string;
+  type: string;
+  scope: 'organization' | 'project';
+  enabled: boolean;
+};
+
+export interface NotificationChannelsPort {
+  listUsable(location: {
+    organizationId: string;
+    projectId: string | null;
+  }): Promise<UsableChannel[]>;
+  deliver(
+    channelId: string,
+    message: import('#lib/server/infra/notifications/chat-notification').ChannelMessage,
+    context?: Record<string, unknown>,
+  ): Promise<boolean>;
+}
+
 export type AlertActor = {
   userId: string;
   canRead(permission: PermissionGrant, context: PermissionContext): Promise<boolean>;

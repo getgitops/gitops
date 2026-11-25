@@ -18,8 +18,7 @@ export type ResolvedRecipients = {
  * Turns an alert's users and roles into the people that get the email: the selected users plus
  * every member holding one of the roles, restricted to current members of the alert's location
  * that are enabled and have an email, and finally to those allowed to read the event
- * (`readPermission` checked where the event happened, most-specific-wins included). External
- * addresses (`emails`) are appended as they are.
+ * (`readPermission` checked where the event happened, most-specific-wins included).
  */
 export class RecipientResolver {
   constructor(
@@ -55,15 +54,6 @@ export class RecipientResolver {
       const allowed = await this.can(candidate.userId, readPermission, context).catch(() => false);
       if (allowed) recipients.push(candidate);
       else denied.push(candidate.userId);
-    }
-
-    // addresses outside the platform: the alert's author chose them explicitly and could read the
-    // event when saving it (anti-escalation check), so they are not permission-filtered
-    const known = new Set(recipients.map((recipient) => recipient.email.toLowerCase()));
-    for (const email of selection.emails ?? []) {
-      if (known.has(email.toLowerCase())) continue;
-      known.add(email.toLowerCase());
-      recipients.push({ userId: `email:${email}`, username: email, email });
     }
 
     return { recipients, denied };

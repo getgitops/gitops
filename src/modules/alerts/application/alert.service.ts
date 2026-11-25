@@ -28,18 +28,20 @@ import {
   locationContext,
   type AlertActor,
   type AlertDirectory,
+  type ExternalRecipientsPort,
+  type NotificationChannelsPort,
   type ReferenceOption,
+  type UsableChannel,
 } from './types';
 
 const MAX_NAME_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 const MAX_CONDITIONS = 20;
 const MAX_LIST_VALUES = 100;
-const MAX_TARGETS = 50;
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SLACK_CHANNEL_PATTERN = /^#[a-z0-9][a-z0-9._-]{0,79}$/;
-const MAX_SPACE_LENGTH = 128;
+export const MAX_EXTERNAL_EMAILS = 50;
+
+export const MAX_ALERT_CHANNELS = 20;
 
 const VALUELESS_OPERATORS = new Set(['is_true', 'is_false', 'exists']);
 const LIST_OPERATORS = new Set(['in', 'not_in']);
@@ -49,6 +51,9 @@ export type AlertServiceOptions = {
   generateId?: () => string;
   /** Called after every successful write, so the engine drops its cached alerts. */
   onChange?: () => void;
+  externalRecipients?: ExternalRecipientsPort;
+  channels?: Pick<NotificationChannelsPort, 'listUsable'>;
+  logger?: { warn: (object: object, message: string) => void };
 };
 
 /** Ids the location's reference lists contain, loaded once per validation. */
@@ -64,6 +69,9 @@ export class AlertService {
   private readonly now: () => Date;
   private readonly generateId: () => string;
   private readonly onChange: () => void;
+  private readonly externalRecipients: ExternalRecipientsPort | null;
+  private readonly channelsPort: Pick<NotificationChannelsPort, 'listUsable'> | null;
+  private readonly logger: AlertServiceOptions['logger'];
 
   constructor(
     private readonly repository: AlertRepositoryPort,
@@ -73,6 +81,9 @@ export class AlertService {
     this.now = options.now ?? (() => new Date());
     this.generateId = options.generateId ?? (() => crypto.randomUUID());
     this.onChange = options.onChange ?? (() => {});
+    this.externalRecipients = options.externalRecipients ?? null;
+    this.channelsPort = options.channels ?? null;
+    this.logger = options.logger;
   }
 
   async get(id: string): Promise<AlertDomain> {
@@ -115,11 +126,11 @@ export class AlertService {
     });
   }
 
-  /** Validates `input` for `location` and returns the normalized fields, without saving. */
   async validate(
     location: AlertLocation,
     input: AlertInput,
     actor: AlertActor,
+    previous: { emails?: readonly string[]; channelIds?: readonly string[] } = {},
   ): Promise<AlertFields> {
     const errors: AlertValidationErrors = {};
     const references: ReferenceCache = new Map();
@@ -148,9 +159,30 @@ export class AlertService {
       ? await this.validateConditions(location, definition, input.conditions, errors, references)
       : [];
 
-    const channels = this.validateChannels(input.channels, errors);
+    const recipients = await this.validateRecipients(
+      location,
+      input.recipients,
+      actor,
+      previous.emails ?? [],
+      errors,
+    );
 
-    const recipients = await this.validateRecipients(location, input.recipients, channels, errors);
+    const { channelIds, selected } = await this.validateChannelIds(
+      location,
+      input.channelIds,
+      actor,
+      previous.channelIds ?? [],
+      errors,
+    );
+    const hasEmailRecipients =
+      recipients.userIds.length + recipients.roleIds.length + recipients.emails.length > 0;
+    if (errors.recipients === 'required' && channelIds.length > 0) delete errors.recipients;
+    const channels = [
+      ...new Set<AlertChannel>([
+        ...(hasEmailRecipients || channelIds.length === 0 ? (['mail'] as const) : []),
+        ...selected.map((channel) => channel.type as AlertChannel),
+      ]),
+    ].filter((channel) => (ALERT_CHANNELS as readonly string[]).includes(channel));
 
     const throttleMinutes = Number(input.throttleMinutes ?? 0);
     if (
@@ -174,6 +206,7 @@ export class AlertService {
       conditions,
       recipients,
       channels,
+      channelIds,
       throttleMinutes,
     };
   }
@@ -196,6 +229,7 @@ export class AlertService {
     };
     await this.repository.create(row);
     this.onChange();
+    await this.registerExternal(location, fields.recipients.emails, actor);
     return new AlertDomain(row);
   }
 
@@ -211,13 +245,50 @@ export class AlertService {
       conditions: current.conditions,
       recipients: current.recipients,
       channels: current.channels,
+      channelIds: current.channelIds,
       throttleMinutes: current.throttleMinutes,
       ...Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)),
     };
-    const fields = await this.validate(current.location, merged, actor);
+    const fields = await this.validate(current.location, merged, actor, {
+      emails: current.recipients.emails,
+      channelIds: current.channelIds,
+    });
     await this.repository.update(id, fields);
     this.onChange();
+    await this.registerExternal(current.location, fields.recipients.emails, actor);
     return new AlertDomain({ ...current.toJson(), ...fields, updatedAt: this.now().toISOString() });
+  }
+
+  async registerExternal(
+    location: AlertLocation,
+    emails: readonly string[],
+    actor: AlertActor,
+  ): Promise<void> {
+    if (!this.externalRecipients || emails.length === 0) return;
+    try {
+      await this.externalRecipients.register(location.organizationId, emails, actor.userId);
+    } catch (error) {
+      this.logger?.warn(
+        { err: error, organizationId: location.organizationId },
+        '[alerts] external recipients could not be registered',
+      );
+    }
+  }
+
+  /** Drops `email` from every alert of the organization (and of its projects) that has it. */
+  async removeEmail(organizationId: string, email: string): Promise<number> {
+    const alerts = await this.repository.listByOrganization(organizationId);
+    const affected = alerts.filter((alert) => alert.recipients.emails.includes(email));
+    for (const alert of affected) {
+      await this.repository.update(alert.id, {
+        recipients: {
+          ...alert.recipients,
+          emails: alert.recipients.emails.filter((candidate) => candidate !== email),
+        },
+      });
+    }
+    if (affected.length > 0) this.onChange();
+    return affected.length;
   }
 
   async delete(id: string): Promise<void> {
@@ -405,99 +476,115 @@ export class AlertService {
   private async validateRecipients(
     location: AlertLocation,
     value: unknown,
-    channels: AlertChannel[],
+    actor: AlertActor,
+    previousEmails: readonly string[],
     errors: AlertValidationErrors,
   ): Promise<AlertRecipients> {
     const raw = (value ?? {}) as Record<string, unknown>;
-    const list = (key: string, normalize: (item: string) => string = (item) => item.trim()) =>
-      Array.isArray(raw[key])
-        ? [
-            ...new Set(
-              (raw[key] as unknown[])
-                .filter((item): item is string => typeof item === 'string')
-                .map(normalize)
-                .filter(Boolean),
-            ),
-          ]
+    const ids = (list: unknown) =>
+      Array.isArray(list)
+        ? [...new Set(list.filter((item): item is string => typeof item === 'string' && !!item))]
         : [];
     const recipients = emptyRecipients();
-    const tooMany = (key: string, items: string[]) => {
-      if (items.length > MAX_TARGETS) errors[`recipients.${key}`] = 'too_many';
-    };
-
-    if (channels.includes('mail')) {
-      recipients.userIds = list('userIds');
-      recipients.roleIds = list('roleIds');
-      recipients.emails = list('emails', (item) => item.trim().toLowerCase());
-      const { userIds, roleIds, emails } = recipients;
-      if (userIds.length === 0 && roleIds.length === 0 && emails.length === 0) {
-        errors.recipients = 'required';
-      }
-      if (userIds.length > 0) {
-        const members = new Set((await this.directory.listMembers(location)).map((m) => m.userId));
-        if (userIds.some((id) => !members.has(id))) errors['recipients.userIds'] = 'unknown_user';
-      }
-      if (roleIds.length > 0) {
-        const roles = new Set((await this.directory.listRoles(location)).map((role) => role.id));
-        if (roleIds.some((id) => !roles.has(id))) errors['recipients.roleIds'] = 'unknown_role';
-      }
-      if (emails.some((email) => !EMAIL_PATTERN.test(email))) {
-        errors['recipients.emails'] = 'invalid_email';
-      }
-      tooMany('emails', emails);
+    recipients.userIds = ids(raw.userIds);
+    recipients.roleIds = ids(raw.roleIds);
+    recipients.emails = await this.validateEmails(
+      location,
+      raw.emails,
+      actor,
+      previousEmails,
+      errors,
+    );
+    const { userIds, roleIds, emails } = recipients;
+    if (userIds.length === 0 && roleIds.length === 0 && emails.length === 0) {
+      if (!errors['recipients.emails']) errors.recipients = 'required';
     }
-
-    if (channels.includes('slack')) {
-      recipients.slackChannels = list('slackChannels', (item) => {
-        const name = item.trim().toLowerCase();
-        return name && !name.startsWith('#') ? `#${name}` : name;
-      });
-      if (recipients.slackChannels.length === 0) errors['recipients.slackChannels'] = 'required';
-      else if (recipients.slackChannels.some((name) => !SLACK_CHANNEL_PATTERN.test(name))) {
-        errors['recipients.slackChannels'] = 'invalid_slack_channel';
-      }
-      tooMany('slackChannels', recipients.slackChannels);
+    if (userIds.length > 0) {
+      const members = new Set((await this.directory.listMembers(location)).map((m) => m.userId));
+      if (userIds.some((id) => !members.has(id))) errors['recipients.userIds'] = 'unknown_user';
     }
-
-    if (channels.includes('google_chat')) {
-      recipients.googleChatSpaces = list('googleChatSpaces');
-      if (recipients.googleChatSpaces.length === 0) {
-        errors['recipients.googleChatSpaces'] = 'required';
-      } else if (recipients.googleChatSpaces.some((space) => space.length > MAX_SPACE_LENGTH)) {
-        errors['recipients.googleChatSpaces'] = 'too_long';
-      }
-      tooMany('googleChatSpaces', recipients.googleChatSpaces);
+    if (roleIds.length > 0) {
+      const roles = new Set((await this.directory.listRoles(location)).map((role) => role.id));
+      if (roleIds.some((id) => !roles.has(id))) errors['recipients.roleIds'] = 'unknown_role';
     }
-
-    if (channels.includes('webhook')) {
-      recipients.webhookUrls = list('webhookUrls');
-      if (recipients.webhookUrls.length === 0) errors['recipients.webhookUrls'] = 'required';
-      else if (recipients.webhookUrls.some((url) => !isHttpUrl(url))) {
-        errors['recipients.webhookUrls'] = 'invalid_url';
-      }
-      tooMany('webhookUrls', recipients.webhookUrls);
-    }
-
     return recipients;
   }
 
-  private validateChannels(value: unknown, errors: AlertValidationErrors): AlertChannel[] {
-    if (value === undefined || value === null) return ['mail'];
-    const list = Array.isArray(value) ? value : [value];
-    const valid = list.every((channel) => (ALERT_CHANNELS as readonly unknown[]).includes(channel));
-    if (!valid || list.length === 0) {
-      errors.channels = 'invalid_channel';
-      return ['mail'];
+  private async validateEmails(
+    location: AlertLocation,
+    value: unknown,
+    actor: AlertActor,
+    previous: readonly string[],
+    errors: AlertValidationErrors,
+  ): Promise<string[]> {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) {
+      errors['recipients.emails'] = 'invalid';
+      return [];
     }
-    return [...new Set(list as AlertChannel[])];
-  }
-}
+    const items = value.filter((item) => !(typeof item === 'string' && !item.trim()));
+    if (items.length === 0) return [];
+    if (items.length > MAX_EXTERNAL_EMAILS) {
+      errors['recipients.emails'] = 'too_many';
+      return [];
+    }
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:';
-  } catch {
-    return false;
+    let emails: string[] = [];
+    if (!this.externalRecipients) {
+      errors['recipients.emails'] = 'domain_not_allowed';
+    } else {
+      const checked = await this.externalRecipients.check(location.organizationId, items);
+      emails = checked.emails;
+      const failures = Object.entries(checked.errors);
+      for (const [index, code] of failures) errors[`recipients.emails.${index}`] = code;
+      if (failures.length > 0) errors['recipients.emails'] = failures[0][1];
+    }
+
+    const known = new Set(previous);
+    if (emails.some((email) => !known.has(email))) {
+      const permission = `${location.scope}:notifications:update` as const;
+      if (!(await actor.canRead(permission, locationContext(location)))) {
+        errors['recipients.emails'] = 'forbidden_external';
+      }
+    }
+    return emails;
+  }
+
+  private async validateChannelIds(
+    location: AlertLocation,
+    value: unknown,
+    actor: AlertActor,
+    previous: readonly string[],
+    errors: AlertValidationErrors,
+  ): Promise<{ channelIds: string[]; selected: UsableChannel[] }> {
+    if (value === undefined || value === null) return { channelIds: [], selected: [] };
+    if (!Array.isArray(value)) {
+      errors.channelIds = 'invalid';
+      return { channelIds: [], selected: [] };
+    }
+    const channelIds = [
+      ...new Set(value.filter((id): id is string => typeof id === 'string' && !!id)),
+    ];
+    if (channelIds.length === 0) return { channelIds, selected: [] };
+    if (channelIds.length > MAX_ALERT_CHANNELS) {
+      errors.channelIds = 'too_many';
+      return { channelIds: [], selected: [] };
+    }
+    const usable = this.channelsPort ? await this.channelsPort.listUsable(location) : [];
+    const selected = channelIds
+      .map((id) => usable.find((channel) => channel.id === id))
+      .filter((channel): channel is UsableChannel => !!channel);
+    if (selected.length !== channelIds.length) {
+      errors.channelIds = 'unknown_channel';
+      return { channelIds, selected };
+    }
+    const known = new Set(previous);
+    if (channelIds.some((id) => !known.has(id))) {
+      const permission = `${location.scope}:notifications:update` as const;
+      if (!(await actor.canRead(permission, locationContext(location)))) {
+        errors.channelIds = 'forbidden_channel';
+      }
+    }
+    return { channelIds, selected };
   }
 }

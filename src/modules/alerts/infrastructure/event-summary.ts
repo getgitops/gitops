@@ -1,4 +1,4 @@
-import { getFieldValue, type EventDefinition } from '#lib/events/catalog';
+import { getFieldValue, type EventDefinition, type EventMessage } from '#lib/events/catalog';
 import type { AnyDomainEvent } from '#lib/server/events';
 
 export type EventFieldLine = {
@@ -25,9 +25,11 @@ export function describeEventFields(
   event: AnyDomainEvent,
   definition: EventDefinition,
   names: ReadonlyMap<string, string> = new Map(),
+  options: { omitSensitive?: boolean } = {},
 ): EventFieldLine[] {
   const lines: EventFieldLine[] = [];
   for (const field of definition.fields) {
+    if (options.omitSensitive && field.sensitive) continue;
     const value = safeValue(event, field.key as string);
     if (value === undefined || value === null || value === '') continue;
     if (Array.isArray(value) && value.length === 0) continue;
@@ -60,4 +62,44 @@ export function describeEventFields(
     });
   }
   return lines;
+}
+
+type Translate = (key: string, values?: Record<string, unknown>) => string;
+
+type DefinitionCallbacks = EventDefinition & {
+  link?: (context: unknown) => string | null;
+  mailSummary?: (payload: unknown) => EventMessage;
+};
+
+function safely<T>(run: () => T): T | undefined {
+  try {
+    return run();
+  } catch {
+    return undefined;
+  }
+}
+
+export function eventSummaryText(
+  event: Pick<AnyDomainEvent, 'payload'>,
+  definition: EventDefinition,
+  t: Translate,
+): string {
+  const message = safely(() => (definition as DefinitionCallbacks).mailSummary?.(event.payload));
+  return message ? t(message.key, message.values) : t(definition.label);
+}
+
+export function eventResourcePath(
+  event: Pick<AnyDomainEvent, 'payload'>,
+  definition: EventDefinition,
+  where: { organizationSlug?: string; projectSlug?: string },
+): string | null {
+  return (
+    safely(() =>
+      (definition as DefinitionCallbacks).link?.({
+        payload: event.payload,
+        organizationSlug: where.organizationSlug ?? null,
+        projectSlug: where.projectSlug ?? null,
+      }),
+    ) ?? null
+  );
 }

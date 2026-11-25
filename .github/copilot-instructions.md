@@ -70,7 +70,7 @@ La logica vive en `src/modules/<module>/` con `domain/`, `application/`, `infras
 `index.ts` como composition root. El `domain/` contiene entidades (`*.domain.ts`) y datos
 centralizados (`*.data.ts`) para constantes: permisos de roles, defaults de proyecto, pesos de
 riesgo y mapeos de herramientas. Los modulos actuales son `auth`, `config`, `organization`,
-`projects`, `storage` y `code-report`. Las rutas deben importar desde el `index.ts` publico.
+`projects`, `storage`, `code-report`, `vault`, `audit`, `alerts`, `monitoring` y `notifications`. Las rutas deben importar desde el `index.ts` publico.
 
 GitDB es la unica fuente de verdad para usuarios, roles, API keys, organizaciones, proyectos,
 metadata de storage y code reports. Se configura con `GITDB_REPOSITORY_URL` (URLs HTTPS o SSH
@@ -114,6 +114,19 @@ aplican (regla most-specific-wins). Permite delegación de autoridad granular co
 `canManageOrganization()` controla acceso al area `/settings`, mientras que `canViewOrganization()` incluye
 tambien usuarios con acceso solo a proyectos bajo la organización (ven el overview pero no pueden acciones de org-scope).
 
+**Alertas, destinatarios externos y canales de notificación:** `organization:alerts:read|update` y
+`project:alerts:read|update` gestionan alertas por eventos; `organization:notifications:read|update`
+y `project:notifications:update` gestionan destinatarios externos y canales. El módulo
+`$modules/notifications` maneja dominios permitidos, canales de notificación (webhook, Slack, Google Chat),
+verificación y desuscripción. En `/org/<org>/settings/alerts/settings`, administradores configuran dominios
+permitidos y canales (`NotificationChannelEntity` en GitDB). Alertas guardan `recipients` (usuarios, roles,
+emails externos) y `channelIds` (referencias a canales, no destinatarios individuales). Canales de organización
+se usan en alertas de org y proyecto; canales de proyecto solo en sus alertas. URLs de webhook se encriptan
+con `GITDB_ENCRYPTION_KEY` (AES-GCM por channel id). Emails externos: `pending` → `verified` → `unsubscribed`
+o `blocked` si dominio se quita; template reducido sin campos `sensitive` ni links; `List-Unsubscribe` HMAC
+(90 días). Canales: un mensaje por canal en paralelo, fallo de canal nunca afecta email. Rutas públicas
+`/notifications/verify` y `/notifications/unsubscribe` aceptan POST (no GET). Sin `ORIGIN` no se envía nada.
+
 Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a
 `roleService.createDefaultProjectRoles()`. Ambas operaciones inicializan sus roles por defecto.
@@ -132,6 +145,12 @@ normalizan errores. Ejecutar `bun run check`, `bun run lint`, `bun run test` y
 `bun run format:check` antes de terminar cambios relevantes.
 
 ## Comportamiento conocido
+
+**i18n imports from notifications:** `#lib/server/infra/notifications/index.ts` no re-exporta
+los helpers i18n de email (`DEFAULT_MAIL_LOCALE`, `mailLocale`, `translator`…) porque cargan Paraglide
+(requiere Vite), y el index de notifications lo importan módulos que corren fuera de Vite (como `$modules/auth`
+en tests e2e). Importar estos helpers desde `#lib/server/infra/notifications/i18n`. Por la misma razón,
+`e2e/fixtures/seed.ts` siembra dominios permitidos vía `NotificationSettingsRepository`, no desde `$modules/notifications`.
 
 **Startup y readiness del servidor:** El auth guard en `hooks.server.ts` verifica readiness via
 `getServerReadyState()` antes de procesar cualquier request. Durante startup, los navegadores

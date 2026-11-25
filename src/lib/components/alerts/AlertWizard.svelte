@@ -22,6 +22,9 @@
     MessageSquare,
     Save,
     Search,
+    Send,
+    Settings,
+    ShieldAlert,
     User,
     Users,
     Webhook,
@@ -39,7 +42,7 @@
   import { channelTargets, summarizeConditions } from '#lib/alerts/summary';
   import { draftFromAlert, draftToFormData, emptyDraft } from '#lib/alerts/draft';
   import type {
-    AlertChannel,
+    AlertChannelOption,
     AlertDraft,
     AlertOption,
     AlertRow,
@@ -47,9 +50,10 @@
     AlertTestView,
     CatalogEntry,
     DraftCondition,
+    ExternalRecipientsEditorData,
   } from '#lib/alerts/types';
+  import { statusBadgeClass } from '#lib/notifications/status';
   import ConditionBuilder from './ConditionBuilder.svelte';
-  import { DELIVERED_CHANNELS } from '#modules/alerts/domain/alert.domain';
 
   type WizardData = {
     basePath: string;
@@ -59,13 +63,22 @@
     recipientUsers: AlertOption[];
     recipientRoles: AlertOption[];
     mailConfigured: boolean;
+    external: ExternalRecipientsEditorData;
+    channels: AlertChannelOption[];
+    configPath?: string | null;
   };
 
   let {
     open = $bindable(false),
     data,
     alert = null,
-  }: { open?: boolean; data: WizardData; alert?: AlertRow | null } = $props();
+    onConfigure,
+  }: {
+    open?: boolean;
+    data: WizardData;
+    alert?: AlertRow | null;
+    onConfigure?: () => void;
+  } = $props();
 
   const STEPS = ['event', 'conditions', 'channels', 'review'] as const;
   type Step = (typeof STEPS)[number];
@@ -77,11 +90,12 @@
   let step = $state<Step>('event');
   let errors = $state<Record<string, string>>({});
   let message = $state('');
-  let busy = $state<'save' | 'test' | null>(null);
+  let busy = $state<'save' | 'test' | 'send' | null>(null);
   let test = $state<AlertTestView | null>(null);
   let eventQuery = $state('');
   let sampleProjectId = $state('');
   let droppedConditions = $state(0);
+  let mailOn = $state(true);
 
   // cada apertura empieza de cero (o desde la alerta que se edita)
   let wasOpen = false;
@@ -95,6 +109,12 @@
       eventQuery = '';
       sampleProjectId = '';
       droppedConditions = 0;
+      mailOn =
+        !alert ||
+        draft.recipients.userIds.length +
+          draft.recipients.roleIds.length +
+          draft.recipients.emails.length >
+          0;
     }
     wasOpen = open;
   });
@@ -134,53 +154,77 @@
     delete errors.eventType;
   }
 
-  // ---------- paso 3: canales ----------
-  type ChannelMeta = {
-    key: AlertChannel;
-    icon: typeof Mail;
-    label: string;
-    description: string;
+  const channelIcons: Record<string, typeof Mail> = {
+    mail: Mail,
+    slack: Hash,
+    'google-chat': MessageSquare,
+    webhook: Webhook,
   };
-  const channelMeta: ChannelMeta[] = $derived([
-    {
-      key: 'mail',
-      icon: Mail,
-      label: $_('alerts.channels.mail'),
-      description: $_('alerts.wizard.mailDescription'),
-    },
-    {
-      key: 'slack',
-      icon: Hash,
+
+  const CHANNEL_TYPES = ['mail', 'slack', 'google-chat', 'webhook'] as const;
+  type ChannelType = (typeof CHANNEL_TYPES)[number];
+  const typeMeta = $derived({
+    mail: { label: $_('alerts.channels.mail'), description: $_('alerts.wizard.mailDescription') },
+    slack: {
       label: $_('alerts.channels.slack'),
       description: $_('alerts.wizard.slackDescription'),
     },
-    {
-      key: 'google_chat',
-      icon: MessageSquare,
+    'google-chat': {
       label: $_('alerts.channels.google_chat'),
       description: $_('alerts.wizard.googleChatDescription'),
     },
-    {
-      key: 'webhook',
-      icon: Webhook,
+    webhook: {
       label: $_('alerts.channels.webhook'),
       description: $_('alerts.wizard.webhookDescription'),
     },
-  ]);
+  } satisfies Record<ChannelType, { label: string; description: string }>);
 
-  // canales sin envío todavía: no se pueden activar (sí desactivar si una alerta ya los tenía)
-  const isSoon = (channel: AlertChannel) => !DELIVERED_CHANNELS.includes(channel);
+  const channelsOf = (type: ChannelType) =>
+    data.channels.filter((channel) => channel.type === type);
 
-  function toggleChannel(channel: AlertChannel) {
-    if (isSoon(channel) && !draft.channels.includes(channel)) return;
-    draft.channels = draft.channels.includes(channel)
-      ? draft.channels.filter((item) => item !== channel)
-      : [...draft.channels, channel].sort(
-          (a, b) =>
-            channelMeta.findIndex((meta) => meta.key === a) -
-            channelMeta.findIndex((meta) => meta.key === b),
+  function typeOn(type: ChannelType) {
+    if (type === 'mail') return mailOn;
+    return channelsOf(type).some((channel) => draft.channelIds.includes(channel.id));
+  }
+
+  function toggleType(type: ChannelType) {
+    if (type === 'mail') {
+      mailOn = !mailOn;
+      if (!mailOn) {
+        draft.recipients.userIds = [];
+        draft.recipients.roleIds = [];
+        draft.recipients.emails = [];
+      }
+    } else {
+      const ids = channelsOf(type).map((channel) => channel.id);
+      if (typeOn(type)) {
+        draft.channelIds = draft.channelIds.filter((id) => !ids.includes(id));
+      } else if (data.external.canManage) {
+        const enabled = channelsOf(type).filter((channel) => channel.enabled);
+        const picked = (enabled.length > 0 ? enabled : channelsOf(type)).map(
+          (channel) => channel.id,
         );
-    delete errors.channels;
+        draft.channelIds = [...draft.channelIds, ...picked];
+      }
+    }
+    delete errors.channelIds;
+    delete errors.recipients;
+  }
+
+  function toggleChannel(channel: AlertChannelOption) {
+    const on = draft.channelIds.includes(channel.id);
+    if (!on && !data.external.canManage) return;
+    draft.channelIds = on
+      ? draft.channelIds.filter((id) => id !== channel.id)
+      : [...draft.channelIds, channel.id];
+    delete errors.channelIds;
+    delete errors.recipients;
+  }
+
+  function configure(event: MouseEvent) {
+    if (!onConfigure || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    onConfigure();
   }
 
   // destinatarios de email como etiquetas: `role:<id>`, `user:<id>`, `email:<dirección>`
@@ -231,45 +275,63 @@
     if (kind === 'user') {
       return { label: data.recipientUsers.find((user) => user.id === id)?.label ?? id, icon: User };
     }
-    return { label: id, icon: AtSign };
+    const status = data.external.statuses[id];
+    return {
+      label: status ? `${id} · ${$_(`notifications.status.${status}`)}` : id,
+      icon: AtSign,
+    };
   }
 
+  const canAddExternal = $derived(
+    data.external.canManage && data.external.allowedDomains.length > 0,
+  );
+  function domainAllowed(email: string) {
+    const domain = email.split('@').pop() ?? '';
+    return data.external.allowedDomains.some((allowed) =>
+      allowed.startsWith('*.') ? domain.endsWith(allowed.slice(1)) : domain === allowed,
+    );
+  }
   const parseEmail = (text: string) => {
     const email = text.trim().toLowerCase();
-    return EMAIL_PATTERN.test(email) ? `email:${email}` : null;
+    if (!canAddExternal || !EMAIL_PATTERN.test(email) || !domainAllowed(email)) return null;
+    return `email:${email}`;
   };
-  const parseSlack = (text: string) => {
-    const name = text.trim().toLowerCase().replace(/^#/, '');
-    return /^[a-z0-9][a-z0-9._-]{0,79}$/.test(name) ? `#${name}` : null;
-  };
-  const parseSpace = (text: string) => (text.trim() ? text.trim().slice(0, 128) : null);
-  const parseUrl = (text: string) => {
-    try {
-      const url = new URL(text.trim());
-      return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
-    } catch {
-      return null;
-    }
-  };
-
-  function targetsOf(channel: AlertChannel): number {
-    return channelTargets(channel, draft.recipients, data.recipientUsers, data.recipientRoles)
-      .length;
-  }
-
+  const emailRejection = $derived(
+    !data.external.allowedDomains.length
+      ? $_('alerts.editor.externalDisabled')
+      : !data.external.canManage
+        ? $_('alerts.editor.externalReadonly')
+        : $_('alerts.editor.externalHelp', {
+            values: { domains: data.external.allowedDomains.join(', ') },
+          }),
+  );
+  const externalErrors = $derived(
+    Object.entries(errors)
+      .filter(([key]) => /^recipients\.emails\.\d+$/.test(key))
+      .map(([key, code]) => ({
+        email: draft.recipients.emails[Number(key.split('.').pop())] ?? '',
+        code,
+      })),
+  );
   // ---------- validación por paso (lo mínimo para avanzar; el servidor valida todo) ----------
   const stepReady = $derived({
     event: Boolean(draft.eventType),
     conditions: true,
     channels:
-      draft.channels.length > 0 && draft.channels.every((channel) => targetsOf(channel) > 0),
+      (mailOn
+        ? draft.recipients.userIds.length +
+          draft.recipients.roleIds.length +
+          draft.recipients.emails.length
+        : 0) +
+        draft.channelIds.length >
+      0,
     review: true,
   } satisfies Record<Step, boolean>);
 
   const stepOfError = (key: string): Step => {
     if (key === 'eventType') return 'event';
     if (key.startsWith('conditions') || key === 'match') return 'conditions';
-    if (key.startsWith('recipients') || key === 'channels' || key === 'throttleMinutes') {
+    if (key.startsWith('recipients') || key === 'channelIds' || key === 'throttleMinutes') {
       return 'channels';
     }
     return 'review';
@@ -292,9 +354,11 @@
   }
 
   // ---------- enviar ----------
-  async function post(action: 'save' | 'test') {
+  const OPERATION_ERRORS = ['mail_not_configured', 'test_rate_limited'];
+
+  async function post(action: 'save' | 'test', send = false) {
     if (!draft.name.trim() && definition) draft.name = $_(definition.label);
-    busy = action;
+    busy = send ? 'send' : action;
     message = '';
     try {
       const response = await fetch(`${data.basePath}?/${action}`, {
@@ -303,14 +367,18 @@
         body: draftToFormData(draft, {
           alertId: alert?.id,
           sampleProjectId: action === 'test' ? sampleProjectId : null,
+          send: send ? 'true' : null,
         }),
       });
       const result = deserialize(await response.text());
       if (result.type === 'failure') {
         errors = (result.data?.errors as Record<string, string>) ?? {};
+        const code = String(result.data?.error ?? '');
         message = Object.keys(errors).length
           ? $_('alerts.editor.fixErrors')
-          : String(result.data?.error ?? $_('alerts.wizard.failed'));
+          : OPERATION_ERRORS.includes(code)
+            ? $_(`alerts.errors.${code}`)
+            : code || $_('alerts.wizard.failed');
         if (action === 'test') test = null;
         const first = STEPS.find((candidate) => stepErrors[candidate]);
         if (first) step = first;
@@ -490,157 +558,190 @@
       </div>
     {:else if step === 'channels'}
       <div class="space-y-6">
-        <div>
+        <div data-testid="alert-channels">
           <p class="k-label">{$_('alerts.wizard.channelsTitle')}</p>
-          <p class="k-help mt-0 mb-3">{$_('alerts.wizard.channelsHelp')}</p>
+          <p class="k-help mb-3 mt-0">{$_('alerts.wizard.channelsHelp')}</p>
           <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {#each channelMeta as meta (meta.key)}
-              {@const on = draft.channels.includes(meta.key)}
-              {@const soon = isSoon(meta.key) && !on}
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={on}
-                aria-disabled={soon || undefined}
-                disabled={soon}
-                class="relative flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed {on
+            {#each CHANNEL_TYPES as type (type)}
+              {@const on = typeOn(type)}
+              {@const configured = type === 'mail' || channelsOf(type).length > 0}
+              {@const locked =
+                !on && (!configured || (type !== 'mail' && !data.external.canManage))}
+              {@const Icon = channelIcons[type]}
+              <div
+                class="relative flex flex-col rounded-xl border transition-colors {on
                   ? 'border-brand-500/50 bg-brand-500/8'
-                  : soon
-                    ? 'border-white/8 opacity-55'
+                  : locked
+                    ? 'border-white/8'
                     : 'border-white/10 hover:border-white/20 hover:bg-white/2'}"
-                onclick={() => toggleChannel(meta.key)}
+                data-channel-type={type}
               >
-                <span
-                  class="grid h-8 w-8 place-items-center rounded-lg {on
-                    ? 'bg-brand-500/15 text-brand-400'
-                    : 'bg-white/5 text-fg-subtle'}"><meta.icon class="h-4 w-4" /></span
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  aria-disabled={locked || undefined}
+                  disabled={locked}
+                  class="flex flex-1 flex-col items-start gap-2 p-3 text-left disabled:cursor-not-allowed {locked
+                    ? 'opacity-55'
+                    : ''}"
+                  onclick={() => toggleType(type)}
                 >
-                <span class="text-sm font-medium text-white">{meta.label}</span>
-                <span class="text-xs text-fg-subtle">{meta.description}</span>
-                {#if soon}
-                  <span class="k-badge absolute right-3 top-3 h-5 px-1.5 text-[10px] uppercase"
-                    >{$_('alerts.channels.soon')}</span
-                  >
-                {:else}
                   <span
-                    class="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-md border {on
+                    class="grid h-8 w-8 place-items-center rounded-lg {on
+                      ? 'bg-brand-500/15 text-brand-400'
+                      : 'bg-white/5 text-fg-subtle'}"><Icon class="h-4 w-4" /></span
+                  >
+                  <span class="text-sm font-medium text-white">{typeMeta[type].label}</span>
+                  <span class="text-xs text-fg-subtle">
+                    {configured ? typeMeta[type].description : $_('alerts.wizard.notConfigured')}
+                  </span>
+                </button>
+                {#if configured}
+                  <span
+                    class="pointer-events-none absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-md border {on
                       ? 'border-brand-500 bg-brand-500 text-white'
                       : 'border-white/15'}"
                     >{#if on}<Check class="h-3.5 w-3.5" />{/if}</span
                   >
+                {:else}
+                  <span class="k-badge absolute right-3 top-3 h-5 px-1.5 text-[10px]"
+                    >{$_('alerts.wizard.notConfigured')}</span
+                  >
+                  {#if data.configPath}
+                    <a
+                      href={data.configPath}
+                      class="k-btn k-btn-secondary k-btn-sm mx-3 mb-3"
+                      onclick={configure}
+                      data-testid="configure-channel"
+                    >
+                      <Settings class="h-3.5 w-3.5" />{$_('alerts.wizard.configure')}
+                    </a>
+                  {/if}
                 {/if}
-              </button>
+              </div>
             {/each}
           </div>
-          {#if errorFor('channels')}
-            <p class="mt-2 text-xs text-red-300" role="alert">{errorFor('channels')}</p>
+          {#if errorFor('channelIds')}
+            <p class="mt-2 text-xs text-red-300" role="alert">{errorFor('channelIds')}</p>
           {/if}
         </div>
 
-        {#each channelMeta.filter((meta) => draft.channels.includes(meta.key)) as meta (meta.key)}
+        {#if mailOn}
           <section class="rounded-xl border border-white/8 bg-ink-900/50 p-4">
             <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
-              <meta.icon class="h-4 w-4 text-brand-400" />{meta.label}
+              <Mail class="h-4 w-4 text-brand-400" />{$_('alerts.channels.mail')}
             </h3>
-            {#if meta.key === 'mail'}
-              {#if !data.mailConfigured}
-                <p
-                  class="mb-3 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
-                >
-                  <MailWarning class="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />{$_(
-                    'alerts.mailDisabled',
-                  )}
-                </p>
-              {/if}
-              <Field
-                id="alert-mail-targets"
-                label={$_('alerts.wizard.mailTargets')}
-                help={$_('alerts.wizard.mailTargetsHelp')}
-                error={errorFor('recipients') ??
-                  errorFor('recipients.emails') ??
-                  errorFor('recipients.userIds') ??
-                  errorFor('recipients.roleIds')}
+            {#if !data.mailConfigured}
+              <p
+                class="mb-3 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
               >
-                {#snippet children(control)}
-                  <TagInput
-                    id={control.id}
-                    aria-describedby={control['aria-describedby']}
-                    aria-invalid={control['aria-invalid']}
-                    values={mailValues}
-                    suggestions={mailSuggestions}
-                    parse={parseEmail}
-                    describe={describeMail}
-                    placeholder={$_('alerts.wizard.mailPlaceholder')}
-                    invalidMessage={$_('alerts.errors.invalid_email')}
-                    onchange={setMailValues}
-                  />
-                {/snippet}
-              </Field>
-              <p class="mt-3 flex items-start gap-2 text-xs text-fg-subtle">
-                <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />{$_('alerts.editor.recipientsNotice')}
+                <MailWarning class="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />{$_(
+                  'alerts.mailDisabled',
+                )}
               </p>
-            {:else if meta.key === 'slack'}
-              <Field
-                id="alert-slack-targets"
-                label={$_('alerts.wizard.slackTargets')}
-                help={$_('alerts.wizard.slackTargetsHelp')}
-                error={errorFor('recipients.slackChannels')}
-              >
-                {#snippet children(control)}
-                  <TagInput
-                    id={control.id}
-                    aria-describedby={control['aria-describedby']}
-                    aria-invalid={control['aria-invalid']}
-                    bind:values={draft.recipients.slackChannels}
-                    parse={parseSlack}
-                    describe={(value) => ({ label: value, icon: Hash })}
-                    placeholder="#alertas"
-                    invalidMessage={$_('alerts.errors.invalid_slack_channel')}
-                  />
-                {/snippet}
-              </Field>
-            {:else if meta.key === 'google_chat'}
-              <Field
-                id="alert-gchat-targets"
-                label={$_('alerts.wizard.googleChatTargets')}
-                help={$_('alerts.wizard.googleChatTargetsHelp')}
-                error={errorFor('recipients.googleChatSpaces')}
-              >
-                {#snippet children(control)}
-                  <TagInput
-                    id={control.id}
-                    aria-describedby={control['aria-describedby']}
-                    aria-invalid={control['aria-invalid']}
-                    bind:values={draft.recipients.googleChatSpaces}
-                    parse={parseSpace}
-                    describe={(value) => ({ label: value, icon: MessageSquare })}
-                    placeholder={$_('alerts.wizard.googleChatPlaceholder')}
-                  />
-                {/snippet}
-              </Field>
-            {:else}
-              <Field
-                id="alert-webhook-targets"
-                label={$_('alerts.wizard.webhookTargets')}
-                help={$_('alerts.wizard.webhookTargetsHelp')}
-                error={errorFor('recipients.webhookUrls')}
-              >
-                {#snippet children(control)}
-                  <TagInput
-                    id={control.id}
-                    aria-describedby={control['aria-describedby']}
-                    aria-invalid={control['aria-invalid']}
-                    bind:values={draft.recipients.webhookUrls}
-                    parse={parseUrl}
-                    describe={(value) => ({ label: value, icon: Webhook })}
-                    placeholder="https://hooks.example.com/gitops"
-                    invalidMessage={$_('alerts.errors.invalid_url')}
-                  />
-                {/snippet}
-              </Field>
             {/if}
+            <Field
+              id="alert-mail-targets"
+              label={$_('alerts.wizard.mailTargets')}
+              help={$_('alerts.wizard.mailTargetsHelp')}
+              error={errorFor('recipients') ??
+                errorFor('recipients.emails') ??
+                errorFor('recipients.userIds') ??
+                errorFor('recipients.roleIds')}
+            >
+              {#snippet children(control)}
+                <TagInput
+                  id={control.id}
+                  aria-describedby={control['aria-describedby']}
+                  aria-invalid={control['aria-invalid']}
+                  values={mailValues}
+                  suggestions={mailSuggestions}
+                  parse={parseEmail}
+                  describe={describeMail}
+                  placeholder={$_('alerts.wizard.mailPlaceholder')}
+                  invalidMessage={emailRejection}
+                  onchange={setMailValues}
+                />
+              {/snippet}
+            </Field>
+            {#if externalErrors.length > 0}
+              <ul class="mt-2 list-disc pl-4 text-xs text-red-300" role="alert">
+                {#each externalErrors as failure (failure.email + failure.code)}
+                  <li>{failure.email}: {$_(`alerts.errors.${failure.code}`)}</li>
+                {/each}
+              </ul>
+            {/if}
+            {#if draft.recipients.emails.length > 0}
+              <p
+                class="mt-3 flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
+              >
+                <ShieldAlert class="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
+                {$_('alerts.editor.externalNotice')}
+              </p>
+            {:else if !data.external.allowedDomains.length && data.external.settingsPath}
+              <p class="mt-3 text-xs text-fg-subtle">
+                {$_('alerts.editor.externalDisabled')}
+                <a class="text-brand-400 hover:text-brand-300" href={data.external.settingsPath}
+                  >{$_('alerts.editor.externalSettingsLink')}</a
+                >
+              </p>
+            {/if}
+            <p class="mt-3 flex items-start gap-2 text-xs text-fg-subtle">
+              <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" />{$_('alerts.editor.recipientsNotice')}
+            </p>
+          </section>
+        {/if}
+
+        {#each CHANNEL_TYPES.filter((type) => type !== 'mail' && typeOn(type)) as type (type)}
+          {@const Icon = channelIcons[type]}
+          <section class="rounded-xl border border-white/8 bg-ink-900/50 p-4">
+            <h3 class="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+              <Icon class="h-4 w-4 text-brand-400" />{typeMeta[type].label}
+            </h3>
+            <div class="flex flex-wrap gap-2">
+              {#each channelsOf(type) as channel (channel.id)}
+                {@const selected = draft.channelIds.includes(channel.id)}
+                <label
+                  class="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm {selected
+                    ? 'border-brand-500/40 bg-brand-500/8 text-white'
+                    : 'border-white/10 text-fg-muted'}"
+                >
+                  <input
+                    type="checkbox"
+                    class="k-checkbox"
+                    checked={selected}
+                    disabled={!selected && !data.external.canManage}
+                    onchange={() => toggleChannel(channel)}
+                  />
+                  {channel.name}
+                  {#if channel.scope === 'organization' && data.scope === 'project'}
+                    <span class="text-[11px] text-fg-subtle"
+                      >{$_('alerts.editor.channelFromOrganization')}</span
+                    >
+                  {/if}
+                  {#if !channel.enabled}
+                    <span class="text-[11px] text-fg-subtle"
+                      >{$_('notifications.channels.disabled')}</span
+                    >
+                  {/if}
+                </label>
+              {/each}
+            </div>
           </section>
         {/each}
+
+        {#if draft.channelIds.length > 0}
+          <p
+            class="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/8 px-3 py-2 text-xs text-amber-100"
+          >
+            <ShieldAlert class="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
+            {$_('alerts.editor.channelsNotice')}
+          </p>
+        {/if}
+        {#if !data.external.canManage && data.channels.length > 0}
+          <p class="text-xs text-fg-subtle">{$_('alerts.editor.channelsReadonly')}</p>
+        {/if}
 
         <fieldset>
           <legend class="k-label">{$_('alerts.wizard.throttle')}</legend>
@@ -758,17 +859,29 @@
               <div>
                 <dt class="text-xs text-fg-subtle">{$_('alerts.wizard.step.channels')}</dt>
                 <dd class="mt-1 space-y-1.5">
-                  {#each channelMeta.filter( (meta) => draft.channels.includes(meta.key) ) as meta (meta.key)}
+                  {#if channelTargets('mail', draft, data.recipientUsers, data.recipientRoles).length > 0}
                     <p class="flex items-start gap-2 text-fg">
-                      <meta.icon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+                      <Mail class="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-subtle" />
                       <span class="min-w-0 break-words">
-                        <span class="text-fg-muted">{meta.label}:</span>
+                        <span class="text-fg-muted">{$_('alerts.channels.mail')}:</span>
                         {channelTargets(
-                          meta.key,
-                          draft.recipients,
+                          'mail',
+                          draft,
                           data.recipientUsers,
                           data.recipientRoles,
-                        ).join(', ') || '—'}
+                        ).join(', ')}
+                      </span>
+                    </p>
+                  {/if}
+                  {#each data.channels.filter( (channel) => draft.channelIds.includes(channel.id) ) as channel (channel.id)}
+                    {@const Icon = channelIcons[channel.type] ?? Webhook}
+                    <p class="flex items-start gap-2 text-fg">
+                      <Icon class="mt-0.5 h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+                      <span class="min-w-0 break-words">
+                        <span class="text-fg-muted"
+                          >{$_(`notifications.channels.types.${channel.type}`)}:</span
+                        >
+                        {channel.name}
                       </span>
                     </p>
                   {/each}
@@ -807,7 +920,33 @@
                   {$_('alerts.test.denied', { values: { count: test.deniedCount } })}
                 </p>
               {/if}
-              <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+              {#if test.external.length > 0}
+                <ul class="mt-1 text-xs">
+                  {#each test.external as recipient (recipient.email)}
+                    <li class="flex flex-wrap items-center gap-1.5">
+                      <span class="{statusBadgeClass(recipient.status)} h-5 px-1.5 text-[10px]"
+                        >{$_(`notifications.status.${recipient.status}`)}</span
+                      >
+                      {recipient.email}: {recipient.delivers
+                        ? $_('alerts.test.externalDelivers')
+                        : test.delivery && recipient.status === 'pending'
+                          ? $_('alerts.test.externalVerificationSent')
+                          : $_('alerts.test.externalSkipped', {
+                              values: { status: $_(`notifications.status.${recipient.status}`) },
+                            })}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if test.delivery}
+                <p class="mt-1 font-medium" data-testid="alert-test-delivery">
+                  {$_('alerts.test.delivered', {
+                    values: { sent: test.delivery.sent, failed: test.delivery.failed },
+                  })}
+                </p>
+              {:else}
+                <p class="mt-1 text-xs opacity-75">{$_('alerts.test.nothingSent')}</p>
+              {/if}
             </div>
           {/if}
         </div>
@@ -850,6 +989,19 @@
             class="h-4 w-4"
           />{/if}
         {$_('alerts.editor.test')}
+      </button>
+      <button
+        type="button"
+        class="k-btn k-btn-secondary"
+        disabled={busy !== null || (!data.mailConfigured && draft.channelIds.length === 0)}
+        title={$_('alerts.editor.sendTestHelp')}
+        onclick={() => post('test', true)}
+        data-testid="alert-send-test"
+      >
+        {#if busy === 'send'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Send
+            class="h-4 w-4"
+          />{/if}
+        {busy === 'send' ? $_('alerts.editor.sendingTest') : $_('alerts.editor.sendTest')}
       </button>
       <button
         type="button"
