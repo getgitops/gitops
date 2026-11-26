@@ -19,3 +19,5 @@ playwright-report/
 blob-report/
 creport-cloud.sh
 creport-local.sh
+# local https certificates (DEV_HTTPS)
+.certs/

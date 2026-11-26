@@ -3,6 +3,8 @@ import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
+import fs from 'node:fs';
+import { loadEnv } from 'vite';
 import { defineConfig, type Plugin } from 'vitest/config';
 
 // Vite only transforms hooks.server.ts lazily on the first request; warm it up eagerly in dev.
@@ -20,7 +22,21 @@ function warmupHooksPlugin(): Plugin {
   };
 }
 
-export default defineConfig({
+// Local https for flows whose provider only accepts https redirect URLs (Add to Slack). Opt-in with
+// DEV_HTTPS=true and a certificate in .certs/ (see .env.example); off for everyone else and for e2e.
+function devHttps(mode: string) {
+  const env = loadEnv(mode, process.cwd(), '');
+  if (env.DEV_HTTPS !== 'true') return undefined;
+  const key = env.DEV_HTTPS_KEY || '.certs/localhost-key.pem';
+  const cert = env.DEV_HTTPS_CERT || '.certs/localhost.pem';
+  if (!fs.existsSync(key) || !fs.existsSync(cert)) {
+    throw new Error(`DEV_HTTPS=true but ${key} / ${cert} are missing (see .env.example)`);
+  }
+  return { key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
+}
+
+export default defineConfig(({ mode }) => ({
+  server: { https: devHttps(mode) },
   plugins: [
     tailwindcss(),
     paraglideVitePlugin({
@@ -38,4 +54,4 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.{test,spec}.ts'],
   },
-});
+}));

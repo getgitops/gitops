@@ -68,6 +68,7 @@
       "database": "Base de datos",
       "auditLog": "Registro de auditoría",
       "registration": "Registro",
+      "slack": "Slack",
       "events": "Eventos",
       "alerts": "Alertas",
       "monitors": "Monitores",
@@ -399,6 +400,26 @@
       "enableDescription": "Al habilitarlo, cualquiera puede crear una cuenta de usuario de GitOps en /auth/registration sin invitación. Empiezan sin organización y pueden crear la suya propia.",
       "updated": "Configuración de registro actualizada.",
       "updateFailed": "No se pudo actualizar la configuración de registro."
+    },
+    "slack": {
+      "title": "Slack",
+      "description": "Permite añadir canales de Slack a las alertas con un clic (Añadir a Slack) en lugar de pegar una webhook URL.",
+      "statusTitle": "Añadir a Slack",
+      "configured": "Configurado",
+      "notConfigured": "Sin configurar",
+      "invalid": "Configuración inválida",
+      "configuredHelp": "Los ajustes de canales muestran el botón Añadir a Slack. El usuario elige el workspace y el canal en Slack.",
+      "notConfiguredHelp": "Los canales de Slack se crean pegando una URL de Incoming Webhook. Crea la app de Slack abajo para activar Añadir a Slack.",
+      "setupTitle": "Configurar la app de Slack",
+      "step1": "Crea la app de Slack de esta instalación desde su manifest (solo el scope incoming-webhook, con la redirect URL de esta instalación).",
+      "createApp": "Crear app de Slack",
+      "showManifest": "Ver manifest",
+      "step2": "Comprueba que la redirect URL de la app (OAuth & Permissions) es esta:",
+      "httpsWarning": "Slack solo acepta redirect URLs https: abre esta página desde la dirección https pública de la instalación.",
+      "step3": "En Basic Information, copia el Client ID y el Client Secret al entorno y reinicia GitOps. Para que otros workspaces la instalen, activa Public Distribution en Manage Distribution.",
+      "manualNote": "Pegar una webhook URL sigue funcionando, con o sin app de Slack.",
+      "copy": "Copiar",
+      "copied": "Copiado"
     }
   },
   "org": {
@@ -2180,7 +2201,12 @@
       "private_address": "La URL apunta a una dirección privada o interna.",
       "unresolvable": "No se ha podido resolver el dominio de la URL.",
       "not_signed": "Este tipo de canal no firma sus mensajes.",
-      "invalid_locale": "El idioma no es válido."
+      "invalid_locale": "El idioma no es válido.",
+      "slack_not_configured": "Añadir a Slack no está configurado en esta instalación de GitOps.",
+      "slack_cancelled": "Se canceló la conexión con Slack.",
+      "slack_invalid_state": "La conexión con Slack caducó o la inició otra sesión. Vuelve a intentarlo.",
+      "slack_exchange_failed": "Slack no completó la conexión. Vuelve a intentarlo.",
+      "slack_no_webhook": "Slack no devolvió el webhook del canal: la app de Slack necesita el scope incoming-webhook."
     },
     "link": {
       "invalid": "Este enlace no es válido o ya se ha usado.",
@@ -2276,7 +2302,14 @@
       "locales": {
         "es": "Español",
         "en": "Inglés"
-      }
+      },
+      "slackConnectTitle": "Añadir a Slack",
+      "slackConnectDescription": "Elige el workspace y el canal en Slack: GitOps pone el nombre y guarda su webhook, sin copiar nada.",
+      "slackConnect": "Añadir a Slack",
+      "slackConnected": "Canal de Slack añadido",
+      "slackManual": "o pega una URL de Incoming Webhook",
+      "slackSetupHint": "Añadir a Slack (elegir el canal en Slack, sin copiar URLs) aún no está configurado.",
+      "slackSetupLink": "Configurarlo"
     }
   }
 }

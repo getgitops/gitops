@@ -50,6 +50,10 @@ export type ChannelsSectionData = {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  /** "Add to Slack" is available (Slack app configured and the caller can create channels). */
+  slackConnect: boolean;
+  /** Where a GitOps admin sets up "Add to Slack" while it is not configured; `null` otherwise. */
+  slackSetupPath: string | null;
 };
 
 export type ChannelsFormResult = {

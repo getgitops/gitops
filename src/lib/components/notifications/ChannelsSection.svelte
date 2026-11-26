@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { enhance } from '$app/forms';
   import type { SubmitFunction } from '$app/forms';
-  import { invalidateAll } from '$app/navigation';
+  import { invalidateAll, replaceState } from '$app/navigation';
+  import { page } from '$app/state';
   import {
     Check,
     Copy,
@@ -110,6 +112,20 @@
     return errorMessage(data?.channelError ? String(data.channelError) : undefined);
   }
 
+  /** `?slack=connected|<error>`: where "Add to Slack" lands back (`/notifications/slack/callback`). */
+  const slackOutcome = $derived(page.url.searchParams.get('slack'));
+
+  onMount(() => {
+    const outcome = page.url.searchParams.get('slack');
+    if (!outcome) return;
+    if (outcome === 'connected') toast.success($_('notifications.channels.slackConnected'));
+    else toast.error(errorMessage(outcome));
+    // a reload must not repeat the toast
+    const url = new URL(page.url.href);
+    url.searchParams.delete('slack');
+    replaceState(url, page.state);
+  });
+
   function openEdit(event: MouseEvent, channel: ChannelView) {
     event.preventDefault();
     editTarget = channel;
@@ -143,11 +159,31 @@
       };
     };
 
-  const create = submit('create', (result) => {
+  const createManual = submit('create', (result) => {
     createErrors = {};
     toast.success($_('notifications.channels.created'));
     showSecret(result);
   });
+
+  /** "Add to Slack" submits the create form to `connectSlack`, which answers with Slack's URL. */
+  const create: SubmitFunction = (input) => {
+    if (!input.submitter?.hasAttribute('data-slack-connect')) return createManual(input);
+    busy = 'slack';
+    return async ({ result }) => {
+      if (result.type === 'redirect') {
+        // an external page: leave the app (busy stays on while the browser navigates)
+        window.location.assign(result.location);
+        return;
+      }
+      busy = null;
+      toast.error(
+        result.type === 'failure' ? failureMessage(result.data) : $_('alerts.wizard.failed'),
+      );
+    };
+  };
+
+  /** Slack picked and "Add to Slack" configured: the Slack app gives the name and the URL. */
+  const slackConnectMode = $derived(data.slackConnect && selectedType === 'slack');
   const rotate = submit('rotate', (result) => {
     rotateOpen = false;
     toast.success($_('notifications.channels.rotated'));
@@ -211,6 +247,17 @@
         >{form.channelSecret.secret}</code
       >
     </div>
+  {/if}
+
+  {#if slackOutcome}
+    <!-- with JavaScript the outcome of "Add to Slack" is a toast (see onMount) -->
+    <noscript>
+      <p class="text-xs {slackOutcome === 'connected' ? 'text-ok' : 'text-red-300'}" role="status">
+        {slackOutcome === 'connected'
+          ? $_('notifications.channels.slackConnected')
+          : errorMessage(slackOutcome)}
+      </p>
+    </noscript>
   {/if}
 
   {#if form?.channelTest}
@@ -479,6 +526,72 @@
                 {errorText(errors, 'type')}
               </p>{/if}
           </fieldset>
+          <input type="hidden" name="returnTo" value={action} />
+          {#if slackConnectMode}
+            <!-- Enter in the manual fields creates the channel, not the Slack install: the
+                 implicit submission uses the form's first submit button -->
+            <button type="submit" class="sr-only" tabindex="-1" aria-hidden="true"></button>
+            <div
+              class="flex flex-col gap-3 rounded-xl border border-brand-500/30 bg-brand-500/5 p-4 sm:col-span-2"
+              data-testid="slack-connect"
+            >
+              <div>
+                <p class="text-sm font-medium text-white">
+                  {$_('notifications.channels.slackConnectTitle')}
+                </p>
+                <p class="mt-0.5 text-xs text-fg-subtle">
+                  {$_('notifications.channels.slackConnectDescription')}
+                </p>
+              </div>
+              <div>
+                <label class="k-label" for="channel-locale"
+                  >{$_('notifications.channels.locale')}</label
+                >
+                <select
+                  id="channel-locale"
+                  name="locale"
+                  class="k-input"
+                  aria-describedby="channel-locale-help"
+                  aria-invalid={Boolean(errors.locale) || undefined}
+                >
+                  {#each SUPPORTED_LOCALES as option (option)}
+                    <option
+                      value={option}
+                      selected={(form?.channelDraft?.locale || $uiLocale) === option}
+                      >{$_(`notifications.channels.locales.${option}`)}</option
+                    >
+                  {/each}
+                </select>
+                {#if errors.locale}
+                  <p class="mt-1 text-xs text-red-300">{errorText(errors, 'locale')}</p>
+                {:else}
+                  <p id="channel-locale-help" class="k-help mt-1">
+                    {$_('notifications.channels.localeHelp')}
+                  </p>
+                {/if}
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  formaction="{action}?/connectSlack"
+                  class="k-btn k-btn-primary"
+                  disabled={busy !== null}
+                  data-slack-connect
+                  data-testid="slack-connect-submit"
+                >
+                  {#if busy === 'slack'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Hash
+                      class="h-4 w-4"
+                    />{/if}
+                  {$_('notifications.channels.slackConnect')}
+                </button>
+              </div>
+            </div>
+            <p class="flex items-center gap-3 text-xs text-fg-subtle sm:col-span-2">
+              <span class="h-px flex-1 bg-white/10"></span>
+              {$_('notifications.channels.slackManual')}
+              <span class="h-px flex-1 bg-white/10"></span>
+            </p>
+          {/if}
           <div class="sm:col-span-2">
             <label class="k-label" for="channel-name">{$_('notifications.channels.name')}</label>
             <input
@@ -515,36 +628,51 @@
               <p class="k-help mt-1">{$_('notifications.channels.webhookHelp')}</p>
             {:else if selectedType === 'slack'}
               <p class="k-help mt-1">{$_('notifications.channels.slackHelp')}</p>
+              {#if data.slackSetupPath}
+                <p class="k-help mt-1" data-testid="slack-setup-hint">
+                  {$_('notifications.channels.slackSetupHint')}
+                  <a href={data.slackSetupPath} class="text-brand-400 hover:underline"
+                    >{$_('notifications.channels.slackSetupLink')}</a
+                  >
+                </p>
+              {/if}
             {/if}
           </div>
+          {#if !slackConnectMode}
+            <div class="sm:col-span-2">
+              <label class="k-label" for="channel-locale"
+                >{$_('notifications.channels.locale')}</label
+              >
+              <select
+                id="channel-locale"
+                name="locale"
+                class="k-input"
+                aria-describedby="channel-locale-help"
+                aria-invalid={Boolean(errors.locale) || undefined}
+              >
+                {#each SUPPORTED_LOCALES as option (option)}
+                  <option
+                    value={option}
+                    selected={(form?.channelDraft?.locale || $uiLocale) === option}
+                    >{$_(`notifications.channels.locales.${option}`)}</option
+                  >
+                {/each}
+              </select>
+              {#if errors.locale}
+                <p class="mt-1 text-xs text-red-300">{errorText(errors, 'locale')}</p>
+              {:else}
+                <p id="channel-locale-help" class="k-help mt-1">
+                  {$_('notifications.channels.localeHelp')}
+                </p>
+              {/if}
+            </div>
+          {/if}
           <div class="sm:col-span-2">
-            <label class="k-label" for="channel-locale">{$_('notifications.channels.locale')}</label
+            <button
+              type="submit"
+              class="k-btn {slackConnectMode ? 'k-btn-secondary' : 'k-btn-primary'}"
+              disabled={busy !== null}
             >
-            <select
-              id="channel-locale"
-              name="locale"
-              class="k-input"
-              aria-describedby="channel-locale-help"
-              aria-invalid={Boolean(errors.locale) || undefined}
-            >
-              {#each SUPPORTED_LOCALES as option (option)}
-                <option
-                  value={option}
-                  selected={(form?.channelDraft?.locale || $uiLocale) === option}
-                  >{$_(`notifications.channels.locales.${option}`)}</option
-                >
-              {/each}
-            </select>
-            {#if errors.locale}
-              <p class="mt-1 text-xs text-red-300">{errorText(errors, 'locale')}</p>
-            {:else}
-              <p id="channel-locale-help" class="k-help mt-1">
-                {$_('notifications.channels.localeHelp')}
-              </p>
-            {/if}
-          </div>
-          <div class="sm:col-span-2">
-            <button type="submit" class="k-btn k-btn-primary" disabled={busy !== null}>
               {#if busy === 'create'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Plus
                   class="h-4 w-4"
                 />{/if}

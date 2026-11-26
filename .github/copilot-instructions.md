@@ -34,7 +34,8 @@ ejecución. SAML es configuración solo.
 - Vitest, ESLint y Prettier
 - Playwright para tests e2e de RBAC (`e2e/`)
 
-Las variables de entorno se declaran en `src/env.ts` y se documentan en `.env.example`; Google SSO usa las `GOOGLE_SSO_*` descritas arriba.
+Las variables de entorno se declaran en `src/env.ts` y se documentan en `.env.example`; Google SSO usa las
+`GOOGLE_SSO_*` descritas arriba, y "Add to Slack" usa `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` (opcionales).
 
 Comandos:
 
@@ -131,8 +132,12 @@ validan); resuelve DNS rechazando IPs privadas/loopback; no sigue redirects; rei
 = auto-deshabilita). Docs en `docs/webhooks/`. **Slack**: Incoming Webhook (solo URLs `https://hooks.slack.com/services/…`, 
 sin firma), formatea como Block Kit en el idioma del canal (nombre de alerta, resumen, campos, cambios de campos
 con before/after, fecha en zona horaria del lector, nota de contexto y botón "Ver en GitOps" si hay link), escapa
-caracteres Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook Slack. Los errores 4xx (webhook revocado,
-canal archivado o eliminado) no se reintentan y se muestran como último error. Variables: 
+caracteres Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook Slack. Los errores 4xx no se reintentan 
+y se muestran como último error. **Add to Slack**: cuando `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` están configurados, 
+los settings de canales muestran "Añadir a Slack": usuario elige workspace y canal en Slack, GitOps crea el canal con su webhook 
+(`SlackConnectService` y `SlackOAuthClient`). Admin abre `GitOps Settings → Slack`, crea la app Slack (manifest prefilled con 
+solo scope `incoming-webhook` y redirect URL `<ORIGIN>/notifications/slack/callback`, requiere https), copia Client ID y Secret 
+al entorno y reinicia. En dev, Slack OAuth requiere HTTPS: usar `DEV_HTTPS=true` con certificados en `.certs/` (ver `.env.example`). Variables: 
 `NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` y `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` (dev/e2e). Rutas públicas 
 `/notifications/verify` y `/notifications/unsubscribe` aceptan POST. Sin `ORIGIN` no se envía nada.
 

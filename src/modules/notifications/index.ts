@@ -24,6 +24,9 @@ import {
 } from './application/notification-channel.service';
 import { createChannelCipher } from './infrastructure/crypto/channel-cipher';
 import { readWebhookChannelConfig } from './infrastructure/config/webhook.config';
+import { readSlackAppConfig } from './infrastructure/config/slack-app.config';
+import { SlackOAuthClient } from './infrastructure/slack/slack-oauth.client';
+import { SlackConnectService } from './application/slack-connect.service';
 import { NotificationChannelRepository } from './infrastructure/repositories/notification-channel.repository';
 import { ExternalRecipientMailNotifier } from './infrastructure/external-recipient-mail.notifier';
 import { ExternalRecipientRepository } from './infrastructure/repositories/external-recipient.repository';
@@ -113,6 +116,13 @@ export const notificationChannelService = new NotificationChannelService(
   { logger: log, events: eventBus },
 );
 
+/** "Add to Slack" (#97): OAuth install that returns the webhook of the channel the user picks. */
+export const slackConnectService = new SlackConnectService({
+  readConfig: () => readSlackAppConfig(),
+  client: new SlackOAuthClient(),
+  secret: () => passwordService.ensureEncryptionKey(),
+});
+
 export function registerChannelShutdown(): void {
   const scope = globalThis as GlobalWithChannelQueue;
   if (scope[CHANNEL_SHUTDOWN_KEY]) return;
@@ -154,5 +164,16 @@ export type {
   ChannelMessageSource,
   IssuedChannel,
 } from './application/notification-channel.service';
+export {
+  SLACK_CALLBACK_PATH,
+  SLACK_FLOW_COOKIE,
+  SLACK_FLOW_COOKIE_PATH,
+  SLACK_FLOW_TTL_MS,
+  SlackConnectError,
+  SlackConnectService,
+  type SlackConnectErrorCode,
+  type SlackConnectStatus,
+  type SlackConnection,
+} from './application/slack-connect.service';
 export { buildChannelTestMessage } from './infrastructure/channel-test-message';
 export { normalizeEmail } from './domain/email-address';

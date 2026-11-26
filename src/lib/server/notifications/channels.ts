@@ -1,8 +1,11 @@
 import {
   NotificationChannelNotFoundError,
   NotificationChannelValidationError,
+  SLACK_CALLBACK_PATH,
+  SlackConnectError,
   buildChannelTestMessage,
   notificationChannelService,
+  slackConnectService,
   type ChannelInput,
   type ChannelLocation,
   type IssuedChannel,
@@ -205,4 +208,90 @@ export async function testChannel(
     buildChannelTestMessage({ channelName: channel.name, where, link }, channel.locale),
   );
   return { ok: true, status: 200, data: result };
+}
+
+/** Redirect URL of "Add to Slack" for the origin the browser is on (registered in the Slack app). */
+export function slackRedirectUri(origin: string): string {
+  return `${origin}${SLACK_CALLBACK_PATH}`;
+}
+
+/**
+ * Starts "Add to Slack" for a channel of `location`: needs a signed-in user (not an API key) with
+ * `<scope>:notifications:create`. Returns where to send the browser and the flow cookie to set.
+ */
+export async function startSlackConnection(
+  locals: AlertLocals,
+  location: ChannelLocation,
+  input: { locale: unknown; returnTo: unknown; origin: string },
+): Promise<ChannelResult<{ authorizationUrl: string; flowCookie: string }>> {
+  const userId = locals.apiKey ? null : locals.user?.id;
+  if (!userId || !(await canManageChannels(locals, location, 'create'))) return forbidden;
+  try {
+    return {
+      ok: true,
+      status: 303,
+      data: slackConnectService.start({
+        userId,
+        location,
+        locale: input.locale,
+        returnTo: input.returnTo,
+        redirectUri: slackRedirectUri(input.origin),
+      }),
+    };
+  } catch (error) {
+    if (error instanceof SlackConnectError) return { ok: false, status: 400, error: error.code };
+    throw error;
+  }
+}
+
+export type SlackConnectionOutcome =
+  | { ok: true; returnTo: string; channel: ChannelWithSecret }
+  | { ok: false; returnTo: string; error: string };
+
+/**
+ * Finishes "Add to Slack": validates the flow (same user, state), trades the code for the
+ * channel's webhook and creates the channel, checking `<scope>:notifications:create` again.
+ */
+export async function completeSlackConnection(
+  locals: AlertLocals,
+  input: {
+    flowCookie: string | undefined;
+    searchParams: URLSearchParams;
+    origin: string;
+  },
+): Promise<SlackConnectionOutcome> {
+  const userId = locals.apiKey ? '' : (locals.user?.id ?? '');
+  let connection;
+  try {
+    connection = await slackConnectService.complete({
+      flowCookie: input.flowCookie,
+      userId,
+      state: input.searchParams.get('state'),
+      code: input.searchParams.get('code'),
+      error: input.searchParams.get('error'),
+      redirectUri: slackRedirectUri(input.origin),
+    });
+  } catch (error) {
+    if (error instanceof SlackConnectError) {
+      return { ok: false, returnTo: error.returnTo, error: error.code };
+    }
+    throw error;
+  }
+
+  const created = await createChannel(locals, connection.location, {
+    type: 'slack',
+    name: connection.name,
+    destination: connection.webhookUrl,
+    locale: connection.locale,
+    enabled: true,
+  });
+  if (!created.ok) {
+    // codes of `notifications.errors.*`: the first validation error says enough
+    const code =
+      created.status === 403
+        ? 'Forbidden'
+        : (Object.values(created.errors ?? {})[0] ?? 'slack_exchange_failed');
+    return { ok: false, returnTo: connection.returnTo, error: code };
+  }
+  return { ok: true, returnTo: connection.returnTo, channel: created.data };
 }

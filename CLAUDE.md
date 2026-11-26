@@ -54,7 +54,8 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - Vitest, ESLint, and Prettier
 - Playwright for RBAC end-to-end tests (`e2e/`)
 
-Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the `GOOGLE_SSO_*` variables described above.
+Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the
+`GOOGLE_SSO_*` variables described above, and "Add to Slack" uses `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`.
 
 Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 
@@ -368,6 +369,32 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (`&`, `<`, `>`) so event or user data can't mention or link. Texts are cut to Block Kit limits.
   The Slack channel is fixed by the webhook: one GitOps channel per Slack webhook. 4xx responses
   (revoked webhook, archived or deleted channel) are not retried and show as the channel's last error.
+- Add to Slack (`slackConnectService` in `$modules/notifications`, `#97`): OAuth v2 install
+  (`SlackConnectService`, `SlackOAuthClient`) with only the `incoming-webhook` scope, so Slack asks for
+  the workspace and channel and returns its webhook URL, saved as a normal `slack` channel (same transport,
+  same `SLACK_WEBHOOK_RULE`). Enabled when `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` are both set
+  (`readSlackAppConfig()`; half set counts as disabled). Picking the Slack card in the create-channel
+  form shows an "Add to Slack" button (`formaction` to the `connectSlack` action, `channels-page.ts`;
+  the enhanced submit follows the redirect with `window.location`; Enter keeps creating the manual channel)
+  next to the manual URL fields, and GitOps admins get a link to `/gitops-settings/slack` while it is not
+  configured. The action needs `<scope>:notifications:create` and a session, not an API key; it sets
+  the `gitops_slack_flow` cookie (`signToken`, 10 min, bound to the user, location, locale and a return
+  path) and redirects to Slack; `/notifications/slack/callback` (fixed: it is the app's redirect URL,
+  needs the same session) checks the state, exchanges the code (Basic auth), creates the channel through
+  `createChannel()` (permission checked again) and goes back with `?slack=connected|<error>`
+  (`notifications.errors.slack_*`). Self-hosted admins create the app from `/gitops-settings/slack`
+  (prefilled manifest link, redirect URL, status); a hosted GitOps uses the official app's credentials
+  the same way. Pasting a webhook URL keeps working. A central OAuth broker for self-hosted installations
+  is not implemented.
+
+  Local development of Slack OAuth flows requires HTTPS (Slack refuses `http://` redirect URLs).
+  Set `DEV_HTTPS=true` and create a self-signed certificate:
+  ```bash
+  mkdir -p .certs && openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj /CN=localhost \
+    -addext subjectAltName=DNS:localhost -keyout .certs/localhost-key.pem -out .certs/localhost.pem
+  ```
+  Then open `https://localhost:5173` and register `https://localhost:5173/notifications/slack/callback`
+  in the test Slack app. See `.env.example` for details.
 - `ChannelMessage` (built by `buildAlertChannelMessage(input, locale)`): `fields` leave out what
   the message says elsewhere: `occurredAt`, `location` (project or organization, and any field with
   that name), and `changedFields` when `changes` (translated label + before/after) exists.

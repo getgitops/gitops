@@ -218,7 +218,19 @@ Webhook: the alert name, a summary when the event has one (`3 critical, 5 high`)
 happened (**Project** or **Organization**) and the date (in each reader's time zone), for update
 events a **Changes** section with each changed field and its **Before** and **New** values (`empty` when there was none),
 the remaining event fields and a **View in GitOps** button when `ORIGIN` is set. The webhook decides
-the Slack channel, so create one webhook per Slack channel you want to post to:
+the Slack channel, so each GitOps channel posts to one Slack channel.
+
+**Add to Slack (one click).** When the installation has a Slack app configured
+(`SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`), the channel settings show **Add to Slack**: the user
+picks the workspace and the channel in Slack and GitOps creates the channel with its webhook, with
+nothing to copy. Any workspace can be connected, so each organization uses its own Slack. To set it
+up, a GitOps admin opens **GitOps Settings → Slack**, clicks **Create Slack app** (Slack opens with a
+prefilled manifest: only the `incoming-webhook` scope and this installation's redirect URL,
+`<ORIGIN>/notifications/slack/callback`, which must be https), copies the app's **Client ID** and
+**Client Secret** into the environment and restarts GitOps. To let workspaces other than the one
+that owns the app install it, enable **Public Distribution** in the app's **Manage Distribution**.
+
+**Manually**, without a Slack app in GitOps, create one webhook per Slack channel:
 
 1. In Slack, open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From
    scratch**, and pick the workspace (or open an app your workspace already uses for this).
