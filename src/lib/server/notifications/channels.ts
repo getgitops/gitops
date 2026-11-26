@@ -5,6 +5,7 @@ import {
   notificationChannelService,
   type ChannelInput,
   type ChannelLocation,
+  type IssuedChannel,
   type NotificationChannelView,
 } from '#modules/notifications';
 import { organizationService } from '#modules/organization';
@@ -92,17 +93,49 @@ export async function getChannel(
     : loaded;
 }
 
+/**
+ * A channel and, for signed types, its signing secret in clear. Only the create and rotate
+ * responses carry it: it is never readable again.
+ */
+export type ChannelWithSecret = NotificationChannelView & { signingSecret?: string };
+
+function withSecret(issued: IssuedChannel): ChannelWithSecret {
+  const view = notificationChannelService.toView(issued.channel);
+  return issued.signingSecret ? { ...view, signingSecret: issued.signingSecret } : view;
+}
+
 export async function createChannel(
   locals: AlertLocals,
   location: ChannelLocation,
   input: ChannelInput,
-): Promise<ChannelResult<NotificationChannelView>> {
+): Promise<ChannelResult<ChannelWithSecret>> {
   if (!(await canManageChannels(locals, location, 'create'))) return forbidden;
   const actor = actorFor(locals);
   if (!actor) return forbidden;
   try {
-    const channel = await notificationChannelService.create(location, input, actor.userId);
-    return { ok: true, status: 201, data: notificationChannelService.toView(channel) };
+    const issued = await notificationChannelService.create(location, input, actor.userId);
+    return { ok: true, status: 201, data: withSecret(issued) };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/**
+ * Generates a new signing secret (the previous one keeps signing for 24 h) and returns it, this
+ * one time, in clear. Needs `<scope>:notifications:update`.
+ */
+export async function rotateChannelSecret(
+  locals: AlertLocals,
+  id: string,
+): Promise<ChannelResult<ChannelWithSecret>> {
+  const loaded = await loadAuthorized(locals, id, 'update');
+  if (!loaded.ok) return loaded;
+  try {
+    return {
+      ok: true,
+      status: 200,
+      data: withSecret(await notificationChannelService.rotateSecret(id)),
+    };
   } catch (error) {
     return failure(error);
   }

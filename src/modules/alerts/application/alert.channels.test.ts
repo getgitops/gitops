@@ -108,17 +108,17 @@ describe('alerts with notification channels', () => {
         { type: 'slack', name: '#org', destination: HOOK },
         'a',
       )
-    ).id;
+    ).channel.id;
     p1Channel = (
       await channels.service.create(p1, { type: 'slack', name: '#p1', destination: HOOK }, 'a')
-    ).id;
+    ).channel.id;
     p2Channel = (
       await channels.service.create(
         { ...p1, projectId: 'p2' },
         { type: 'slack', name: '#p2', destination: HOOK },
         'a',
       )
-    ).id;
+    ).channel.id;
 
     repository = new InMemoryAlertRepository();
     directory = new FakeAlertDirectory();
@@ -349,6 +349,10 @@ describe('alerts with notification channels', () => {
       expect(text).not.toContain('DB_PASSWORD');
       expect(text).not.toContain('/pay');
       expect(text).toContain('Production');
+      // raw catalog values for data formats (generic webhooks), sensitive ones left out too
+      expect(message.event?.fields).toMatchObject({ environmentIds: ['e'] });
+      expect(message.event?.fields).not.toHaveProperty('key');
+      expect(message.event?.fields).not.toHaveProperty('folderPath');
       expect(message.suppressed).toBe(3);
       expect(message.link).toEqual({
         url: 'https://gitops.example.com/org/kettu/projects/web/vault',

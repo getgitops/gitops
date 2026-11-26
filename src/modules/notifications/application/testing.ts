@@ -1,9 +1,10 @@
 import {
+  ChatNotification,
   DeliveryQueue,
   type ChatChannelType,
-  type ChatNotification,
   type ChatTransport,
 } from '#lib/server/infra/notifications';
+import type { EventPublisher } from '#lib/server/events';
 import {
   isRetryableWebhookError,
   validateWebhookUrl,
@@ -81,12 +82,17 @@ export function createNotificationsFixture(options: { origin?: string | null } =
 export class FakeChatTransport implements ChatTransport {
   sent: ChatNotification[] = [];
   failWith: Array<number | 'network'> = [];
+  /** Every attempt, failed ones included (retries share their `deliveryId`). */
+  attempts: ChatNotification[] = [];
+
+  constructor(readonly signed = false) {}
 
   validateDestination(raw: unknown) {
     return validateWebhookUrl(raw, { hosts: ['hooks.example.com'], pathPrefix: '/hook/' });
   }
 
   async send(notification: ChatNotification) {
+    this.attempts.push(notification);
     const failure = this.failWith.shift();
     if (failure === 'network') throw new WebhookDeliveryError(null, true, null, 'network');
     if (typeof failure === 'number') {
@@ -99,21 +105,32 @@ export class FakeChatTransport implements ChatTransport {
 export function createChannelsFixture(
   options: {
     types?: ChatChannelType[];
+    /** Transports by type instead of the shared fake (a real webhook transport, a signed fake). */
+    transports?: Partial<Record<ChatChannelType, ChatTransport>>;
+    events?: EventPublisher;
+    maxConsecutiveFailures?: number;
     logger?: { warn: () => void; error: () => void; debug: () => void };
   } = {},
 ) {
   const clock = { now: new Date('2026-11-24T10:00:00.000Z') };
   const repository = new InMemoryNotificationChannelRepository();
   const transport = new FakeChatTransport();
-  const types = options.types ?? ['slack'];
+  const types =
+    options.types ?? (['slack', ...Object.keys(options.transports ?? {})] as ChatChannelType[]);
+  const transportFor = (type: ChatChannelType): ChatTransport | null =>
+    options.transports?.[type] ?? (types.includes(type) ? transport : null);
   const logger = options.logger ?? { warn: () => {}, error: () => {}, debug: () => {} };
   const queue = new DeliveryQueue<ChannelDelivery>({
     send: (delivery) =>
-      transport.send({
-        channel: delivery.type,
-        destination: delivery.destination,
-        message: delivery.message,
-      } as ChatNotification),
+      transportFor(delivery.type)!.send(
+        new ChatNotification({
+          channel: delivery.type,
+          destination: delivery.destination,
+          message: delivery.message,
+          deliveryId: delivery.deliveryId,
+          signingSecrets: delivery.signingSecrets,
+        }),
+      ),
     retry: {
       isRetryable: isRetryableWebhookError,
       retryAfterMs: webhookRetryAfter,
@@ -125,15 +142,24 @@ export function createChannelsFixture(
     onSettled: (delivery, outcome) => delivery.report(outcome),
   });
   let id = 0;
+  let delivery = 0;
+  let secret = 0;
   const service = new NotificationChannelService(
     repository,
     createChannelCipher(() => 'test-encryption-key'),
     {
-      get: (type) => (types.includes(type) ? transport : null),
+      get: (type) => (types.includes(type) ? transportFor(type) : null),
       available: () => [...types],
     },
     queue,
-    { now: () => clock.now, generateId: () => `channel-${++id}` },
+    {
+      now: () => clock.now,
+      generateId: () => `channel-${++id}`,
+      generateDeliveryId: () => `delivery-${++delivery}`,
+      generateSecret: () => `whsec_test${++secret}`,
+      events: options.events,
+      maxConsecutiveFailures: options.maxConsecutiveFailures,
+    },
   );
   return {
     clock,

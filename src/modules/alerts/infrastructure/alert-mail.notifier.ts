@@ -157,33 +157,46 @@ export class AlertMailNotifier implements AlertNotifierPort {
           organization: names.organization ?? '',
         })
       : (names.organization ?? 'GitOps');
-    const payload = email.event.payload as { name?: string; keyPrefix?: string };
+    const payload = email.event.payload as {
+      name?: string;
+      keyPrefix?: string;
+      failures?: number;
+      lastError?: string;
+    };
     const values = {
       target,
       role: names.role ?? '',
       name: payload.name ?? '',
       prefix: payload.keyPrefix ?? '',
+      failures: payload.failures ?? 0,
+      error: payload.lastError ?? '',
     };
     const base = `alerts.email.system.${email.kind}`;
     const subject = t(`${base}.subject`, values);
     const isApiKey = email.kind === 'api_key_created';
+    const isChannel = email.kind === 'channel_disabled';
+    const isNotice = isApiKey || isChannel;
 
     // a revoked user has nothing left to open
     let path: string | null = null;
     if (isApiKey) path = '/profile';
-    else if (email.kind !== 'access_revoked' && names.organizationSlug) {
+    else if (isChannel && names.organizationSlug) {
+      path = names.projectSlug
+        ? `/org/${names.organizationSlug}/projects/${names.projectSlug}/settings/alerts`
+        : `/org/${names.organizationSlug}/settings/alerts`;
+    } else if (email.kind !== 'access_revoked' && names.organizationSlug) {
       path = names.projectSlug
         ? `/org/${names.organizationSlug}/projects/${names.projectSlug}/overview`
         : `/org/${names.organizationSlug}/overview`;
     }
 
     const content = await renderEmail(
-      isApiKey ? 'system-security-notice' : 'system-access-changed',
+      isNotice ? 'system-security-notice' : 'system-access-changed',
       {
         title: subject,
         greeting: t('alerts.email.greeting', { name: email.recipient.username }),
         message: t(`${base}.body`, values),
-        warning: isApiKey ? t(`${base}.warning`) : '',
+        warning: isNotice ? t(`${base}.warning`, values) : '',
         actionButton: button(
           absoluteUrl(path),
           t(isApiKey ? 'alerts.email.system.openProfile' : 'alerts.email.viewInApp'),

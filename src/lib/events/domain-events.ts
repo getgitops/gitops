@@ -195,6 +195,21 @@ export type MonitoringMonitorStatusPayload = {
   durationSeconds: number | null;
 };
 
+/**
+ * A notification channel disabled itself after too many delivery failures in a row. Never carries
+ * the destination nor any secret: `lastError` is the short reason (`HTTP 410`, `timeout`).
+ */
+export type NotificationChannelDisabledPayload = {
+  channelId: string;
+  name: string;
+  /** `webhook`, `slack`, `google-chat` */
+  type: string;
+  reason: 'failures';
+  failures: number;
+  lastError: string;
+  createdByUserId: string;
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
@@ -222,6 +237,7 @@ export interface DomainEventMap {
   'monitoring.monitor.down': MonitoringMonitorStatusPayload;
   'monitoring.monitor.degraded': MonitoringMonitorStatusPayload;
   'monitoring.monitor.recovered': MonitoringMonitorStatusPayload;
+  'notifications.channel.disabled': NotificationChannelDisabledPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;

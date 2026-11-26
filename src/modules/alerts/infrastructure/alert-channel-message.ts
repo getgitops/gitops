@@ -1,6 +1,8 @@
 import { absoluteUrl, type ChannelMessage } from '#lib/server/infra/notifications';
 import { DEFAULT_MAIL_LOCALE, translator } from '#lib/server/infra/notifications/i18n';
 import type { AlertEmail } from '../application/alert-engine';
+import type { EventFieldDefinition } from '#lib/events/catalog';
+import { readAlertField } from '../domain/condition-evaluator';
 import { describeEventFields, eventResourcePath, eventSummaryText } from './event-summary';
 
 /** What a channel message is built from: an alert email without its recipient. */
@@ -46,7 +48,22 @@ export function buildAlertChannelMessage(input: AlertMessageInput): ChannelMessa
       type: event.type,
       occurredAt: event.occurredAt,
       scope: { ...event.scope },
+      fields: rawEventFields(input),
     },
     alert: { id: alert.id, name: alert.name },
   };
+}
+
+/**
+ * Catalog field values by key, as the event carries them (ids, enums, numbers), for formats that
+ * want data rather than text (generic webhooks). Sensitive fields are left out, as in the text.
+ */
+function rawEventFields({ event, definition }: AlertMessageInput): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  for (const field of definition.fields) {
+    if (field.sensitive) continue;
+    const value = readAlertField(event, field as EventFieldDefinition);
+    if (value !== undefined) fields[field.key as string] = value;
+  }
+  return fields;
 }

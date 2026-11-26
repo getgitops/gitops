@@ -222,8 +222,10 @@ async function dryRun(
   if (!isEventType(alert.eventType)) return { ok: false, status: 400, error: 'Unknown event type' };
   const send = input.send === true || input.send === 'true';
   const actor = actorFor(locals);
+  const mailConfigured = isMailConfigured();
   if (send) {
-    if (!isMailConfigured()) {
+    // the test goes to every destination of the alert: without SMTP only its channels get it
+    if (!mailConfigured && (alert.channelIds ?? []).length === 0) {
       return { ok: false, status: 409, error: 'mail_not_configured' };
     }
     if (!actor || !testSendLimiter.consume(actor.userId).allowed) {
@@ -260,7 +262,7 @@ async function dryRun(
     projectId = sample.projectId;
   }
 
-  if (send && actor && alert.recipients.emails.length > 0) {
+  if (send && mailConfigured && actor && alert.recipients.emails.length > 0) {
     await alertService.registerExternal(location, alert.recipients.emails, actor);
   }
 

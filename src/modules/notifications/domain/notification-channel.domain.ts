@@ -25,15 +25,38 @@ export type NotificationChannelRow = ChannelLocation & {
   lastDeliveryAt: string | null;
   /** Short reason of the last failed delivery (`HTTP 404`, `timeout`), cleared on success. */
   lastError: string | null;
+  /** Signing secret (signed types only), encrypted: never returned nor logged. */
+  signingSecret: string | null;
+  /** Secret being replaced, encrypted; still signs until `previousSecretExpiresAt`. */
+  previousSigningSecret: string | null;
+  previousSecretExpiresAt: string | null;
+  /** Definitive delivery failures in a row (tests don't count); reset by a success. */
+  consecutiveFailures: number;
+  /** `failures` when the platform disabled the channel; `null` otherwise. */
+  disabledReason: ChannelDisabledReason | null;
 };
 
-/** What the API and the pages may show: the destination only masked. */
-export type NotificationChannelView = Omit<NotificationChannelRow, 'webhookUrl'> & {
+export type ChannelDisabledReason = 'failures';
+
+/** Encrypted fields: none of them ever leaves the server. */
+type SecretFields = 'webhookUrl' | 'signingSecret' | 'previousSigningSecret';
+
+/** What the API and the pages may show: the destination only masked, secrets never. */
+export type NotificationChannelView = Omit<NotificationChannelRow, SecretFields> & {
   /** `https://hooks.slack.com/…/••••1a2b` */
   destinationMasked: string;
   /** Whether its type has a transport: channels of other types are kept but send nothing. */
   available: boolean;
+  /** Its type signs deliveries (`webhook`): it has a secret that can be rotated. */
+  signed: boolean;
+  /** A rotation is in its grace period: the previous secret still signs until this date. */
+  rotationEndsAt: string | null;
 };
+
+/** Definitive failures in a row after which a channel disables itself. */
+export const MAX_CONSECUTIVE_FAILURES = 20;
+/** How long the previous secret keeps signing after a rotation. */
+export const SECRET_ROTATION_GRACE_MS = 24 * 60 * 60 * 1000;
 
 export const MAX_CHANNEL_NAME_LENGTH = 80;
 
@@ -56,6 +79,11 @@ export class NotificationChannelDomain implements NotificationChannelRow {
   updatedAt: string;
   lastDeliveryAt: string | null;
   lastError: string | null;
+  signingSecret: string | null;
+  previousSigningSecret: string | null;
+  previousSecretExpiresAt: string | null;
+  consecutiveFailures: number;
+  disabledReason: ChannelDisabledReason | null;
 
   constructor(row: Record<string, any>) {
     this.id = row.id;
@@ -71,6 +99,18 @@ export class NotificationChannelDomain implements NotificationChannelRow {
     this.updatedAt = toIso(row.updatedAt) ?? this.createdAt;
     this.lastDeliveryAt = toIso(row.lastDeliveryAt);
     this.lastError = row.lastError ?? null;
+    this.signingSecret = row.signingSecret || null;
+    this.previousSigningSecret = row.previousSigningSecret || null;
+    this.previousSecretExpiresAt = toIso(row.previousSecretExpiresAt);
+    const failures = Number(row.consecutiveFailures);
+    this.consecutiveFailures = Number.isInteger(failures) && failures > 0 ? failures : 0;
+    this.disabledReason = row.disabledReason === 'failures' ? 'failures' : null;
+  }
+
+  /** Whether the previous secret still signs at `now` (rotation grace period). */
+  previousSecretActive(now: Date): boolean {
+    if (!this.previousSigningSecret || !this.previousSecretExpiresAt) return false;
+    return Date.parse(this.previousSecretExpiresAt) > now.getTime();
   }
 
   get location(): ChannelLocation {
@@ -101,6 +141,11 @@ export class NotificationChannelDomain implements NotificationChannelRow {
       updatedAt: this.updatedAt,
       lastDeliveryAt: this.lastDeliveryAt,
       lastError: this.lastError,
+      signingSecret: this.signingSecret,
+      previousSigningSecret: this.previousSigningSecret,
+      previousSecretExpiresAt: this.previousSecretExpiresAt,
+      consecutiveFailures: this.consecutiveFailures,
+      disabledReason: this.disabledReason,
     };
   }
 }

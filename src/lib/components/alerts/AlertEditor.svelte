@@ -629,7 +629,7 @@
           name="send"
           value="true"
           class="k-btn k-btn-secondary"
-          disabled={busy !== null || !data.mailConfigured}
+          disabled={busy !== null || (!data.mailConfigured && draft.channelIds.length === 0)}
           title={$_('alerts.editor.sendTestHelp')}
           data-testid="alert-send-test"
         >

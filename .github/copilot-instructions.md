@@ -122,10 +122,15 @@ verificación y desuscripción. En `/org/<org>/settings/alerts/settings`, admini
 permitidos y canales (`NotificationChannelEntity` en GitDB). Alertas guardan `recipients` (usuarios, roles,
 emails externos) y `channelIds` (referencias a canales, no destinatarios individuales). Canales de organización
 se usan en alertas de org y proyecto; canales de proyecto solo en sus alertas. URLs de webhook se encriptan
-con `GITDB_ENCRYPTION_KEY` (AES-GCM por channel id). Emails externos: `pending` → `verified` → `unsubscribed`
-o `blocked` si dominio se quita; template reducido sin campos `sensitive` ni links; `List-Unsubscribe` HMAC
-(90 días). Canales: un mensaje por canal en paralelo, fallo de canal nunca afecta email. Rutas públicas
-`/notifications/verify` y `/notifications/unsubscribe` aceptan POST (no GET). Sin `ORIGIN` no se envía nada.
+con `GITDB_ENCRYPTION_KEY`. Emails externos: `pending` → `verified` → `unsubscribed` o `blocked`; template
+sin campos `sensitive` ni links; `List-Unsubscribe` HMAC (90 días). Canales: un mensaje por canal en paralelo, 
+fallo de canal nunca afecta email. El tipo `webhook` se firma con HMAC-SHA256 (`X-GitOps-Signature`): secreto
+`whsec_…` se muestra una sola vez al crear o rotar (rotación con 24 h de gracia, ambos secretos validan durante 
+el período); resuelve DNS rechazando IPs privadas/loopback/link-local/CGNAT/metadata (antes de guardar y cada 
+envío), no sigue redirects, reintentos con backoff (20 fallos consecutivos deshabilitan automáticamente, evento
+`notifications.channel.disabled` con detalles del canal y error). Docs en `docs/webhooks/`. Variables:
+`NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` y `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` (solo dev/e2e). Rutas
+públicas `/notifications/verify` y `/notifications/unsubscribe` aceptan POST. Sin `ORIGIN` no se envía nada.
 
 Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a

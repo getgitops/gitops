@@ -248,8 +248,8 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   **anti-escalation** (the author must hold the event's `readPermission`).
 - `AlertEngine` subscribes to `'*'` once per process (`registerAlertEngine()` in `hooks.server.ts`,
   HMR-safe). Per event: fixed system notifications first (`system-notifications.data.ts`: access
-  granted/updated/revoked to the affected user, new personal API keys to their owner, never to the
-  actor, invitations skipped), then the enabled alerts of that type (cached 60 s, invalidated by
+  granted/updated/revoked to the affected user, new personal API keys to their owner, a self-disabled
+  notification channel to its creator, never to the actor, invitations skipped), then the enabled alerts of that type (cached 60 s, invalidated by
   the service) whose location covers the event and whose conditions match. A per-alert in-memory
   throttle (`throttleMinutes`) suppresses repeats and the next email reports how many were skipped.
 - Recipients = selected users ∪ members with the selected roles, minus disabled users and users
@@ -281,7 +281,9 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
   (dry runs that never touch the throttle; with `send: true`, `AlertEngine.sendTest()` also emails
   the recipients a real event would reach, members filtered by cancan and verified externals only,
-  with a `[Test]` subject; needs SMTP and is limited to 5 per caller every 10 minutes, in memory.
+  with a `[Test]` subject, and posts to the alert's channels; needs SMTP unless the alert has
+  channels (then only they get it), test messages never count toward a channel's failure streak,
+  and it is limited to 5 per caller every 10 minutes, in memory.
   It also registers the draft's new external addresses, so they get the confirmation email and
   receive the next test once confirmed, before the alert is saved).
   Project API keys only reach their project.
@@ -324,14 +326,44 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   `notification_channels`), owned by an organization (usable by alerts of the organization and of
   all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
   a type is available only once its transport is registered with `registerChatTransport()`
-  (`#lib/server/infra/notifications/chat-notification.ts`). This base registers none: each
-  transport (webhook, Slack, Google Chat) activates its own, and tests use `FakeChatTransport`.
-  A `ChatTransport` implements `send()` and `validateDestination()`, the anti-SSRF check
-  (`validateWebhookUrl()`: https, no credentials, no IP literal, default port, allowed host and
-  path) run before saving and again before every send. The destination (`webhookUrl`) is
-  encrypted with `GITDB_ENCRYPTION_KEY` (`channel-cipher.ts`, AES-GCM bound to the channel id)
-  and only ever leaves the server masked (`https://hooks.slack.com/…/••••1a2b`); changing it
-  means typing it again. `enabled` flag can disable delivery without deleting the channel.
+  (`#lib/server/infra/notifications/chat-notification.ts`) in the composition root
+  (`$modules/notifications/index.ts`); today only `webhook` is, and tests use `FakeChatTransport`.
+  A `ChatTransport` implements `send()` and `validateDestination()` (sync or async), the anti-SSRF
+  check run before saving and again before every send: `validateWebhookUrl()` for providers with a
+  fixed host (https, no credentials, no IP literal, default port, allowed host and path),
+  `validateOpenWebhookUrl()` for free URLs (resolves DNS and refuses private, loopback,
+  link-local, CGNAT, multicast and metadata addresses, IPv4-mapped IPv6 included). Send through
+  `createGuardedFetch()` (`#lib/server/infra/http/guarded-fetch.ts`): it connects only to the
+  checked address (no DNS rebinding), never follows redirects and drains at most 64 KB of the
+  answer. The destination (`webhookUrl`) is encrypted with `GITDB_ENCRYPTION_KEY`
+  (`channel-cipher.ts`, AES-GCM bound to the channel id and the value's purpose) and only ever
+  leaves the server masked (`https://hooks.slack.com/…/••••1a2b`); changing it means typing it
+  again. `enabled` flag can disable delivery without deleting the channel; `disabledReason:
+  'failures'` means the platform disabled it after 20 consecutive failures.
+- Signed channels: webhook is a signed type. The service generates a signing secret on create
+  (`whsec_` + 32 random bytes, encrypted in `signingSecret`) and returns it in clear **only once**
+  from `createChannel()` or `POST /api/notification-channels/[id]/rotate-secret` (never readable
+  again). Rotation keeps the previous secret in `previousSigningSecret` for 24 h 
+  (`previousSecretExpiresAt`); both are handed to `send()` in `ChatNotification.signingSecrets`
+  with a stable `deliveryId` per message so receivers can deduplicate retries. The signature is
+  `X-GitOps-Signature: t=<unix>,v1=<hash>[,v1=<old-hash>]` using `HMAC-SHA256(secret, 
+  "<timestamp>.<raw body>")` on the JSON sent (not encoded).
+- Generic webhook (`#lib/server/infra/notifications/webhook/`): `POST` with the versioned
+  `WebhookPayload` (`version`, `deliveryId`, `test`, `alert`, `event` with the raw non-sensitive
+  catalog `fields` from `ChannelMessage.event.fields`, `link`), headers `X-GitOps-Event`,
+  `X-GitOps-Delivery`, `X-GitOps-Signature` (`HMAC-SHA256` of the timestamp and body) and
+  `User-Agent: GitOps-Webhooks/1`. All webhooks are signed: `createChannel()` and `rotateChannelSecret()`
+  return the secret in `signingSecret` once; the service encrypts it after and never shows it again.
+  Receiver docs and the verification example are in `docs/webhooks/` (the example is unit-tested
+  and must stay identical in the README). `NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` / 
+  `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` relax the rules for local development and e2e only.
+- Failure streaks: every definitive delivery failure of a real message (not tests, not
+  `unavailable` types) increments `consecutiveFailures` (one commit each per channel); a success 
+  resets it. At 20 (`MAX_CONSECUTIVE_FAILURES`) the channel disables itself (`enabled: false`,
+  `disabledReason: 'failures'`) and publishes `notifications.channel.disabled` (system actor,
+  organization alertable event with `organization:notifications:read`, payload includes channel
+  name, type, failure count and last error). The channel creator gets emailed the `channel_disabled`
+  system notice. Re-enabling resets the streak.
 - Channel delivery: alerts store `channelIds` (references to `NotificationChannelEntity`). Adding
   a channel needs `<scope>:notifications:update` (`forbidden_channel`), and a channel must be
   usable from the alert's location (`unknown_channel`). The engine emails each recipient and
@@ -348,8 +380,9 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
 - Channels HTTP: `#lib/server/notifications/channels.ts` (permission-first with
   `<scope>:notifications:read|create|update|delete`; a channel the caller can't read is a 404).
   Routes: `GET|POST /api/notification-channels` (`organizationId` or `projectId`),
-  `GET|PATCH|DELETE /api/notification-channels/[id]` and `POST /api/notification-channels/[id]/test`
-  (posts a test even to a disabled channel). Form actions for the settings pages live in
+  `GET|PATCH|DELETE /api/notification-channels/[id]`, `POST /api/notification-channels/[id]/test`
+  (posts a test even to a disabled channel) and `POST /api/notification-channels/[id]/rotate-secret`
+  (`update` permission, returns the new secret once). Form actions for the settings pages live in
   `#lib/server/notifications/channels-page.ts`; the UI is `ChannelsSection`
   (`#lib/components/notifications/`), and the alert editors pick channels from `data.channels`
   (the alert's draft has `channelIds: string[]`, not direct recipients by channel type).

@@ -32,6 +32,13 @@ export type ChannelView = {
   updatedAt: string;
   lastDeliveryAt: string | null;
   lastError: string | null;
+  consecutiveFailures: number;
+  /** `failures` when the platform disabled it. */
+  disabledReason: string | null;
+  /** Signs its deliveries (webhook): has a rotatable secret. */
+  signed: boolean;
+  /** End of a rotation's grace period, while the previous secret still signs. */
+  rotationEndsAt: string | null;
 };
 
 export type ChannelsSectionData = {
@@ -52,4 +59,6 @@ export type ChannelsFormResult = {
   channelSaved?: string;
   channelDeleted?: string;
   channelTest?: { channelId: string; sent: boolean; error: string | null };
+  /** Signing secret just created or rotated: shown once, never readable again. */
+  channelSecret?: { channelId: string; secret: string; rotated?: boolean };
 } | null;
