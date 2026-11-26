@@ -108,8 +108,15 @@ export type ProjectPayload = {
   slug: string;
 };
 
+export type FieldChange<F extends string = string> = {
+  field: F;
+  before: string | null;
+  after: string | null;
+};
+
 export type ProjectUpdatedPayload = ProjectPayload & {
   changedFields: ProjectChangedField[];
+  changes?: FieldChange<ProjectChangedField>[];
 };
 
 export type OrganizationChangedField = 'name' | 'slug' | 'description';
@@ -119,6 +126,7 @@ export type OrganizationUpdatedPayload = {
   name: string;
   slug: string;
   changedFields: OrganizationChangedField[];
+  changes?: FieldChange<OrganizationChangedField>[];
 };
 
 export type AccessScope = 'cluster' | 'organization' | 'project';

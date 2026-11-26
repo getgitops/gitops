@@ -27,6 +27,7 @@ export async function POST({ request, locals }) {
       type: body.type,
       name: body.name,
       destination: body.destination,
+      locale: body.locale,
       enabled: body.enabled,
     }),
   );

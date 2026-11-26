@@ -121,16 +121,20 @@ y `project:notifications:update` gestionan destinatarios externos y canales. El 
 verificación y desuscripción. En `/org/<org>/settings/alerts/settings`, administradores configuran dominios
 permitidos y canales (`NotificationChannelEntity` en GitDB). Alertas guardan `recipients` (usuarios, roles,
 emails externos) y `channelIds` (referencias a canales, no destinatarios individuales). Canales de organización
-se usan en alertas de org y proyecto; canales de proyecto solo en sus alertas. URLs de webhook se encriptan
-con `GITDB_ENCRYPTION_KEY`. Emails externos: `pending` → `verified` → `unsubscribed` o `blocked`; template
-sin campos `sensitive` ni links; `List-Unsubscribe` HMAC (90 días). Canales: un mensaje por canal en paralelo, 
-fallo de canal nunca afecta email. El tipo `webhook` se firma con HMAC-SHA256 (`X-GitOps-Signature`): secreto
-`whsec_…` se muestra una sola vez al crear o rotar (rotación con 24 h de gracia, ambos secretos validan durante 
-el período); resuelve DNS rechazando IPs privadas/loopback/link-local/CGNAT/metadata (antes de guardar y cada 
-envío), no sigue redirects, reintentos con backoff (20 fallos consecutivos deshabilitan automáticamente, evento
-`notifications.channel.disabled` con detalles del canal y error). Docs en `docs/webhooks/`. Variables:
-`NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` y `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` (solo dev/e2e). Rutas
-públicas `/notifications/verify` y `/notifications/unsubscribe` aceptan POST. Sin `ORIGIN` no se envía nada.
+se usan en alertas de org y proyecto; canales de proyecto solo en sus alertas. Cada canal tiene un idioma 
+(`locale`: es | en, por defecto en), que determina el idioma de etiquetas y eventos en sus mensajes.
+URLs de webhook se encriptan con `GITDB_ENCRYPTION_KEY`. Emails externos: `pending` → `verified` → `unsubscribed` 
+o `blocked`; template sin campos `sensitive` ni links; `List-Unsubscribe` HMAC (90 días). Canales: un mensaje 
+por canal en paralelo, fallo de canal nunca afecta email. **Webhook** se firma con HMAC-SHA256 
+(`X-GitOps-Signature`): secreto `whsec_…` se muestra una sola vez al crear o rotar (24 h gracia, ambos secretos 
+validan); resuelve DNS rechazando IPs privadas/loopback; no sigue redirects; reintentos con backoff (20 fallos 
+= auto-deshabilita). Docs en `docs/webhooks/`. **Slack**: Incoming Webhook (solo URLs `https://hooks.slack.com/services/…`, 
+sin firma), formatea como Block Kit en el idioma del canal (nombre de alerta, resumen, campos, cambios de campos
+con before/after, fecha en zona horaria del lector, nota de contexto y botón "Ver en GitOps" si hay link), escapa
+caracteres Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook Slack. Los errores 4xx (webhook revocado,
+canal archivado o eliminado) no se reintentan y se muestran como último error. Variables: 
+`NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` y `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` (dev/e2e). Rutas públicas 
+`/notifications/verify` y `/notifications/unsubscribe` aceptan POST. Sin `ORIGIN` no se envía nada.
 
 Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a

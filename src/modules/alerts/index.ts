@@ -125,7 +125,7 @@ function createEngine(): AlertEngine {
     externalRecipients: latest(() => engineSlot.dependencies.externalRecipients!),
     notifier: latest(() => engineSlot.dependencies.notifier),
     channels: latest(() => engineSlot.dependencies.channels!),
-    channelMessage: (input) => engineSlot.dependencies.channelMessage!(input),
+    channelMessage: (input, locale) => engineSlot.dependencies.channelMessage!(input, locale),
     throttle: engineSlot.throttle,
     logger: log,
     // without SMTP there is nobody to tell: skip the work instead of logging a failure per event

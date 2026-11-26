@@ -39,6 +39,7 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
         type: String(form.get('type') ?? ''),
         name: String(form.get('name') ?? ''),
         destination: String(form.get('destination') ?? ''),
+        locale: String(form.get('locale') ?? ''),
         enabled: true,
       };
       const result = await createChannel(event.locals, location, input);
@@ -46,7 +47,7 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
         // the destination is never echoed back: it has to be typed again
         return fail(result.status, {
           channelForm: 'create',
-          channelDraft: { type: input.type, name: input.name },
+          channelDraft: { type: input.type, name: input.name, locale: input.locale },
           channelError: result.error,
           channelErrors: result.errors ?? {},
         });
@@ -84,6 +85,7 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
       const result = await updateChannel(event.locals, channelId, {
         name: String(form.get('name') ?? ''),
         destination: String(form.get('destination') ?? ''),
+        locale: String(form.get('locale') ?? ''),
       });
       if (!result.ok) {
         return fail(result.status, {

@@ -9,6 +9,7 @@ import {
   registerChatTransport,
 } from '#lib/server/infra/notifications';
 import { createWebhookTransport } from '#lib/server/infra/notifications/webhook/webhook.transport';
+import { createSlackTransport } from '#lib/server/infra/notifications/slack/slack.transport';
 import { eventBus } from '#lib/server/events';
 import { isRetryableWebhookError, webhookRetryAfter } from '#lib/server/infra/http/webhook-request';
 import { RateLimiter } from '#lib/server/infra/rate-limit';
@@ -68,6 +69,7 @@ export const notificationSettingsService = new NotificationSettingsService(
 // transports of the channel types this build supports; Slack (#97) and Google Chat (#98) add
 // theirs here. Registering again on HMR just replaces the previous one
 registerChatTransport('webhook', createWebhookTransport(readWebhookChannelConfig()));
+registerChatTransport('slack', createSlackTransport());
 
 const CHANNEL_QUEUE_KEY = Symbol.for('gitops.notifications.channel-queue');
 const CHANNEL_SHUTDOWN_KEY = Symbol.for('gitops.notifications.channel-shutdown');
@@ -147,6 +149,10 @@ export {
   type ChannelLocation,
   type NotificationChannelView,
 } from './domain/notification-channel.domain';
-export type { ChannelInput, IssuedChannel } from './application/notification-channel.service';
+export type {
+  ChannelInput,
+  ChannelMessageSource,
+  IssuedChannel,
+} from './application/notification-channel.service';
 export { buildChannelTestMessage } from './infrastructure/channel-test-message';
 export { normalizeEmail } from './domain/email-address';

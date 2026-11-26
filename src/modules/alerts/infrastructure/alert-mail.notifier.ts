@@ -18,7 +18,12 @@ import {
 import { getFieldValue, type EventDefinition } from '#lib/events/catalog';
 import type { CodeReportAnalysisCompletedPayload } from '#lib/events/domain-events';
 import type { AlertEmail, AlertNotifierPort, SystemEmail } from '../application/alert-engine';
-import { describeEventFields, eventResourcePath, eventSummaryText } from './event-summary';
+import {
+  describeEventFields,
+  eventResourcePath,
+  eventSummaryText,
+  fieldText,
+} from './event-summary';
 
 export { DEFAULT_MAIL_LOCALE, translateKey, type MailLocale };
 
@@ -113,7 +118,7 @@ export class AlertMailNotifier implements AlertNotifierPort {
                 omitSensitive: external,
               }).map((field) => ({
                 label: t(field.label),
-                value: field.translate ? t(field.value) : field.value,
+                value: fieldText(field, t),
               })),
             ]),
           };

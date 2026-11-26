@@ -1705,7 +1705,8 @@
       "externalFooter": "You receive this email because {organization} added your address to the alert “{alert}”.",
       "unsubscribe": "Unsubscribe",
       "testSubject": "[Test] {subject}",
-      "testNote": "This is a test email sent from the alert editor with an example event: nothing actually happened."
+      "testNote": "This is a test email sent from the alert editor with an example event: nothing actually happened.",
+      "organization": "Organization"
     },
     "operators": {
       "eq": "is",
@@ -1917,6 +1918,12 @@
       "failed": "Could not complete it. Try again.",
       "notConfigured": "Not configured",
       "configure": "Configure"
+    },
+    "channel": {
+      "before": "Before",
+      "after": "New",
+      "empty": "empty",
+      "changes": "Changes"
     }
   },
   "monitoring": {
@@ -2172,7 +2179,8 @@
       "path_not_allowed": "The URL path does not match this channel type.",
       "private_address": "The URL points to a private or internal address.",
       "unresolvable": "The URL host could not be resolved.",
-      "not_signed": "This channel type does not sign its messages."
+      "not_signed": "This channel type does not sign its messages.",
+      "invalid_locale": "The language is not valid."
     },
     "link": {
       "invalid": "This link is not valid or has already been used.",
@@ -2261,7 +2269,14 @@
       "secretDone": "I have saved it",
       "secretDocs": "How to verify the signature",
       "webhookHelp": "Any public https URL. GitOps signs each request with HMAC-SHA256 and never follows redirects.",
-      "comingSoon": "Coming soon"
+      "slackHelp": "Slack Incoming Webhook URL (https://hooks.slack.com/services/…). The webhook decides the Slack channel: create one per channel in your Slack app, under \"Incoming Webhooks\".",
+      "comingSoon": "Coming soon",
+      "locale": "Message language",
+      "localeHelp": "Messages to this channel (event, fields and button) are written in this language.",
+      "locales": {
+        "es": "Spanish",
+        "en": "English"
+      }
     }
   }
 }

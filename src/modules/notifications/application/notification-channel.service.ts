@@ -1,6 +1,9 @@
 import {
   CHAT_CHANNEL_TYPES,
+  DEFAULT_CHANNEL_LOCALE,
+  isChannelLocale,
   isChatChannelType,
+  type ChannelLocale,
   type ChatChannelType,
 } from '#lib/server/infra/notifications/chat-types';
 import type {
@@ -41,6 +44,8 @@ export type ChannelDelivery = {
   report: (outcome: { sent: true } | { sent: false; error: unknown }) => void;
 };
 
+export type ChannelMessageSource = ChannelMessage | ((locale: ChannelLocale) => ChannelMessage);
+
 /** Where deliveries go: the channel queue in production, a direct sender in tests. */
 export type ChannelSender = {
   enqueue(delivery: ChannelDelivery, context?: Record<string, unknown>): Promise<boolean>;
@@ -54,6 +59,7 @@ export type ChannelTransports = {
 export type ChannelInput = {
   type?: unknown;
   name?: unknown;
+  locale?: unknown;
   /** Destination URL; on update an empty value keeps the stored one. */
   destination?: unknown;
   enabled?: unknown;
@@ -188,6 +194,10 @@ export class NotificationChannelService {
     const errors: Record<string, string> = {};
     const type = this.validateType(input.type, errors);
     const name = this.validateName(input.name, errors);
+    const locale =
+      input.locale === undefined || input.locale === ''
+        ? DEFAULT_CHANNEL_LOCALE
+        : this.validateLocale(input.locale, errors);
     const destination = type
       ? await this.validateDestination(type, input.destination, errors)
       : null;
@@ -202,6 +212,7 @@ export class NotificationChannelService {
       id,
       type,
       name,
+      locale,
       ...location,
       projectId: location.scope === 'project' ? location.projectId : null,
       webhookUrl: this.cipher.encrypt(id, destination),
@@ -255,6 +266,9 @@ export class NotificationChannelService {
     const errors: Record<string, string> = {};
     const changes: NotificationChannelChanges = {};
     if (input.name !== undefined) changes.name = this.validateName(input.name, errors);
+    if (input.locale !== undefined && input.locale !== '') {
+      changes.locale = this.validateLocale(input.locale, errors);
+    }
     if (input.enabled !== undefined) {
       changes.enabled = input.enabled === true || input.enabled === 'true';
       // enabled again by a person (or disabled on purpose): the failure streak is over
@@ -288,7 +302,7 @@ export class NotificationChannelService {
    */
   async deliver(
     channelId: string,
-    message: ChannelMessage,
+    message: ChannelMessageSource,
     context: Record<string, unknown> = {},
   ): Promise<boolean> {
     const channel = await this.repository.findById(channelId).catch(() => null);
@@ -299,7 +313,7 @@ export class NotificationChannelService {
   /** "Send test message": delivers `message` even to a disabled channel, and tells the result. */
   async test(
     id: string,
-    message: ChannelMessage,
+    message: ChannelMessageSource,
   ): Promise<{ sent: boolean; error: string | null }> {
     const channel = await this.get(id);
     const sent = await this.send(channel, message, { kind: 'channel_test' });
@@ -309,9 +323,10 @@ export class NotificationChannelService {
 
   private async send(
     channel: NotificationChannelDomain,
-    message: ChannelMessage,
+    source: ChannelMessageSource,
     context: Record<string, unknown>,
   ): Promise<boolean> {
+    const message = typeof source === 'function' ? source(channel.locale) : source;
     // a test (channel or alert "Send test") never counts toward disabling the channel
     const counts = !message.test;
     const fail = async (reason: string) => {
@@ -479,6 +494,12 @@ export class NotificationChannelService {
       return null;
     }
     return value;
+  }
+
+  private validateLocale(value: unknown, errors: Record<string, string>): ChannelLocale {
+    if (isChannelLocale(value)) return value;
+    errors.locale = 'invalid_locale';
+    return DEFAULT_CHANNEL_LOCALE;
   }
 
   private validateName(value: unknown, errors: Record<string, string>): string {

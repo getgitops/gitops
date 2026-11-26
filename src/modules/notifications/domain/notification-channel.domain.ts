@@ -1,5 +1,8 @@
 import {
+  DEFAULT_CHANNEL_LOCALE,
+  isChannelLocale,
   isChatChannelType,
+  type ChannelLocale,
   type ChatChannelType,
 } from '#lib/server/infra/notifications/chat-types';
 
@@ -16,6 +19,7 @@ export type NotificationChannelRow = ChannelLocation & {
   id: string;
   type: ChatChannelType;
   name: string;
+  locale: ChannelLocale;
   /** Destination URL, encrypted (`channel-cipher.ts`): never returned nor logged. */
   webhookUrl: string;
   enabled: boolean;
@@ -69,6 +73,7 @@ export class NotificationChannelDomain implements NotificationChannelRow {
   id: string;
   type: ChatChannelType;
   name: string;
+  locale: ChannelLocale;
   scope: ChannelScope;
   organizationId: string;
   projectId: string | null;
@@ -89,6 +94,7 @@ export class NotificationChannelDomain implements NotificationChannelRow {
     this.id = row.id;
     this.type = isChatChannelType(row.type) ? row.type : 'webhook';
     this.name = row.name ?? '';
+    this.locale = isChannelLocale(row.locale) ? row.locale : DEFAULT_CHANNEL_LOCALE;
     this.scope = row.scope === 'project' ? 'project' : 'organization';
     this.organizationId = row.organizationId;
     this.projectId = this.scope === 'project' ? (row.projectId ?? null) : null;
@@ -131,6 +137,7 @@ export class NotificationChannelDomain implements NotificationChannelRow {
       id: this.id,
       type: this.type,
       name: this.name,
+      locale: this.locale,
       scope: this.scope,
       organizationId: this.organizationId,
       projectId: this.projectId,

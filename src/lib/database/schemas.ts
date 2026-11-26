@@ -439,6 +439,7 @@ export const NotificationChannelEntity = entity('notification_channels', {
   organizationId: uuid().notNull(),
   projectId: uuid().$defaultFn(() => null),
   webhookUrl: text().notNull(),
+  locale: text(),
   enabled: bool().notNull().default(true),
   createdByUserId: uuid().notNull(),
   createdAt: timestamp()

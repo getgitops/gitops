@@ -19,7 +19,7 @@
     Webhook,
   } from '@lucide/svelte';
   import { Modal, toast } from '#lib/components/ui';
-  import { _ } from '#lib/i18n';
+  import { _, SUPPORTED_LOCALES, locale as uiLocale } from '#lib/i18n';
   import type {
     ChannelView,
     ChannelsFormResult,
@@ -250,6 +250,9 @@
               {channel.name}
               <span class="k-badge h-5 px-2 text-[10px]">
                 {$_(`notifications.channels.types.${channel.type}`)}
+              </span>
+              <span class="k-badge h-5 px-2 text-[10px]" data-testid="channel-locale">
+                {$_(`notifications.channels.locales.${channel.locale}`)}
               </span>
               {#if !channel.enabled}
                 <span
@@ -500,7 +503,9 @@
               name="destination"
               type="url"
               autocomplete="off"
-              placeholder="https://…"
+              placeholder={selectedType === 'slack'
+                ? 'https://hooks.slack.com/services/…'
+                : 'https://…'}
               class="k-input font-mono"
               aria-invalid={Boolean(errors.destination) || undefined}
             />
@@ -508,6 +513,34 @@
               <p class="mt-1 text-xs text-red-300">{errorText(errors, 'destination')}</p>
             {:else if selectedType === 'webhook'}
               <p class="k-help mt-1">{$_('notifications.channels.webhookHelp')}</p>
+            {:else if selectedType === 'slack'}
+              <p class="k-help mt-1">{$_('notifications.channels.slackHelp')}</p>
+            {/if}
+          </div>
+          <div class="sm:col-span-2">
+            <label class="k-label" for="channel-locale">{$_('notifications.channels.locale')}</label
+            >
+            <select
+              id="channel-locale"
+              name="locale"
+              class="k-input"
+              aria-describedby="channel-locale-help"
+              aria-invalid={Boolean(errors.locale) || undefined}
+            >
+              {#each SUPPORTED_LOCALES as option (option)}
+                <option
+                  value={option}
+                  selected={(form?.channelDraft?.locale || $uiLocale) === option}
+                  >{$_(`notifications.channels.locales.${option}`)}</option
+                >
+              {/each}
+            </select>
+            {#if errors.locale}
+              <p class="mt-1 text-xs text-red-300">{errorText(errors, 'locale')}</p>
+            {:else}
+              <p id="channel-locale-help" class="k-help mt-1">
+                {$_('notifications.channels.localeHelp')}
+              </p>
             {/if}
           </div>
           <div class="sm:col-span-2">
@@ -569,6 +602,28 @@
         />
         {#if editErrors.destination}<p class="mt-1 text-xs text-red-300">
             {errorText(editErrors, 'destination')}
+          </p>{/if}
+      </div>
+      <div>
+        <label class="k-label" for="channel-edit-locale"
+          >{$_('notifications.channels.locale')}</label
+        >
+        {#key editTarget?.id}
+          <select
+            id="channel-edit-locale"
+            name="locale"
+            class="k-input"
+            aria-invalid={Boolean(editErrors.locale) || undefined}
+          >
+            {#each SUPPORTED_LOCALES as option (option)}
+              <option value={option} selected={editTarget?.locale === option}
+                >{$_(`notifications.channels.locales.${option}`)}</option
+              >
+            {/each}
+          </select>
+        {/key}
+        {#if editErrors.locale}<p class="mt-1 text-xs text-red-300">
+            {errorText(editErrors, 'locale')}
           </p>{/if}
       </div>
     </form>

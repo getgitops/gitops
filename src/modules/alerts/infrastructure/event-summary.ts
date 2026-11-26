@@ -2,12 +2,19 @@ import { getFieldValue, type EventDefinition, type EventMessage } from '#lib/eve
 import type { AnyDomainEvent } from '#lib/server/events';
 
 export type EventFieldLine = {
+  key: string;
   /** i18n key of the field label. */
   label: string;
   value: string;
   /** `value` is an i18n key (enum options, yes/no). */
   translate?: boolean;
+  items?: string[];
 };
+
+export function fieldText(field: EventFieldLine, t: (key: string) => string): string {
+  if (field.items) return field.items.map((item) => t(item)).join(', ');
+  return field.translate ? t(field.value) : field.value;
+}
 
 function safeValue(event: AnyDomainEvent, key: string): unknown {
   try {
@@ -36,27 +43,41 @@ export function describeEventFields(
 
     if (typeof value === 'boolean') {
       lines.push({
+        key: field.key as string,
         label: field.label,
         value: value ? 'common.yes' : 'common.no',
         translate: true,
       });
       continue;
     }
+    if (field.type === 'enum' && Array.isArray(value)) {
+      const items = value.map(
+        (item) =>
+          field.options?.find((candidate) => candidate.value === item)?.label ?? String(item),
+      );
+      lines.push({ key: field.key as string, label: field.label, value: items.join(', '), items });
+      continue;
+    }
     if (field.type === 'enum' && typeof value === 'string') {
       const option = field.options?.find((candidate) => candidate.value === value);
       lines.push(
         option
-          ? { label: field.label, value: option.label, translate: true }
-          : { label: field.label, value },
+          ? { key: field.key as string, label: field.label, value: option.label, translate: true }
+          : { key: field.key as string, label: field.label, value },
       );
       continue;
     }
     if (field.type === 'date' && typeof value === 'string' && !Number.isNaN(Date.parse(value))) {
-      lines.push({ label: field.label, value: new Date(value).toUTCString() });
+      lines.push({
+        key: field.key as string,
+        label: field.label,
+        value: new Date(value).toUTCString(),
+      });
       continue;
     }
     const items = Array.isArray(value) ? value : [value];
     lines.push({
+      key: field.key as string,
       label: field.label,
       value: items.map((item) => names.get(String(item)) ?? String(item)).join(', '),
     });

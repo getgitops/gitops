@@ -1705,7 +1705,8 @@
       "externalFooter": "Recibes este email porque {organization} añadió tu dirección a la alerta “{alert}”.",
       "unsubscribe": "Darme de baja",
       "testSubject": "[Prueba] {subject}",
-      "testNote": "Esto es un email de prueba enviado desde el editor de alertas con un evento de ejemplo: no ha ocurrido nada."
+      "testNote": "Esto es un email de prueba enviado desde el editor de alertas con un evento de ejemplo: no ha ocurrido nada.",
+      "organization": "Organización"
     },
     "operators": {
       "eq": "es",
@@ -1917,6 +1918,12 @@
       "failed": "No se pudo completar. Inténtalo de nuevo.",
       "notConfigured": "No configurado",
       "configure": "Configurar"
+    },
+    "channel": {
+      "before": "Anterior",
+      "after": "Nuevo",
+      "empty": "vacío",
+      "changes": "Cambios"
     }
   },
   "monitoring": {
@@ -2172,7 +2179,8 @@
       "path_not_allowed": "La ruta de la URL no corresponde a este tipo de canal.",
       "private_address": "La URL apunta a una dirección privada o interna.",
       "unresolvable": "No se ha podido resolver el dominio de la URL.",
-      "not_signed": "Este tipo de canal no firma sus mensajes."
+      "not_signed": "Este tipo de canal no firma sus mensajes.",
+      "invalid_locale": "El idioma no es válido."
     },
     "link": {
       "invalid": "Este enlace no es válido o ya se ha usado.",
@@ -2261,7 +2269,14 @@
       "secretDone": "Ya lo he guardado",
       "secretDocs": "Cómo verificar la firma",
       "webhookHelp": "Cualquier URL https pública. GitOps firma cada petición con HMAC-SHA256 y nunca sigue redirecciones.",
-      "comingSoon": "Próximamente"
+      "slackHelp": "URL de un Incoming Webhook de Slack (https://hooks.slack.com/services/…). El canal de Slack lo fija el webhook: crea uno por canal en tu app de Slack, en «Incoming Webhooks».",
+      "comingSoon": "Próximamente",
+      "locale": "Idioma de los mensajes",
+      "localeHelp": "Los mensajes de este canal (evento, campos y botón) se escriben en este idioma.",
+      "locales": {
+        "es": "Español",
+        "en": "Inglés"
+      }
     }
   }
 }

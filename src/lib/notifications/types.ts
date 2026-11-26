@@ -21,6 +21,7 @@ export type ChannelView = {
   id: string;
   type: string;
   name: string;
+  locale: string;
   scope: 'organization' | 'project';
   organizationId: string;
   projectId: string | null;
@@ -53,7 +54,7 @@ export type ChannelsSectionData = {
 
 export type ChannelsFormResult = {
   channelForm?: string;
-  channelDraft?: { type: string; name: string };
+  channelDraft?: { type: string; name: string; locale?: string };
   channelError?: string;
   channelErrors?: Record<string, string>;
   channelSaved?: string;

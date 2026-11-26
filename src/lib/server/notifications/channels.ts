@@ -202,7 +202,7 @@ export async function testChannel(
   const { where, link } = await describeLocation(channel.location);
   const result = await notificationChannelService.test(
     id,
-    buildChannelTestMessage({ channelName: channel.name, where, link }),
+    buildChannelTestMessage({ channelName: channel.name, where, link }, channel.locale),
   );
   return { ok: true, status: 200, data: result };
 }

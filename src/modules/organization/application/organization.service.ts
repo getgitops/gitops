@@ -3,6 +3,7 @@ import { OrganizationRepository } from '../infrastructure/repositories/organizat
 import type { EventBus } from '#lib/server/events';
 import type { OrganizationChangedField } from '#lib/events/domain-events';
 import { createLogger } from '#lib/server/logger';
+import { fieldChange } from '#lib/events/field-changes';
 
 const log = createLogger('organization');
 
@@ -136,9 +137,12 @@ export class OrganizationService {
         const changedFields = (['name', 'slug', 'description'] as const).filter(
           (field) => (before[field] ?? '') !== (after[field] ?? ''),
         ) satisfies OrganizationChangedField[];
+        const changes = changedFields.map((field) =>
+          fieldChange(field, before[field], after[field]),
+        );
         this.events.publish(
           'organization.updated',
-          { organizationId: after.id, name: after.name, slug: after.slug, changedFields },
+          { organizationId: after.id, name: after.name, slug: after.slug, changedFields, changes },
           { scope: { organizationId: after.id, projectId: null } },
         );
       } catch (error) {

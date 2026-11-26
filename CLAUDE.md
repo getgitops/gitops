@@ -327,7 +327,11 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
   a type is available only once its transport is registered with `registerChatTransport()`
   (`#lib/server/infra/notifications/chat-notification.ts`) in the composition root
-  (`$modules/notifications/index.ts`); today only `webhook` is, and tests use `FakeChatTransport`.
+  (`$modules/notifications/index.ts`); today `webhook` and `slack` are, and tests use
+  `FakeChatTransport`. Providers with incoming webhooks on a fixed host (Slack, Google Chat) only
+  write a formatter: `createFixedHostChatTransport({ rule, format })`
+  (`chat-webhook.transport.ts`) does the URL rule, guarded fetch and `postJson`; `truncateText`
+  (`chat-format.ts`) is shared for provider length limits.
   A `ChatTransport` implements `send()` and `validateDestination()` (sync or async), the anti-SSRF
   check run before saving and again before every send: `validateWebhookUrl()` for providers with a
   fixed host (https, no credentials, no IP literal, default port, allowed host and path),
@@ -340,6 +344,10 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   leaves the server masked (`https://hooks.slack.com/…/••••1a2b`); changing it means typing it
   again. `enabled` flag can disable delivery without deleting the channel; `disabledReason:
   'failures'` means the platform disabled it after 20 consecutive failures.
+- Channel language: `NotificationChannelEntity.locale` (`es` | `en`, rows without it read as `en`,
+  `CHANNEL_LOCALES` in `chat-types.ts`), set in the channel forms and the API (`locale`, invalid →
+  `invalid_locale`). The engine passes `deliver()` a builder `(locale) => ChannelMessage`
+  (`ChannelMessageSource`) so each channel gets its own language; the test message uses it too.
 - Signed channels: webhook is a signed type. The service generates a signing secret on create
   (`whsec_` + 32 random bytes, encrypted in `signingSecret`) and returns it in clear **only once**
   from `createChannel()` or `POST /api/notification-channels/[id]/rotate-secret` (never readable
@@ -348,6 +356,32 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   with a stable `deliveryId` per message so receivers can deduplicate retries. The signature is
   `X-GitOps-Signature: t=<unix>,v1=<hash>[,v1=<old-hash>]` using `HMAC-SHA256(secret, 
   "<timestamp>.<raw body>")` on the JSON sent (not encoded).
+- Slack (`#lib/server/infra/notifications/slack/`): Incoming Webhook, URL limited to
+  `https://hooks.slack.com/services/` only (`SLACK_WEBHOOK_RULE`), unsigned. `buildSlackPayload()` turns
+  the `ChannelMessage` into Block Kit in the channel's language only: header (alert name, `plain_text`), the
+  summary only when it differs from the event label, a fields section with `location`
+  (`Project`/`Organization`: name) and the date (`slackDate()`, `<!date^…>`, reader's time zone),
+  a divider and a `*Changes*` title (`labels.changes`), then one section per change (`*Label*` /
+  `Before: …` / `New: …`, `labels.empty` for a `null` side,
+  only the label when both are `null`), remaining field sections of 10, "View in GitOps" button,
+  and `note` as context. Every `mrkdwn` value goes through `escapeSlackText()`
+  (`&`, `<`, `>`) so event or user data can't mention or link. Texts are cut to Block Kit limits.
+  The Slack channel is fixed by the webhook: one GitOps channel per Slack webhook. 4xx responses
+  (revoked webhook, archived or deleted channel) are not retried and show as the channel's last error.
+- `ChannelMessage` (built by `buildAlertChannelMessage(input, locale)`): `fields` leave out what
+  the message says elsewhere: `occurredAt`, `location` (project or organization, and any field with
+  that name), and `changedFields` when `changes` (translated label + before/after) exists.
+  `labels` carries the translated `Date`/`Changes`/`Before`/`New`/`empty`, and `text` only adds the summary
+  when it differs from the event label, so nothing is said twice in two languages.
+  `note` is the translated side note (test send, throttled count); the raw `suppressed` count is
+  still there. `occurredAt` and `location` are always present; `changes` only for update events;
+  `labels` only when any of `occurredAt`, `location` or `changes` is used by the transport.
+- Update events carry `changes?: FieldChange[]` (`{ field, before, after }`, plain text cut to 200
+  chars by `fieldChange()` in `#lib/events/field-changes.ts`, `null` when empty or not shown):
+  `project.updated` (modules as the enabled list, organization by name, settings without values)
+  and `organization.updated`. Never put secrets in them; `vault.secret.updated` has none. `FieldChange`
+  is defined in `src/lib/events/domain-events.ts` with the type parameter for field names and is
+  used by channels (Slack shows before/after) and by the update events in payloads.
 - Generic webhook (`#lib/server/infra/notifications/webhook/`): `POST` with the versioned
   `WebhookPayload` (`version`, `deliveryId`, `test`, `alert`, `event` with the raw non-sensitive
   catalog `fields` from `ChannelMessage.event.fields`, `link`), headers `X-GitOps-Event`,
