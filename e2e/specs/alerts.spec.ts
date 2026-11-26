@@ -280,7 +280,8 @@ test.describe('organization alerts', () => {
     await secret.getByTestId('channel-secret-done').click();
     await expect(row).toContainText('El secreto anterior es válido hasta');
 
-    await types.getByRole('radio', { name: /Slack/ }).check();
+    await types.locator('[data-channel-type="slack"]').click();
+    await expect(types.getByRole('radio', { name: /Slack/ })).toBeChecked();
     for (const [name, hook, locale, language] of [
       ['#seguridad-e2e', 'https://hooks.slack.com/services/T000/B001/aaaa', 'es', 'Español'],
       ['#incidencias-e2e', 'https://hooks.slack.com/services/T000/B002/bbbb', 'en', 'Inglés'],
