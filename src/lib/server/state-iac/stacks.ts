@@ -5,6 +5,7 @@ import {
   type IacHistoryPage,
   type IacResource,
   type IacValue,
+  type StackDashboard,
   type StackListItem,
 } from '#modules/state-iac';
 import { organizationService } from '#modules/organization';
@@ -199,4 +200,29 @@ export async function getStackDiff(
 
 export async function canReadHistory(locals: AlertLocals, scope: StackScope): Promise<boolean> {
   return can(locals, scope, 'history');
+}
+
+/**
+ * Dashboard of one stack seen from a project: the summary and health need `stacks:read`, the
+ * updates `history:read`, and resources and last changes `states:read`; what the caller may not
+ * read comes back `null`. A stack that is not visible to the project is a 404.
+ */
+export async function getProjectDashboard(
+  locals: AlertLocals,
+  scope: Extract<StackScope, { scope: 'project' }>,
+  ref: StackRef,
+  options: { refresh?: boolean } = {},
+): Promise<StateIacResult<StackDashboard>> {
+  if (!(await can(locals, scope, 'stacks'))) return notFound;
+  const located = await locateFor(locals, scope, ref, options.refresh);
+  if (!located) return notFound;
+  const [withHistory, withStates] = await Promise.all([
+    can(locals, scope, 'history'),
+    can(locals, scope, 'states'),
+  ]);
+  return {
+    ok: true,
+    status: 200,
+    data: await stateIacService.dashboard(located, { withHistory, withStates }),
+  };
 }

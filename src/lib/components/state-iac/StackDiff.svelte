@@ -5,7 +5,7 @@
 -->
 <script lang="ts">
   import { ChevronDown, ChevronRight, Info, LoaderCircle, Lock } from '@lucide/svelte';
-  import { toast } from '#lib/components/ui';
+  import { Select, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
   import type { DiffOutcomeView, IacSnapshotSourceView } from '#lib/state-iac/types';
   import IacValue from './IacValue.svelte';
@@ -64,9 +64,16 @@
     );
   }
 
-  function label(source: IacSnapshotSourceView) {
-    const when = source.takenAt ? new Date(source.takenAt).toLocaleString() : '';
-    return `${$_(`stateIac.diff.sources.${source.source}`)}${when ? ` · ${when}` : ''}`;
+  function sourceOptions(
+    sources: IacSnapshotSourceView[],
+    disabled: (source: IacSnapshotSourceView) => boolean = () => false,
+  ) {
+    return sources.map((source) => ({
+      value: source.id,
+      label: $_(`stateIac.diff.sources.${source.source}`),
+      hint: source.takenAt ? new Date(source.takenAt).toLocaleString() : undefined,
+      disabled: disabled(source),
+    }));
   }
 
   const diff = $derived(outcome?.diff ?? null);
@@ -85,33 +92,26 @@
 <div class="space-y-4" data-testid="stack-diff">
   {#if outcome && outcome.sources.length > 1}
     <div class="flex flex-wrap items-end gap-2">
-      <label class="min-w-56 flex-1">
-        <span class="k-label">{$_('stateIac.diff.from')}</span>
-        <select
-          class="k-input"
+      <div class="min-w-56 flex-1">
+        <label for="diff-from" class="k-label">{$_('stateIac.diff.from')}</label>
+        <Select
+          id="diff-from"
+          searchable
           value={fromId ?? ''}
-          onchange={(e) => load(e.currentTarget.value, toId)}
-        >
-          {#each outcome.sources as source (source.id)}
-            <option value={source.id} disabled={source.id === toId}>{label(source)}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="min-w-56 flex-1">
-        <span class="k-label">{$_('stateIac.diff.to')}</span>
-        <select
-          class="k-input"
+          options={sourceOptions(outcome.sources, (source) => source.id === toId)}
+          onchange={(value) => load(value, toId)}
+        />
+      </div>
+      <div class="min-w-56 flex-1">
+        <label for="diff-to" class="k-label">{$_('stateIac.diff.to')}</label>
+        <Select
+          id="diff-to"
+          searchable
           value={toId ?? ''}
-          onchange={(e) => {
-            const target = e.currentTarget.value;
-            void load(previousOf(target, outcome!.sources), target);
-          }}
-        >
-          {#each outcome.sources as source (source.id)}
-            <option value={source.id}>{label(source)}</option>
-          {/each}
-        </select>
-      </label>
+          options={sourceOptions(outcome.sources)}
+          onchange={(value) => void load(previousOf(value, outcome!.sources), value)}
+        />
+      </div>
       {#if loading}<LoaderCircle class="mb-2 h-4 w-4 animate-spin text-fg-subtle" />{/if}
     </div>
   {/if}

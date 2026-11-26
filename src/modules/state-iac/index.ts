@@ -91,3 +91,16 @@ export type {
   IacFieldChange,
   IacResourceChange,
 } from './application/state-diff.service';
+export {
+  stackHealth,
+  environmentWarnings,
+  type StackDashboard,
+  type StackHealth,
+  type StackHealthReason,
+  type EnvironmentWarning,
+  type DashboardResources,
+  type DashboardDeployments,
+  type DashboardWeek,
+  type DashboardLastChanges,
+  type DashboardChangedResource,
+} from './application/stack-dashboard';

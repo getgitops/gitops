@@ -17,6 +17,7 @@ import type {
 import type { StateBindingRepositoryPort } from '../infrastructure/repositories/state-binding.repository';
 import type { StateIacConfig } from '../infrastructure/config';
 import { diffSnapshots, type IacDiff } from './state-diff.service';
+import { buildDashboard, type StackDashboard } from './stack-dashboard';
 import {
   readErrorCode,
   type BackendErrorCode,
@@ -77,6 +78,7 @@ type CachedDiscovery = { expires: number; value: EngineDiscovery | { error: Back
 type CachedExtras = { expires: number; lastUpdate: IacUpdate | null; lock: IacLock | null };
 
 const READ_CONCURRENCY = 4;
+const DASHBOARD_UPDATES = 50;
 const DEFAULT_MAX_CACHE_BYTES = 256 * 1024 * 1024;
 const silentLogger = { warn: () => {} } as unknown as Pick<Logger, 'warn'>;
 
@@ -229,6 +231,38 @@ export class StateIacService {
     this.pages.set(key, { expires: this.now() + this.config().cacheTtlMs, value });
     this.trimPages();
     return value;
+  }
+
+  /**
+   * Everything the per-stack dashboard shows. `withStates` reads the state and the default diff;
+   * `withHistory` the last updates (at most 50): what the viewer may not read is left out.
+   */
+  async dashboard(
+    located: LocatedStack,
+    options: { withStates: boolean; withHistory: boolean; now?: number },
+  ): Promise<StackDashboard> {
+    const summary = await this.summarize(located.backend, located.stack, located.assignedProjectId);
+    const readable = !summary.error;
+    const [updates, snapshot, outcome] = await Promise.all([
+      options.withHistory && readable
+        ? this.history(located, { limit: DASHBOARD_UPDATES }).then(
+            (page) => page.updates,
+            () => null,
+          )
+        : null,
+      options.withStates && readable
+        ? this.snapshot(located.backend, located.stack).catch(() => null)
+        : null,
+      options.withStates && readable ? this.diff(located).catch(() => null) : null,
+    ]);
+    return buildDashboard({
+      summary,
+      snapshot,
+      updates,
+      diff: outcome?.diff ?? null,
+      backendError: located.backend.lastError,
+      now: options.now ?? this.now(),
+    });
   }
 
   /** Versions of the state that can be compared, newest first. */

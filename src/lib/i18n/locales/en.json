@@ -2508,6 +2508,86 @@
         "previous": "Previous state (.bak)",
         "object-version": "Object version"
       }
+    },
+    "dashboard": {
+      "selectStack": "Stack",
+      "searchStack": "Search stack…",
+      "backend": "Backend",
+      "backendError": "Backend error: {error}",
+      "environments": "Environments",
+      "environmentsLabel": "Project stacks",
+      "noDeploys": "no deployments",
+      "resourcesShort": "{count} resources",
+      "tabs": {
+        "summary": "Summary"
+      },
+      "health": {
+        "title": "Health",
+        "ok": "Healthy",
+        "warn": "Attention",
+        "critical": "Critical",
+        "reasons": {
+          "read_error": "The stack state cannot be read",
+          "backend_error": "The backend reports an error",
+          "last_update_failed": "The last update failed",
+          "pending_operations": "There are pending operations",
+          "stale_lock": "Lock held for more than 1 h",
+          "inactive": "No activity for more than 30 days"
+        },
+        "noReasons": "No issues"
+      },
+      "kpi": {
+        "resources": "Resources",
+        "managed": "{count} managed",
+        "components": "{count} components",
+        "protected": "{count} protected",
+        "lastDeploy": "Last deployment",
+        "noDeploy": "No deployments",
+        "took": "took {duration}",
+        "success": "30-day success",
+        "successDetail": "{succeeded} of {total} updates",
+        "perWeek": "{count} deployments/week",
+        "noUpdates": "No updates in 30 days",
+        "lastUpdate": "Last update:"
+      },
+      "deploys": {
+        "title": "Deployments (last 90 days)",
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "week": "Week of {date}",
+        "tableTitle": "Deployments per week",
+        "weekColumn": "Week",
+        "chart": "Deployments per week: succeeded and failed",
+        "empty": "No deployments in this period",
+        "viewTable": "View table"
+      },
+      "byType": {
+        "title": "Resources by type",
+        "others": "Others",
+        "components": "components",
+        "providers": "By provider"
+      },
+      "recent": {
+        "title": "Latest deployments",
+        "viewHistory": "View history →",
+        "empty": "This stack has no update history."
+      },
+      "lastChanges": {
+        "title": "Latest changes",
+        "viewDiff": "View full diff →",
+        "providerOnly": "{count} resources only changed provider",
+        "more": "and {count} more",
+        "noChanges": "The last update did not change any resource.",
+        "fromUpdate": "According to the last update:"
+      },
+      "warnings": {
+        "title": "Warnings",
+        "versionDrift": "Stacks use different Pulumi versions: {stacks}",
+        "stackFailed": "The last update of {stack} failed ({when})",
+        "staleLock": "{stack} has held a lock since {when}",
+        "pending": "{count} resources pending replacement or deletion in this stack"
+      },
+      "missingPermissions": "The rest of the summary needs the project:stateiac:history:read and project:stateiac:states:read permissions."
     }
   }
 }

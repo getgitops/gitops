@@ -6,7 +6,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { AlertTriangle, LoaderCircle, RefreshCw, Trash2 } from '@lucide/svelte';
-  import { toast } from '#lib/components/ui';
+  import { Select, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
   import type { BackendProjectsResponse, ProjectOption } from './types';
 
@@ -17,6 +17,10 @@
   let saving = $state<string | null>(null);
   let result = $state<BackendProjectsResponse | null>(null);
 
+  const projectOptions = $derived([
+    { value: '', label: $_('stateIac.projects.unassignedOption') },
+    ...projects.map((p) => ({ value: p.id, label: p.name, hint: p.slug })),
+  ]);
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? id;
   const endpoint = (pulumiProject: string) =>
     `/api/state-iac/backends/${backendId}/projects/${encodeURIComponent(pulumiProject)}`;
@@ -142,18 +146,19 @@
                     >
                   {:else if canUpdate}
                     {@const pulumiProject = project.name}
-                    <select
-                      class="k-input h-8 min-w-48 text-xs"
-                      aria-label="{$_('stateIac.projects.gitopsProject')}: {pulumiProject}"
-                      value={project.binding?.projectId ?? ''}
-                      disabled={saving !== null}
-                      onchange={(event) => assign(pulumiProject, event.currentTarget.value)}
-                    >
-                      <option value="">{$_('stateIac.projects.unassignedOption')}</option>
-                      {#each projects as option (option.id)}
-                        <option value={option.id}>{option.name}</option>
-                      {/each}
-                    </select>
+                    <div class="inline-block w-56 align-middle **:[[role=combobox]]:h-8">
+                      <label for="bind-{pulumiProject}" class="sr-only"
+                        >{$_('stateIac.projects.gitopsProject')}: {pulumiProject}</label
+                      >
+                      <Select
+                        id="bind-{pulumiProject}"
+                        searchable
+                        value={project.binding?.projectId ?? ''}
+                        disabled={saving !== null}
+                        options={projectOptions}
+                        onchange={(value) => assign(pulumiProject, value)}
+                      />
+                    </div>
                     {#if saving === pulumiProject}<LoaderCircle
                         class="ml-2 inline h-4 w-4 animate-spin"
                       />{/if}

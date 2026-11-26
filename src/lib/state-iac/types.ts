@@ -158,3 +158,90 @@ export function isSpecial(value: unknown): value is Extract<IacValue, { $iac: st
     '$iac' in (value as object)
   );
 }
+
+export type StackHealthView = {
+  level: 'ok' | 'warn' | 'critical';
+  reasons: (
+    | 'read_error'
+    | 'backend_error'
+    | 'last_update_failed'
+    | 'pending_operations'
+    | 'stale_lock'
+    | 'inactive'
+  )[];
+};
+
+export type StackDashboardView = {
+  health: StackHealthView;
+  resources: {
+    total: number;
+    managed: number;
+    components: number;
+    protected: number;
+    pendingChange: number;
+    topTypes: { type: string; count: number }[];
+    otherCount: number;
+    byProvider: { provider: string; count: number }[];
+  } | null;
+  lastUpdate: IacUpdateView | null;
+  deployments: {
+    recent: IacUpdateView[];
+    window: { days: number; total: number; succeeded: number; rate: number | null };
+    perWeek: number | null;
+    weeks: { start: string; succeeded: number; failed: number }[];
+  } | null;
+  lastChanges: {
+    summary: Record<'create' | 'delete' | 'update' | 'replace' | 'same' | 'providerOnly', number>;
+    resources: {
+      address: string;
+      type: string;
+      name: string;
+      change: 'create' | 'delete' | 'update' | 'replace';
+      paths: string[];
+    }[];
+    moreCount: number;
+    providerOnlyCount: number;
+    from: string | null;
+    to: string | null;
+  } | null;
+  updateChanges: Record<string, number> | null;
+};
+
+type EnvironmentRefView = { project: string | null; stack: string };
+
+export type EnvironmentWarningView =
+  | { kind: 'version_drift'; stacks: (EnvironmentRefView & { version: string })[] }
+  | { kind: 'stack_failed'; stack: EnvironmentRefView; at: string | null }
+  | { kind: 'stale_lock'; stack: EnvironmentRefView; since: string };
+
+/** A stack of the project in the selector and the "Entornos" strip. */
+export type EnvironmentView = {
+  /** `<backendId>/<project|~>/<stack>` (each part URL-encoded): the `?stack=` value. */
+  key: string;
+  project: string | null;
+  stack: string;
+  health: StackHealthView;
+  resourceCount: number;
+  lastUpdate: { result: IacUpdateView['result']; at: string | null } | null;
+  updatedAt: string | null;
+  error: string | null;
+};
+
+/** `<backendId>/<project|~>/<stack>` with each part URL-encoded. */
+export function stackKey(ref: { backendId: string; project: string | null; stack: string }) {
+  const part = encodeURIComponent;
+  return `${part(ref.backendId)}/${part(ref.project ?? UNKNOWN_PROJECT)}/${part(ref.stack)}`;
+}
+
+export function parseStackKey(
+  value: string | null,
+): { backendId: string; project: string; stack: string } | null {
+  const parts = value?.split('/') ?? [];
+  if (parts.length !== 3 || parts.some((part) => !part)) return null;
+  try {
+    const [backendId, project, stack] = parts.map((part) => decodeURIComponent(part));
+    return { backendId, project, stack };
+  } catch {
+    return null;
+  }
+}

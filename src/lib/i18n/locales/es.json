@@ -2508,6 +2508,86 @@
         "previous": "Estado anterior (.bak)",
         "object-version": "Versión del objeto"
       }
+    },
+    "dashboard": {
+      "selectStack": "Stack",
+      "searchStack": "Buscar stack…",
+      "backend": "Backend",
+      "backendError": "Error del backend: {error}",
+      "environments": "Entornos",
+      "environmentsLabel": "Stacks del proyecto",
+      "noDeploys": "sin despliegues",
+      "resourcesShort": "{count} recursos",
+      "tabs": {
+        "summary": "Resumen"
+      },
+      "health": {
+        "title": "Salud",
+        "ok": "Correcto",
+        "warn": "Atención",
+        "critical": "Crítico",
+        "reasons": {
+          "read_error": "No se puede leer el estado del stack",
+          "backend_error": "El backend da error",
+          "last_update_failed": "El último update falló",
+          "pending_operations": "Hay operaciones pendientes",
+          "stale_lock": "Lock activo desde hace más de 1 h",
+          "inactive": "Sin actividad en más de 30 días"
+        },
+        "noReasons": "Sin incidencias"
+      },
+      "kpi": {
+        "resources": "Recursos",
+        "managed": "{count} gestionados",
+        "components": "{count} componentes",
+        "protected": "{count} protegidos",
+        "lastDeploy": "Último despliegue",
+        "noDeploy": "Sin despliegues",
+        "took": "duró {duration}",
+        "success": "Éxito 30 días",
+        "successDetail": "{succeeded} de {total} updates",
+        "perWeek": "{count} despliegues/semana",
+        "noUpdates": "Sin updates en 30 días",
+        "lastUpdate": "Último update:"
+      },
+      "deploys": {
+        "title": "Despliegues (últimos 90 días)",
+        "succeeded": "Correctos",
+        "failed": "Fallidos",
+        "week": "Semana del {date}",
+        "tableTitle": "Despliegues por semana",
+        "weekColumn": "Semana",
+        "chart": "Despliegues por semana: correctos y fallidos",
+        "empty": "Sin despliegues en este periodo",
+        "viewTable": "Ver tabla"
+      },
+      "byType": {
+        "title": "Recursos por tipo",
+        "others": "Otros",
+        "components": "componentes",
+        "providers": "Por provider"
+      },
+      "recent": {
+        "title": "Últimos despliegues",
+        "viewHistory": "Ver historial →",
+        "empty": "Este stack no tiene historial de updates."
+      },
+      "lastChanges": {
+        "title": "Últimos cambios",
+        "viewDiff": "Ver diff completo →",
+        "providerOnly": "{count} recursos solo cambiaron de provider",
+        "more": "y {count} más",
+        "noChanges": "El último update no cambió ningún recurso.",
+        "fromUpdate": "Según el último update:"
+      },
+      "warnings": {
+        "title": "Avisos",
+        "versionDrift": "Los stacks usan versiones distintas de Pulumi: {stacks}",
+        "stackFailed": "El último update de {stack} falló ({when})",
+        "staleLock": "{stack} tiene un lock activo desde {when}",
+        "pending": "{count} recursos pendientes de reemplazo o borrado en este stack"
+      },
+      "missingPermissions": "Para ver el resto del resumen hacen falta los permisos project:stateiac:history:read y project:stateiac:states:read."
     }
   }
 }

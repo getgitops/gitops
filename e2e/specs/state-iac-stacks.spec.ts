@@ -10,6 +10,8 @@ const projectA = `/org/${org}/projects/${seed.primaryProjectSlug}/state-iac`;
 const projectB = `/org/${org}/projects/${seed.secondaryProjectSlug}/state-iac`;
 const backend = seed.stateBackendId;
 const api = `${E2E_BASE_URL}/api/state-iac/stacks`;
+const prod = `${projectA}?stack=${backend}/acme-infra/prod`;
+const tabsLabel = 'Contenido del stack';
 
 test.describe('state iac stacks — project view', () => {
   test('a user of project A sees its stacks and not those of project B in the same bucket', async ({
@@ -18,20 +20,64 @@ test.describe('state iac stacks — project view', () => {
   }) => {
     await loginAs('projectAdmin');
     await expectAllowed(page, projectA);
-    const list = page.getByTestId('stack-backend');
-    await expect(list.getByRole('heading', { name: 'e2e-shared-state' })).toBeVisible();
-    await expect(list.locator('tr[data-stack="acme-infra/prod"]')).toBeVisible();
-    await expect(list.locator('tr[data-stack="acme-infra/staging"]')).toBeVisible();
-    await expect(list.locator('tr[data-stack="acme-platform/dev"]')).toHaveCount(0);
-    // the lock fixture: an operation in progress on prod
-    await expect(
-      list.locator('tr[data-stack="acme-infra/prod"]').getByText('En curso'),
-    ).toBeVisible();
+    const strip = page.getByTestId('environments');
+    await expect(strip.locator('[data-stack="acme-infra/prod"]')).toBeVisible();
+    await expect(strip.locator('[data-stack="acme-infra/staging"]')).toBeVisible();
+    await expect(strip.locator('[data-stack="acme-platform/dev"]')).toHaveCount(0);
+    // the most recently updated stack is selected, and the lock fixture shows on prod
+    await expect(page.getByTestId('backend-chip')).toContainText('e2e-shared-state');
+    await expect(page.getByTestId('stack-toolbar').getByText('En curso')).toBeVisible();
 
-    // B's stack through A's project, and B's project itself: not found / denied
+    // B's stack through A's project (old path and ?stack=), and B's project itself
     const response = await page.goto(`${projectA}/${backend}/acme-platform/dev`);
     expect(response?.status()).toBe(404);
+    const viaQuery = await page.goto(`${projectA}?stack=${backend}/acme-platform/dev`);
+    expect(viaQuery?.status()).toBe(404);
     await expectDenied(page, projectB);
+  });
+
+  test('the old stack path redirects to the dashboard', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await page.goto(`${projectA}/${backend}/acme-infra/staging`);
+    await expect(page).toHaveURL(
+      /state-iac\?stack=.*acme-infra%2Fstaging|state-iac\?stack=.*staging/,
+    );
+    await expect(page.getByTestId('stack-dashboard')).toBeVisible();
+  });
+
+  test('the dashboard summarizes health, resources and deployments of prod', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('projectAdmin');
+    await expectAllowed(page, prod);
+    await page.waitForLoadState('networkidle');
+    const dashboard = page.getByTestId('stack-dashboard');
+    await expect(dashboard.getByTestId('kpi-health')).toContainText('Salud');
+    await expect(dashboard.getByTestId('kpi-resources')).toContainText('Recursos');
+    await expect(dashboard.getByTestId('kpi-last-deploy')).toContainText('Último despliegue');
+    await expect(dashboard.getByTestId('kpi-last-deploy')).toContainText('correcto');
+    await expect(dashboard.getByTestId('dashboard-recent')).toContainText('Últimos despliegues');
+    await expect(dashboard.getByTestId('dashboard-recent').locator('li')).toHaveCount(4);
+    await expect(dashboard.getByTestId('dashboard-deploys')).toBeVisible();
+    await expect(dashboard.getByTestId('dashboard-types')).toBeVisible();
+    await expect(dashboard.getByTestId('dashboard-changes')).toBeVisible();
+
+    // jumping to the history from the summary
+    await dashboard.getByRole('button', { name: /Ver historial/ }).click();
+    await expect(page.getByTestId('stack-history')).toBeVisible();
+  });
+
+  test('the stack selector switches to staging', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await expectAllowed(page, projectA);
+    await page.waitForLoadState('networkidle');
+    await page.getByLabel('Stack', { exact: true }).click();
+    await page.getByRole('option', { name: /acme-infra \/ staging/ }).click();
+    await expect(page).toHaveURL(/stack=.*staging/);
+    await expect(
+      page.getByTestId('environments').locator('[data-stack="acme-infra/staging"]'),
+    ).toHaveAttribute('aria-current', 'true');
   });
 
   test('the stack detail shows the resource tree, masked secrets and outputs', async ({
@@ -39,10 +85,13 @@ test.describe('state iac stacks — project view', () => {
     loginAs,
   }) => {
     await loginAs('projectAdmin');
-    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
-    await expect(page.getByRole('heading', { name: 'prod', level: 1 })).toBeVisible();
+    await expectAllowed(page, prod);
     // interactive only once hydrated
     await page.waitForLoadState('networkidle');
+    await page
+      .getByRole('tablist', { name: tabsLabel })
+      .getByRole('tab', { name: /Recursos/ })
+      .click();
     const tree = page.getByTestId('resource-tree');
     await expect(tree.getByRole('button', { name: /acme-infra-prod/ }).first()).toBeVisible();
 
@@ -68,10 +117,18 @@ test.describe('state iac stacks — project view', () => {
     loginAs,
   }) => {
     await loginAs('stateiacStacksOnly');
-    await expectAllowed(page, projectA);
-    await expect(page.locator('tr[data-stack="acme-infra/prod"]')).toBeVisible();
-    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
-    await expect(page.getByTestId('states-forbidden')).toBeVisible();
+    await expectAllowed(page, prod);
+    await expect(
+      page.getByTestId('environments').locator('[data-stack="acme-infra/prod"]'),
+    ).toBeVisible();
+    // health and last deployment come with the summary; resources and history do not
+    const dashboard = page.getByTestId('stack-dashboard');
+    await expect(dashboard.getByTestId('kpi-health')).toBeVisible();
+    await expect(dashboard.getByTestId('kpi-last-deploy')).toContainText('Último despliegue');
+    await expect(dashboard.getByTestId('dashboard-deploys')).toHaveCount(0);
+    await expect(dashboard.getByTestId('dashboard-types')).toHaveCount(0);
+    await expect(dashboard.getByTestId('dashboard-changes')).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: /Recursos/ })).toHaveCount(0);
     await expect(page.getByTestId('resource-tree')).toHaveCount(0);
   });
 });
@@ -146,9 +203,9 @@ test.describe('state iac stacks — organization view', () => {
 test.describe('state iac stacks — history and changes', () => {
   test('the history lists the updates and opens what changed in one', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
-    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
+    await expectAllowed(page, prod);
     await page.waitForLoadState('networkidle');
-    const tabs = page.getByRole('tablist', { name: 'Contenido del stack' });
+    const tabs = page.getByRole('tablist', { name: tabsLabel });
 
     await tabs.getByRole('tab', { name: 'Historial' }).click();
     const history = page.getByTestId('stack-history');
@@ -174,15 +231,20 @@ test.describe('state iac stacks — history and changes', () => {
 
   test('a replace between two chosen versions', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
-    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
+    await expectAllowed(page, prod);
     await page.waitForLoadState('networkidle');
     await page
-      .getByRole('tablist', { name: 'Contenido del stack' })
+      .getByRole('tablist', { name: tabsLabel })
       .getByRole('tab', { name: 'Cambios' })
       .click();
     const diff = page.getByTestId('stack-diff');
     await expect(diff.getByTestId('diff-summary')).toBeVisible();
-    await diff.getByLabel('Hasta').selectOption('history:1795602803296701000');
+    await diff.getByLabel('Hasta').click();
+    // the option label is the source type plus its date; the third update is the one after the replace
+    await page
+      .getByRole('option', { name: /Update/ })
+      .nth(1)
+      .click();
     await expect(diff.locator('li[data-resource="lb-prod-cert"]')).toHaveAttribute(
       'data-change',
       'replace',
@@ -194,7 +256,7 @@ test.describe('state iac stacks — history and changes', () => {
     loginAs,
   }) => {
     await loginAs('stateiacStacksOnly');
-    await expectAllowed(page, `${projectA}/${backend}/acme-infra/prod`);
+    await expectAllowed(page, prod);
     await expect(page.getByRole('tab', { name: 'Historial' })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Cambios' })).toHaveCount(0);
   });

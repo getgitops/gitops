@@ -7,7 +7,7 @@
   import type { SubmitFunction } from '$app/forms';
   import { invalidateAll } from '$app/navigation';
   import { LoaderCircle } from '@lucide/svelte';
-  import { Field, Modal, toast } from '#lib/components/ui';
+  import { Field, Modal, Select, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
   import type { BackendView } from './types';
 
@@ -92,16 +92,17 @@
       help={backend ? $_('stateIac.backends.providerImmutable') : undefined}
     >
       {#snippet children(control)}
-        <select
+        <Select
           {...control}
           name={backend ? undefined : 'provider'}
-          class="k-input"
-          bind:value={provider}
+          value={provider}
           disabled={Boolean(backend)}
-        >
-          <option value="gcs">{$_('stateIac.providers.gcs')}</option>
-          <option value="s3">{$_('stateIac.providers.s3')}</option>
-        </select>
+          options={[
+            { value: 'gcs', label: $_('stateIac.providers.gcs') },
+            { value: 's3', label: $_('stateIac.providers.s3') },
+          ]}
+          onchange={(value) => (provider = value as 'gcs' | 's3')}
+        />
       {/snippet}
     </Field>
 
