@@ -4,18 +4,21 @@ import {
   SLACK_FLOW_COOKIE,
   SLACK_FLOW_COOKIE_PATH,
   SLACK_FLOW_TTL_MS,
+  slackAppService,
   slackConnectService,
   type ChannelLocation,
 } from '#modules/notifications';
 import type { AlertLocals } from '#lib/server/alerts/access';
-import type { ChannelsSectionData } from '#lib/notifications/types';
+import type { AppCardData, ChannelsSectionData } from '#lib/notifications/types';
 import {
   canManageChannels,
   createChannel,
   deleteChannel,
   listChannels,
+  removeSlackWorkspace,
   rotateChannelSecret,
   startSlackConnection,
+  startSlackInstall,
   testChannel,
   updateChannel,
 } from './channels';
@@ -39,9 +42,31 @@ export async function loadChannelsSection(
     cancanService.canAccessAdminArea(
       locals.user as Parameters<typeof cancanService.canAccessAdminArea>[0],
     );
+  // apps belong to organizations: projects use the organization's channels
+  const apps: AppCardData[] | null =
+    location.scope === 'organization'
+      ? [
+          await slackAppCard(locals, location.organizationId, {
+            canCreate,
+            canDelete,
+            isAdmin,
+            available: slackAvailable,
+          }),
+          {
+            provider: 'google-chat',
+            comingSoon: true,
+            configured: false,
+            canInstall: false,
+            canRemove: false,
+            installations: [],
+            setupPath: null,
+          },
+        ]
+      : null;
   return {
     ...listed.data,
     scope: location.scope,
+    apps,
     canCreate,
     canUpdate,
     canDelete,
@@ -50,6 +75,28 @@ export async function loadChannelsSection(
     // without the app, GitOps admins get a link to set it up from the Slack card
     slackSetupPath:
       canCreate && slackAvailable && !slackConfigured && isAdmin ? '/gitops-settings/slack' : null,
+  };
+}
+
+/** The GitOps Slack app (`/gitops`): needs the app configured with its signing secret. */
+async function slackAppCard(
+  locals: AlertLocals,
+  organizationId: string,
+  input: { canCreate: boolean; canDelete: boolean; isAdmin: boolean; available: boolean },
+): Promise<AppCardData> {
+  const configured = input.available && slackConnectService.commandsEnabled();
+  const installations = (await slackAppService.workspacesOf(organizationId)).map((workspace) => ({
+    id: workspace.id,
+    name: workspace.teamName,
+  }));
+  return {
+    provider: 'slack',
+    comingSoon: false,
+    configured,
+    canInstall: configured && input.canCreate && !locals.apiKey,
+    canRemove: input.canDelete,
+    installations,
+    setupPath: !configured && input.isAdmin ? '/gitops-settings/slack' : null,
   };
 }
 
@@ -121,6 +168,47 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
       throw redirect(303, result.data.authorizationUrl, {
         external: [SLACK_AUTHORIZATION_ORIGIN],
       });
+    },
+
+    /** Installs the GitOps Slack app for the organization (`/gitops`): off to Slack. */
+    async installSlack(event: ActionEvent) {
+      const location = await resolve(event);
+      const form = await event.request.formData();
+      const result = await startSlackInstall(event.locals, location.organizationId, {
+        locale: String(form.get('locale') ?? ''),
+        returnTo: String(form.get('returnTo') ?? ''),
+        origin: event.url.origin,
+      });
+      if (location.scope !== 'organization' || !result.ok) {
+        return fail(result.ok ? 400 : result.status, {
+          channelForm: 'slack-app',
+          channelError: result.ok ? 'Forbidden' : result.error,
+        });
+      }
+      event.cookies.set(SLACK_FLOW_COOKIE, result.data.flowCookie, {
+        path: SLACK_FLOW_COOKIE_PATH,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SLACK_FLOW_TTL_MS / 1000,
+      });
+      throw redirect(303, result.data.authorizationUrl, {
+        external: [SLACK_AUTHORIZATION_ORIGIN],
+      });
+    },
+
+    async removeSlackWorkspace(event: ActionEvent) {
+      const location = await resolve(event);
+      const form = await event.request.formData();
+      const workspaceId = String(form.get('workspaceId') ?? '');
+      const result = await removeSlackWorkspace(event.locals, location.organizationId, workspaceId);
+      if (location.scope !== 'organization' || !result.ok) {
+        return fail(result.ok ? 400 : result.status, {
+          channelForm: 'slack-app',
+          channelError: result.ok ? 'Forbidden' : result.error,
+        });
+      }
+      return { slackWorkspaceRemoved: workspaceId };
     },
 
     async rotateChannelSecret(event: ActionEvent) {

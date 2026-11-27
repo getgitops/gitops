@@ -47,6 +47,9 @@ export default defineConfig(({ mode }) => ({
     sveltekit({
       adapter: adapter(),
       preprocess: vitePreprocess(),
+      // the CSRF origin check runs in hooks.server.ts (`csrfGuard`), with the same rule, so the
+      // Slack endpoints (signed requests without an Origin header) can be exempt
+      csrf: { trustedOrigins: ['*'] },
     }),
     warmupHooksPlugin(),
   ],

@@ -26,6 +26,7 @@
     ChannelView,
     ChannelsFormResult,
     ChannelsSectionData,
+    AppProvider,
   } from '#lib/notifications/types';
 
   type Props = { data: ChannelsSectionData; action: string; form?: ChannelsFormResult };
@@ -119,6 +120,8 @@
     const outcome = page.url.searchParams.get('slack');
     if (!outcome) return;
     if (outcome === 'connected') toast.success($_('notifications.channels.slackConnected'));
+    else if (outcome === 'installed')
+      toast.success($_('notifications.channels.slackAppInstalledToast'));
     else toast.error(errorMessage(outcome));
     // a reload must not repeat the toast
     const url = new URL(page.url.href);
@@ -181,6 +184,43 @@
       );
     };
   };
+
+  /** Form actions of each app (`channels-page.ts`); `null` while the provider has none. */
+  const APP_INSTALL_ACTIONS: Record<AppProvider, string | null> = {
+    slack: 'installSlack',
+    'google-chat': null,
+  };
+  const APP_REMOVE_ACTIONS: Record<AppProvider, string | null> = {
+    slack: 'removeSlackWorkspace',
+    'google-chat': null,
+  };
+
+  /** "Install": the action answers with the provider's URL (Slack's OAuth page). */
+  const installApp: SubmitFunction = () => {
+    busy = 'app-install';
+    return async ({ result }) => {
+      if (result.type === 'redirect') {
+        window.location.assign(result.location);
+        return;
+      }
+      busy = null;
+      toast.error(
+        result.type === 'failure' ? failureMessage(result.data) : $_('alerts.wizard.failed'),
+      );
+    };
+  };
+
+  let removeWorkspaceTarget = $state<{ id: string; name: string } | null>(null);
+  let removeWorkspaceOpen = $state(false);
+  function openRemoveWorkspace(event: MouseEvent, workspace: { id: string; name: string }) {
+    event.preventDefault();
+    removeWorkspaceTarget = workspace;
+    removeWorkspaceOpen = true;
+  }
+  const removeWorkspace = submit('slack-app-remove', () => {
+    removeWorkspaceOpen = false;
+    toast.success($_('notifications.channels.slackAppRemovedToast'));
+  });
 
   /** Slack picked and "Add to Slack" configured: the Slack app gives the name and the URL. */
   const slackConnectMode = $derived(data.slackConnect && selectedType === 'slack');
@@ -252,12 +292,135 @@
   {#if slackOutcome}
     <!-- with JavaScript the outcome of "Add to Slack" is a toast (see onMount) -->
     <noscript>
-      <p class="text-xs {slackOutcome === 'connected' ? 'text-ok' : 'text-red-300'}" role="status">
+      <p
+        class="text-xs {slackOutcome === 'connected' || slackOutcome === 'installed'
+          ? 'text-ok'
+          : 'text-red-300'}"
+        role="status"
+      >
         {slackOutcome === 'connected'
           ? $_('notifications.channels.slackConnected')
-          : errorMessage(slackOutcome)}
+          : slackOutcome === 'installed'
+            ? $_('notifications.channels.slackAppInstalledToast')
+            : errorMessage(slackOutcome)}
       </p>
     </noscript>
+  {/if}
+
+  {#if data.apps}
+    <div class="space-y-2" data-testid="apps">
+      <div>
+        <h3 class="text-xs font-semibold text-white">{$_('notifications.apps.title')}</h3>
+        <p class="mt-0.5 text-xs text-fg-subtle">{$_('notifications.apps.description')}</p>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-3">
+        {#each data.apps as app (app.provider)}
+          {@const Icon = typeIcons[app.provider] ?? Webhook}
+          {@const installed = app.installations.length > 0}
+          {@const installAction = APP_INSTALL_ACTIONS[app.provider]}
+          <div
+            class="relative flex flex-col items-start gap-2 rounded-xl border p-3 {app.comingSoon
+              ? 'border-white/8 opacity-55'
+              : installed
+                ? 'border-brand-500/50 bg-brand-500/8'
+                : 'border-white/10'}"
+            data-app={app.provider}
+            data-testid="app-card"
+          >
+            <span
+              class="grid h-8 w-8 place-items-center rounded-lg {installed
+                ? 'bg-brand-500/15 text-brand-400'
+                : 'bg-white/5 text-fg-subtle'}"><Icon class="h-4 w-4" /></span
+            >
+            <span class="text-sm font-medium text-white">
+              {$_(`notifications.channels.types.${app.provider}`)}
+            </span>
+            <span class="text-xs text-fg-subtle">
+              {$_(`notifications.apps.descriptions.${app.provider}`)}
+            </span>
+            {#if app.comingSoon}
+              <span class="k-badge absolute right-3 top-3 h-5 px-1.5 text-[10px]"
+                >{$_('notifications.channels.comingSoon')}</span
+              >
+            {:else if installed}
+              <span
+                class="k-badge k-badge-ok absolute right-3 top-3 h-5 px-1.5 text-[10px]"
+                data-testid="app-status">{$_('notifications.apps.installed')}</span
+              >
+            {:else}
+              <span
+                class="k-badge absolute right-3 top-3 h-5 px-1.5 text-[10px]"
+                data-testid="app-status">{$_('notifications.apps.notInstalled')}</span
+              >
+            {/if}
+
+            {#if installed}
+              <!-- installed: only "Disconnect" (reinstalling happens after disconnecting) -->
+              <ul class="mt-auto w-full space-y-1.5 pt-1">
+                {#each app.installations as installation (installation.id)}
+                  <li
+                    class="flex items-center gap-2 text-xs text-fg-muted"
+                    data-testid="app-installation"
+                  >
+                    <Check class="h-3.5 w-3.5 shrink-0 text-ok" />
+                    <span class="min-w-0 flex-1 truncate">
+                      {$_('notifications.apps.connectedTo', {
+                        values: { name: installation.name },
+                      })}
+                    </span>
+                    {#if app.canRemove && APP_REMOVE_ACTIONS[app.provider]}
+                      <!-- without JavaScript the form posts directly; with it, a modal confirms first -->
+                      <form method="POST" action="{action}?/{APP_REMOVE_ACTIONS[app.provider]}">
+                        <input type="hidden" name="workspaceId" value={installation.id} />
+                        <button
+                          type="submit"
+                          class="k-btn k-btn-ghost k-btn-sm h-7 px-2 hover:text-red-400"
+                          disabled={busy !== null}
+                          onclick={(event) => openRemoveWorkspace(event, installation)}
+                          data-testid="app-remove"
+                        >
+                          <Power class="h-3.5 w-3.5" />{$_('notifications.apps.remove')}
+                        </button>
+                      </form>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {:else if !app.comingSoon}
+              {#if app.canInstall && installAction}
+                <form
+                  method="POST"
+                  action="{action}?/{installAction}"
+                  use:enhance={installApp}
+                  class="mt-auto w-full pt-1"
+                >
+                  <input type="hidden" name="locale" value={$uiLocale} />
+                  <input type="hidden" name="returnTo" value={action} />
+                  <button
+                    type="submit"
+                    class="k-btn k-btn-secondary k-btn-sm w-full"
+                    disabled={busy !== null}
+                    data-testid="app-install"
+                  >
+                    {#if busy === 'app-install'}<LoaderCircle
+                        class="h-4 w-4 animate-spin"
+                      />{:else}<Plus class="h-4 w-4" />{/if}
+                    {$_('notifications.apps.install')}
+                  </button>
+                </form>
+              {:else if app.setupPath}
+                <p class="k-help mt-auto" data-testid="app-setup-hint">
+                  {$_('notifications.apps.setupHint')}
+                  <a href={app.setupPath} class="text-brand-400 hover:underline"
+                    >{$_('notifications.channels.slackSetupLink')}</a
+                  >
+                </p>
+              {/if}
+            {/if}
+          </div>
+        {/each}
+      </div>
+    </div>
   {/if}
 
   {#if form?.channelTest}
@@ -807,6 +970,50 @@
       >
         {#if busy === 'delete'}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
         {$_('notifications.channels.delete')}
+      </button>
+    {/snippet}
+  </Modal>
+{/if}
+
+{#if data.apps?.some((app) => app.canRemove)}
+  <Modal
+    bind:open={removeWorkspaceOpen}
+    role="alertdialog"
+    size="sm"
+    title={$_('notifications.channels.slackAppRemoveTitle', {
+      values: { team: removeWorkspaceTarget?.name ?? '' },
+    })}
+    description={$_('notifications.channels.slackAppRemoveConfirm')}
+  >
+    {#snippet icon()}
+      <span
+        class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-400"
+        ><Power class="h-5 w-5" /></span
+      >
+    {/snippet}
+    <form
+      id="slack-workspace-remove-form"
+      method="POST"
+      action="{action}?/removeSlackWorkspace"
+      use:enhance={removeWorkspace}
+    >
+      <input type="hidden" name="workspaceId" value={removeWorkspaceTarget?.id ?? ''} />
+    </form>
+    {#snippet footer()}
+      <button
+        type="button"
+        class="k-btn k-btn-secondary"
+        onclick={() => (removeWorkspaceOpen = false)}>{$_('common.cancel')}</button
+      >
+      <button
+        type="submit"
+        form="slack-workspace-remove-form"
+        class="k-btn k-btn-danger"
+        disabled={busy !== null}
+        data-autofocus
+      >
+        {#if busy === 'slack-app-remove'}<LoaderCircle class="h-4 w-4 animate-spin" />{/if}
+        {$_('notifications.channels.slackAppRemove')}
       </button>
     {/snippet}
   </Modal>

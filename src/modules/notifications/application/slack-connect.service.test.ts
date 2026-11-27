@@ -2,34 +2,50 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   SlackOAuthClient,
   SlackOAuthError,
-  type SlackIncomingWebhook,
+  type SlackInstallation,
 } from '../infrastructure/slack/slack-oauth.client';
-import { SlackAppConfigError } from '../infrastructure/config/slack-app.config';
-import { SlackConnectError, SlackConnectService, safeReturnTo } from './slack-connect.service';
+import {
+  SlackAppConfigError,
+  type SlackAppConfig,
+} from '../infrastructure/config/slack-app.config';
+import {
+  SLACK_DONE_PATH,
+  SlackConnectError,
+  SlackConnectService,
+  safeReturnTo,
+  type SlackFlowResult,
+} from './slack-connect.service';
 
 const NOW = Date.UTC(2026, 10, 26);
 const SECRET = 'test-encryption-key';
 const REDIRECT = 'https://gitops.example.com/notifications/slack/callback';
 const LOCATION = { scope: 'project' as const, organizationId: 'org-1', projectId: 'prj-1' };
-const WEBHOOK: SlackIncomingWebhook = {
-  url: 'https://hooks.slack.com/services/T1/B1/xyz',
-  channel: '#alerts',
+const INSTALLATION: SlackInstallation = {
+  teamId: 'T1',
   teamName: 'Acme',
+  authedUserId: 'U1',
+  botToken: 'xoxb-secret',
+  webhook: {
+    url: 'https://hooks.slack.com/services/T1/B1/xyz',
+    channel: '#alerts',
+    channelId: 'C1',
+  },
 };
+const CONFIG: SlackAppConfig = { clientId: '123.456', clientSecret: 'shh', signingSecret: null };
 
 function setup(
   options: {
-    config?: () => { clientId: string; clientSecret: string } | null;
-    exchange?: () => Promise<SlackIncomingWebhook>;
+    config?: () => SlackAppConfig | null;
+    exchange?: () => Promise<SlackInstallation>;
   } = {},
 ) {
   let now = NOW;
   const client = new SlackOAuthClient();
   const exchangeCode = vi
     .spyOn(client, 'exchangeCode')
-    .mockImplementation(options.exchange ?? (async () => WEBHOOK));
+    .mockImplementation(options.exchange ?? (async () => INSTALLATION));
   const service = new SlackConnectService({
-    readConfig: options.config ?? (() => ({ clientId: '123.456', clientSecret: 'shh' })),
+    readConfig: options.config ?? (() => CONFIG),
     client,
     secret: () => SECRET,
     now: () => now,
@@ -46,7 +62,7 @@ function setup(
   const complete = (
     flowCookie: string | undefined,
     overrides: Partial<{
-      userId: string;
+      sessionUserId: string | null;
       state: string | null;
       code: string | null;
       error: string | null;
@@ -54,7 +70,7 @@ function setup(
   ) =>
     service.complete({
       flowCookie,
-      userId: 'user-1',
+      sessionUserId: 'user-1',
       state: 'state-1',
       code: 'code-1',
       error: null,
@@ -64,19 +80,32 @@ function setup(
   return { service, exchangeCode, started, complete, advance: (ms: number) => (now += ms) };
 }
 
+function as<K extends SlackFlowResult['kind']>(result: SlackFlowResult, kind: K) {
+  expect(result.kind).toBe(kind);
+  return result as Extract<SlackFlowResult, { kind: K }>;
+}
+
 describe('SlackConnectService', () => {
-  it('reports whether the Slack app is configured', () => {
-    expect(setup().service.status()).toEqual({ configured: true });
+  it('reports whether the Slack app and its command are configured', () => {
+    expect(setup().service.status()).toEqual({ configured: true, commands: false });
+    const withCommands = setup({ config: () => ({ ...CONFIG, signingSecret: 'sign' }) });
+    expect(withCommands.service.status()).toEqual({ configured: true, commands: true });
+    expect(withCommands.service.commandsEnabled()).toBe(true);
     expect(setup({ config: () => null }).service.status()).toEqual({
       configured: false,
       reason: 'missing',
+      commands: false,
     });
     const invalid = setup({
       config: () => {
         throw new SlackAppConfigError('half set');
       },
     });
-    expect(invalid.service.status()).toEqual({ configured: false, reason: 'invalid' });
+    expect(invalid.service.status()).toEqual({
+      configured: false,
+      reason: 'invalid',
+      commands: false,
+    });
     expect(invalid.service.isConfigured()).toBe(false);
   });
 
@@ -87,6 +116,7 @@ describe('SlackConnectService', () => {
     expect(url.searchParams.get('state')).toBe('state-1');
     expect(url.searchParams.get('redirect_uri')).toBe(REDIRECT);
     expect(url.searchParams.get('client_id')).toBe('123.456');
+    expect(url.searchParams.get('scope')).toBe('incoming-webhook');
     // nothing secret in the cookie: it only carries the flow
     expect(flowCookie).not.toContain('shh');
   });
@@ -101,11 +131,13 @@ describe('SlackConnectService', () => {
     const connection = await complete(started().flowCookie);
 
     expect(connection).toEqual({
+      kind: 'channel',
+      userId: 'user-1',
       location: LOCATION,
       locale: 'es',
       returnTo: '/org/acme/projects/web/settings/alerts/settings',
       name: '#alerts (Acme)',
-      webhookUrl: WEBHOOK.url,
+      webhookUrl: INSTALLATION.webhook?.url,
     });
     expect(exchangeCode).toHaveBeenCalledWith({
       clientId: '123.456',
@@ -124,7 +156,7 @@ describe('SlackConnectService', () => {
       returnTo: 'https://evil.example.com',
       redirectUri: REDIRECT,
     });
-    const connection = await complete(flowCookie);
+    const connection = as(await complete(flowCookie), 'channel');
     expect(connection.location).toEqual({
       scope: 'organization',
       organizationId: 'org-1',
@@ -136,7 +168,8 @@ describe('SlackConnectService', () => {
 
   it.each([
     ['no cookie', undefined, {}],
-    ['another user', 'cookie', { userId: 'user-2' }],
+    ['another user', 'cookie', { sessionUserId: 'user-2' }],
+    ['no session', 'cookie', { sessionUserId: null }],
     ['a different state', 'cookie', { state: 'state-2' }],
     ['no state', 'cookie', { state: null }],
   ])('rejects %s as an invalid state', async (_label, cookie, overrides) => {
@@ -168,7 +201,7 @@ describe('SlackConnectService', () => {
     expect(exchangeCode).not.toHaveBeenCalled();
   });
 
-  it('maps exchange failures', async () => {
+  it('maps exchange failures and installs without a webhook', async () => {
     const failing = setup({
       exchange: async () => {
         throw new SlackOAuthError('invalid_code');
@@ -178,11 +211,7 @@ describe('SlackConnectService', () => {
       code: 'slack_exchange_failed',
     });
 
-    const noWebhook = setup({
-      exchange: async () => {
-        throw new SlackOAuthError('no_webhook');
-      },
-    });
+    const noWebhook = setup({ exchange: async () => ({ ...INSTALLATION, webhook: null }) });
     await expect(noWebhook.complete(noWebhook.started().flowCookie)).rejects.toMatchObject({
       code: 'slack_no_webhook',
     });
@@ -190,11 +219,109 @@ describe('SlackConnectService', () => {
 
   it('cuts long channel names', async () => {
     const { started, complete } = setup({
-      exchange: async () => ({ ...WEBHOOK, channel: `#${'a'.repeat(90)}`, teamName: null }),
+      exchange: async () => ({
+        ...INSTALLATION,
+        teamName: null,
+        webhook: {
+          url: 'https://hooks.slack.com/x',
+          channel: `#${'a'.repeat(90)}`,
+          channelId: null,
+        },
+      }),
     });
-    const { name } = await complete(started().flowCookie);
+    const { name } = as(await complete(started().flowCookie), 'channel');
     expect(name).toHaveLength(80);
     expect(name.endsWith('…')).toBe(true);
+  });
+
+  describe('app install', () => {
+    const startInstall = (service: SlackConnectService) =>
+      service.startInstall({
+        userId: 'user-1',
+        organizationId: 'org-1',
+        locale: 'es',
+        returnTo: '/org/acme/settings/alerts/settings',
+        redirectUri: REDIRECT,
+      });
+
+    it('asks for the commands scope only (no channel picker)', () => {
+      const { service } = setup();
+      const url = new URL(startInstall(service).authorizationUrl);
+      expect(url.searchParams.get('scope')).toBe('commands');
+    });
+
+    it('completes into the workspace and its bot token, in the same session', async () => {
+      const { service, complete } = setup({
+        exchange: async () => ({ ...INSTALLATION, webhook: null }),
+      });
+      const { flowCookie } = startInstall(service);
+      expect(as(await complete(flowCookie), 'install')).toEqual({
+        kind: 'install',
+        userId: 'user-1',
+        organizationId: 'org-1',
+        locale: 'es',
+        returnTo: '/org/acme/settings/alerts/settings',
+        teamId: 'T1',
+        teamName: 'Acme',
+        botToken: 'xoxb-secret',
+      });
+      await expect(complete(flowCookie, { sessionUserId: null })).rejects.toMatchObject({
+        code: 'slack_invalid_state',
+      });
+    });
+
+    it('fails when Slack returns no bot token', async () => {
+      const { service, complete } = setup({
+        exchange: async () => ({ ...INSTALLATION, botToken: null }),
+      });
+      await expect(complete(startInstall(service).flowCookie)).rejects.toMatchObject({
+        code: 'slack_exchange_failed',
+      });
+    });
+  });
+
+  describe('channels connected from Slack', () => {
+    const startFromSlack = (service: SlackConnectService) =>
+      service.startFromSlack({
+        userId: 'user-1',
+        organizationId: 'org-1',
+        name: 'DevOps ES',
+        locale: 'es',
+        slackTeamId: 'T1',
+        slackUserId: 'U1',
+        redirectUri: REDIRECT,
+      });
+
+    it('needs no GitOps session and keeps the name typed in Slack', async () => {
+      const { service, complete } = setup();
+      const result = as(
+        await complete(startFromSlack(service).flowCookie, { sessionUserId: null }),
+        'command',
+      );
+      expect(result).toEqual({
+        kind: 'command',
+        userId: 'user-1',
+        location: { scope: 'organization', organizationId: 'org-1', projectId: null },
+        locale: 'es',
+        returnTo: SLACK_DONE_PATH,
+        name: 'DevOps ES',
+        webhookUrl: INSTALLATION.webhook?.url,
+        teamId: 'T1',
+        channelId: 'C1',
+      });
+    });
+
+    it.each([
+      ['another workspace', { teamId: 'T2' }],
+      ['another Slack user', { authedUserId: 'U2' }],
+    ])('refuses a flow finished in %s', async (_label, overrides) => {
+      const { service, complete } = setup({
+        exchange: async () => ({ ...INSTALLATION, ...overrides }),
+      });
+      await expect(
+        complete(startFromSlack(service).flowCookie, { sessionUserId: null }),
+      ).rejects.toMatchObject({ code: 'slack_wrong_workspace', returnTo: SLACK_DONE_PATH });
+    });
   });
 
   it('builds a manifest and creation link for the installation', () => {
@@ -202,7 +329,17 @@ describe('SlackConnectService', () => {
     const manifest = service.manifest('https://gitops.example.com/');
     expect(manifest.oauth_config).toEqual({
       redirect_urls: [REDIRECT],
-      scopes: { bot: ['incoming-webhook'] },
+      scopes: { bot: ['incoming-webhook', 'commands'] },
+    });
+    expect(manifest.features.slash_commands).toEqual([
+      expect.objectContaining({
+        command: '/gitops',
+        url: 'https://gitops.example.com/api/slack/commands',
+      }),
+    ]);
+    expect(manifest.settings.interactivity).toEqual({
+      is_enabled: true,
+      request_url: 'https://gitops.example.com/api/slack/interactions',
     });
     expect(manifest.display_information.name.length).toBeLessThanOrEqual(35);
 

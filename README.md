@@ -225,10 +225,27 @@ the Slack channel, so each GitOps channel posts to one Slack channel.
 picks the workspace and the channel in Slack and GitOps creates the channel with its webhook, with
 nothing to copy. Any workspace can be connected, so each organization uses its own Slack. To set it
 up, a GitOps admin opens **GitOps Settings → Slack**, clicks **Create Slack app** (Slack opens with a
-prefilled manifest: only the `incoming-webhook` scope and this installation's redirect URL,
+prefilled manifest: the `incoming-webhook` and `commands` scopes, the `/gitops` command and this installation's redirect URL,
 `<ORIGIN>/notifications/slack/callback`, which must be https), copies the app's **Client ID** and
 **Client Secret** into the environment and restarts GitOps. To let workspaces other than the one
 that owns the app install it, enable **Public Distribution** in the app's **Manage Distribution**.
+
+**From Slack (`/gitops`).** With the app's **Signing Secret** also set (`SLACK_SIGNING_SECRET`), an
+organization admin clicks **Install in Slack** in the organization's channel settings, once per
+workspace. Then, in Slack:
+
+1. `/gitops login`: a private link opens GitOps (sign in with your password or Google) to link your
+   Slack user to your account. Once per person.
+2. `/gitops channel`: a form asks for the configuration's name and message language; **Pick the
+   channel in Slack** opens Slack's own channel picker in the browser (the only way Slack issues a
+   webhook). GitOps saves the channel in the organization, with its webhook, and posts a test message
+   to it. Repeat for every channel (`#devops_ES`, `#devops_FR`…).
+3. `/gitops status`: the linked organization, your account and the connected channels.
+
+Alerts are still created in GitOps, where the new channels show up like any other. Every action runs
+as the linked GitOps user with the usual permissions (`organization:notifications:create`). Slack
+sends the commands to `<ORIGIN>/api/slack/commands` and `/api/slack/interactions`, so the
+installation must be reachable from the internet (locally: a tunnel such as cloudflared or ngrok).
 
 **Manually**, without a Slack app in GitOps, create one webhook per Slack channel:
 

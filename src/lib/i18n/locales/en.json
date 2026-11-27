@@ -411,7 +411,7 @@
       "configuredHelp": "Channel settings show an Add to Slack button. Users pick the workspace and channel in Slack.",
       "notConfiguredHelp": "Slack channels are created by pasting an Incoming Webhook URL. Create the Slack app below to enable Add to Slack.",
       "setupTitle": "Set up the Slack app",
-      "step1": "Create the Slack app for this installation from its manifest (incoming-webhook scope only, with this installation's redirect URL).",
+      "step1": "Create the Slack app for this installation from its manifest (incoming-webhook and commands scopes, the /gitops command and this installation's redirect URL).",
       "createApp": "Create Slack app",
       "showManifest": "Show manifest",
       "step2": "Check that the app's redirect URL (OAuth & Permissions) is this one:",
@@ -419,7 +419,12 @@
       "step3": "In Basic Information, copy the Client ID and Client Secret into the environment and restart GitOps. To let other workspaces install it, enable Public Distribution in Manage Distribution.",
       "manualNote": "Pasting a webhook URL keeps working with or without the Slack app.",
       "copy": "Copy",
-      "copied": "Copied"
+      "copied": "Copied",
+      "commandsTitle": "/gitops command",
+      "commandsOn": "Active",
+      "commandsOff": "SLACK_SIGNING_SECRET missing",
+      "commandsHelp": "With the Signing Secret, each organization installs the app from its channel settings and connects channels from Slack with /gitops. Slack sends the commands to this installation, which must be reachable from the internet.",
+      "step4": "For /gitops, also copy the Signing Secret (Basic Information → App Credentials) to SLACK_SIGNING_SECRET. The manifest already registers the command and the interactivity URL:"
     }
   },
   "org": {
@@ -2206,7 +2211,9 @@
       "slack_cancelled": "The Slack connection was cancelled.",
       "slack_invalid_state": "The Slack connection expired or was started by another session. Try again.",
       "slack_exchange_failed": "Slack did not complete the connection. Try again.",
-      "slack_no_webhook": "Slack did not return a channel webhook: the Slack app needs the incoming-webhook scope."
+      "slack_no_webhook": "Slack did not return a channel webhook: the Slack app needs the incoming-webhook scope.",
+      "slack_wrong_workspace": "The connection was finished in another workspace or by another Slack user. Use the account that typed /gitops channel.",
+      "slack_workspace_taken": "This Slack workspace is already connected to another GitOps organization."
     },
     "link": {
       "invalid": "This link is not valid or has already been used.",
@@ -2309,7 +2316,85 @@
       "slackConnected": "Slack channel added",
       "slackManual": "or paste an Incoming Webhook URL",
       "slackSetupHint": "Add to Slack (pick the channel in Slack, no URL to copy) is not set up yet.",
-      "slackSetupLink": "Set it up"
+      "slackSetupLink": "Set it up",
+      "slackAppRemove": "Disconnect",
+      "slackAppRemoveTitle": "Disconnect {team}?",
+      "slackAppRemoveConfirm": "/gitops stops working in that workspace until it is installed again. Channels already connected keep posting; to revoke them, remove the app in Slack.",
+      "slackAppInstalledToast": "Slack app installed",
+      "slackAppRemovedToast": "Workspace disconnected"
+    },
+    "slackApp": {
+      "notInstalled": "This Slack workspace is not connected to GitOps. An organization admin has to click *Install in Slack* in GitOps (Settings → Alerts → Settings → Channels).",
+      "help": "*GitOps commands*\n• `/gitops login`: link your Slack user to your GitOps account (once).\n• `/gitops channel`: connect a Slack channel to the organization's alerts.\n• `/gitops status`: linked organization, your account and the connected channels.",
+      "notLinked": "Link your GitOps account first with `/gitops login`.",
+      "disabled": "Your GitOps account is disabled.",
+      "forbidden": "Your GitOps account is not allowed to create channels in this organization.",
+      "failed": "GitOps could not complete the action ({code}).",
+      "linkExpires": "This link is only for you and expires in 10 minutes.",
+      "login": {
+        "prompt": "Open GitOps to link your Slack user to your account (sign in with your password or with Google).",
+        "button": "Link with GitOps"
+      },
+      "status": {
+        "organization": "Organization: *{organization}*",
+        "linked": "Your account: *{username}*",
+        "notLinked": "Your account: not linked (`/gitops login`)",
+        "channels": "Slack channels: {channels}",
+        "noChannels": "No Slack channels connected yet (`/gitops channel`).",
+        "disabled": "disabled"
+      },
+      "locale": {
+        "es": "Spanish",
+        "en": "English"
+      },
+      "channel": {
+        "title": "Connect a channel",
+        "next": "Next",
+        "cancel": "Cancel",
+        "close": "Close",
+        "intro": "The channel is added to *{organization}*, where its alerts can use it.",
+        "name": "Name",
+        "nameHint": "How the configuration shows in GitOps.",
+        "namePlaceholder": "DevOps ES",
+        "locale": "Message language",
+        "nameRequired": "Type a name.",
+        "nameTooLong": "The name is too long (80 characters at most).",
+        "pick": "Last step: pick the Slack channel for *{name}*. Slack opens in the browser with your channels; once you allow it, GitOps saves the configuration and posts a test message to the channel.",
+        "pickButton": "Pick the channel in Slack"
+      }
+    },
+    "slackLink": {
+      "title": "Link Slack",
+      "question": "Link the Slack user {slackUser} (workspace {team}) to your account {username}? You will be able to connect {organization} channels from Slack with /gitops.",
+      "confirm": "Link",
+      "done": "Done. Go back to Slack and use /gitops channel to connect a channel.",
+      "errors": {
+        "invalid": "The link is invalid or has expired. Type /gitops login in Slack again.",
+        "taken": "This Slack user is already linked to another GitOps account.",
+        "forbidden": "Your account does not belong to the organization of this Slack workspace.",
+        "not_installed": "The Slack workspace is no longer connected to GitOps."
+      }
+    },
+    "slackDone": {
+      "title": "Slack",
+      "connected": "Channel “{name}” connected. We posted a test message to it.",
+      "next": "You can now pick it in GitOps alerts. You can close this tab.",
+      "retry": "Go back to Slack and try again with /gitops channel.",
+      "back": "Back to Slack"
+    },
+    "apps": {
+      "title": "Apps",
+      "description": "Integrations installed in the organization. A connected app lets people manage channels from the tool itself.",
+      "installed": "Connected",
+      "notInstalled": "Not installed",
+      "connectedTo": "Connected to {name}",
+      "install": "Install",
+      "remove": "Disconnect",
+      "setupHint": "The app is not set up in this installation yet.",
+      "descriptions": {
+        "slack": "Connect channels from Slack with /gitops login and /gitops channel.",
+        "google-chat": "Connect Google Chat spaces to alerts."
+      }
     }
   }
 }

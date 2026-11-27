@@ -54,6 +54,29 @@ export type ChannelsSectionData = {
   slackConnect: boolean;
   /** Where a GitOps admin sets up "Add to Slack" while it is not configured; `null` otherwise. */
   slackSetupPath: string | null;
+  /**
+   * Apps installed in the organization (the GitOps Slack app and, later, other providers): one card
+   * each. `null` on project pages: apps belong to organizations.
+   */
+  apps: AppCardData[] | null;
+};
+
+/** Providers with an app card; the ones without an implementation show as coming soon. */
+export const APP_PROVIDERS = ['slack', 'google-chat'] as const;
+export type AppProvider = (typeof APP_PROVIDERS)[number];
+
+export type AppCardData = {
+  provider: AppProvider;
+  /** Not built yet: the card only says "coming soon". */
+  comingSoon: boolean;
+  /** The installation has the app configured (credentials set by a GitOps admin). */
+  configured: boolean;
+  canInstall: boolean;
+  canRemove: boolean;
+  /** Where it is installed (Slack workspaces); empty = not installed. */
+  installations: { id: string; name: string }[];
+  /** Shown to GitOps admins while the app is not configured. */
+  setupPath: string | null;
 };
 
 export type ChannelsFormResult = {

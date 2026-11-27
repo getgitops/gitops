@@ -2,13 +2,19 @@ const AUTHORIZE_ENDPOINT = 'https://slack.com/oauth/v2/authorize';
 const ACCESS_ENDPOINT = 'https://slack.com/api/oauth.v2.access';
 const EXCHANGE_TIMEOUT_MS = 10_000;
 
-/** The only scope GitOps asks for: Slack shows a channel picker and returns a webhook for it. */
+/** "Add to Slack" for a channel: Slack shows a channel picker and returns a webhook for it. */
 export const SLACK_CONNECT_SCOPE = 'incoming-webhook';
+/** Installing the app for the `/gitops` command: no channel picker. */
+export const SLACK_INSTALL_SCOPE = 'commands';
+/** Bot scopes of the GitOps app (manifest). Slack adds scopes up, so each install keeps both. */
+export const SLACK_APP_SCOPES = [SLACK_CONNECT_SCOPE, SLACK_INSTALL_SCOPE];
 
 export type SlackAuthorizationRequest = {
   clientId: string;
   redirectUri: string;
   state: string;
+  /** Defaults to `incoming-webhook`. */
+  scope?: string;
 };
 
 export type SlackCodeExchange = {
@@ -18,12 +24,23 @@ export type SlackCodeExchange = {
   redirectUri: string;
 };
 
-/** What an `incoming-webhook` install returns: the webhook of the channel the user picked. */
+/** The webhook of the channel the user picked (only with the `incoming-webhook` scope). */
 export type SlackIncomingWebhook = {
   url: string;
   /** `#channel` as Slack names it, when it says. */
   channel: string | null;
+  channelId: string | null;
+};
+
+/** What an install returns. Holds a token: never log or echo it. */
+export type SlackInstallation = {
+  teamId: string | null;
   teamName: string | null;
+  /** The Slack user who authorized the install. */
+  authedUserId: string | null;
+  /** Bot token of the workspace (`xoxb-…`). */
+  botToken: string | null;
+  webhook: SlackIncomingWebhook | null;
 };
 
 type FetchLike = (input: string, init?: Parameters<typeof fetch>[1]) => Promise<Response>;
@@ -38,20 +55,24 @@ export class SlackOAuthError extends Error {
   }
 }
 
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value ? value : null;
+}
+
 export class SlackOAuthClient {
   constructor(private readonly fetchFn: FetchLike = (input, init) => fetch(input, init)) {}
 
   buildAuthorizationUrl(request: SlackAuthorizationRequest): string {
     const url = new URL(AUTHORIZE_ENDPOINT);
     url.searchParams.set('client_id', request.clientId);
-    url.searchParams.set('scope', SLACK_CONNECT_SCOPE);
+    url.searchParams.set('scope', request.scope ?? SLACK_CONNECT_SCOPE);
     url.searchParams.set('redirect_uri', request.redirectUri);
     url.searchParams.set('state', request.state);
     return url.toString();
   }
 
-  /** Trades the code for the webhook; never logs or echoes the response (it holds a token). */
-  async exchangeCode(exchange: SlackCodeExchange): Promise<SlackIncomingWebhook> {
+  /** Trades the code for the installation; never logs or echoes the response (it holds a token). */
+  async exchangeCode(exchange: SlackCodeExchange): Promise<SlackInstallation> {
     // Slack recommends HTTP Basic for the client credentials (RFC 6749 §2.3.1)
     const credentials = Buffer.from(
       `${encodeURIComponent(exchange.clientId)}:${encodeURIComponent(exchange.clientSecret)}`,
@@ -76,24 +97,30 @@ export class SlackOAuthClient {
     const body = (await response.json().catch(() => null)) as {
       ok?: boolean;
       error?: string;
-      incoming_webhook?: { url?: unknown; channel?: unknown };
-      team?: { name?: unknown } | null;
+      access_token?: unknown;
+      token_type?: unknown;
+      incoming_webhook?: { url?: unknown; channel?: unknown; channel_id?: unknown };
+      team?: { id?: unknown; name?: unknown } | null;
+      authed_user?: { id?: unknown } | null;
     } | null;
     if (!body?.ok) throw new SlackOAuthError(safeCode(body?.error));
 
     const webhook = body.incoming_webhook;
-    if (!webhook || typeof webhook.url !== 'string' || !webhook.url) {
-      throw new SlackOAuthError('no_webhook');
-    }
+    const url = text(webhook?.url);
     return {
-      url: webhook.url,
-      channel: typeof webhook.channel === 'string' && webhook.channel ? webhook.channel : null,
-      teamName: typeof body.team?.name === 'string' && body.team.name ? body.team.name : null,
+      teamId: text(body.team?.id),
+      teamName: text(body.team?.name),
+      authedUserId: text(body.authed_user?.id),
+      botToken:
+        body.token_type === 'bot' || body.token_type === undefined ? text(body.access_token) : null,
+      webhook: url
+        ? { url, channel: text(webhook?.channel), channelId: text(webhook?.channel_id) }
+        : null,
     };
   }
 }
 
 /** Slack error codes are snake_case words; anything else is not echoed into logs. */
-function safeCode(value: unknown): string {
+export function safeCode(value: unknown): string {
   return typeof value === 'string' && /^[a-z0-9_]{1,64}$/.test(value) ? value : 'unknown_error';
 }

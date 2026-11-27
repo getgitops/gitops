@@ -56,6 +56,23 @@
             ? $_('clusterSettings.slack.configuredHelp')
             : $_('clusterSettings.slack.notConfiguredHelp')}
         </p>
+        {#if data.status.configured}
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-sm font-medium text-white"
+              >{$_('clusterSettings.slack.commandsTitle')}</span
+            >
+            {#if data.status.commands}
+              <span class="k-badge k-badge-ok" data-testid="slack-commands-status">
+                <CircleCheck class="h-3.5 w-3.5" />{$_('clusterSettings.slack.commandsOn')}
+              </span>
+            {:else}
+              <span class="k-badge k-badge-warn" data-testid="slack-commands-status">
+                <CircleAlert class="h-3.5 w-3.5" />{$_('clusterSettings.slack.commandsOff')}
+              </span>
+            {/if}
+          </div>
+          <p class="mt-1 text-xs text-fg-subtle">{$_('clusterSettings.slack.commandsHelp')}</p>
+        {/if}
       </div>
     </div>
   </section>
@@ -120,6 +137,26 @@
         <pre
           class="overflow-auto rounded-lg bg-ink-900 p-3 font-mono text-xs text-white">SLACK_CLIENT_ID=…
 SLACK_CLIENT_SECRET=…</pre>
+      </li>
+      <li class="space-y-2">
+        <p>{$_('clusterSettings.slack.step4')}</p>
+        <pre
+          class="overflow-auto rounded-lg bg-ink-900 p-3 font-mono text-xs text-white">SLACK_SIGNING_SECRET=…</pre>
+        {#each [data.commandsUrl, data.interactionsUrl] as endpoint (endpoint)}
+          <div class="flex items-center gap-2">
+            <code
+              class="min-w-0 flex-1 truncate rounded-lg bg-ink-900 px-3 py-2 font-mono text-xs text-white"
+              >{endpoint}</code
+            >
+            <button
+              type="button"
+              class="k-btn k-btn-ghost k-btn-icon k-btn-sm"
+              aria-label={$_('clusterSettings.slack.copy')}
+              title={$_('clusterSettings.slack.copy')}
+              onclick={() => copy(endpoint)}><Copy class="h-4 w-4" /></button
+            >
+          </div>
+        {/each}
       </li>
     </ol>
 
