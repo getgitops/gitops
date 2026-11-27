@@ -68,7 +68,7 @@
     label: ecosystem,
   }));
   const columnScroll = $derived(
-    scrollColumns ? 'md:max-h-[calc(85vh-13rem)] md:overflow-y-auto' : '',
+    scrollColumns ? 'md:max-h-[calc(90vh-12rem)] md:overflow-y-auto' : '',
   );
 
   const visible = (name: string, category: string) => {
@@ -90,62 +90,8 @@
     <p role="alert" class="k-badge k-badge-danger h-auto whitespace-normal py-1.5">{error}</p>
   {/if}
 
-  <div
-    class={suggestedIds.length > 0
-      ? 'grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_21rem] md:grid-rows-[auto_1fr]'
-      : 'space-y-6'}
-  >
-    {#if suggestedIds.length > 0}
-      <aside class="order-1 md:col-start-2 md:row-start-1 {columnScroll}">
-        <section
-          class="space-y-3"
-          aria-labelledby="{formId}-suggestions"
-          data-testid="cve-feed-suggestions"
-        >
-          <div>
-            <h3 id="{formId}-suggestions" class="text-sm font-semibold text-white">
-              {$_('org.cves.feed.modal.suggestions')}
-            </h3>
-            <p class="k-help">{$_('org.cves.feed.modal.suggestionsHelp')}</p>
-          </div>
-          <ul class="grid gap-2">
-            {#each suggestedIds as suggestion (suggestion.technologyId)}
-              <li>
-                <label
-                  class="flex cursor-pointer items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-500/5 px-3 py-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    class="k-checkbox"
-                    name={suggestion.custom ? 'custom' : 'technology'}
-                    value={suggestion.custom
-                      ? customFieldValue(suggestion.custom)
-                      : suggestion.technologyId}
-                  />
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate text-fg">{suggestion.name}</span>
-                    <span class="block truncate text-xs text-fg-subtle">
-                      {$_(
-                        suggestion.services === 1
-                          ? 'org.cves.feed.modal.suggestionReasonOne'
-                          : 'org.cves.feed.modal.suggestionReasonMany',
-                        { values: { package: suggestion.package, count: suggestion.services } },
-                      )}
-                    </span>
-                  </span>
-                </label>
-              </li>
-            {/each}
-          </ul>
-        </section>
-      </aside>
-    {/if}
-
-    <div
-      class="min-w-0 space-y-6 {suggestedIds.length > 0
-        ? 'order-2 md:col-start-1 md:row-span-2 md:row-start-1'
-        : ''} {columnScroll}"
-    >
+  <div class="grid items-start gap-6 md:grid-cols-2">
+    <div class="order-2 min-w-0 md:order-none {columnScroll}">
       <section class="space-y-3" aria-labelledby="{formId}-catalog">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <h3 id="{formId}-catalog" class="text-sm font-semibold text-white">
@@ -165,7 +111,7 @@
             />
           </label>
         </div>
-        <ul class="grid gap-2 sm:grid-cols-2">
+        <ul class="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
           {#each CVE_TECHNOLOGIES as technology (technology.id)}
             <li hidden={!visible(technology.name, categoryLabel(technology.category))}>
               <label
@@ -188,8 +134,54 @@
           <p class="text-sm text-fg-subtle">{$_('org.cves.feed.modal.noMatches')}</p>
         {/if}
       </section>
-
-      <section class="space-y-3" aria-labelledby="{formId}-custom">
+    </div>
+    <div class="contents space-y-6 md:block {columnScroll}">
+      {#if suggestedIds.length > 0}
+        <aside class="order-1 md:order-none">
+          <section
+            class="space-y-3"
+            aria-labelledby="{formId}-suggestions"
+            data-testid="cve-feed-suggestions"
+          >
+            <div>
+              <h3 id="{formId}-suggestions" class="text-sm font-semibold text-white">
+                {$_('org.cves.feed.modal.suggestions')}
+              </h3>
+              <p class="k-help">{$_('org.cves.feed.modal.suggestionsHelp')}</p>
+            </div>
+            <ul class="grid gap-2">
+              {#each suggestedIds as suggestion (suggestion.technologyId)}
+                <li>
+                  <label
+                    class="flex cursor-pointer items-center gap-3 rounded-xl border border-brand-500/30 bg-brand-500/5 px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      class="k-checkbox"
+                      name={suggestion.custom ? 'custom' : 'technology'}
+                      value={suggestion.custom
+                        ? customFieldValue(suggestion.custom)
+                        : suggestion.technologyId}
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-fg">{suggestion.name}</span>
+                      <span class="block truncate text-xs text-fg-subtle">
+                        {$_(
+                          suggestion.services === 1
+                            ? 'org.cves.feed.modal.suggestionReasonOne'
+                            : 'org.cves.feed.modal.suggestionReasonMany',
+                          { values: { package: suggestion.package, count: suggestion.services } },
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        </aside>
+      {/if}
+      <section class="order-3 space-y-3 md:order-none" aria-labelledby="{formId}-custom">
         <div>
           <h3 id="{formId}-custom" class="text-sm font-semibold text-white">
             {$_('org.cves.feed.modal.custom')}
@@ -258,16 +250,15 @@
           </Field>
         </div>
       </section>
-    </div>
-
-    <div class={suggestedIds.length > 0 ? 'order-3 md:col-start-2 md:row-start-2' : ''}>
-      {@render settings(suggestedIds.length > 0 ? 'grid gap-4' : 'grid gap-4 sm:grid-cols-2')}
+      <div class="order-4 md:order-none">
+        {@render settings('grid gap-4 sm:grid-cols-2')}
+      </div>
     </div>
   </div>
 </form>
 
 {#snippet settings(layout: string)}
-  <section class="space-y-3 {suggestedIds.length > 0 ? 'border-t border-white/8 pt-5' : ''}">
+  <section class="space-y-3 border-t border-white/8 pt-5">
     <div class={layout}>
       <Field
         label={$_('org.cves.feed.modal.minSeverity')}

@@ -23,7 +23,7 @@
     title: string;
     description?: string;
     /** Ancho del panel. */
-    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
     /** `right` lo convierte en un drawer lateral. */
     placement?: 'center' | 'right';
     /** `alertdialog` para confirmaciones destructivas. */
@@ -67,10 +67,12 @@
       md: 'max-w-lg',
       lg: 'max-w-2xl',
       xl: 'max-w-4xl',
-      '2xl': 'max-w-6xl',
+      full: 'max-w-none',
     },
-    right: { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', xl: 'max-w-3xl', '2xl': 'max-w-5xl' },
+    right: { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', xl: 'max-w-3xl', full: 'max-w-[90vw]' },
   };
+
+  const fullCenter = 'w-[calc(100vw-2rem)] sm:w-[calc(100vw-4rem)] max-h-[90vh]';
 
   function panelTransition(node: Element) {
     return placement === 'center'
@@ -87,7 +89,7 @@
 
 {#if open}
   <div
-    class="fixed inset-0 z-50 {placement === 'center' ? 'grid place-items-center p-4' : ''}"
+    class="fixed inset-0 z-50 {placement === 'center' ? size === 'full' ? 'grid place-items-center p-4 sm:p-8' : 'grid place-items-center p-4' : ''}"
     use:scrollLock
     use:overlayLayer={close}
   >
@@ -102,7 +104,7 @@
 
     <div
       class={placement === 'center'
-        ? `k-popover relative flex max-h-[85vh] w-full flex-col overflow-hidden outline-none ${widths.center[size]}`
+        ? `k-popover relative flex flex-col overflow-hidden outline-none ${size === 'full' ? fullCenter : 'max-h-[85vh] w-full'} ${widths.center[size]}`
         : `absolute inset-y-0 right-0 flex w-full flex-col border-l border-white/10 bg-ink-900 shadow-2xl outline-none ${widths.right[size]}`}
       {role}
       aria-modal="true"

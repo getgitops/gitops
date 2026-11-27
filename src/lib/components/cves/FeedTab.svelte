@@ -497,7 +497,7 @@
 {#if feed.canUpdate}
   <Modal
     bind:open
-    size="2xl"
+    size="full"
     dismissible={!saving}
     title={$_('org.cves.feed.modal.title')}
     description={$_('org.cves.feed.modal.description')}
