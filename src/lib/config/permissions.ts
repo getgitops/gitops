@@ -73,6 +73,24 @@ const permissions = {
           resource: 'notifications',
           permissions: grantsFor('organization', 'notifications'),
         },
+        // State IaC (/org/<org>/settings/state-iac): the buckets with the IaC state and which
+        // GitOps project sees each Pulumi project. `stacks:read` sees every stack, assigned or not
+        stateiac: {
+          resource: 'stateiac',
+          sections: {
+            backends: {
+              resource: 'backends',
+              permissions: grantsFor('organization:stateiac', 'backends', ['test']),
+            },
+            stacks: {
+              resource: 'stacks',
+              permissions: [
+                'organization:stateiac:stacks:read',
+                'organization:stateiac:stacks:all',
+              ],
+            },
+          },
+        },
       },
     },
     project: {

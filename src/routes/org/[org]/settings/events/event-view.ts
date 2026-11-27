@@ -14,6 +14,7 @@ export const EVENT_MODULES: readonly EventModule[] = [
   'organization',
   'access',
   'notifications',
+  'state_iac',
 ];
 
 export type EventStatusFilter = 'all' | 'pending' | 'acked';

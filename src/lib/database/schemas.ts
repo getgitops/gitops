@@ -475,6 +475,48 @@ export const SlackWorkspaceEntity = entity('slack_workspaces', {
   /** Language of the command replies (`es` | `en`). */
   locale: text(),
   installedByUserId: uuid().notNull(),
+    createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+// State IaC (docs/adr/0003-state-iac.md): only configuration, the states stay in the buckets
+export const StateBackendEntity = entity('state_backends', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  name: text().notNull(),
+  engine: text().notNull().default('pulumi'),
+  provider: text().notNull(),
+  bucket: text().notNull(),
+  prefix: text(),
+  region: text(),
+  endpoint: text(),
+  forcePathStyle: bool().notNull().default(false),
+  auth: text().notNull().default('ambient'),
+  // encrypted JSON (GITDB_ENCRYPTION_KEY, AAD = backend id): never returned by the API
+  credentials: text(),
+  enabled: bool().notNull().default(true),
+  lastScanAt: timestamp(),
+  lastError: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const StateBindingEntity = entity('state_bindings', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  backendId: uuid().notNull(),
+  pulumiProject: text().notNull(),
+  stacks: json()
+    .notNull()
+    .$defaultFn(() => []),
+  projectId: uuid().notNull(),
   createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

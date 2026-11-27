@@ -1,0 +1,6 @@
+{
+    "version": 0,
+    "checkpoint": {
+        "stack": "organization/gitops-infra/dev"
+    }
+}

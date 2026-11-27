@@ -4,6 +4,7 @@ import { apiKeysService, authService, cancanService, ensureAuthReady } from '#mo
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { registerAlertEngine } from '#modules/alerts';
+import { registerStateIac } from '#modules/state-iac';
 import { getMonitoringConfig, startMonitoring } from '#modules/monitoring';
 import {
   isInternalMonitoringRequest,
@@ -35,6 +36,8 @@ const serverReady = (async () => {
   await ensureAuthReady();
   // once per process (HMR-safe): system notifications and alerts on every published event
   registerAlertEngine();
+  // State IaC bindings follow the projects they point at
+  registerStateIac();
   await refreshBootstrapState();
   markServerReady();
   // monitoring needs GitDB; if its repository or runtime can't start, the rest of the app still does

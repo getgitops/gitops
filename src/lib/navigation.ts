@@ -56,6 +56,7 @@ export type NavAccess = {
   canReadOrgAudit?: boolean;
   canReadOrgEvents?: boolean;
   canReadOrganizationAlerts?: boolean;
+  canReadOrgStateIac?: boolean;
   canReadProjectInfo?: boolean;
   canReadProjectUsers?: boolean;
   canReadProjectRoles?: boolean;
@@ -337,6 +338,12 @@ export function buildNavigation(
           href: `${orgBase}/alerts`,
           icon: BellRing,
           visible: access.canReadOrganizationAlerts,
+        },
+        {
+          label: t('sidebar.items.stateIac'),
+          href: `${orgBase}/state-iac`,
+          icon: Layers,
+          visible: access.canReadOrgStateIac,
         },
       ]);
       if (items.length > 0) {

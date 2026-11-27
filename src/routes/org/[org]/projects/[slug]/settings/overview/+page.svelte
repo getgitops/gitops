@@ -70,6 +70,7 @@
       editDescription !== (project.description ?? '') ||
       Boolean(editModules.vault) !== Boolean(project.modules.vault) ||
       Boolean(editModules.codereport) !== Boolean(project.modules.codereport) ||
+      Boolean(editModules.stateiac) !== Boolean(project.modules.stateiac) ||
       Boolean(editModules.monitoring) !== Boolean(project.modules.monitoring),
   );
 
@@ -118,7 +119,6 @@
       description: $_('projectSettings.overview.moduleStateIac'),
       icon: GitBranch,
       href: `${projectBase}/state-iac`,
-      soon: true,
     },
   ]);
 
@@ -217,7 +217,7 @@
     <input type="hidden" name="id" value={project.id} />
     <input type="hidden" name="moduleVault" value={editModules.vault ? 'on' : ''} />
     <input type="hidden" name="moduleCodeReport" value={editModules.codereport ? 'on' : ''} />
-    <input type="hidden" name="moduleStateIac" value="" />
+    <input type="hidden" name="moduleStateIac" value={editModules.stateiac ? 'on' : ''} />
     <input type="hidden" name="moduleMonitoring" value={editModules.monitoring ? 'on' : ''} />
 
     <!-- General -->

@@ -33,7 +33,14 @@ export type FieldReference =
   | 'monitor';
 
 export type EventModule =
-  'code_report' | 'vault' | 'projects' | 'organization' | 'access' | 'monitoring' | 'notifications';
+  | 'code_report'
+  | 'vault'
+  | 'projects'
+  | 'organization'
+  | 'access'
+  | 'monitoring'
+  | 'notifications'
+  | 'state_iac';
 
 export type EventDefinitionScope = 'organization' | 'project';
 
