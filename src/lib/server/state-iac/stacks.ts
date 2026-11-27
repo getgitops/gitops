@@ -65,6 +65,19 @@ export async function resolveStackScope(ids: {
   return { ok: true, status: 200, data: { scope: 'organization', organizationId } };
 }
 
+/** `stacks:read` (the list and the summaries). */
+export async function canReadStacks(locals: AlertLocals, scope: StackScope): Promise<boolean> {
+  return can(locals, scope, 'stacks');
+}
+
+/** Whether the project may see this stack, from its bindings only (no bucket read). */
+export async function projectCoversStack(
+  projectId: string,
+  stack?: { backendId: string; project: string; stack: string },
+): Promise<boolean> {
+  return stateIacService.projectCovers(projectId, stack);
+}
+
 export async function canReadStates(locals: AlertLocals, scope: StackScope): Promise<boolean> {
   return can(locals, scope, 'states');
 }

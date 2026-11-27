@@ -56,7 +56,6 @@ export type NavAccess = {
   canReadOrgEvents?: boolean;
   canReadOrganizationAlerts?: boolean;
   canReadOrgStateIac?: boolean;
-  canReadOrgStateIacStacks?: boolean;
   canReadProjectInfo?: boolean;
   canReadProjectUsers?: boolean;
   canReadProjectRoles?: boolean;
@@ -282,23 +281,6 @@ export function buildNavigation(
         ],
       },
     );
-
-    // every stack of the organization's backends, assigned or not
-    if (access.canReadOrgStateIacStacks) {
-      orgModules.push({
-        id: 'org-state-iac',
-        name: t('sidebar.modules.stateIac'),
-        icon: GitBranch,
-        base: `/org/${organizationSlug}/state-iac`,
-        items: [
-          {
-            label: t('sidebar.modules.stateIac'),
-            href: `/org/${organizationSlug}/state-iac`,
-            icon: GitBranch,
-          },
-        ],
-      });
-    }
 
     if (access.canManageOrganization) {
       const items = visibleItems([

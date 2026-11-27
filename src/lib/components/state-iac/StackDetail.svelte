@@ -27,7 +27,6 @@
     /** Historial de updates (`project:stateiac:history:read`). */
     canReadHistory?: boolean;
     backHref: string;
-    projectName?: string | null;
     /** `/api/state-iac/stacks/<backend>/<project>/<stack>` y `projectId=…|organizationId=…` */
     apiBase: string;
     scopeQuery: string;
@@ -42,7 +41,6 @@
     canReadStates,
     canReadHistory = false,
     backHref,
-    projectName = null,
     apiBase,
     scopeQuery,
     dashboard = null,
@@ -183,9 +181,6 @@
           >
           · {detail.backend.name}
           <span class="font-mono text-xs text-fg-subtle">{detail.backend.location}</span>
-          {#if projectName}· {$_('stateIac.stacks.assignedTo', {
-              values: { project: projectName },
-            })}{/if}
         </p>
       </div>
       <button type="button" class="k-btn k-btn-secondary" onclick={refresh} disabled={refreshing}>

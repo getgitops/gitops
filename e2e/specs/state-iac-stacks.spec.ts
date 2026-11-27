@@ -68,6 +68,26 @@ test.describe('state iac stacks — project view', () => {
     await expect(page.getByTestId('stack-history')).toBeVisible();
   });
 
+  test('the page streams: skeleton first, then the real dashboard', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    // the document answers as soon as permissions and bindings are decided
+    await page.goto(prod, { waitUntil: 'commit' });
+    const kpi = page.getByTestId('kpi-health');
+    await expect(kpi).toContainText('Salud');
+    await expect(page.getByTestId('state-iac-skeleton')).toHaveCount(0);
+  });
+
+  test('a stack assigned to the project but missing in the bucket is a not-found state', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('projectAdmin');
+    // the binding covers every stack of acme-infra, so the page answers and the stream says it is gone
+    const response = await page.goto(`${projectA}?stack=${backend}/acme-infra/ghost`);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByTestId('stack-not-found')).toBeVisible();
+  });
+
   test('the stack selector switches to staging', async ({ page, loginAs }) => {
     await loginAs('projectAdmin');
     await expectAllowed(page, projectA);
@@ -177,26 +197,39 @@ test.describe('state iac stacks — API scoping', () => {
   });
 });
 
-test.describe('state iac stacks — organization view', () => {
-  test('the organization sees every stack with its assigned project', async ({ page, loginAs }) => {
+test.describe('state iac stacks — organization API', () => {
+  test('the organization lists every stack through the API, with its assigned project', async ({
+    page,
+    loginAs,
+  }) => {
     await loginAs('orgAdmin');
-    await expectAllowed(page, `/org/${org}/state-iac`);
-    const staging = page.locator('tr[data-stack="acme-infra/staging"]');
-    await expect(page.locator('tr[data-stack="acme-infra/prod"]')).toContainText(
-      'E2E Primary Project',
+    const response = await page.request.get(`${api}?organizationId=${seed.primaryOrgId}`);
+    expect(response.status()).toBe(200);
+    const body = (await response.json()) as {
+      backends: {
+        stacks: { ref: { project: string; stack: string }; assignedProjectId: string | null }[];
+      }[];
+    };
+    const stacks = body.backends.flatMap((b) => b.stacks);
+    const names = stacks.map((s) => `${s.ref.project}/${s.ref.stack}`);
+    expect(names).toEqual(
+      expect.arrayContaining(['acme-infra/prod', 'acme-infra/staging', 'acme-platform/dev']),
     );
-    await expect(page.locator('tr[data-stack="acme-platform/dev"]')).toContainText(
-      'E2E Secondary Project',
+    expect(stacks.find((s) => s.ref.stack === 'prod')?.assignedProjectId).toBe(
+      seed.primaryProjectId,
     );
-    await expect(staging).toBeVisible();
+    const platform = stacks.find((s) => s.ref.stack === 'dev')?.assignedProjectId;
+    expect(platform).toBeTruthy();
+    expect(platform).not.toBe(seed.primaryProjectId);
   });
 
-  test('without organization:stateiac:stacks:read the organization view is denied', async ({
+  test('without organization:stateiac:stacks:read the organization listing is denied', async ({
     page,
     loginAs,
   }) => {
     await loginAs('orgDeveloper');
-    await expectDenied(page, `/org/${org}/state-iac`);
+    const response = await page.request.get(`${api}?organizationId=${seed.primaryOrgId}`);
+    expect(response.status()).toBe(403);
   });
 });
 
@@ -227,6 +260,24 @@ test.describe('state iac stacks — history and changes', () => {
     await expect(sql).toHaveAttribute('data-change', 'update');
     await sql.getByRole('button').first().click();
     await expect(sql).toContainText('inputs.publicIp');
+  });
+
+  test('shows skeleton rows while the history loads and not after', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await page.route('**/history?*', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await route.continue();
+    });
+    await expectAllowed(page, prod);
+    await page.waitForLoadState('networkidle');
+    await page
+      .getByRole('tablist', { name: tabsLabel })
+      .getByRole('tab', { name: 'Historial' })
+      .click();
+    const skeleton = page.getByTestId('state-iac-skeleton');
+    await expect(skeleton).toBeVisible();
+    await expect(page.getByTestId('stack-history').locator('li[data-update-id]')).toHaveCount(4);
+    await expect(skeleton).toHaveCount(0);
   });
 
   test('a replace between two chosen versions', async ({ page, loginAs }) => {

@@ -41,7 +41,6 @@ Password recovery: `/auth/recover-password` accepts an email and, via `passwordR
 token stored on the user) without revealing whether the address is registered. The link lands on
 `/auth/reset-password?token=...`, which sets a new password and redirects back to `/auth/login`.
 
-
 The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented features.
 
 ## Stack and commands
@@ -214,7 +213,7 @@ that turns checkpoints and history into the normalized model in `domain/iac.mode
 replaced by `{ $iac: 'secret' }` while parsing (`pulumi-state.ts`), and `secrets_providers`, emails
 and local paths never leave it. A project sees only the stacks its bindings cover (any other stack
 is a 404) with `project:stateiac:stacks:read`, and resources/outputs need `project:stateiac:states:read`;
-`/org/<org>/state-iac` shows every stack with `organization:stateiac:stacks:read`. Listings are cached
+the project page `/org/<org>/projects/<slug>/state-iac` is a per-stack dashboard (`?stack=<backend>/<project>/<stack>`). The organization has no stacks page for now, but `GET /api/state-iac/stacks?organizationId=` lists every stack with `organization:stateiac:stacks:read`. Listings are cached
 for `STATE_IAC_CACHE_SECONDS` and states by object version, so an unchanged state is read once;
 `?refresh=1` skips the cache. States over `STATE_IAC_MAX_STATE_MB` fail with `too_large`. In e2e the
 dev server reads the fixtures through a local S3 endpoint (`e2e/fixtures/fake-s3.ts`, seeded backend
@@ -485,6 +484,7 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
+
 - **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
 - **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`
 
@@ -493,6 +493,7 @@ This ensures the UI only displays navigation items for sections the user has per
 Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
 Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
+
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
 - **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts, notifications

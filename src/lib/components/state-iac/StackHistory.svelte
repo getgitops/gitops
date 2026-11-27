@@ -7,6 +7,7 @@
   import { CircleCheck, CircleX, GitCommitHorizontal, LoaderCircle, Clock } from '@lucide/svelte';
   import { toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
+  import StateIacSkeleton from './StateIacSkeleton.svelte';
   import type { IacHistoryPageView } from '#lib/state-iac/types';
 
   type Props = {
@@ -56,7 +57,7 @@
 
 <div class="space-y-3" data-testid="stack-history">
   {#if !loaded && loading}
-    <p class="text-sm text-fg-subtle">{$_('stateIac.history.loading')}</p>
+    <StateIacSkeleton variant="rows" />
   {:else if loaded && updates.length === 0}
     <p class="k-card border-dashed px-4 py-6 text-center text-sm text-fg-muted">
       {$_('stateIac.history.empty')}

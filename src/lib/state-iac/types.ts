@@ -145,11 +145,6 @@ export type StackDetailView = {
 /** URL token of a legacy stack whose project is unknown. */
 export const UNKNOWN_PROJECT = '~';
 
-/** `<base>/<backendId>/<project|~>/<stack>` */
-export function stackPath(base: string, ref: StackSummaryView['ref']): string {
-  return `${base}/${ref.backendId}/${encodeURIComponent(ref.project ?? UNKNOWN_PROJECT)}/${encodeURIComponent(ref.stack)}`;
-}
-
 export function isSpecial(value: unknown): value is Extract<IacValue, { $iac: string }> {
   return (
     Boolean(value) &&
@@ -245,3 +240,29 @@ export function parseStackKey(
     return null;
   }
 }
+
+/** Streamed with the project page: the stack list, which stack is selected and the warnings. */
+export type StackListing =
+  | { kind: 'empty' }
+  | { kind: 'notfound' }
+  | { kind: 'error'; code: string }
+  | {
+      kind: 'ready';
+      environments: EnvironmentView[];
+      selectedKey: string;
+      backend: { id: string; name: string; location: string; lastError: string | null };
+      locked: boolean;
+      warnings: EnvironmentWarningView[];
+    };
+
+/** Streamed after the listing: the selected stack's detail and dashboard. */
+export type StackPanel =
+  | { kind: 'none' }
+  | { kind: 'error'; code: string }
+  | {
+      kind: 'ready';
+      detail: StackDetailView;
+      dashboard: StackDashboardView;
+      apiBase: string;
+      scopeQuery: string;
+    };

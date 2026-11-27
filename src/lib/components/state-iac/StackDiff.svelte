@@ -9,6 +9,7 @@
   import { _ } from '#lib/i18n';
   import type { DiffOutcomeView, IacSnapshotSourceView } from '#lib/state-iac/types';
   import IacValue from './IacValue.svelte';
+  import StateIacSkeleton from './StateIacSkeleton.svelte';
 
   type Props = {
     apiBase: string;
@@ -117,7 +118,7 @@
   {/if}
 
   {#if !outcome && loading}
-    <p class="text-sm text-fg-subtle">{$_('stateIac.diff.loading')}</p>
+    <StateIacSkeleton variant="rows" rows={3} />
   {:else if outcome && !diff}
     <div class="k-card space-y-2 p-4 text-sm" data-testid="diff-unavailable">
       <p class="flex items-start gap-2 text-fg-muted">

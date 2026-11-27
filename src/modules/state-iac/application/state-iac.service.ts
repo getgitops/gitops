@@ -150,6 +150,25 @@ export class StateIacService {
     return groups;
   }
 
+  /**
+   * Whether a stack is assigned to the project (its bindings only: no bucket is read). `stack`
+   * omitted: whether the project has any binding at all.
+   */
+  async projectCovers(
+    projectId: string,
+    stack?: { backendId: string; project: string; stack: string },
+  ): Promise<boolean> {
+    const bindings = await this.bindings.listByProject(projectId);
+    if (!stack) return bindings.length > 0;
+    const project = stack.project === UNKNOWN_PROJECT ? null : stack.project;
+    return bindings.some(
+      (binding) =>
+        binding.backendId === stack.backendId &&
+        binding.pulumiProject === project &&
+        binding.covers(stack.stack),
+    );
+  }
+
   /** A stack seen from a project: `null` (404) unless it is assigned to that project. */
   async getProjectStack(
     projectId: string,

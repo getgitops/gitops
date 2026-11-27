@@ -2353,7 +2353,6 @@
       "toggle": "Proyectos de Pulumi y asignaciones",
       "title": "Proyectos de Pulumi",
       "refresh": "Actualizar",
-      "loading": "Leyendo el bucket…",
       "loadFailed": "No se pudieron cargar los proyectos",
       "empty": "No hay stacks de Pulumi en este bucket.",
       "legacyNotice": "Layout legacy: el proyecto de cada stack se deduce de sus recursos.",
@@ -2404,26 +2403,13 @@
       "state_missing": "El fichero de estado ha desaparecido; refresca"
     },
     "stacks": {
-      "search": "Buscar stack, proyecto o backend",
       "refresh": "Refrescar",
-      "backendFailed": "No se pudo leer este backend: {error}",
-      "noMatches": "Ningún stack coincide con la búsqueda.",
-      "backendEmpty": "No hay stacks en este backend.",
-      "stack": "Stack",
       "resources": "Recursos",
       "lastUpdate": "Último update",
-      "assignedProject": "Proyecto asignado",
-      "lockedSince": "Operación en curso desde {date}",
       "locked": "En curso",
-      "pending": "{count} operaciones pendientes",
-      "count": "{count} stacks",
       "projectDescription": "Stacks de Pulumi asignados a este proyecto. GitOps solo lee el estado del bucket.",
       "emptyTitle": "No hay stacks asignados a este proyecto",
-      "emptyDescription": "Los backends y las asignaciones se configuran en los ajustes de la organización (State IaC). Pide a un administrador que asigne aquí los proyectos de Pulumi.",
-      "organizationTitle": "State IaC",
-      "organizationDescription": "Todos los stacks de los backends de la organización, asignados o no a un proyecto.",
-      "manageBackends": "Gestionar backends",
-      "assignedTo": "asignado a {project}"
+      "emptyDescription": "Los backends y las asignaciones se configuran en los ajustes de la organización (State IaC). Pide a un administrador que asigne aquí los proyectos de Pulumi."
     },
     "kinds": {
       "update": "Update",
@@ -2467,7 +2453,6 @@
     },
     "history": {
       "title": "Historial",
-      "loading": "Leyendo el historial…",
       "loadFailed": "No se pudo cargar el historial",
       "empty": "Este stack no tiene historial de updates.",
       "took": "duró {duration}",
@@ -2485,7 +2470,6 @@
     },
     "diff": {
       "title": "Cambios",
-      "loading": "Comparando versiones…",
       "loadFailed": "No se pudo calcular el diff",
       "from": "Desde",
       "to": "Hasta",
@@ -2587,7 +2571,10 @@
         "staleLock": "{stack} tiene un lock activo desde {when}",
         "pending": "{count} recursos pendientes de reemplazo o borrado en este stack"
       },
-      "missingPermissions": "Para ver el resto del resumen hacen falta los permisos project:stateiac:history:read y project:stateiac:states:read."
+      "missingPermissions": "Para ver el resto del resumen hacen falta los permisos project:stateiac:history:read y project:stateiac:states:read.",
+      "notFoundTitle": "Este stack no está en el bucket",
+      "notFoundDescription": "Está asignado al proyecto, pero ya no aparece en el backend. Puede haberse borrado o renombrado.",
+      "backToStacks": "Volver a los stacks"
     }
   }
 }

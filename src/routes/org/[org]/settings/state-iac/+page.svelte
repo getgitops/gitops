@@ -148,12 +148,14 @@
       <h1 class="text-2xl font-semibold text-white">{$_('stateIac.settings.title')}</h1>
       <p class="mt-1 max-w-2xl text-sm text-fg-muted">{$_('stateIac.settings.description')}</p>
     </div>
-    {#if data.canCreate}
-      <button type="button" class="k-btn k-btn-primary" onclick={openCreate}>
-        <Plus class="h-4 w-4" />
-        {$_('stateIac.backends.create')}
-      </button>
-    {/if}
+    <div class="flex flex-wrap items-center gap-2">
+      {#if data.canCreate}
+        <button type="button" class="k-btn k-btn-primary" onclick={openCreate}>
+          <Plus class="h-4 w-4" />
+          {$_('stateIac.backends.create')}
+        </button>
+      {/if}
+    </div>
   </header>
 
   {#if data.backends.length === 0}

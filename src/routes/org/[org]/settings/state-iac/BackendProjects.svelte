@@ -8,6 +8,7 @@
   import { AlertTriangle, LoaderCircle, RefreshCw, Trash2 } from '@lucide/svelte';
   import { Select, toast } from '#lib/components/ui';
   import { _ } from '#lib/i18n';
+  import StateIacSkeleton from '#lib/components/state-iac/StateIacSkeleton.svelte';
   import type { BackendProjectsResponse, ProjectOption } from './types';
 
   type Props = { backendId: string; projects: ProjectOption[]; canUpdate: boolean };
@@ -98,7 +99,7 @@
   </div>
 
   {#if !result && loading}
-    <p class="text-xs text-fg-subtle">{$_('stateIac.projects.loading')}</p>
+    <StateIacSkeleton variant="rows" rows={2} />
   {:else if result}
     {#if !result.ok}
       <p
