@@ -1,4 +1,4 @@
-export type NotificationChannel = 'mail' | 'slack';
+export type NotificationChannel = 'mail' | 'slack' | 'google-chat' | 'webhook';
 
 export abstract class Notification {
   abstract readonly channel: NotificationChannel;

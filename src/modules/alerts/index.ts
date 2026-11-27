@@ -1,4 +1,4 @@
-import { eventBus } from '#lib/server/events';
+import { eventBus, type Unsubscribe } from '#lib/server/events';
 import {
   isSmtpConfigured,
   mailQueue,
@@ -8,15 +8,22 @@ import {
 import { createLogger } from '#lib/server/logger';
 import { cancanService, roleService, userAccessService, apiKeysService } from '../auth';
 import { codeReportSecurityPolicyService, codeReportService } from '../code-report';
+import {
+  externalRecipientService,
+  notificationChannelService,
+  registerChannelShutdown,
+} from '../notifications';
 import { organizationService } from '../organization';
 import { projectService } from '../projects';
 import { vaultService } from '../vault';
 import { monitorService } from '../monitoring';
-import { AlertEngine } from './application/alert-engine';
+import { AlertEngine, type AlertEngineOptions } from './application/alert-engine';
 import { AlertService } from './application/alert.service';
 import { AlertThrottle } from './application/alert-throttle';
 import { RecipientResolver } from './application/recipient-resolver';
 import { AlertMailNotifier } from './infrastructure/alert-mail.notifier';
+import { buildAlertChannelMessage } from './infrastructure/alert-channel-message';
+import type { NotificationChannelsPort } from './application/types';
 import { PlatformDirectory } from './infrastructure/platform-directory';
 import { AlertRepository } from './infrastructure/repositories/alert.repository';
 
@@ -40,38 +47,114 @@ const recipientResolver = new RecipientResolver(alertDirectory, (userId, permiss
   cancanService.can(userId, permission, context),
 );
 
+const alertChannels: NotificationChannelsPort = {
+  async listUsable(location) {
+    const channels = await notificationChannelService.listUsable(location);
+    return channels.map((channel) => ({
+      id: channel.id,
+      name: channel.name,
+      type: channel.type,
+      scope: channel.scope,
+      enabled: channel.enabled,
+    }));
+  },
+  deliver: (channelId, message, context) =>
+    notificationChannelService.deliver(channelId, message, context),
+};
+
 const ENGINE_KEY = Symbol.for('gitops.alerts.engine');
-type GlobalWithEngine = typeof globalThis & {
-  [ENGINE_KEY]?: { engine: AlertEngine; attached: boolean };
+type EngineDependencies = Pick<
+  AlertEngineOptions,
+  | 'repository'
+  | 'directory'
+  | 'recipients'
+  | 'externalRecipients'
+  | 'notifier'
+  | 'channels'
+  | 'channelMessage'
+>;
+const ENGINE_WIRING = 3;
+
+type EngineSlot = {
+  engine: AlertEngine | null;
+  wiring?: number;
+  throttle: AlertThrottle;
+  detach: Unsubscribe | null;
+  attached: boolean;
+  dependencies: EngineDependencies;
+};
+type GlobalWithEngine = typeof globalThis & { [ENGINE_KEY]?: EngineSlot };
+
+function latest<T extends object>(get: () => T): T {
+  return new Proxy({} as T, {
+    get(_target, property) {
+      const target = get();
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+const dependencies: EngineDependencies = {
+  repository: alertRepository,
+  directory: alertDirectory,
+  recipients: recipientResolver,
+  externalRecipients: externalRecipientService,
+  notifier: new AlertMailNotifier(mailQueue),
+  channels: alertChannels,
+  channelMessage: buildAlertChannelMessage,
 };
 
 // one engine per process: HMR re-evaluating this module must not subscribe a second one, and the
 // throttle windows must survive it
-const engineSlot = ((globalThis as GlobalWithEngine)[ENGINE_KEY] ??= {
-  engine: new AlertEngine({
-    repository: alertRepository,
-    directory: alertDirectory,
-    recipients: recipientResolver,
-    notifier: new AlertMailNotifier(mailQueue),
-    throttle: new AlertThrottle(),
+const engineSlot: EngineSlot = ((globalThis as GlobalWithEngine)[ENGINE_KEY] ??= {
+  engine: null,
+  throttle: new AlertThrottle(),
+  detach: null,
+  attached: false,
+  dependencies,
+});
+engineSlot.dependencies = dependencies;
+engineSlot.throttle ??= new AlertThrottle();
+
+function createEngine(): AlertEngine {
+  return new AlertEngine({
+    repository: latest(() => engineSlot.dependencies.repository),
+    directory: latest(() => engineSlot.dependencies.directory),
+    recipients: latest(() => engineSlot.dependencies.recipients),
+    externalRecipients: latest(() => engineSlot.dependencies.externalRecipients!),
+    notifier: latest(() => engineSlot.dependencies.notifier),
+    channels: latest(() => engineSlot.dependencies.channels!),
+    channelMessage: (input) => engineSlot.dependencies.channelMessage!(input),
+    throttle: engineSlot.throttle,
     logger: log,
     // without SMTP there is nobody to tell: skip the work instead of logging a failure per event
     deliveryEnabled: () => isMailConfigured(),
-  }),
-  attached: false,
-});
+  });
+}
 
-export const alertEngine = engineSlot.engine;
+if (!(engineSlot.engine instanceof AlertEngine) || engineSlot.wiring !== ENGINE_WIRING) {
+  engineSlot.detach?.();
+  engineSlot.engine = createEngine();
+  engineSlot.wiring = ENGINE_WIRING;
+  engineSlot.detach = engineSlot.attached ? engineSlot.engine.attach(eventBus) : null;
+}
+
+export const alertEngine: AlertEngine = engineSlot.engine;
 
 export const alertService = new AlertService(alertRepository, alertDirectory, {
   onChange: () => alertEngine.invalidate(),
+  externalRecipients: externalRecipientService,
+  channels: alertChannels,
+  logger: log,
 });
 
 /** Subscribes the alert engine to the bus once per process (`hooks.server.ts`). */
 export function registerAlertEngine(): void {
   if (engineSlot.attached) return;
-  alertEngine.attach(eventBus);
+  engineSlot.detach = alertEngine.attach(eventBus);
   registerMailShutdown();
+  registerChannelShutdown();
   engineSlot.attached = true;
   log.info('[alerts] engine registered');
 

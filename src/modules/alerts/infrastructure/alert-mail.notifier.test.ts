@@ -48,7 +48,7 @@ function analysisEvent(): AnyDomainEvent {
 
 function alertEmail(overrides: Partial<AlertEmail> = {}): AlertEmail {
   return {
-    recipient: { userId: 'u1', username: 'ana', email: 'ana@example.com' },
+    recipient: { kind: 'member', userId: 'u1', username: 'ana', email: 'ana@example.com' },
     alert: { id: 'alert-1', name: 'Críticas en api-gateway', description: null, scope: 'project' },
     event: analysisEvent(),
     definition: getEventDefinition('code_report.analysis.completed') as EventDefinition,
@@ -181,6 +181,90 @@ describe('AlertMailNotifier', () => {
       expect(html).toContain('in Kettu');
     });
 
+    it('sends external recipients a reduced email with an unsubscribe link', async () => {
+      const unsubscribeUrl = `${ORIGIN}/notifications/unsubscribe?token=v1.abc.def`;
+      await notifier.sendAlert(
+        alertEmail({
+          recipient: { kind: 'external', email: 'ana@partner.com', unsubscribeUrl },
+          alert: { id: 'alert-2', name: 'Secretos borrados', description: null, scope: 'project' },
+          event: {
+            id: 'event-3',
+            type: 'vault.secret.deleted',
+            occurredAt: '2026-11-20T10:00:00.000Z',
+            actor: { kind: 'user', userId: 'u2' },
+            scope: { organizationId: 'org-1', projectId: 'p1' },
+            payload: {
+              secretId: 's1',
+              key: 'DB_PASSWORD',
+              folderId: null,
+              folderPath: '/payments',
+              environmentIds: ['env-prod'],
+            },
+          },
+          definition: getEventDefinition('vault.secret.deleted') as EventDefinition,
+          names: new Map([['env-prod', 'Production']]),
+        }),
+      );
+
+      const mail = sender.last;
+      expectClean(mail.content);
+      expect(mail.to).toEqual(['ana@partner.com']);
+      expect(mail.headers).toEqual({ 'List-Unsubscribe': `<${unsubscribeUrl}>` });
+      expect(mail.content).toContain('<html lang="en">');
+      expect(mail.content).toContain('Production');
+      expect(mail.content).not.toContain('DB_PASSWORD');
+      expect(mail.content).not.toContain('/payments');
+      expect(mail.content).not.toContain(`${ORIGIN}/org/`);
+      expect(mail.content).toContain(`href="${unsubscribeUrl}"`);
+      expect(mail.content).toContain('Kettu added your address to the alert “Secretos borrados”');
+      expect(sender.sent[0].context).toMatchObject({ kind: 'alert_external' });
+    });
+
+    it('uses the generic template for external recipients of analysis alerts', async () => {
+      await notifier.sendAlert(
+        alertEmail({
+          recipient: {
+            kind: 'external',
+            email: 'ana@partner.com',
+            unsubscribeUrl: `${ORIGIN}/notifications/unsubscribe?token=t`,
+          },
+        }),
+      );
+      expect(sender.last.content).toContain('data-fields');
+      expect(sender.last.content).not.toContain('data-severities');
+      expect(sender.last.content).not.toContain('code-report/history');
+    });
+
+    it('throws when the queue gives up, so the engine counts the email as failed', async () => {
+      const failing = new AlertMailNotifier({ enqueue: async () => false });
+      await expect(failing.sendAlert(alertEmail())).rejects.toThrow('Email could not be sent');
+    });
+
+    it('still sends when the event payload lacks what the summary reads', async () => {
+      await notifier.sendAlert(alertEmail({ event: { ...analysisEvent(), payload: {} as never } }));
+      expect(sender.last.subject).toBe('[GitOps] Críticas en api-gateway: Analysis completed');
+      expectClean(sender.last.content);
+    });
+
+    it('marks test emails in the subject and the body', async () => {
+      await notifier.sendAlert(alertEmail({ test: true }));
+      expect(sender.last.subject).toBe(
+        '[Test] [GitOps] Críticas en api-gateway: 3 critical, 5 high (9 in total)',
+      );
+      expect(sender.last.content).toContain('This is a test email');
+      expect(sender.last.content).toContain(
+        `${ORIGIN}/org/kettu/projects/web/settings/alerts/alert-1`,
+      );
+
+      await notifier.sendAlert(
+        alertEmail({
+          test: true,
+          alert: { id: 'draft', name: 'Nueva', description: null, scope: 'project' },
+        }),
+      );
+      expect(sender.last.content).not.toContain('/settings/alerts/draft');
+    });
+
     it('leaves the links out without ORIGIN', async () => {
       delete process.env.ORIGIN;
       await notifier.sendAlert(alertEmail());
@@ -191,7 +275,13 @@ describe('AlertMailNotifier', () => {
     it('writes in the recipient language when known', async () => {
       await notifier.sendAlert(
         alertEmail({
-          recipient: { userId: 'u1', username: 'ana', email: 'ana@example.com', locale: 'es' },
+          recipient: {
+            kind: 'member',
+            userId: 'u1',
+            username: 'ana',
+            email: 'ana@example.com',
+            locale: 'es',
+          },
         }),
       );
       expect(sender.last.subject).toBe(

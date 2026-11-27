@@ -3,6 +3,7 @@
  * components (`#lib/components/alerts`). Type-only: safe to import from the client.
  */
 import type { EventDefinition, Operator } from '#lib/events/catalog';
+import type { ChannelsSectionData, NotificationSettingsPage } from '#lib/notifications/types';
 import type {
   AlertChannel,
   AlertRecipients,
@@ -38,9 +39,24 @@ export type AlertDraft = {
   eventType: string;
   match: 'all' | 'any';
   conditions: DraftCondition[];
-  channels: AlertChannel[];
   recipients: AlertRecipients;
+  channelIds: string[];
   throttleMinutes: number;
+};
+
+export type AlertChannelOption = {
+  id: string;
+  name: string;
+  type: string;
+  scope: 'organization' | 'project';
+  enabled: boolean;
+};
+
+export type ExternalRecipientsEditorData = {
+  canManage: boolean;
+  allowedDomains: string[];
+  statuses: Record<string, string>;
+  settingsPath: string | null;
 };
 
 type Shared = {
@@ -55,11 +71,16 @@ type Shared = {
    * organization ones, only to name the recipients of inherited alerts). */
   recipientUsers: AlertOption[];
   recipientRoles: AlertOption[];
+  channels: AlertChannelOption[];
   /** `false` when SMTP is not configured: alerts are saved but nothing is sent. */
   mailConfigured: boolean;
+  external: ExternalRecipientsEditorData;
 };
 
 export type AlertListData = Shared & {
+  settings: NotificationSettingsPage | null;
+  channelsSection: ChannelsSectionData | null;
+  configPath: string | null;
   alerts: AlertRow[];
   /** Organization alerts that also fire for this project (project pages only). */
   inherited: AlertRow[];
@@ -79,6 +100,9 @@ export type AlertTestView = {
   matched: boolean;
   recipients: Array<{ userId: string; username: string }>;
   deniedCount: number;
+  external: Array<{ email: string; status: string; delivers: boolean }>;
+  channels: Array<{ id: string; name: string; type: string; delivers: boolean }>;
+  delivery?: { sent: number; failed: number };
   event: { type: string; payload: Record<string, unknown>; projectId: string | null };
 };
 

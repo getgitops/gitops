@@ -15,6 +15,34 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.0',
+    date: '2026-11-27',
+    es: {
+      title: 'State IaC: el estado de Pulumi de tus proyectos',
+      summary:
+        'Nuevo módulo para ver los stacks de Pulumi que guardas en GCS o S3: recursos, outputs, historial de despliegues y qué cambió entre versiones.',
+      changes: [
+        'Backends de estado por organización (GCS, S3 y compatibles), en solo lectura y con credenciales cifradas.',
+        'Asigna cada proyecto de Pulumi a un proyecto de GitOps: cada proyecto ve solo sus stacks.',
+        'Dashboard por stack con salud, recursos, último despliegue, tasa de éxito y avisos.',
+        'Árbol de recursos con filtros, historial de despliegues y diff entre dos versiones del estado, sin revelar nunca los secretos.',
+        'Alertas: destinatarios de email externos con verificación y canales webhook firmados con HMAC.',
+      ],
+    },
+    en: {
+      title: 'State IaC: the Pulumi state of your projects',
+      summary:
+        'A new module to see the Pulumi stacks you keep in GCS or S3: resources, outputs, deployment history and what changed between versions.',
+      changes: [
+        'Organization state backends (GCS, S3 and compatible), read-only and with encrypted credentials.',
+        'Assign each Pulumi project to a GitOps project: every project only sees its own stacks.',
+        'Per-stack dashboard with health, resources, last deployment, success rate and warnings.',
+        'Resource tree with filters, deployment history and a diff between two versions of the state that never reveals secrets.',
+        'Alerts: verified external email recipients and HMAC-signed webhook channels.',
+      ],
+    },
+  },
+  {
     version: '1.4.0',
     date: '2026-11-24',
     es: {

@@ -37,6 +37,33 @@ function satisfying(field: EventFieldDefinition, condition: AlertCondition): unk
   }
 }
 
+function placeholder(field: EventFieldDefinition): unknown {
+  switch (field.type) {
+    case 'string':
+      return 'example';
+    case 'number':
+      return 0;
+    case 'boolean':
+      return false;
+    case 'enum':
+      return field.options?.[0]?.value;
+    case 'date':
+      return new Date().toISOString();
+    default:
+      return undefined;
+  }
+}
+
+function getPath(target: Record<string, unknown>, path: string): unknown {
+  return path
+    .split('.')
+    .reduce<unknown>(
+      (node, segment) =>
+        node && typeof node === 'object' ? (node as Record<string, unknown>)[segment] : undefined,
+      target,
+    );
+}
+
 function setPath(target: Record<string, unknown>, path: string, value: unknown) {
   const segments = path.split('.');
   let node = target;
@@ -54,11 +81,26 @@ function setPath(target: Record<string, unknown>, path: string, value: unknown) 
 export function buildSampleEvent(
   definition: EventDefinition,
   alert: { scope: AlertScope; conditions: readonly AlertCondition[] },
-  overrides: { payload?: Record<string, unknown>; projectId?: string | null } = {},
+  overrides: {
+    payload?: Record<string, unknown>;
+    projectId?: string | null;
+    complete?: boolean;
+  } = {},
 ): { payload: Record<string, unknown>; projectId: string | null } {
   const fields = listAlertFields(definition, alert.scope);
-  const payload: Record<string, unknown> = {};
+  const payload: Record<string, unknown> = overrides.complete
+    ? structuredClone((definition.samplePayload ?? {}) as Record<string, unknown>)
+    : {};
   let projectId: string | null = null;
+
+  if (overrides.complete) {
+    for (const field of fields) {
+      if (field.derive || isScopeField(field)) continue;
+      if (getPath(payload, field.key as string) !== undefined) continue;
+      const value = placeholder(field);
+      if (value !== undefined) setPath(payload, field.key as string, value);
+    }
+  }
 
   for (const condition of alert.conditions) {
     const field = fields.find((candidate) => candidate.key === condition.field);

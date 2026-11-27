@@ -2,7 +2,7 @@ import type { DomainEventMap, EventType } from '#lib/events/domain-events';
 
 /** Fixed notification kinds; the notifier turns each into a subject and a message. */
 export type SystemNotificationKind =
-  'access_granted' | 'access_updated' | 'access_revoked' | 'api_key_created';
+  'access_granted' | 'access_updated' | 'access_revoked' | 'api_key_created' | 'channel_disabled';
 
 export type SystemNotificationRule<K extends EventType = EventType> = {
   eventType: K;
@@ -15,7 +15,8 @@ type Rules = { [K in EventType]?: SystemNotificationRule<K> };
 
 /**
  * Notifications nobody configures: people hear about changes to their own access and about new
- * personal API keys. They never go to the user who caused the event (the engine skips the actor).
+ * personal API keys, and whoever created a notification channel hears when it disables itself
+ * after repeated failures. They never go to the user who caused the event (the engine skips the actor).
  *
  * Invitations (`status: 'invited'`) are skipped: the invitation email already tells the user.
  */
@@ -43,6 +44,11 @@ export const SYSTEM_NOTIFICATIONS: Rules = {
     kind: 'api_key_created',
     // project keys belong to a project, not to a person
     recipient: (payload) => (payload.projectId ? null : payload.userId),
+  },
+  'notifications.channel.disabled': {
+    eventType: 'notifications.channel.disabled',
+    kind: 'channel_disabled',
+    recipient: (payload) => payload.createdByUserId,
   },
 };
 

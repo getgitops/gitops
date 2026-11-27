@@ -1,0 +1,20 @@
+{
+    "version": 3,
+    "checkpoint": {
+        "stack": "organization/gitops-infra/dev",
+        "latest": {
+            "manifest": {
+                "time": "2026-09-02T14:28:25.276425+02:00",
+                "magic": "d356bec6413f613372e5158db9b9441f6f60fd81ed9a5e4980d2b8af2faf06fd",
+                "version": "v3.228.0"
+            },
+            "secrets_providers": {
+                "type": "passphrase",
+                "state": {
+                    "salt": "v1:XUTz2ix5:Zml4dHVyZS1jaXBoZXJ0ZXh0LTM3MA=="
+                }
+            },
+            "metadata": {}
+        }
+    }
+}

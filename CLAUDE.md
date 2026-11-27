@@ -41,7 +41,6 @@ Password recovery: `/auth/recover-password` accepts an email and, via `passwordR
 token stored on the user) without revealing whether the address is registered. The link lands on
 `/auth/reset-password?token=...`, which sets a new password and redirects back to `/auth/login`.
 
-
 The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented features.
 
 ## Stack and commands
@@ -121,10 +120,8 @@ session like any other page. Check it there before inventing a new style.
   a `Modal` (`role="alertdialog"`), and deleting a top-level entity asks to type its name.
 - Floating panels (`DropdownMenu`, `Select`, `TagInput` suggestions) render in `<body>` through
   `floating` in `ui/overlay.ts`, so no `overflow` (tables, modal bodies) clips them.
-- Alerts: one alert notifies several channels (`mail`, `slack`, `google_chat`, `webhook`), one
-  message each; targets live in `recipients` (`userIds`/`roleIds`/`emails`, `slackChannels`,
-  `googleChatSpaces`, `webhookUrls`). Only `mail` is delivered (`DELIVERED_CHANNELS`); the rest are
-  stored and validated. Create/edit happens in `AlertWizard` (modal); the `/new` and `/[id]` pages
+- Alerts: email targets live in `recipients` (`userIds`/`roleIds`/`emails`) and chat or webhook
+  targets in `channelIds` (notification channels); `channels` is derived on save. Create/edit happens in `AlertWizard` (modal); the `/new` and `/[id]` pages
   keep the no-JS editor (`AlertEditor`), so new alert fields must be added to both.
 - `toast.*` is client-only (module state): call it from event handlers, never during SSR.
 - Tokens: `bg-ink-950…500`, `brand-50…900`, text `text-fg|fg-muted|fg-subtle`, status
@@ -169,8 +166,10 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 `*.data.ts`) for configuration constants: role permissions, default project settings, risk weights,
 and tool policy mappings.
 
-Current modules include `auth`, `config`, `organization`, `projects`, `storage`,
-`code-report`, `vault`, `audit`, `alerts`, and `monitoring`. Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
+Current modules include `auth`, `config`, `organization`, `projects`, `state-iac`,
+`code-report`, `vault`, `audit`, `alerts`, `monitoring`, and `notifications`. The `notifications`
+module handles external email recipients of alerts (allowed domains, verification tokens,
+unsubscribe tracking). Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
 their `index.ts`, not internal layers.
 
 GitDB is the single source of truth. Users, roles, API keys, organizations, projects, storage
@@ -189,7 +188,43 @@ Bitbucket, and GitLab; in production, ensure SSH authentication credentials are 
 
 `ORIGIN` environment variable pins the application's public origin (e.g., `http://localhost:3000`).
 SvelteKit's CSRF Origin check depends on this value instead of deriving it from the incoming Host
-header, preventing bypasses when running behind a proxy that rewrites Host headers.
+header, preventing bypasses when running behind a proxy that rewrites Host headers. It is also the
+origin of the absolute links in emails (`absoluteUrl()`); only under `vite dev` do those links use
+the origin of the requests the dev server receives instead (`rememberDevOrigin()` in
+`hooks.server.ts`), so they work on port 5173 whatever `ORIGIN` says.
+
+## State IaC
+
+`$modules/state-iac` reads IaC state from the buckets where teams keep it; design and Pulumi DIY
+layout in `docs/adr/0003-state-iac.md`, anonymized real buckets in `test/fixtures/state-iac/`
+(load them with `fixtureStore()` from `application/testing.ts`). GitDB only stores configuration:
+`state_backends` (one bucket/prefix per row, per organization; credentials AES-GCM encrypted with
+the backend id as AAD, never returned, only `hasCredentials`) and `state_bindings` (one per Pulumi
+project of a backend → a GitOps project of the same organization; `stacks` empty = all). Bindings
+go with their backend and with their GitOps project (`registerStateIac()` listens to
+`project.deleted`). Buckets are only read through `ObjectStore` (`GcsObjectStore`, `S3ObjectStore`,
+`InMemoryObjectStore` in tests): never add a write. Org settings page `/org/<org>/settings/state-iac`
+and `/api/state-iac/backends/**` check `organization:stateiac:backends:<action>` (actions include
+`test`); a backend of another organization answers 404. Read failures are stored as short codes in
+`lastError` (`access_denied`, `bucket_not_found`…), never the provider message.
+
+Reading states: `stateIacService` uses a `StateEngine` (`PulumiStateEngine`: both layouts, `.gz`)
+that turns checkpoints and history into the normalized model in `domain/iac.model.ts`; secrets are
+replaced by `{ $iac: 'secret' }` while parsing (`pulumi-state.ts`), and `secrets_providers`, emails
+and local paths never leave it. A project sees only the stacks its bindings cover (any other stack
+is a 404) with `project:stateiac:stacks:read`, and resources/outputs need `project:stateiac:states:read`;
+the project page `/org/<org>/projects/<slug>/state-iac` is a per-stack dashboard (`?stack=<backend>/<project>/<stack>`). The organization has no stacks page for now, but `GET /api/state-iac/stacks?organizationId=` lists every stack with `organization:stateiac:stacks:read`. Listings are cached
+for `STATE_IAC_CACHE_SECONDS` and states by object version, so an unchanged state is read once;
+`?refresh=1` skips the cache. States over `STATE_IAC_MAX_STATE_MB` fail with `too_large`. In e2e the
+dev server reads the fixtures through a local S3 endpoint (`e2e/fixtures/fake-s3.ts`, seeded backend
+`e2e-shared-state`: `acme-infra` → primary project, `acme-platform` → secondary project).
+History and diff: `stateIacService.history()` pages `*.history.json` (`project:stateiac:history:read`);
+`diff()` compares two snapshot sources (`current`, `history:<ns>`, `backup:<ns>`, `retained:<ns>`,
+`previous`, `version:<object version>` from `ObjectStore.listVersions`) with `diffSnapshots()` in
+`application/state-diff.service.ts` (`project:stateiac:states:read`), by default the last update
+against the one before. Two secrets always compare equal (Pulumi re-encrypts them on every write);
+provider-only changes are flagged `providerOnly`. Past sources are cached for good, the current one
+by object version. Periodic scans and `state_iac.stack.*` events are not built (ADR 0003, deferred).
 
 ## Domain events
 
@@ -234,16 +269,19 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (`scope: 'organization'`, covers every project of it) or a project. `conditions`
   (`{ field, operator, value }`) use the catalog fields, combined with `match: 'all' | 'any'`; an
   empty list always matches. Organization alerts on project events also get a `projectId` field
-  (`listAlertFields`, value taken from the event scope).
+  (`listAlertFields`, value taken from the event scope). Email recipients are in `recipients`
+  (users, roles, external emails); chat and webhook targets are in `channelIds` (references to
+  `NotificationChannelEntity`), not in recipients (a channel delivers to its configured destination,
+  not to individual recipients).
 - `AlertService` validates every write against the catalog and the location and throws
   `AlertValidationError` with field-level codes (`conditions.0.operator: 'invalid_operator'`):
   alertable event compatible with the scope, operators of the field, typed values, references and
-  recipients (users, roles) inside the location, and **anti-escalation** (the author must hold the
-  event's `readPermission`).
+  recipients (users, roles, emails) inside the location, channels in the location, and
+  **anti-escalation** (the author must hold the event's `readPermission`).
 - `AlertEngine` subscribes to `'*'` once per process (`registerAlertEngine()` in `hooks.server.ts`,
   HMR-safe). Per event: fixed system notifications first (`system-notifications.data.ts`: access
-  granted/updated/revoked to the affected user, new personal API keys to their owner, never to the
-  actor, invitations skipped), then the enabled alerts of that type (cached 60 s, invalidated by
+  granted/updated/revoked to the affected user, new personal API keys to their owner, a self-disabled
+  notification channel to its creator, never to the actor, invitations skipped), then the enabled alerts of that type (cached 60 s, invalidated by
   the service) whose location covers the event and whose conditions match. A per-alert in-memory
   throttle (`throttleMinutes`) suppresses repeats and the next email reports how many were skipped.
 - Recipients = selected users ∪ members with the selected roles, minus disabled users and users
@@ -267,12 +305,119 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   recipient hash, never the content or the address. `registerMailShutdown()` drains it on
   `sveltekit:shutdown` (10 s). Invitations and password resets call `notify()` directly: their
   tokens must not travel through the bus or the queue. Without SMTP (`isMailConfigured()`), the
-  engine skips events (debug log), warns once at startup and the alert pages show a banner.
+  engine skips emails and system notifications (debug log) but still posts to channels, warns once
+  at startup and the alert pages show a banner. `MailQueue` is a `DeliveryQueue`
+  (`#lib/server/infra/notifications/delivery-queue.ts`), the generic queue channels reuse.
 - HTTP: `#lib/server/alerts` (`access.ts` for permissions/location/actor, `operations.ts` shared by
   the API and form actions). Routes: `GET /api/events/catalog`, `GET|POST /api/alerts`,
   `GET|PATCH|DELETE /api/alerts/[id]`, `POST /api/alerts/[id]/test` and `POST /api/alerts/test`
-  (dry runs: never send, never touch the throttle). Project API keys only reach their project.
-
+  (dry runs that never touch the throttle; with `send: true`, `AlertEngine.sendTest()` also emails
+  the recipients a real event would reach, members filtered by cancan and verified externals only,
+  with a `[Test]` subject, and posts to the alert's channels; needs SMTP unless the alert has
+  channels (then only they get it), test messages never count toward a channel's failure streak,
+  and it is limited to 5 per caller every 10 minutes, in memory.
+  It also registers the draft's new external addresses, so they get the confirmation email and
+  receive the next test once confirmed, before the alert is saved).
+  Project API keys only reach their project.
+- External email recipients (`$modules/notifications`, #99): `recipients.emails` holds normalized
+  addresses outside GitOps. Each address is an `ExternalRecipientEntity` (GitDB
+  `external_recipients`) shared by every alert of the organization: `pending` → `verified` (the
+  owner clicked the confirmation link) → `unsubscribed`, or `blocked` when its domain leaves
+  `allowedExternalEmailDomains` (`notification_settings`, one row per organization, empty by
+  default = no externals; exact domain match, `*.example.com` for subdomains, punycode).
+  `AlertService` rejects not allowed or invalid addresses (`domain_not_allowed`,
+  `invalid_email`, also per address as `recipients.emails.<i>`) and requires
+  `<scope>:notifications:update` to **add** addresses (`forbidden_external`; keeping or removing
+  existing ones does not need it); after the save, `register()` creates them as pending and emails
+  `external-recipient-verify` directly through `notify()` (token in the link: random, stored
+  hashed, 7 days, single use, rate limited 3/h per address and 30/h per organization per process via
+  `src/lib/server/infra/rate-limit.ts` and `tokens.ts`). `RecipientResolver` only resolves members; the engine adds the `deliverable()`
+  addresses: verified, allowed domain and with an unsubscribe link, so nothing goes to externals
+  without `ORIGIN`. They skip the cancan filter (no account) and never get system notifications.
+  Their email is the reduced `alert` template: no `sensitive` catalog fields, no links into the
+  app, an unsubscribe footer link and a `List-Unsubscribe` header. The unsubscribe link is a
+  stateless HMAC token (`signToken` from `src/lib/server/infra/tokens.ts`, `GITDB_ENCRYPTION_KEY`, 90 days) made single use by
+  `unsubscribeVersion`. Public pages `/notifications/verify` and `/notifications/unsubscribe`
+  (allowed without session in `hooks.server.ts`, no app shell) only act on POST, so mail scanners
+  opening the link change nothing. `List-Unsubscribe-Post` (RFC 8058 one-click) is not sent:
+  providers POST without an `Origin` header and SvelteKit's CSRF check would reject it.
+- Alert settings (`#lib/server/notifications/settings.ts`): allowed domains (read with
+  `organization:settings:read` or `organization:notifications:read`, changed with
+  `organization:settings:update`) and the external recipients status
+  (`organization:notifications:read`; resend a confirmation, or remove a `pending` address added by
+  mistake, with `organization:notifications:update`: removing deletes the recipient, so its link
+  stops working, and `alertService.removeEmail()` drops it from every alert of the organization).
+  The "Settings" button of the alert lists (no sidebar entry) opens them in a modal
+  (`AlertSettingsPanel`) together with the location's notification channels; its forms post to the
+  actions of `<alerts path>/settings` (`/org/<org>/settings/alerts/settings` or
+  `/org/<org>/projects/<slug>/settings/alerts/settings`), the same pages browsers without
+  JavaScript get. Project settings only hold channels (domains are the organization's). The alert
+  pages also get `data.external` (`ExternalRecipientsEditorData`), `data.channels` (channel options
+  the location's alerts may use), `data.channelsSection` and `data.configPath` (for the settings modal).
+- Notification channels (`$modules/notifications`): `NotificationChannelEntity` (GitDB
+  `notification_channels`), owned by an organization (usable by alerts of the organization and of
+  all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
+  a type is available only once its transport is registered with `registerChatTransport()`
+  (`#lib/server/infra/notifications/chat-notification.ts`) in the composition root
+  (`$modules/notifications/index.ts`); today only `webhook` is, and tests use `FakeChatTransport`.
+  A `ChatTransport` implements `send()` and `validateDestination()` (sync or async), the anti-SSRF
+  check run before saving and again before every send: `validateWebhookUrl()` for providers with a
+  fixed host (https, no credentials, no IP literal, default port, allowed host and path),
+  `validateOpenWebhookUrl()` for free URLs (resolves DNS and refuses private, loopback,
+  link-local, CGNAT, multicast and metadata addresses, IPv4-mapped IPv6 included). Send through
+  `createGuardedFetch()` (`#lib/server/infra/http/guarded-fetch.ts`): it connects only to the
+  checked address (no DNS rebinding), never follows redirects and drains at most 64 KB of the
+  answer. The destination (`webhookUrl`) is encrypted with `GITDB_ENCRYPTION_KEY`
+  (`channel-cipher.ts`, AES-GCM bound to the channel id and the value's purpose) and only ever
+  leaves the server masked (`https://hooks.slack.com/…/••••1a2b`); changing it means typing it
+  again. `enabled` flag can disable delivery without deleting the channel; `disabledReason:
+  'failures'` means the platform disabled it after 20 consecutive failures.
+- Signed channels: webhook is a signed type. The service generates a signing secret on create
+  (`whsec_` + 32 random bytes, encrypted in `signingSecret`) and returns it in clear **only once**
+  from `createChannel()` or `POST /api/notification-channels/[id]/rotate-secret` (never readable
+  again). Rotation keeps the previous secret in `previousSigningSecret` for 24 h 
+  (`previousSecretExpiresAt`); both are handed to `send()` in `ChatNotification.signingSecrets`
+  with a stable `deliveryId` per message so receivers can deduplicate retries. The signature is
+  `X-GitOps-Signature: t=<unix>,v1=<hash>[,v1=<old-hash>]` using `HMAC-SHA256(secret, 
+  "<timestamp>.<raw body>")` on the JSON sent (not encoded).
+- Generic webhook (`#lib/server/infra/notifications/webhook/`): `POST` with the versioned
+  `WebhookPayload` (`version`, `deliveryId`, `test`, `alert`, `event` with the raw non-sensitive
+  catalog `fields` from `ChannelMessage.event.fields`, `link`), headers `X-GitOps-Event`,
+  `X-GitOps-Delivery`, `X-GitOps-Signature` (`HMAC-SHA256` of the timestamp and body) and
+  `User-Agent: GitOps-Webhooks/1`. All webhooks are signed: `createChannel()` and `rotateChannelSecret()`
+  return the secret in `signingSecret` once; the service encrypts it after and never shows it again.
+  Receiver docs and the verification example are in `docs/webhooks/` (the example is unit-tested
+  and must stay identical in the README). `NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` / 
+  `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` relax the rules for local development and e2e only.
+- Failure streaks: every definitive delivery failure of a real message (not tests, not
+  `unavailable` types) increments `consecutiveFailures` (one commit each per channel); a success 
+  resets it. At 20 (`MAX_CONSECUTIVE_FAILURES`) the channel disables itself (`enabled: false`,
+  `disabledReason: 'failures'`) and publishes `notifications.channel.disabled` (system actor,
+  organization alertable event with `organization:notifications:read`, payload includes channel
+  name, type, failure count and last error). The channel creator gets emailed the `channel_disabled`
+  system notice. Re-enabling resets the streak.
+- Channel delivery: alerts store `channelIds` (references to `NotificationChannelEntity`). Adding
+  a channel needs `<scope>:notifications:update` (`forbidden_channel`), and a channel must be
+  usable from the alert's location (`unknown_channel`). The engine emails each recipient and
+  posts **one message per channel** in parallel; a failing channel never affects the emails or
+  the other channels, and system notifications never go to channels. The message is a
+  provider-neutral `ChannelMessage` (`buildAlertChannelMessage()`: default language, no
+  `sensitive` fields, "View in GitOps" link, throttled count); transports format it. Deliveries
+  go through the process-wide `channelQueue` (concurrency 3; `postJson()` from
+  `#lib/server/infra/http/webhook-request.ts` with a 5 s timeout and no redirects; `withRetry`
+  only on network errors, 429 honoring `Retry-After`, and 5xx). A permanent failure (4xx,
+  invalid or undecryptable destination, type without transport) sets `lastError`; a success
+  clears it. `lastDeliveryAt` is only refreshed hourly, since each write is a commit. Logs carry
+  the channel id and type, never the URL nor the message.
+- Channels HTTP: `#lib/server/notifications/channels.ts` (permission-first with
+  `<scope>:notifications:read|create|update|delete`; a channel the caller can't read is a 404).
+  Routes: `GET|POST /api/notification-channels` (`organizationId` or `projectId`),
+  `GET|PATCH|DELETE /api/notification-channels/[id]`, `POST /api/notification-channels/[id]/test`
+  (posts a test even to a disabled channel) and `POST /api/notification-channels/[id]/rotate-secret`
+  (`update` permission, returns the new secret once). Form actions for the settings pages live in
+  `#lib/server/notifications/channels-page.ts`; the UI is `ChannelsSection`
+  (`#lib/components/notifications/`), and the alert editors pick channels from `data.channels`
+  (the alert's draft has `channelIds: string[]`, not direct recipients by channel type).
 - UI: `/org/<org>/settings/alerts` and `/org/<org>/projects/<slug>/settings/alerts` (list, `new`,
   `[id]`), thin routes over `#lib/server/alerts/page.ts` (loaders and form actions `draft`, `save`,
   `test`, `toggle`, `delete`; everything works without JavaScript). Components live in
@@ -372,19 +517,21 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
-- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
-- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`
+
+- **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
+- **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`
 
 This ensures the UI only displays navigation items for sections the user has permission to view.
 
 Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
 Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
+
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
-- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts
+- **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts, notifications
 - **Organization Developer** — read/create/update projects only
-- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit, alerts; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
+- **Project Admin** — all project-level permissions: project metadata, users, roles, server-keys, audit, alerts, notifications; plus all module permissions: vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 - **Project Developer** — read/create/update project resources; no deletion or admin; granular module access; reads alerts
 - **Project Viewer** — read-only: project metadata, alerts, all modules, vault secrets/environments, codereport reports/dependencies/vulnerabilities, stateiac stacks/states/history
 
@@ -406,6 +553,15 @@ operations initialize their respective default roles. Keep authorization tests b
 Machine-to-machine requests authenticate with `Authorization: Bearer gvs_...`; `hooks.server.ts`
 resolves them into `locals.apiKey` and `cancanService.canApiKey()` confines a project key to its
 own project.
+
+`organization:notifications:read` and `organization:notifications:update` gate external email
+recipients at the organization level; `project:notifications:update` lets project alerts add
+them. Existing roles are not migrated: enable them from the role editor.
+
+Unauthenticated public routes for external alert recipients: `/notifications/verify` and
+`/notifications/unsubscribe` accept POST requests with tokens (confirmations and unsubscribes).
+They are allowed without a session in `hooks.server.ts` and validate their tokens rather than
+checking permissions.
 
 `locals.user.role` is a session role object, not the string `admin`. Use `isAdmin()` or the `can*`
 helpers. Keep authorization tests beside changes to permission behavior.
@@ -430,6 +586,13 @@ generated files. Update `README.md`, `CONTRIBUTING.md`, and this file when archi
 commands change.
 
 ## Known behavior
+
+**i18n imports from notifications:** `#lib/server/infra/notifications/index.ts` does not re-export
+the email i18n helpers (`DEFAULT_MAIL_LOCALE`, `mailLocale`, `translator`…): they load Paraglide
+messages (a Vite requirement), and the notifications index is imported by `$modules/auth`, which
+runs outside Vite during e2e tests. Import them from `#lib/server/infra/notifications/i18n`. For
+the same reason `e2e/fixtures/seed.ts` seeds allowed domains through
+`NotificationSettingsRepository`, not `$modules/notifications`.
 
 **Server startup and readiness:** The auth guard in `hooks.server.ts` checks readiness via
 `getServerReadyState()` before processing any request. During startup, browsers receive a

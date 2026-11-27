@@ -71,7 +71,8 @@
       "events": "Events",
       "alerts": "Alerts",
       "monitors": "Monitors",
-      "projectDashboard": "Dashboard"
+      "projectDashboard": "Dashboard",
+      "stateIac": "State IaC"
     },
     "whatsNew": "What's new"
   },
@@ -599,7 +600,9 @@
         "projects": "Projects",
         "organization": "Organization",
         "access": "Access",
-        "monitoring": "Monitoring"
+        "monitoring": "Monitoring",
+        "notifications": "Notifications",
+        "state_iac": "State IaC"
       }
     },
     "current": "Current",
@@ -1404,6 +1407,25 @@
         "too_many_redirects": "Too many redirects",
         "invalid_url": "Invalid URL",
         "error": "Error"
+      },
+      "channelType": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
+      },
+      "stateIacProvider": {
+        "gcs": "Google Cloud Storage",
+        "s3": "Amazon S3"
+      },
+      "stateIacBackendChangedField": {
+        "name": "Name",
+        "bucket": "Bucket",
+        "prefix": "Prefix",
+        "region": "Region",
+        "endpoint": "Endpoint",
+        "auth": "Authentication",
+        "credentials": "Credentials",
+        "enabled": "Enabled"
       }
     },
     "vault": {
@@ -1621,6 +1643,64 @@
           }
         }
       }
+    },
+    "notifications": {
+      "channel": {
+        "disabled": {
+          "label": "Channel disabled automatically",
+          "description": "A notification channel failed too many deliveries in a row and was disabled.",
+          "fields": {
+            "type": "Channel type",
+            "name": "Channel name",
+            "failures": "Failures in a row",
+            "lastError": "Last error"
+          }
+        }
+      }
+    },
+    "state_iac": {
+      "backend": {
+        "created": {
+          "label": "State IaC backend created",
+          "description": "A state bucket was added to the organization.",
+          "fields": {
+            "name": "Name",
+            "provider": "Provider",
+            "bucket": "Bucket"
+          }
+        },
+        "updated": {
+          "label": "State IaC backend changed",
+          "description": "The configuration of a state bucket changed.",
+          "fields": {
+            "name": "Name",
+            "provider": "Provider",
+            "bucket": "Bucket",
+            "changedFields": "Changed fields"
+          }
+        },
+        "deleted": {
+          "label": "State IaC backend deleted",
+          "description": "A state bucket and its assignments were removed.",
+          "fields": {
+            "name": "Name",
+            "provider": "Provider",
+            "bucket": "Bucket"
+          }
+        }
+      },
+      "binding": {
+        "updated": {
+          "label": "Pulumi project assignment",
+          "description": "A Pulumi project was assigned, reassigned or unassigned.",
+          "fields": {
+            "backendName": "Backend",
+            "pulumiProject": "Pulumi project",
+            "projectId": "Project",
+            "previousProjectId": "Previous project"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1650,7 +1730,12 @@
           "body": "The personal API key “{name}” ({prefix}…) was created on your account.",
           "warning": "If it wasn’t you, revoke the API key and change your password as soon as possible."
         },
-        "openProfile": "Open my profile"
+        "openProfile": "Open my profile",
+        "channel_disabled": {
+          "subject": "The channel “{name}” was disabled",
+          "body": "The notification channel “{name}” in {target} failed {failures} deliveries in a row (last error: {error}) and GitOps disabled it. Alerts will not post to it until it is enabled again.",
+          "warning": "Check that the destination still works, then enable the channel again from the alert settings."
+        }
       },
       "manageAlert": "Manage the alert",
       "viewInApp": "View in GitOps",
@@ -1674,8 +1759,13 @@
         "policyViolated": "“{policy}” violated ({count})",
         "monitorDown": "{name} is down ({cause})",
         "monitorDegraded": "{name} is degraded",
-        "monitorRecovered": "{name} recovered after {minutes} min"
-      }
+        "monitorRecovered": "{name} recovered after {minutes} min",
+        "channelDisabled": "{name} disabled after {failures} failures"
+      },
+      "externalFooter": "You receive this email because {organization} added your address to the alert “{alert}”.",
+      "unsubscribe": "Unsubscribe",
+      "testSubject": "[Test] {subject}",
+      "testNote": "This is a test email sent from the alert editor with an example event: nothing actually happened."
     },
     "operators": {
       "eq": "is",
@@ -1716,7 +1806,13 @@
       "invalid_channel": "Channel not available.",
       "invalid_email": "Some email is not valid.",
       "invalid_slack_channel": "Use Slack channel names like #alerts.",
-      "invalid_url": "Use a valid http(s) URL."
+      "invalid_url": "Use a valid http(s) URL.",
+      "domain_not_allowed": "The domain is not allowed for external recipients.",
+      "forbidden_external": "You are not allowed to add external recipients.",
+      "mail_not_configured": "SMTP is not configured and the alert has no channels: there is nowhere to send the test.",
+      "test_rate_limited": "You sent too many tests. Wait a few minutes.",
+      "unknown_channel": "Some channel does not exist or can't be used from here.",
+      "forbidden_channel": "You are not allowed to add channels to the alert."
     },
     "channels": {
       "mail": "Email",
@@ -1752,7 +1848,8 @@
       "inheritedDescription": "These alerts are defined in the organization and also fire for this project’s events. They can only be changed from the organization settings.",
       "deleted": "Alert deleted",
       "deleteTitle": "Delete the alert?",
-      "channelsColumn": "Destinations"
+      "channelsColumn": "Destinations",
+      "settings": "Settings"
     },
     "editor": {
       "newTitle": "New alert",
@@ -1801,7 +1898,22 @@
         "slack": "Slack channels, e.g. #alerts",
         "google_chat": "Google Chat spaces",
         "webhook": "Webhook URLs"
-      }
+      },
+      "externalNotice": "External recipients have no GitOps account: they get the email without any permission check. Sensitive fields and links to the app are left out, and each address must confirm before it receives anything.",
+      "externalHelp": "One email per line. Allowed domains: {domains}. New addresses get a confirmation email.",
+      "externalReadonly": "Only people who manage notifications can add external emails.",
+      "externalDisabled": "The organization does not allow external recipients.",
+      "externalSettingsLink": "Configure allowed domains",
+      "externalStatus": "Status of the external emails",
+      "sendTest": "Send test",
+      "sendingTest": "Sending…",
+      "sendTestHelp": "Sends an example event to every destination of the alert: an email to the recipients that would get it (external ones only once confirmed) and a message to each selected channel.",
+      "channelsHelp": "The email goes to the recipients above. You can also post the alert to chat channels or webhooks: one message per channel.",
+      "noChannels": "There are no channels for this scope.",
+      "channelsSettingsLink": "Configure channels",
+      "channelFromOrganization": "(from the organization)",
+      "channelsNotice": "A channel is read by people who may not be allowed to see this event. The message leaves out sensitive fields.",
+      "channelsReadonly": "Only people who manage notifications can add channels."
     },
     "test": {
       "matched": "The example event matches the conditions.",
@@ -1809,7 +1921,13 @@
       "recipients": "It would be sent to: {names}",
       "noRecipients": "It would not be sent to anyone.",
       "denied": "{count} recipients would not get it because they cannot view this event.",
-      "nothingSent": "This is a test: no email was sent."
+      "nothingSent": "This is a dry run: nothing was sent.",
+      "externalDelivers": "would get it",
+      "externalSkipped": "would not get it ({status})",
+      "delivered": "Test sent: {sent} delivered, {failed} failed.",
+      "externalVerificationSent": "does not get the test until it confirms: the confirmation email was sent. Once confirmed, send the test again.",
+      "channelDelivers": "would get the message",
+      "channelSkipped": "would not get it (disabled or deleted)"
     },
     "mailDisabled": "Email is not configured (NOTIFICATION_SMTP_*): alerts are saved but will not be sent.",
     "wizard": {
@@ -1856,7 +1974,9 @@
       "skipConditions": "No conditions",
       "created": "Alert created",
       "saved": "Alert saved",
-      "failed": "Could not complete it. Try again."
+      "failed": "Could not complete it. Try again.",
+      "notConfigured": "Not configured",
+      "configure": "Configure"
     }
   },
   "monitoring": {
@@ -2048,5 +2168,457 @@
       "noData": "No response times in this period yet."
     },
     "created": "Monitor created"
+  },
+  "notifications": {
+    "status": {
+      "pending": "Waiting for confirmation",
+      "verified": "Confirmed",
+      "unsubscribed": "Unsubscribed",
+      "blocked": "Blocked",
+      "missing": "Not added"
+    },
+    "settings": {
+      "title": "Alert settings",
+      "description": "Allowed domains and external recipients: how the organization's alerts leave GitOps.",
+      "mailNotConfigured": "SMTP is not configured: no confirmation emails or alerts will be sent.",
+      "originNotConfigured": "ORIGIN is not set: confirmation and unsubscribe links can't be built, so external recipients will not get anything.",
+      "domainsTitle": "Allowed domains for external emails",
+      "domainsDescription": "Alerts can only email addresses outside GitOps from these domains. An empty list means no external recipients.",
+      "domainsLabel": "Domains (one per line)",
+      "domainsHelp": "Exact match: company.com does not include its subdomains. Use *.company.com to allow them. Removing a domain blocks its recipients (they are not deleted).",
+      "domainsReadonly": "You need the organization:settings:update permission to change the domains.",
+      "domainsSaved": "Domains saved. Blocked: {blocked}. Restored: {restored}.",
+      "saveDomains": "Save domains",
+      "recipientsTitle": "External recipients",
+      "recipientsDescription": "Addresses outside GitOps used by the organization's alerts. They only get alerts once confirmed.",
+      "recipientsEmpty": "No external recipients yet. Add them from the alert editor.",
+      "email": "Email",
+      "status": "Status",
+      "verifiedAt": "Confirmed on",
+      "lastSent": "Last confirmation email",
+      "actions": "Actions",
+      "resend": "Resend confirmation",
+      "resent": "Confirmation email sent again.",
+      "back": "Back to alerts",
+      "domainsSavedTitle": "Domains saved",
+      "remove": "Remove",
+      "removeTitle": "Remove this recipient?",
+      "removeDescription": "{email} hasn't confirmed yet. Its confirmation link will stop working and it will be removed from every alert of the organization.",
+      "removed": "{email} removed",
+      "projectDescription": "Chat channels and webhooks this project's alerts can use.",
+      "descriptionProject": "This project's chat channels and webhooks.",
+      "organizationDomains": "Allowed domains and external recipients are managed in the organization.",
+      "organizationDomainsLink": "Open organization settings"
+    },
+    "errors": {
+      "invalid": "The value is not valid.",
+      "invalid_domain": "Some domain is not valid.",
+      "too_many": "There are too many domains.",
+      "not_found": "The recipient does not exist.",
+      "invalid_status": "This recipient does not need a confirmation.",
+      "rate_limited": "Too many confirmation emails were sent. Try again later.",
+      "send_failed": "The confirmation email could not be sent.",
+      "Forbidden": "You are not allowed to do this.",
+      "required": "This field is required.",
+      "too_long": "It is too long.",
+      "invalid_type": "Invalid channel type.",
+      "type_unavailable": "This channel type is not available yet.",
+      "invalid_url": "The URL is not valid.",
+      "not_https": "The URL must use https.",
+      "credentials": "The URL can't include a user or a password.",
+      "ip_address": "The URL can't point to an IP address.",
+      "port": "The URL can't use another port.",
+      "host_not_allowed": "That domain is not allowed for this channel type.",
+      "path_not_allowed": "The URL path does not match this channel type.",
+      "private_address": "The URL points to a private or internal address.",
+      "unresolvable": "The URL host could not be resolved.",
+      "not_signed": "This channel type does not sign its messages."
+    },
+    "link": {
+      "invalid": "This link is not valid or has already been used.",
+      "expired": "This link has expired."
+    },
+    "verify": {
+      "title": "Confirm subscription",
+      "question": "{organization} wants to send GitOps alerts to {email}. Do you want to receive them?",
+      "confirm": "Yes, send me the alerts",
+      "done": "Done: {email} will receive the alerts of {organization}. Every email includes a link to unsubscribe."
+    },
+    "unsubscribe": {
+      "title": "Unsubscribe",
+      "question": "Stop sending alerts of {organization} to {email}?",
+      "confirm": "Unsubscribe",
+      "done": "{email} will no longer receive alerts of {organization}."
+    },
+    "email": {
+      "verify": {
+        "subject": "[GitOps] Confirm that you want to receive the alerts of {organization}",
+        "title": "Confirm your email",
+        "intro": "{organization} added {email} as a recipient of its alerts in GitOps.",
+        "explanation": "You will not get any alert until you confirm. Every alert will include a link to unsubscribe.",
+        "action": "Confirm subscription",
+        "expiry": "This link expires on {date}.",
+        "ignore": "If you did not expect this email, ignore it: you will not get anything.",
+        "footer": "You receive this email because someone in a GitOps organization added your address to an alert."
+      }
+    },
+    "channels": {
+      "title": "Channels",
+      "descriptionOrganization": "Chat channels and webhooks the alerts of the organization and its projects can post to.",
+      "descriptionProject": "Channels only this project's alerts can use.",
+      "privacyNotice": "A channel is read by people who may have no GitOps account or permissions. The channel URL is stored encrypted and never shown in full again.",
+      "empty": "No channels yet.",
+      "types": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
+      },
+      "disabled": "Disabled",
+      "unavailable": "Type not available",
+      "lastDelivery": "Last delivery: {date}",
+      "lastError": "Last error: {error}",
+      "test": "Send test message",
+      "testSent": "Test message sent.",
+      "testFailed": "The test message could not be sent ({reason}).",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete",
+      "confirmDelete": "Delete this channel? Alerts using it will stop posting to it.",
+      "edit": "Edit",
+      "name": "Name",
+      "newDestination": "New URL (empty keeps the current one)",
+      "save": "Save",
+      "inheritedTitle": "Organization channels",
+      "inheritedDescription": "This project's alerts can also use these channels. They are managed from the organization settings.",
+      "create": "Add channel",
+      "noTypes": "No channel type is available yet.",
+      "type": "Type",
+      "destination": "Webhook URL",
+      "testMessage": {
+        "title": "GitOps test message for {channel}",
+        "summary": "This channel will get the alerts of {where}.",
+        "event": "Test message",
+        "channel": "Channel",
+        "open": "Open in GitOps"
+      },
+      "created": "Channel added",
+      "saved": "Channel saved",
+      "deleted": "Channel deleted",
+      "disabledToast": "Channel disabled",
+      "enabledToast": "Channel enabled",
+      "deleteTitle": "Delete the channel?",
+      "autoDisabled": "Disabled after {failures} failed deliveries in a row",
+      "signed": "Signed",
+      "rotate": "Rotate signing secret",
+      "rotateTitle": "Rotate the signing secret?",
+      "confirmRotate": "A new secret will be generated. For the next 24 hours deliveries are signed with both the new and the current secret, so the receiver can switch over; after that only the new one is valid.",
+      "rotated": "Signing secret rotated",
+      "rotationEndsAt": "Previous secret valid until {date}",
+      "secretTitle": "Signing secret",
+      "secretDescription": "Copy it now and configure it in the receiver: it will not be shown again. Each delivery carries an X-GitOps-Signature header made with it.",
+      "secretCopy": "Copy",
+      "secretCopied": "Secret copied",
+      "secretDone": "I have saved it",
+      "secretDocs": "How to verify the signature",
+      "webhookHelp": "Any public https URL. GitOps signs each request with HMAC-SHA256 and never follows redirects.",
+      "comingSoon": "Coming soon"
+    }
+  },
+  "stateIac": {
+    "settings": {
+      "title": "State IaC",
+      "description": "Buckets where you keep the Pulumi state (GCS, S3 or compatible). GitOps only reads them: assign each Pulumi project to a GitOps project so its team sees its stacks."
+    },
+    "providers": {
+      "gcs": "Google Cloud Storage",
+      "s3": "Amazon S3 or compatible"
+    },
+    "auth": {
+      "ambient": "Server credentials",
+      "ambientHelpGcs": "Application Default Credentials or Workload Identity of the GitOps server.",
+      "ambientHelpS3": "IAM role or default AWS credential chain of the GitOps server.",
+      "credentials": "Own credentials",
+      "credentialsHelp": "Stored encrypted and never shown again."
+    },
+    "layouts": {
+      "project": "per project",
+      "legacy": "legacy",
+      "empty": "empty"
+    },
+    "backends": {
+      "create": "New backend",
+      "createTitle": "New backend",
+      "createDescription": "A bucket (or a folder of one) with the .pulumi folder.",
+      "editTitle": "Edit backend",
+      "edit": "Edit",
+      "save": "Save",
+      "saved": "Backend saved",
+      "created": "Backend created",
+      "saveFailed": "The backend could not be saved",
+      "actionFailed": "The action could not be completed",
+      "delete": "Delete",
+      "deleted": "Backend deleted",
+      "deleteTitle": "Delete backend?",
+      "deleteDescription": "Its configuration and assignments are removed. The bucket is not touched.",
+      "typeToConfirm": "Type {name} to confirm",
+      "test": "Test connection",
+      "testOk": "Connected: {layout} layout, {projects} projects and {stacks} stacks.",
+      "testFailed": "The bucket could not be read: {reason}",
+      "disable": "Disable",
+      "enable": "Enable",
+      "disabled": "Disabled",
+      "disabledToast": "Backend disabled",
+      "enabledToast": "Backend enabled",
+      "emptyTitle": "No backends yet",
+      "emptyDescription": "Add the bucket where Pulumi keeps its state to see its projects and stacks.",
+      "lastError": "Last error: {error}",
+      "providerImmutable": "It can't change: a bucket in another cloud is another backend.",
+      "prefixHelp": "Folder of the bucket that contains .pulumi. Empty if it is at the root.",
+      "endpointHelp": "Only for S3-compatible services (MinIO, R2…). Empty for AWS S3.",
+      "sessionTokenHelp": "Optional, for temporary credentials.",
+      "credentialsKept": "Credentials are stored. Leave these empty to keep them or type new ones to replace them.",
+      "readOnlyNotice": "Read-only permissions are enough (roles/storage.objectViewer, or s3:ListBucket and s3:GetObject). GitOps never writes to the bucket.",
+      "fields": {
+        "name": "Name",
+        "provider": "Provider",
+        "bucket": "Bucket",
+        "prefix": "Prefix",
+        "region": "Region",
+        "endpoint": "Endpoint",
+        "forcePathStyle": "Use path-style URLs (MinIO and other compatible stores)",
+        "auth": "Authentication",
+        "serviceAccountJson": "Service account JSON key",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token"
+      }
+    },
+    "projects": {
+      "toggle": "Pulumi projects and assignments",
+      "title": "Pulumi projects",
+      "refresh": "Refresh",
+      "loadFailed": "The projects could not be loaded",
+      "empty": "There are no Pulumi stacks in this bucket.",
+      "legacyNotice": "Legacy layout: each stack's project is taken from its resources.",
+      "pulumiProject": "Pulumi project",
+      "stacks": "Stacks",
+      "gitopsProject": "GitOps project",
+      "unknownProject": "(unknown)",
+      "unknownHelp": "No resources yet: its project can't be known.",
+      "unassignedOption": "Unassigned",
+      "assigned": "{pulumiProject} assigned to {project}",
+      "unassigned": "{pulumiProject} is no longer assigned",
+      "assignFailed": "The assignment could not be changed",
+      "onlyStacks": "Only: {stacks}",
+      "truncated": "The bucket has more stacks than shown.",
+      "missingTitle": "Assigned but no longer in the bucket",
+      "removeBinding": "Remove assignment"
+    },
+    "errors": {
+      "required": "Required",
+      "too_long": "Too long",
+      "duplicate_name": "The organization already has a backend with that name",
+      "invalid_provider": "Invalid provider",
+      "provider_immutable": "The provider can't change",
+      "invalid_engine": "Unsupported engine",
+      "invalid_bucket": "Invalid bucket name",
+      "invalid_prefix": "Invalid prefix",
+      "invalid_region": "Invalid region",
+      "invalid_endpoint": "Invalid URL: only http(s)://host[:port], no path",
+      "endpoint_s3_only": "The endpoint is only used with S3",
+      "endpoint_not_allowed": "That host is not allowed (loopback, link-local or metadata)",
+      "invalid_auth": "Invalid authentication",
+      "invalid_service_account": "Not a service account JSON key",
+      "access_key_required": "Access key ID and secret access key are required",
+      "invalid_pulumi_name": "Invalid Pulumi project name",
+      "invalid_stacks": "Invalid stack list",
+      "project_not_found": "The project does not exist in this organization",
+      "confirm_name": "The name does not match",
+      "access_denied": "Access to the bucket denied",
+      "bucket_not_found": "The bucket does not exist",
+      "invalid_credentials": "Invalid credentials",
+      "network": "Could not connect to the provider",
+      "too_large": "A state file is larger than the maximum size",
+      "unsupported_layout": "Unsupported meta.yaml version",
+      "undecryptable": "The credentials can't be decrypted (did GITDB_ENCRYPTION_KEY change?)",
+      "unknown": "Unknown error",
+      "unsupported_state": "Unsupported state file version",
+      "invalid_state": "The state file is not valid",
+      "state_missing": "The state file disappeared; refresh"
+    },
+    "stacks": {
+      "refresh": "Refresh",
+      "resources": "Resources",
+      "lastUpdate": "Last update",
+      "locked": "In progress",
+      "projectDescription": "Pulumi stacks assigned to this project. GitOps only reads the state from the bucket.",
+      "emptyTitle": "No stacks are assigned to this project",
+      "emptyDescription": "Backends and assignments are configured in the organization settings (State IaC). Ask an administrator to assign the Pulumi projects here."
+    },
+    "kinds": {
+      "update": "Update",
+      "refresh": "Refresh",
+      "destroy": "Destroy",
+      "import": "Import",
+      "rename": "Rename",
+      "other": "Other operation"
+    },
+    "results": {
+      "succeeded": "succeeded",
+      "failed": "failed",
+      "in-progress": "in progress",
+      "unknown": "unknown"
+    },
+    "detail": {
+      "back": "Back to the stacks",
+      "secretHelp": "Secret value: GitOps never decrypts it.",
+      "toolVersion": "Pulumi version",
+      "pendingOperations": "Pending operations",
+      "noStatesPermission": "You are not allowed to see the resources and outputs of this stack (project:stateiac:states:read).",
+      "tabs": "Stack contents",
+      "outputs": "Outputs",
+      "searchResources": "Search resource by name, type or ID",
+      "type": "Type",
+      "allTypes": "All types",
+      "provider": "Provider",
+      "allProviders": "All providers",
+      "protectedOnly": "Protected only",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "protected": "Protected against deletion",
+      "pendingChange": "Pending change",
+      "noResources": "No resource matches.",
+      "noOutputs": "This stack has no outputs.",
+      "parent": "Parent",
+      "modified": "Modified",
+      "resourceTabs": "Resource data",
+      "inputs": "Inputs",
+      "dependencies": "Dependencies"
+    },
+    "history": {
+      "title": "History",
+      "loadFailed": "The history could not be loaded",
+      "empty": "This stack has no update history.",
+      "took": "took {duration}",
+      "dirty": "uncommitted changes",
+      "showChanges": "Show changes",
+      "loadMore": "Load more"
+    },
+    "changes": {
+      "create": "Created",
+      "update": "Updated",
+      "replace": "Replaced",
+      "delete": "Deleted",
+      "import": "Imported",
+      "same": "Unchanged"
+    },
+    "diff": {
+      "title": "Changes",
+      "loadFailed": "The diff could not be computed",
+      "from": "From",
+      "to": "To",
+      "noSources": "There are no previous versions of this state to compare. Pulumi keeps a copy in the history on every update; if it was deleted, turn on bucket versioning (GCS Object Versioning or S3 Versioning) or PULUMI_RETAIN_CHECKPOINTS.",
+      "unavailable": "That version is no longer in the bucket.",
+      "lastUpdateChanges": "According to the last update:",
+      "secretsNotice": "Secrets are compared without being revealed. Pulumi re-encrypts them on every write, so whether a secret value changed can't be known; only whether a value became or stopped being secret.",
+      "noChanges": "There are no changes between these two versions.",
+      "fields": "{count} properties",
+      "property": "Property",
+      "before": "Before",
+      "after": "After",
+      "providerOnly": "{count} resources only changed provider (version upgrade)",
+      "outputs": "Stack outputs",
+      "sources": {
+        "current": "Current state",
+        "history": "Update",
+        "backup": "Backup",
+        "retained": "Retained checkpoint",
+        "previous": "Previous state (.bak)",
+        "object-version": "Object version"
+      }
+    },
+    "dashboard": {
+      "selectStack": "Stack",
+      "searchStack": "Search stack…",
+      "backend": "Backend",
+      "backendError": "Backend error: {error}",
+      "environments": "Environments",
+      "environmentsLabel": "Project stacks",
+      "noDeploys": "no deployments",
+      "resourcesShort": "{count} resources",
+      "tabs": {
+        "summary": "Summary"
+      },
+      "health": {
+        "title": "Health",
+        "ok": "Healthy",
+        "warn": "Attention",
+        "critical": "Critical",
+        "reasons": {
+          "read_error": "The stack state cannot be read",
+          "backend_error": "The backend reports an error",
+          "last_update_failed": "The last update failed",
+          "pending_operations": "There are pending operations",
+          "stale_lock": "Lock held for more than 1 h",
+          "inactive": "No activity for more than 30 days"
+        },
+        "noReasons": "No issues"
+      },
+      "kpi": {
+        "resources": "Resources",
+        "managed": "{count} managed",
+        "components": "{count} components",
+        "protected": "{count} protected",
+        "lastDeploy": "Last deployment",
+        "noDeploy": "No deployments",
+        "took": "took {duration}",
+        "success": "30-day success",
+        "successDetail": "{succeeded} of {total} updates",
+        "perWeek": "{count} deployments/week",
+        "noUpdates": "No updates in 30 days",
+        "lastUpdate": "Last update:"
+      },
+      "deploys": {
+        "title": "Deployments (last 90 days)",
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "week": "Week of {date}",
+        "tableTitle": "Deployments per week",
+        "weekColumn": "Week",
+        "chart": "Deployments per week: succeeded and failed",
+        "empty": "No deployments in this period",
+        "viewTable": "View table"
+      },
+      "byType": {
+        "title": "Resources by type",
+        "others": "Others",
+        "components": "components",
+        "providers": "By provider"
+      },
+      "recent": {
+        "title": "Latest deployments",
+        "viewHistory": "View history →",
+        "empty": "This stack has no update history."
+      },
+      "lastChanges": {
+        "title": "Latest changes",
+        "viewDiff": "View full diff →",
+        "providerOnly": "{count} resources only changed provider",
+        "more": "and {count} more",
+        "noChanges": "The last update did not change any resource.",
+        "fromUpdate": "According to the last update:"
+      },
+      "warnings": {
+        "title": "Warnings",
+        "versionDrift": "Stacks use different Pulumi versions: {stacks}",
+        "stackFailed": "The last update of {stack} failed ({when})",
+        "staleLock": "{stack} has held a lock since {when}",
+        "pending": "{count} resources pending replacement or deletion in this stack"
+      },
+      "missingPermissions": "The rest of the summary needs the project:stateiac:history:read and project:stateiac:states:read permissions.",
+      "notFoundTitle": "This stack is not in the bucket",
+      "notFoundDescription": "It is assigned to the project but no longer shows up in the backend. It may have been deleted or renamed.",
+      "backToStacks": "Back to the stacks"
+    }
   }
 }

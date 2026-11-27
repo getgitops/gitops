@@ -396,6 +396,113 @@ export const AlertEntity = entity('alerts', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+export const NotificationSettingsEntity = entity('notification_settings', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  allowedExternalEmailDomains: json()
+    .notNull()
+    .$defaultFn(() => []),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const ExternalRecipientEntity = entity('external_recipients', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  email: text().notNull(),
+  status: text().notNull().default('pending'),
+  verifiedAt: timestamp(),
+  unsubscribedAt: timestamp(),
+  blockedAt: timestamp(),
+  verificationTokenHash: text(),
+  verificationExpiresAt: timestamp(),
+  lastVerificationSentAt: timestamp(),
+  unsubscribeVersion: integer().notNull().default(0),
+  createdByUserId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const NotificationChannelEntity = entity('notification_channels', {
+  id: uuid().primaryKey(),
+  type: text().notNull(),
+  name: text().notNull(),
+  scope: text().notNull(),
+  organizationId: uuid().notNull(),
+  projectId: uuid().$defaultFn(() => null),
+  webhookUrl: text().notNull(),
+  enabled: bool().notNull().default(true),
+  createdByUserId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  lastDeliveryAt: timestamp(),
+  lastError: text(),
+  /** Signing secret of signed types (`webhook`), encrypted like `webhookUrl`. */
+  signingSecret: text(),
+  /** Previous signing secret, still used to sign until `previousSecretExpiresAt` (rotation). */
+  previousSigningSecret: text(),
+  previousSecretExpiresAt: timestamp(),
+  /** Definitive delivery failures in a row; the channel disables itself at the limit. */
+  consecutiveFailures: integer().notNull().default(0),
+  /** Why the platform disabled it (`failures`); `null` when enabled or disabled by a person. */
+  disabledReason: text(),
+});
+
+// State IaC (docs/adr/0003-state-iac.md): only configuration, the states stay in the buckets
+export const StateBackendEntity = entity('state_backends', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  name: text().notNull(),
+  engine: text().notNull().default('pulumi'),
+  provider: text().notNull(),
+  bucket: text().notNull(),
+  prefix: text(),
+  region: text(),
+  endpoint: text(),
+  forcePathStyle: bool().notNull().default(false),
+  auth: text().notNull().default('ambient'),
+  // encrypted JSON (GITDB_ENCRYPTION_KEY, AAD = backend id): never returned by the API
+  credentials: text(),
+  enabled: bool().notNull().default(true),
+  lastScanAt: timestamp(),
+  lastError: text(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
+export const StateBindingEntity = entity('state_bindings', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull(),
+  backendId: uuid().notNull(),
+  pulumiProject: text().notNull(),
+  stacks: json()
+    .notNull()
+    .$defaultFn(() => []),
+  projectId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),

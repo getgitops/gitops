@@ -15,6 +15,9 @@ export const E2E_PORT = 5390;
 export const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
 export const E2E_ENCRYPTION_KEY = 'e2e-test-encryption-key-do-not-use-in-prod';
 export const E2E_MONITORING_WORKER_TOKEN = 'e2e-monitoring-worker-token';
+/** Local S3-compatible endpoint serving the State IaC fixtures (`fixtures/fake-s3.ts`). */
+export const E2E_S3_PORT = 5391;
+export const E2E_S3_ENDPOINT = `http://127.0.0.1:${E2E_S3_PORT}`;
 
 const ROOT = path.resolve(__dirname, '..');
 // deliberately OUTSIDE the repo (not e2e/.tmp): a throwaway git repo nested inside this repo's
@@ -34,7 +37,16 @@ function initThrowawayRemote() {
 
   const git = (args: string[]) => execFileSync('git', args, { cwd: REMOTE_DIR, stdio: 'ignore' });
   git(['init', '-b', 'main']);
-  git(['-c', 'user.email=e2e@gitops.local', '-c', 'user.name=e2e', 'commit', '--allow-empty', '-m', 'init']);
+  git([
+    '-c',
+    'user.email=e2e@gitops.local',
+    '-c',
+    'user.name=e2e',
+    'commit',
+    '--allow-empty',
+    '-m',
+    'init',
+  ]);
 }
 
 function buildEnv(): Record<string, string | undefined> {
@@ -66,6 +78,12 @@ function buildEnv(): Record<string, string | undefined> {
     MONITORING_INTERNAL_HOSTS: '',
     MONITORING_EMBEDDED_WORKER: 'true',
     MONITORING_ALLOW_PRIVATE_TARGETS: 'true',
+    // webhook channels are created with a URL nobody resolves; no delivery is attempted
+    NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS: 'true',
+    // State IaC reads the fake S3 bucket with "ambient" auth: dummy static credentials
+    AWS_ACCESS_KEY_ID: 'e2e',
+    AWS_SECRET_ACCESS_KEY: 'e2e',
+    AWS_EC2_METADATA_DISABLED: 'true',
     PORT: String(E2E_PORT),
   };
 }
@@ -98,6 +116,12 @@ export default async function globalSetup() {
   // no `.git`, and the dev server later fails to clone into that non-empty path
   const { startGitDb } = await import('../src/lib/server/gitdb');
   await startGitDb();
+
+  const { startFakeS3 } = await import('./fixtures/fake-s3');
+  const fakeS3 = await startFakeS3(
+    path.join(ROOT, 'test/fixtures/state-iac/project-layout'),
+    E2E_S3_PORT,
+  );
 
   const { seedAll } = await import('./fixtures/seed');
   const seedOutput = await seedAll();
@@ -142,5 +166,6 @@ export default async function globalSetup() {
     if (!server.killed) {
       server.kill();
     }
+    fakeS3.close();
   };
 }

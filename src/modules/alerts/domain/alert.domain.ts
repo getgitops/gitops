@@ -4,15 +4,8 @@ import type { Operator } from '#lib/events/catalog';
 export type AlertScope = 'organization' | 'project';
 export type AlertMatch = 'all' | 'any';
 
-/**
- * Where an alert is delivered. An alert can use several channels at once and sends one message to
- * each. Only `mail` is delivered today; the others are stored and validated so the UI and the API
- * are ready when their notifiers land (#82).
- */
-export const ALERT_CHANNELS = ['mail', 'slack', 'google_chat', 'webhook'] as const;
+export const ALERT_CHANNELS = ['mail', 'webhook', 'slack', 'google-chat'] as const;
 export type AlertChannel = (typeof ALERT_CHANNELS)[number];
-/** Channels with a notifier: the rest are skipped by the engine. */
-export const DELIVERED_CHANNELS: readonly AlertChannel[] = ['mail'];
 
 export const ALERT_MATCHES = ['all', 'any'] as const;
 
@@ -27,31 +20,14 @@ export type AlertCondition = {
   value?: string | number | string[];
 };
 
-/** Targets per channel; only the arrays of the alert's enabled channels are kept. */
 export type AlertRecipients = {
-  /** mail: platform users */
   userIds: string[];
-  /** mail: every member holding one of these roles */
   roleIds: string[];
-  /** mail: addresses outside the platform */
   emails: string[];
-  /** slack: channel names, stored with their `#` */
-  slackChannels: string[];
-  /** google_chat: space names */
-  googleChatSpaces: string[];
-  /** webhook: http(s) URLs that receive a JSON POST */
-  webhookUrls: string[];
 };
 
 export function emptyRecipients(): AlertRecipients {
-  return {
-    userIds: [],
-    roleIds: [],
-    emails: [],
-    slackChannels: [],
-    googleChatSpaces: [],
-    webhookUrls: [],
-  };
+  return { userIds: [], roleIds: [], emails: [] };
 }
 
 /** Where an alert lives: an organization alert has no project. */
@@ -71,6 +47,7 @@ export type AlertInput = {
   conditions?: unknown;
   recipients?: unknown;
   channels?: unknown;
+  channelIds?: unknown;
   throttleMinutes?: unknown;
 };
 
@@ -84,6 +61,7 @@ export type AlertFields = {
   conditions: AlertCondition[];
   recipients: AlertRecipients;
   channels: AlertChannel[];
+  channelIds: string[];
   throttleMinutes: number;
 };
 
@@ -119,6 +97,7 @@ export class AlertDomain implements AlertRow {
   conditions: AlertCondition[];
   recipients: AlertRecipients;
   channels: AlertChannel[];
+  channelIds: string[];
   throttleMinutes: number;
   createdByUserId: string;
   createdAt: string;
@@ -138,15 +117,22 @@ export class AlertDomain implements AlertRow {
     this.recipients = {
       userIds: stringArray(row.recipients?.userIds),
       roleIds: stringArray(row.recipients?.roleIds),
-      emails: stringArray(row.recipients?.emails),
-      slackChannels: stringArray(row.recipients?.slackChannels),
-      googleChatSpaces: stringArray(row.recipients?.googleChatSpaces),
-      webhookUrls: stringArray(row.recipients?.webhookUrls),
+      emails: [
+        ...new Set([
+          ...stringArray(row.recipients?.emails),
+          ...stringArray(
+            (row.recipients as { externalEmails?: unknown } | undefined)?.externalEmails,
+          ),
+        ]),
+      ],
     };
-    const channels = stringArray(row.channels).filter((channel): channel is AlertChannel =>
-      (ALERT_CHANNELS as readonly string[]).includes(channel),
-    );
+    const channels = stringArray(row.channels)
+      .map((channel) => (channel === 'google_chat' ? 'google-chat' : channel))
+      .filter((channel): channel is AlertChannel =>
+        (ALERT_CHANNELS as readonly string[]).includes(channel),
+      );
     this.channels = channels.length > 0 ? channels : ['mail'];
+    this.channelIds = stringArray(row.channelIds);
     this.throttleMinutes = Number.isFinite(Number(row.throttleMinutes))
       ? Number(row.throttleMinutes)
       : 0;
@@ -186,11 +172,9 @@ export class AlertDomain implements AlertRow {
         userIds: [...this.recipients.userIds],
         roleIds: [...this.recipients.roleIds],
         emails: [...this.recipients.emails],
-        slackChannels: [...this.recipients.slackChannels],
-        googleChatSpaces: [...this.recipients.googleChatSpaces],
-        webhookUrls: [...this.recipients.webhookUrls],
       },
       channels: [...this.channels],
+      channelIds: [...this.channelIds],
       throttleMinutes: this.throttleMinutes,
       createdByUserId: this.createdByUserId,
       createdAt: this.createdAt,

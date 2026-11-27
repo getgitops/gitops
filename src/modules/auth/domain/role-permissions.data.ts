@@ -18,6 +18,9 @@ export const ORGANIZATION_ADMIN_PERMISSIONS = [
   'organization:audit:all',
   'organization:events:all',
   'organization:alerts:all',
+  'organization:notifications:all',
+  'organization:stateiac:backends:all',
+  'organization:stateiac:stacks:all',
 ];
 
 export const ORGANIZATION_DEVELOPER_PERMISSIONS = [
@@ -33,6 +36,7 @@ export const PROJECT_ADMIN_PERMISSIONS = [
   'project:server-keys:all',
   'project:audit:all',
   'project:alerts:all',
+  'project:notifications:all',
   'project:vault:secrets:all',
   'project:vault:environments:all',
   'project:vault:settings:all',

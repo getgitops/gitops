@@ -3,7 +3,12 @@
 export type EntityRowChange =
   | { type: 'added'; row: Record<string, unknown> }
   | { type: 'removed'; row: Record<string, unknown> }
-  | { type: 'modified'; before: Record<string, unknown>; after: Record<string, unknown>; changedFields: string[] };
+  | {
+      type: 'modified';
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+      changedFields: string[];
+    };
 
 export type FieldValue =
   | { kind: 'text'; text: string }
@@ -103,7 +108,10 @@ export function classifyValue(value: unknown): FieldValue {
     if (isFlagsObject(value)) {
       return {
         kind: 'flags',
-        flags: Object.entries(value).map(([key, entry]) => ({ label: humanizeField(key), value: Boolean(entry) })),
+        flags: Object.entries(value).map(([key, entry]) => ({
+          label: humanizeField(key),
+          value: Boolean(entry),
+        })),
       };
     }
     return { kind: 'json', json: value };

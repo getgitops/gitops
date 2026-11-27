@@ -38,7 +38,9 @@ export type EventModule =
   | 'projects'
   | 'organization'
   | 'access'
-  | 'monitoring';
+  | 'monitoring'
+  | 'notifications'
+  | 'state_iac';
 
 export type EventDefinitionScope = 'organization' | 'project';
 
@@ -68,6 +70,7 @@ type FieldCommon = {
   options?: readonly { value: string; label: string }[];
   /** For `reference` fields: the UI lists these entities in the alert's scope; the id is stored. */
   reference?: FieldReference;
+  sensitive?: boolean;
 };
 
 /**
@@ -107,6 +110,7 @@ export type EventDefinition<K extends EventType = EventType> = {
   link?: (context: EventLinkContext<DomainEventMap[K]>) => string | null;
   /** Short summary for the email subject (`3 critical, 5 high`); the event label otherwise. */
   mailSummary?: (payload: DomainEventMap[K]) => EventMessage;
+  samplePayload?: Partial<DomainEventMap[K]>;
 };
 
 /** Definitions for a subset of events (one module's file). */

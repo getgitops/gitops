@@ -195,6 +195,50 @@ export type MonitoringMonitorStatusPayload = {
   durationSeconds: number | null;
 };
 
+/**
+ * A notification channel disabled itself after too many delivery failures in a row. Never carries
+ * the destination nor any secret: `lastError` is the short reason (`HTTP 410`, `timeout`).
+ */
+export type NotificationChannelDisabledPayload = {
+  channelId: string;
+  name: string;
+  /** `webhook`, `slack`, `google-chat` */
+  type: string;
+  reason: 'failures';
+  failures: number;
+  lastError: string;
+  createdByUserId: string;
+};
+
+export type StateIacBackendChangedField =
+  'name' | 'bucket' | 'prefix' | 'region' | 'endpoint' | 'auth' | 'credentials' | 'enabled';
+
+/** A State IaC backend (bucket) of an organization. Never carries its credentials. */
+export type StateIacBackendPayload = {
+  backendId: string;
+  name: string;
+  engine: string;
+  provider: string;
+  bucket: string;
+  prefix: string | null;
+};
+
+export type StateIacBackendUpdatedPayload = StateIacBackendPayload & {
+  /** `credentials` only says they were replaced or removed, never their value. */
+  changedFields: StateIacBackendChangedField[];
+};
+
+/** A Pulumi project assigned to a GitOps project, reassigned, or unassigned (`projectId: null`). */
+export type StateIacBindingUpdatedPayload = {
+  backendId: string;
+  backendName: string;
+  pulumiProject: string;
+  projectId: string | null;
+  previousProjectId: string | null;
+  /** Assigned stacks; empty = all of them. */
+  stacks: string[];
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
@@ -222,6 +266,11 @@ export interface DomainEventMap {
   'monitoring.monitor.down': MonitoringMonitorStatusPayload;
   'monitoring.monitor.degraded': MonitoringMonitorStatusPayload;
   'monitoring.monitor.recovered': MonitoringMonitorStatusPayload;
+  'notifications.channel.disabled': NotificationChannelDisabledPayload;
+  'state_iac.backend.created': StateIacBackendPayload;
+  'state_iac.backend.updated': StateIacBackendUpdatedPayload;
+  'state_iac.backend.deleted': StateIacBackendPayload;
+  'state_iac.binding.updated': StateIacBindingUpdatedPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;

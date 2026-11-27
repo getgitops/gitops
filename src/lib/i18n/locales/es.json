@@ -71,7 +71,8 @@
       "events": "Eventos",
       "alerts": "Alertas",
       "monitors": "Monitores",
-      "projectDashboard": "Dashboard"
+      "projectDashboard": "Dashboard",
+      "stateIac": "State IaC"
     },
     "whatsNew": "Ver novedades"
   },
@@ -599,7 +600,9 @@
         "projects": "Proyectos",
         "organization": "Organización",
         "access": "Accesos",
-        "monitoring": "Monitoring"
+        "monitoring": "Monitoring",
+        "notifications": "Notificaciones",
+        "state_iac": "State IaC"
       }
     },
     "current": "Actual",
@@ -1404,6 +1407,25 @@
         "too_many_redirects": "Demasiadas redirecciones",
         "invalid_url": "URL no válida",
         "error": "Error"
+      },
+      "channelType": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
+      },
+      "stateIacProvider": {
+        "gcs": "Google Cloud Storage",
+        "s3": "Amazon S3"
+      },
+      "stateIacBackendChangedField": {
+        "name": "Nombre",
+        "bucket": "Bucket",
+        "prefix": "Prefijo",
+        "region": "Región",
+        "endpoint": "Endpoint",
+        "auth": "Autenticación",
+        "credentials": "Credenciales",
+        "enabled": "Activado"
       }
     },
     "vault": {
@@ -1621,6 +1643,64 @@
           }
         }
       }
+    },
+    "notifications": {
+      "channel": {
+        "disabled": {
+          "label": "Canal deshabilitado automáticamente",
+          "description": "Un canal de notificaciones ha fallado demasiados envíos seguidos y se ha deshabilitado.",
+          "fields": {
+            "type": "Tipo de canal",
+            "name": "Nombre del canal",
+            "failures": "Fallos seguidos",
+            "lastError": "Último error"
+          }
+        }
+      }
+    },
+    "state_iac": {
+      "backend": {
+        "created": {
+          "label": "Backend de State IaC creado",
+          "description": "Se ha añadido un bucket de estado a la organización.",
+          "fields": {
+            "name": "Nombre",
+            "provider": "Proveedor",
+            "bucket": "Bucket"
+          }
+        },
+        "updated": {
+          "label": "Backend de State IaC modificado",
+          "description": "Ha cambiado la configuración de un bucket de estado.",
+          "fields": {
+            "name": "Nombre",
+            "provider": "Proveedor",
+            "bucket": "Bucket",
+            "changedFields": "Campos cambiados"
+          }
+        },
+        "deleted": {
+          "label": "Backend de State IaC eliminado",
+          "description": "Se ha quitado un bucket de estado y sus asignaciones.",
+          "fields": {
+            "name": "Nombre",
+            "provider": "Proveedor",
+            "bucket": "Bucket"
+          }
+        }
+      },
+      "binding": {
+        "updated": {
+          "label": "Asignación de proyecto de Pulumi",
+          "description": "Un proyecto de Pulumi se ha asignado, reasignado o desasignado.",
+          "fields": {
+            "backendName": "Backend",
+            "pulumiProject": "Proyecto de Pulumi",
+            "projectId": "Proyecto",
+            "previousProjectId": "Proyecto anterior"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1650,7 +1730,12 @@
           "body": "Se ha creado la API key personal «{name}» ({prefix}…) en tu cuenta.",
           "warning": "Si no has sido tú, revoca la API key y cambia tu contraseña cuanto antes."
         },
-        "openProfile": "Abrir mi perfil"
+        "openProfile": "Abrir mi perfil",
+        "channel_disabled": {
+          "subject": "Se ha deshabilitado el canal «{name}»",
+          "body": "El canal de notificaciones «{name}» de {target} ha fallado {failures} envíos seguidos (último error: {error}) y GitOps lo ha deshabilitado. Las alertas no publicarán en él hasta que se vuelva a habilitar.",
+          "warning": "Comprueba que el destino sigue funcionando y vuelve a habilitar el canal desde los ajustes de alertas."
+        }
       },
       "manageAlert": "Gestionar la alerta",
       "viewInApp": "Ver en GitOps",
@@ -1674,8 +1759,13 @@
         "policyViolated": "«{policy}» incumplida ({count})",
         "monitorDown": "{name} está caído ({cause})",
         "monitorDegraded": "{name} responde degradado",
-        "monitorRecovered": "{name} se ha recuperado tras {minutes} min"
-      }
+        "monitorRecovered": "{name} se ha recuperado tras {minutes} min",
+        "channelDisabled": "{name} deshabilitado tras {failures} fallos"
+      },
+      "externalFooter": "Recibes este email porque {organization} añadió tu dirección a la alerta “{alert}”.",
+      "unsubscribe": "Darme de baja",
+      "testSubject": "[Prueba] {subject}",
+      "testNote": "Esto es un email de prueba enviado desde el editor de alertas con un evento de ejemplo: no ha ocurrido nada."
     },
     "operators": {
       "eq": "es",
@@ -1716,7 +1806,13 @@
       "invalid_channel": "Canal no disponible.",
       "invalid_email": "Algún email no es válido.",
       "invalid_slack_channel": "Usa nombres de canal de Slack como #alertas.",
-      "invalid_url": "Usa una URL http(s) válida."
+      "invalid_url": "Usa una URL http(s) válida.",
+      "domain_not_allowed": "El dominio no está permitido para destinatarios externos.",
+      "forbidden_external": "No tienes permiso para añadir destinatarios externos.",
+      "mail_not_configured": "El SMTP no está configurado y la alerta no tiene canales: no hay a dónde enviar la prueba.",
+      "test_rate_limited": "Has enviado demasiadas pruebas. Espera unos minutos.",
+      "unknown_channel": "Algún canal no existe o no se puede usar desde aquí.",
+      "forbidden_channel": "No tienes permiso para añadir canales a la alerta."
     },
     "channels": {
       "mail": "Email",
@@ -1752,7 +1848,8 @@
       "inheritedDescription": "Estas alertas se definen en la organización y también se disparan con los eventos de este proyecto. Solo se pueden cambiar desde los ajustes de la organización.",
       "deleted": "Alerta eliminada",
       "deleteTitle": "¿Borrar la alerta?",
-      "channelsColumn": "Destinos"
+      "channelsColumn": "Destinos",
+      "settings": "Configuración"
     },
     "editor": {
       "newTitle": "Nueva alerta",
@@ -1801,7 +1898,22 @@
         "slack": "Canales de Slack, p. ej. #alertas",
         "google_chat": "Espacios de Google Chat",
         "webhook": "URLs de webhook"
-      }
+      },
+      "externalNotice": "Los destinatarios externos no tienen cuenta en GitOps: reciben el email sin comprobar sus permisos. No se incluyen los campos sensibles ni enlaces a la aplicación, y cada dirección debe confirmar su suscripción antes de recibir nada.",
+      "externalHelp": "Un email por línea. Dominios permitidos: {domains}. Las direcciones nuevas reciben un email de confirmación.",
+      "externalReadonly": "Solo quien puede gestionar las notificaciones puede añadir emails externos.",
+      "externalDisabled": "La organización no permite destinatarios externos.",
+      "externalSettingsLink": "Configurar dominios permitidos",
+      "externalStatus": "Estado de los emails externos",
+      "sendTest": "Enviar prueba",
+      "sendingTest": "Enviando…",
+      "sendTestHelp": "Envía un evento de ejemplo a todos los destinos de la alerta: email a los destinatarios que lo recibirían (los externos solo si están confirmados) y un mensaje a cada canal seleccionado.",
+      "channelsHelp": "El email llega a los destinatarios de arriba. Además, puedes publicar la alerta en canales de chat o webhooks: un mensaje por canal.",
+      "noChannels": "No hay canales configurados para este ámbito.",
+      "channelsSettingsLink": "Configurar canales",
+      "channelFromOrganization": "(de la organización)",
+      "channelsNotice": "Un canal lo lee gente que puede no tener permiso para ver este evento. El mensaje no incluye los campos sensibles.",
+      "channelsReadonly": "Solo quien puede gestionar las notificaciones puede añadir canales."
     },
     "test": {
       "matched": "El evento de ejemplo cumple las condiciones.",
@@ -1809,7 +1921,13 @@
       "recipients": "Se enviaría a: {names}",
       "noRecipients": "No se enviaría a nadie.",
       "denied": "{count} destinatarios no lo recibirían porque no pueden ver este evento.",
-      "nothingSent": "Es una prueba: no se ha enviado ningún email."
+      "nothingSent": "Es una simulación: no se ha enviado nada.",
+      "externalDelivers": "lo recibiría",
+      "externalSkipped": "no lo recibiría ({status})",
+      "delivered": "Prueba enviada: {sent} entregadas, {failed} fallidas.",
+      "externalVerificationSent": "no recibe la prueba hasta que confirme: se le ha enviado el email de confirmación. Cuando confirme, vuelve a enviar la prueba.",
+      "channelDelivers": "recibiría el mensaje",
+      "channelSkipped": "no lo recibiría (deshabilitado o eliminado)"
     },
     "mailDisabled": "El email no está configurado (NOTIFICATION_SMTP_*): las alertas se guardan, pero no se enviarán.",
     "wizard": {
@@ -1856,7 +1974,9 @@
       "skipConditions": "Sin condiciones",
       "created": "Alerta creada",
       "saved": "Alerta guardada",
-      "failed": "No se pudo completar. Inténtalo de nuevo."
+      "failed": "No se pudo completar. Inténtalo de nuevo.",
+      "notConfigured": "No configurado",
+      "configure": "Configurar"
     }
   },
   "monitoring": {
@@ -2048,5 +2168,457 @@
       "noData": "Aún no hay tiempos de respuesta en este periodo."
     },
     "created": "Monitor creado"
+  },
+  "notifications": {
+    "status": {
+      "pending": "Pendiente de confirmar",
+      "verified": "Confirmado",
+      "unsubscribed": "Dado de baja",
+      "blocked": "Bloqueado",
+      "missing": "Sin añadir"
+    },
+    "settings": {
+      "title": "Configuración de alertas",
+      "description": "Dominios permitidos y destinatarios externos: cómo salen las alertas de la organización fuera de GitOps.",
+      "mailNotConfigured": "El SMTP no está configurado: no se enviarán emails de confirmación ni alertas.",
+      "originNotConfigured": "ORIGIN no está configurado: no se pueden generar los enlaces de confirmación y de baja, así que los destinatarios externos no recibirán nada.",
+      "domainsTitle": "Dominios permitidos para emails externos",
+      "domainsDescription": "Las alertas solo pueden enviar a direcciones fuera de GitOps de estos dominios. Si la lista está vacía, no se permiten destinatarios externos.",
+      "domainsLabel": "Dominios (uno por línea)",
+      "domainsHelp": "Coincidencia exacta: empresa.com no incluye sus subdominios. Usa *.empresa.com para permitirlos. Al quitar un dominio, sus destinatarios quedan bloqueados (no se borran).",
+      "domainsReadonly": "Necesitas el permiso organization:settings:update para cambiar los dominios.",
+      "domainsSaved": "Dominios guardados. Bloqueados: {blocked}. Reactivados: {restored}.",
+      "saveDomains": "Guardar dominios",
+      "recipientsTitle": "Destinatarios externos",
+      "recipientsDescription": "Direcciones fuera de GitOps que usan las alertas de la organización. Solo reciben alertas una vez confirmadas.",
+      "recipientsEmpty": "Todavía no hay destinatarios externos. Se añaden desde el editor de alertas.",
+      "email": "Email",
+      "status": "Estado",
+      "verifiedAt": "Confirmado el",
+      "lastSent": "Último email de confirmación",
+      "actions": "Acciones",
+      "resend": "Reenviar confirmación",
+      "resent": "Email de confirmación reenviado.",
+      "back": "Volver a alertas",
+      "domainsSavedTitle": "Dominios guardados",
+      "remove": "Quitar",
+      "removeTitle": "¿Quitar este destinatario?",
+      "removeDescription": "{email} todavía no ha confirmado. Se anulará su enlace de confirmación y se quitará de todas las alertas de la organización.",
+      "removed": "{email} quitado",
+      "projectDescription": "Canales de chat y webhooks que pueden usar las alertas de este proyecto.",
+      "descriptionProject": "Canales de chat y webhooks de este proyecto.",
+      "organizationDomains": "Los dominios permitidos y los destinatarios externos se gestionan en la organización.",
+      "organizationDomainsLink": "Abrir configuración de la organización"
+    },
+    "errors": {
+      "invalid": "El valor no es válido.",
+      "invalid_domain": "Algún dominio no es válido.",
+      "too_many": "Hay demasiados dominios.",
+      "not_found": "El destinatario no existe.",
+      "invalid_status": "Este destinatario no necesita confirmación.",
+      "rate_limited": "Se han enviado demasiados emails de confirmación. Inténtalo más tarde.",
+      "send_failed": "No se ha podido enviar el email de confirmación.",
+      "Forbidden": "No tienes permiso para hacer esto.",
+      "required": "Este campo es obligatorio.",
+      "too_long": "Es demasiado largo.",
+      "invalid_type": "Tipo de canal no válido.",
+      "type_unavailable": "Este tipo de canal todavía no está disponible.",
+      "invalid_url": "La URL no es válida.",
+      "not_https": "La URL debe usar https.",
+      "credentials": "La URL no puede incluir usuario ni contraseña.",
+      "ip_address": "La URL no puede apuntar a una dirección IP.",
+      "port": "La URL no puede usar otro puerto.",
+      "host_not_allowed": "Ese dominio no está permitido para este tipo de canal.",
+      "path_not_allowed": "La ruta de la URL no corresponde a este tipo de canal.",
+      "private_address": "La URL apunta a una dirección privada o interna.",
+      "unresolvable": "No se ha podido resolver el dominio de la URL.",
+      "not_signed": "Este tipo de canal no firma sus mensajes."
+    },
+    "link": {
+      "invalid": "Este enlace no es válido o ya se ha usado.",
+      "expired": "Este enlace ha caducado."
+    },
+    "verify": {
+      "title": "Confirmar suscripción",
+      "question": "{organization} quiere enviar alertas de GitOps a {email}. ¿Quieres recibirlas?",
+      "confirm": "Sí, quiero recibir las alertas",
+      "done": "Listo: {email} recibirá las alertas de {organization}. Cada email incluye un enlace para darte de baja."
+    },
+    "unsubscribe": {
+      "title": "Darse de baja",
+      "question": "¿Dejar de enviar alertas de {organization} a {email}?",
+      "confirm": "Darme de baja",
+      "done": "{email} ya no recibirá alertas de {organization}."
+    },
+    "email": {
+      "verify": {
+        "subject": "[GitOps] Confirma que quieres recibir las alertas de {organization}",
+        "title": "Confirma tu email",
+        "intro": "{organization} ha añadido {email} como destinatario de sus alertas en GitOps.",
+        "explanation": "No recibirás ninguna alerta hasta que lo confirmes. Cada alerta incluirá un enlace para darte de baja.",
+        "action": "Confirmar suscripción",
+        "expiry": "Este enlace caduca el {date}.",
+        "ignore": "Si no esperabas este email, ignóralo: no recibirás nada.",
+        "footer": "Recibes este email porque alguien de una organización de GitOps añadió tu dirección a una alerta."
+      }
+    },
+    "channels": {
+      "title": "Canales",
+      "descriptionOrganization": "Canales de chat y webhooks donde las alertas de la organización y de sus proyectos pueden publicar.",
+      "descriptionProject": "Canales que solo pueden usar las alertas de este proyecto.",
+      "privacyNotice": "Un canal lo lee gente que puede no tener cuenta ni permisos en GitOps. La URL del canal se guarda cifrada y nunca se vuelve a mostrar completa.",
+      "empty": "Todavía no hay canales.",
+      "types": {
+        "webhook": "Webhook",
+        "slack": "Slack",
+        "google-chat": "Google Chat"
+      },
+      "disabled": "Deshabilitado",
+      "unavailable": "Tipo no disponible",
+      "lastDelivery": "Último envío: {date}",
+      "lastError": "Último error: {error}",
+      "test": "Enviar mensaje de prueba",
+      "testSent": "Mensaje de prueba enviado.",
+      "testFailed": "No se ha podido enviar el mensaje de prueba ({reason}).",
+      "enable": "Habilitar",
+      "disable": "Deshabilitar",
+      "delete": "Eliminar",
+      "confirmDelete": "¿Eliminar este canal? Las alertas que lo usan dejarán de publicar en él.",
+      "edit": "Editar",
+      "name": "Nombre",
+      "newDestination": "Nueva URL (vacío para mantener la actual)",
+      "save": "Guardar",
+      "inheritedTitle": "Canales de la organización",
+      "inheritedDescription": "Las alertas de este proyecto también pueden usar estos canales. Se gestionan desde los ajustes de la organización.",
+      "create": "Añadir canal",
+      "noTypes": "Todavía no hay ningún tipo de canal disponible.",
+      "type": "Tipo",
+      "destination": "URL del webhook",
+      "testMessage": {
+        "title": "Mensaje de prueba de GitOps para {channel}",
+        "summary": "Este canal recibirá las alertas de {where}.",
+        "event": "Mensaje de prueba",
+        "channel": "Canal",
+        "open": "Abrir en GitOps"
+      },
+      "created": "Canal añadido",
+      "saved": "Canal guardado",
+      "deleted": "Canal eliminado",
+      "disabledToast": "Canal deshabilitado",
+      "enabledToast": "Canal habilitado",
+      "deleteTitle": "¿Eliminar el canal?",
+      "autoDisabled": "Deshabilitado tras {failures} envíos fallidos seguidos",
+      "signed": "Firmado",
+      "rotate": "Rotar el secreto de firma",
+      "rotateTitle": "¿Rotar el secreto de firma?",
+      "confirmRotate": "Se generará un secreto nuevo. Durante las próximas 24 horas los envíos se firman con el nuevo y con el actual, para que el receptor pueda migrar; después solo vale el nuevo.",
+      "rotated": "Secreto de firma rotado",
+      "rotationEndsAt": "El secreto anterior es válido hasta {date}",
+      "secretTitle": "Secreto de firma",
+      "secretDescription": "Cópialo ahora y configúralo en el receptor: no se volverá a mostrar. Cada envío lleva una cabecera X-GitOps-Signature hecha con él.",
+      "secretCopy": "Copiar",
+      "secretCopied": "Secreto copiado",
+      "secretDone": "Ya lo he guardado",
+      "secretDocs": "Cómo verificar la firma",
+      "webhookHelp": "Cualquier URL https pública. GitOps firma cada petición con HMAC-SHA256 y nunca sigue redirecciones.",
+      "comingSoon": "Próximamente"
+    }
+  },
+  "stateIac": {
+    "settings": {
+      "title": "State IaC",
+      "description": "Buckets donde guardas el estado de Pulumi (GCS, S3 o compatibles). GitOps solo los lee: asigna cada proyecto de Pulumi a un proyecto de GitOps para que su equipo vea sus stacks."
+    },
+    "providers": {
+      "gcs": "Google Cloud Storage",
+      "s3": "Amazon S3 o compatible"
+    },
+    "auth": {
+      "ambient": "Credenciales del servidor",
+      "ambientHelpGcs": "Application Default Credentials o Workload Identity del servidor de GitOps.",
+      "ambientHelpS3": "Rol IAM o cadena de credenciales por defecto de AWS del servidor de GitOps.",
+      "credentials": "Credenciales propias",
+      "credentialsHelp": "Se guardan cifradas y no se vuelven a mostrar nunca."
+    },
+    "layouts": {
+      "project": "por proyecto",
+      "legacy": "legacy",
+      "empty": "vacío"
+    },
+    "backends": {
+      "create": "Nuevo backend",
+      "createTitle": "Nuevo backend",
+      "createDescription": "Un bucket (o una carpeta de un bucket) con la carpeta .pulumi.",
+      "editTitle": "Editar backend",
+      "edit": "Editar",
+      "save": "Guardar",
+      "saved": "Backend guardado",
+      "created": "Backend creado",
+      "saveFailed": "No se pudo guardar el backend",
+      "actionFailed": "No se pudo completar la acción",
+      "delete": "Eliminar",
+      "deleted": "Backend eliminado",
+      "deleteTitle": "¿Eliminar backend?",
+      "deleteDescription": "Se borran su configuración y sus asignaciones. El bucket no se toca.",
+      "typeToConfirm": "Escribe {name} para confirmar",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta: layout {layout}, {projects} proyectos y {stacks} stacks.",
+      "testFailed": "No se pudo leer el bucket: {reason}",
+      "disable": "Desactivar",
+      "enable": "Activar",
+      "disabled": "Desactivado",
+      "disabledToast": "Backend desactivado",
+      "enabledToast": "Backend activado",
+      "emptyTitle": "Todavía no hay backends",
+      "emptyDescription": "Añade el bucket donde Pulumi guarda el estado para ver sus proyectos y stacks.",
+      "lastError": "Último error: {error}",
+      "providerImmutable": "No se puede cambiar: un bucket de otra nube es otro backend.",
+      "prefixHelp": "Carpeta del bucket que contiene .pulumi. Vacío si está en la raíz.",
+      "endpointHelp": "Solo para servicios compatibles con S3 (MinIO, R2…). Vacío para AWS S3.",
+      "sessionTokenHelp": "Opcional, para credenciales temporales.",
+      "credentialsKept": "Hay credenciales guardadas. Déjalas vacías para conservarlas o escribe otras para sustituirlas.",
+      "readOnlyNotice": "Basta con permisos de solo lectura (roles/storage.objectViewer o s3:ListBucket y s3:GetObject). GitOps nunca escribe en el bucket.",
+      "fields": {
+        "name": "Nombre",
+        "provider": "Proveedor",
+        "bucket": "Bucket",
+        "prefix": "Prefijo",
+        "region": "Región",
+        "endpoint": "Endpoint",
+        "forcePathStyle": "Usar URLs de tipo path (MinIO y otros compatibles)",
+        "auth": "Autenticación",
+        "serviceAccountJson": "Clave JSON de la cuenta de servicio",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token"
+      }
+    },
+    "projects": {
+      "toggle": "Proyectos de Pulumi y asignaciones",
+      "title": "Proyectos de Pulumi",
+      "refresh": "Actualizar",
+      "loadFailed": "No se pudieron cargar los proyectos",
+      "empty": "No hay stacks de Pulumi en este bucket.",
+      "legacyNotice": "Layout legacy: el proyecto de cada stack se deduce de sus recursos.",
+      "pulumiProject": "Proyecto de Pulumi",
+      "stacks": "Stacks",
+      "gitopsProject": "Proyecto de GitOps",
+      "unknownProject": "(desconocido)",
+      "unknownHelp": "Sin recursos todavía: no se puede saber su proyecto.",
+      "unassignedOption": "Sin asignar",
+      "assigned": "{pulumiProject} asignado a {project}",
+      "unassigned": "{pulumiProject} ya no está asignado",
+      "assignFailed": "No se pudo cambiar la asignación",
+      "onlyStacks": "Solo: {stacks}",
+      "truncated": "El bucket tiene más stacks de los que se muestran.",
+      "missingTitle": "Asignados pero ya no están en el bucket",
+      "removeBinding": "Quitar asignación"
+    },
+    "errors": {
+      "required": "Obligatorio",
+      "too_long": "Demasiado largo",
+      "duplicate_name": "Ya hay un backend con ese nombre en la organización",
+      "invalid_provider": "Proveedor no válido",
+      "provider_immutable": "El proveedor no se puede cambiar",
+      "invalid_engine": "Motor no soportado",
+      "invalid_bucket": "Nombre de bucket no válido",
+      "invalid_prefix": "Prefijo no válido",
+      "invalid_region": "Región no válida",
+      "invalid_endpoint": "URL no válida: solo http(s)://host[:puerto], sin ruta",
+      "endpoint_s3_only": "El endpoint solo se usa con S3",
+      "endpoint_not_allowed": "Ese host no está permitido (loopback, link-local o metadata)",
+      "invalid_auth": "Autenticación no válida",
+      "invalid_service_account": "No es una clave JSON de cuenta de servicio",
+      "access_key_required": "Hacen falta access key ID y secret access key",
+      "invalid_pulumi_name": "Nombre de proyecto de Pulumi no válido",
+      "invalid_stacks": "Lista de stacks no válida",
+      "project_not_found": "El proyecto no existe en esta organización",
+      "confirm_name": "El nombre no coincide",
+      "access_denied": "Acceso denegado al bucket",
+      "bucket_not_found": "El bucket no existe",
+      "invalid_credentials": "Credenciales no válidas",
+      "network": "No se pudo conectar con el proveedor",
+      "too_large": "Un fichero de estado supera el tamaño máximo",
+      "unsupported_layout": "Versión de meta.yaml no soportada",
+      "undecryptable": "No se pueden descifrar las credenciales (¿ha cambiado GITDB_ENCRYPTION_KEY?)",
+      "unknown": "Error desconocido",
+      "unsupported_state": "Versión del fichero de estado no soportada",
+      "invalid_state": "El fichero de estado no es válido",
+      "state_missing": "El fichero de estado ha desaparecido; refresca"
+    },
+    "stacks": {
+      "refresh": "Refrescar",
+      "resources": "Recursos",
+      "lastUpdate": "Último update",
+      "locked": "En curso",
+      "projectDescription": "Stacks de Pulumi asignados a este proyecto. GitOps solo lee el estado del bucket.",
+      "emptyTitle": "No hay stacks asignados a este proyecto",
+      "emptyDescription": "Los backends y las asignaciones se configuran en los ajustes de la organización (State IaC). Pide a un administrador que asigne aquí los proyectos de Pulumi."
+    },
+    "kinds": {
+      "update": "Update",
+      "refresh": "Refresh",
+      "destroy": "Destroy",
+      "import": "Import",
+      "rename": "Rename",
+      "other": "Otra operación"
+    },
+    "results": {
+      "succeeded": "correcto",
+      "failed": "fallido",
+      "in-progress": "en curso",
+      "unknown": "desconocido"
+    },
+    "detail": {
+      "back": "Volver a los stacks",
+      "secretHelp": "Valor secreto: GitOps nunca lo descifra.",
+      "toolVersion": "Versión de Pulumi",
+      "pendingOperations": "Operaciones pendientes",
+      "noStatesPermission": "No tienes permiso para ver los recursos y outputs de este stack (project:stateiac:states:read).",
+      "tabs": "Contenido del stack",
+      "outputs": "Outputs",
+      "searchResources": "Buscar recurso por nombre, tipo o ID",
+      "type": "Tipo",
+      "allTypes": "Todos los tipos",
+      "provider": "Provider",
+      "allProviders": "Todos los providers",
+      "protectedOnly": "Solo protegidos",
+      "expand": "Desplegar",
+      "collapse": "Plegar",
+      "protected": "Protegido contra borrado",
+      "pendingChange": "Cambio pendiente",
+      "noResources": "Ningún recurso coincide.",
+      "noOutputs": "Este stack no tiene outputs.",
+      "parent": "Padre",
+      "modified": "Modificado",
+      "resourceTabs": "Datos del recurso",
+      "inputs": "Inputs",
+      "dependencies": "Dependencias"
+    },
+    "history": {
+      "title": "Historial",
+      "loadFailed": "No se pudo cargar el historial",
+      "empty": "Este stack no tiene historial de updates.",
+      "took": "duró {duration}",
+      "dirty": "cambios sin commit",
+      "showChanges": "Ver cambios",
+      "loadMore": "Cargar más"
+    },
+    "changes": {
+      "create": "Altas",
+      "update": "Cambios",
+      "replace": "Reemplazos",
+      "delete": "Bajas",
+      "import": "Importados",
+      "same": "Sin cambios"
+    },
+    "diff": {
+      "title": "Cambios",
+      "loadFailed": "No se pudo calcular el diff",
+      "from": "Desde",
+      "to": "Hasta",
+      "noSources": "No hay versiones anteriores de este estado que comparar. Pulumi guarda una copia en el historial con cada update; si se borró, activa el versionado del bucket (GCS Object Versioning o S3 Versioning) o PULUMI_RETAIN_CHECKPOINTS.",
+      "unavailable": "Esa versión ya no está disponible en el bucket.",
+      "lastUpdateChanges": "Según el último update:",
+      "secretsNotice": "Los secretos se comparan sin revelarse. Pulumi los vuelve a cifrar en cada escritura, así que no se puede saber si un valor secreto cambió; solo si pasó a ser secreto o dejó de serlo.",
+      "noChanges": "No hay cambios entre estas dos versiones.",
+      "fields": "{count} propiedades",
+      "property": "Propiedad",
+      "before": "Antes",
+      "after": "Después",
+      "providerOnly": "{count} recursos solo cambiaron de provider (subida de versión)",
+      "outputs": "Outputs del stack",
+      "sources": {
+        "current": "Estado actual",
+        "history": "Update",
+        "backup": "Backup",
+        "retained": "Checkpoint retenido",
+        "previous": "Estado anterior (.bak)",
+        "object-version": "Versión del objeto"
+      }
+    },
+    "dashboard": {
+      "selectStack": "Stack",
+      "searchStack": "Buscar stack…",
+      "backend": "Backend",
+      "backendError": "Error del backend: {error}",
+      "environments": "Entornos",
+      "environmentsLabel": "Stacks del proyecto",
+      "noDeploys": "sin despliegues",
+      "resourcesShort": "{count} recursos",
+      "tabs": {
+        "summary": "Resumen"
+      },
+      "health": {
+        "title": "Salud",
+        "ok": "Correcto",
+        "warn": "Atención",
+        "critical": "Crítico",
+        "reasons": {
+          "read_error": "No se puede leer el estado del stack",
+          "backend_error": "El backend da error",
+          "last_update_failed": "El último update falló",
+          "pending_operations": "Hay operaciones pendientes",
+          "stale_lock": "Lock activo desde hace más de 1 h",
+          "inactive": "Sin actividad en más de 30 días"
+        },
+        "noReasons": "Sin incidencias"
+      },
+      "kpi": {
+        "resources": "Recursos",
+        "managed": "{count} gestionados",
+        "components": "{count} componentes",
+        "protected": "{count} protegidos",
+        "lastDeploy": "Último despliegue",
+        "noDeploy": "Sin despliegues",
+        "took": "duró {duration}",
+        "success": "Éxito 30 días",
+        "successDetail": "{succeeded} de {total} updates",
+        "perWeek": "{count} despliegues/semana",
+        "noUpdates": "Sin updates en 30 días",
+        "lastUpdate": "Último update:"
+      },
+      "deploys": {
+        "title": "Despliegues (últimos 90 días)",
+        "succeeded": "Correctos",
+        "failed": "Fallidos",
+        "week": "Semana del {date}",
+        "tableTitle": "Despliegues por semana",
+        "weekColumn": "Semana",
+        "chart": "Despliegues por semana: correctos y fallidos",
+        "empty": "Sin despliegues en este periodo",
+        "viewTable": "Ver tabla"
+      },
+      "byType": {
+        "title": "Recursos por tipo",
+        "others": "Otros",
+        "components": "componentes",
+        "providers": "Por provider"
+      },
+      "recent": {
+        "title": "Últimos despliegues",
+        "viewHistory": "Ver historial →",
+        "empty": "Este stack no tiene historial de updates."
+      },
+      "lastChanges": {
+        "title": "Últimos cambios",
+        "viewDiff": "Ver diff completo →",
+        "providerOnly": "{count} recursos solo cambiaron de provider",
+        "more": "y {count} más",
+        "noChanges": "El último update no cambió ningún recurso.",
+        "fromUpdate": "Según el último update:"
+      },
+      "warnings": {
+        "title": "Avisos",
+        "versionDrift": "Los stacks usan versiones distintas de Pulumi: {stacks}",
+        "stackFailed": "El último update de {stack} falló ({when})",
+        "staleLock": "{stack} tiene un lock activo desde {when}",
+        "pending": "{count} recursos pendientes de reemplazo o borrado en este stack"
+      },
+      "missingPermissions": "Para ver el resto del resumen hacen falta los permisos project:stateiac:history:read y project:stateiac:states:read.",
+      "notFoundTitle": "Este stack no está en el bucket",
+      "notFoundDescription": "Está asignado al proyecto, pero ya no aparece en el backend. Puede haberse borrado o renombrado.",
+      "backToStacks": "Volver a los stacks"
+    }
   }
 }

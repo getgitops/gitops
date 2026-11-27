@@ -13,8 +13,8 @@ export function emptyDraft(): AlertDraft {
     eventType: '',
     match: 'all',
     conditions: [],
-    channels: ['mail'],
     recipients: emptyRecipients(),
+    channelIds: [],
     throttleMinutes: 0,
   };
 }
@@ -36,7 +36,6 @@ export function draftFromAlert(alert: AlertRow): AlertDraft {
             ? [...condition.value]
             : condition.value,
     })),
-    channels: [...alert.channels],
     // copia de cada lista: `alert` puede ser un proxy reactivo (no admite structuredClone)
     recipients: Object.fromEntries(
       Object.entries({ ...emptyRecipients(), ...alert.recipients }).map(([key, list]) => [
@@ -44,6 +43,7 @@ export function draftFromAlert(alert: AlertRow): AlertDraft {
         [...list],
       ]),
     ) as AlertDraft['recipients'],
+    channelIds: [...(alert.channelIds ?? [])],
     throttleMinutes: alert.throttleMinutes,
   };
 }
@@ -60,14 +60,11 @@ export function draftToFormData(
   form.set('eventType', draft.eventType);
   form.set('match', draft.match);
   form.set('throttleMinutes', String(draft.throttleMinutes));
-  for (const channel of draft.channels) form.append('channels', channel);
   const lists = {
     userIds: draft.recipients.userIds,
     roleIds: draft.recipients.roleIds,
     emails: draft.recipients.emails,
-    slackChannels: draft.recipients.slackChannels,
-    googleChatSpaces: draft.recipients.googleChatSpaces,
-    webhookUrls: draft.recipients.webhookUrls,
+    channelIds: draft.channelIds,
   };
   for (const [name, values] of Object.entries(lists)) {
     for (const value of values) form.append(name, value);

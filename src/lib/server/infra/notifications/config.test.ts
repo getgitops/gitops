@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { formatSender, isSmtpConfigured, readSmtpConfig, requireSmtpConfig } from './config';
+import {
+  absoluteUrl,
+  formatSender,
+  isSmtpConfigured,
+  readPublicOrigin,
+  readSmtpConfig,
+  rememberDevOrigin,
+  requireSmtpConfig,
+  resetDevOrigin,
+} from './config';
 
 const KEYS = [
   'NOTIFICATION_SMTP_HOST',
@@ -119,5 +128,31 @@ describe('formatSender', () => {
 
     process.env.NOTIFICATION_SMTP_FROM_NAME = 'GitOps';
     expect(formatSender(requireSmtpConfig())).toBe('GitOps <noreply@example.com>');
+  });
+});
+
+describe('public origin of email links', () => {
+  const previous = process.env.ORIGIN;
+
+  afterEach(() => {
+    resetDevOrigin();
+    if (previous === undefined) delete process.env.ORIGIN;
+    else process.env.ORIGIN = previous;
+  });
+
+  it('uses ORIGIN without a trailing slash', () => {
+    process.env.ORIGIN = 'http://localhost:3000/';
+    expect(readPublicOrigin()).toBe('http://localhost:3000');
+    expect(absoluteUrl('/notifications/verify?token=t')).toBe(
+      'http://localhost:3000/notifications/verify?token=t',
+    );
+  });
+
+  it('prefers the origin the dev server is really served from', () => {
+    process.env.ORIGIN = 'http://localhost:3000';
+    rememberDevOrigin('http://localhost:5173');
+    expect(absoluteUrl('/notifications/verify?token=t')).toBe(
+      'http://localhost:5173/notifications/verify?token=t',
+    );
   });
 });

@@ -77,6 +77,17 @@ export const codeReportEvents: EventDefinitions<
 > = {
   [COMPLETED]: {
     mailTemplate: 'alert-code-report-analysis',
+    samplePayload: {
+      analysisId: 'sample-analysis',
+      gitInfo: { repositoryUrl: null, branch: 'main', commit: '0123456789abcdef', version: null },
+      summary: { critical: 1, high: 2, medium: 3, low: 4, unknown: 0, total: 10, secrets: 0 },
+      policies: {
+        status: 'compliant',
+        totalViolations: 0,
+        blockingFailures: 0,
+        failedPolicyIds: [],
+      },
+    },
     link: (context) => projectPath(context, `/code-report/history/${context.payload.analysisId}`),
     mailSummary: ({ summary }) =>
       summary.total === 0

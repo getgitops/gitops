@@ -19,7 +19,13 @@ type EnvironmentEvent = typeof ENVIRONMENT_CREATED | typeof ENVIRONMENT_DELETED;
 
 function secretFields<K extends SecretEvent>(type: K) {
   return [
-    { key: 'key', label: fieldLabel(type, 'key'), type: 'string', operators: OPERATORS.string },
+    {
+      key: 'key',
+      label: fieldLabel(type, 'key'),
+      type: 'string',
+      operators: OPERATORS.string,
+      sensitive: true,
+    },
     {
       key: 'environmentIds',
       label: fieldLabel(type, 'environmentIds'),
@@ -32,6 +38,7 @@ function secretFields<K extends SecretEvent>(type: K) {
       label: fieldLabel(type, 'folderPath'),
       type: 'string',
       operators: OPERATORS.string,
+      sensitive: true,
     },
   ] as const;
 }
@@ -106,6 +113,7 @@ export const vaultEvents: EventDefinitions<SecretEvent | typeof ENV_IMPORTED | E
         label: fieldLabel(ENV_IMPORTED, 'folderPath'),
         type: 'string',
         operators: OPERATORS.string,
+        sensitive: true,
       },
       {
         key: 'created',

@@ -2,6 +2,11 @@ import { apiKeysService, roleService, userAccessService } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { codeReportService } from '#modules/code-report';
+import { NotificationSettingsRepository } from '#modules/notifications/infrastructure/repositories/notification-settings.repository';
+import { StateBackendRepository } from '#modules/state-iac/infrastructure/repositories/state-backend.repository';
+import { StateBindingRepository } from '#modules/state-iac/infrastructure/repositories/state-binding.repository';
+import { FAKE_S3_BUCKET } from './fake-s3';
+import { E2E_S3_ENDPOINT } from '../global-setup';
 
 export const E2E_PASSWORD = 'E2ePassword!123';
 
@@ -13,6 +18,7 @@ export type PersonaKey =
   | 'orgOutsider'
   | 'orgNone'
   | 'orgProjectsReadOnly'
+  | 'orgStateIacReader'
   | 'projectAdmin'
   | 'projectDeveloper'
   | 'projectViewer'
@@ -35,6 +41,11 @@ export type SeedOutput = {
   primaryOrgSlug: string;
   primaryOrgId: string;
   primaryProjectSlug: string;
+  primaryProjectId: string;
+  projectViewerRoleId: string;
+  /** Second project of the primary org: shares the State IaC bucket with the primary one. */
+  secondaryProjectSlug: string;
+  stateBackendId: string;
   outsiderOrgSlug: string;
   outsiderProjectSlug: string;
   seededServiceSlug: string;
@@ -110,6 +121,7 @@ export async function seedAll(): Promise<SeedOutput> {
     slug: 'e2e-primary',
   });
   await roleService.createDefaultOrganizationRoles(primaryOrg.id);
+  await new NotificationSettingsRepository().setAllowedDomains(primaryOrg.id, ['example.com']);
   const primaryOrgRoles = await roleService.listRoles('organization', primaryOrg.id);
   const orgAdminRoleId = roleIdBySlug(primaryOrgRoles, 'org-admin');
   const orgDeveloperRoleId = roleIdBySlug(primaryOrgRoles, 'org-developer');
@@ -142,6 +154,22 @@ export async function seedAll(): Promise<SeedOutput> {
     password: E2E_PASSWORD,
     roleId: orgProjectsReadOnlyRole.id,
     email: 'org-projects-read-only@e2e.test',
+  });
+
+  // sees the State IaC backends and their assignments, can't change them
+  const orgStateIacReaderRole = await roleService.createRole({
+    name: 'E2E Org State IaC Reader',
+    slug: 'e2e-org-stateiac-reader',
+    scope: 'organization',
+    organizationId: primaryOrg.id,
+    permissions: ['organization:stateiac:backends:read'],
+  });
+  const orgStateIacReader = await userAccessService.createOrganizationUser({
+    organizationId: primaryOrg.id,
+    username: 'e2e-org-stateiac-reader',
+    password: E2E_PASSWORD,
+    roleId: orgStateIacReaderRole.id,
+    email: 'org-stateiac-reader@e2e.test',
   });
 
   // --- primary project under the primary org ----------------------------------------------
@@ -192,7 +220,11 @@ export async function seedAll(): Promise<SeedOutput> {
     ],
   });
   const serverKeysNoDeleteUser = await bareUser('e2e-server-keys-no-delete');
-  await assignProjectRole(primaryProject.id, serverKeysNoDeleteUser.userId, serverKeysNoDeleteRole.id);
+  await assignProjectRole(
+    primaryProject.id,
+    serverKeysNoDeleteUser.userId,
+    serverKeysNoDeleteRole.id,
+  );
 
   const serverKeysNoUpdateRole = await roleService.createRole({
     name: 'E2E Server Keys No Update',
@@ -202,7 +234,11 @@ export async function seedAll(): Promise<SeedOutput> {
     permissions: ['project:project:read', 'project:server-keys:read', 'project:server-keys:create'],
   });
   const serverKeysNoUpdateUser = await bareUser('e2e-server-keys-no-update');
-  await assignProjectRole(primaryProject.id, serverKeysNoUpdateUser.userId, serverKeysNoUpdateRole.id);
+  await assignProjectRole(
+    primaryProject.id,
+    serverKeysNoUpdateUser.userId,
+    serverKeysNoUpdateRole.id,
+  );
 
   await apiKeysService.createProjectApiKey({
     projectId: primaryProject.id,
@@ -266,6 +302,52 @@ export async function seedAll(): Promise<SeedOutput> {
     stateiacStacksOnlyUser.userId,
     stateiacStacksOnlyRole.id,
   );
+
+  // --- State IaC: one bucket (the fake S3 over test/fixtures/state-iac), two projects ----------
+  const secondaryProject = await projectService.createProject({
+    organizationId: primaryOrg.id,
+    name: 'E2E Secondary Project',
+    slug: 'e2e-project-b',
+    modules: { vault: false, codereport: false, stateiac: true, monitoring: false },
+  });
+  const now = new Date().toISOString();
+  const stateBackendId = crypto.randomUUID();
+  // written directly: the API refuses loopback endpoints on purpose (anti-SSRF)
+  await new StateBackendRepository().create({
+    id: stateBackendId,
+    organizationId: primaryOrg.id,
+    name: 'e2e-shared-state',
+    engine: 'pulumi',
+    provider: 's3',
+    bucket: FAKE_S3_BUCKET,
+    prefix: null,
+    region: 'us-east-1',
+    endpoint: E2E_S3_ENDPOINT,
+    forcePathStyle: true,
+    auth: 'ambient',
+    credentials: null,
+    enabled: true,
+    lastScanAt: null,
+    lastError: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const bindings = new StateBindingRepository();
+  for (const [pulumiProject, projectId] of [
+    ['acme-infra', primaryProject.id],
+    ['acme-platform', secondaryProject.id],
+  ] as const) {
+    await bindings.create({
+      id: crypto.randomUUID(),
+      organizationId: primaryOrg.id,
+      backendId: stateBackendId,
+      pulumiProject,
+      stacks: [],
+      projectId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
 
   const seededService = await codeReportService.createService({
     project: requireSeedSlug(primaryProject.slug, 'primary project'),
@@ -343,6 +425,10 @@ export async function seedAll(): Promise<SeedOutput> {
         userId: orgProjectsReadOnly.userId,
         username: orgProjectsReadOnly.username,
       },
+      orgStateIacReader: {
+        userId: orgStateIacReader.userId,
+        username: orgStateIacReader.username,
+      },
       projectAdmin: { userId: projectAdminUser.userId, username: projectAdminUser.username },
       projectDeveloper: {
         userId: projectDeveloperUser.userId,
@@ -385,6 +471,10 @@ export async function seedAll(): Promise<SeedOutput> {
     primaryOrgSlug: primaryOrg.slug,
     primaryOrgId: primaryOrg.id,
     primaryProjectSlug: requireSeedSlug(primaryProject.slug, 'primary project'),
+    primaryProjectId: primaryProject.id,
+    projectViewerRoleId,
+    secondaryProjectSlug: requireSeedSlug(secondaryProject.slug, 'secondary project'),
+    stateBackendId,
     outsiderOrgSlug: requireSeedSlug(outsiderOrg.slug, 'outsider organization'),
     outsiderProjectSlug: requireSeedSlug(outsiderProject.slug, 'outsider project'),
     seededServiceSlug: seededService.slug,
