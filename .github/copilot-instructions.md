@@ -118,27 +118,21 @@ tambien usuarios con acceso solo a proyectos bajo la organización (ven el overv
 
 **Alertas, destinatarios externos y canales de notificación:** `organization:alerts:read|update` y
 `project:alerts:read|update` gestionan alertas por eventos; `organization:notifications:read|update`
-y `project:notifications:update` gestionan destinatarios externos y canales. El módulo
-`$modules/notifications` maneja dominios permitidos, canales de notificación (webhook, Slack, Google Chat),
-verificación y desuscripción. En `/org/<org>/settings/alerts/settings`, administradores configuran dominios
-permitidos y canales (`NotificationChannelEntity` en GitDB). Alertas guardan `recipients` (usuarios, roles,
-emails externos) y `channelIds` (referencias a canales, no destinatarios individuales). Canales de organización
-se usan en alertas de org y proyecto; canales de proyecto solo en sus alertas. Cada canal tiene un idioma 
-(`locale`: es | en, por defecto en), que determina el idioma de etiquetas y eventos en sus mensajes.
-URLs de webhook se encriptan con `GITDB_ENCRYPTION_KEY`. Emails externos: `pending` → `verified` → `unsubscribed` 
-o `blocked`; template sin campos `sensitive` ni links; `List-Unsubscribe` HMAC (90 días). Canales: un mensaje 
-por canal en paralelo, fallo de canal nunca afecta email. **Webhook** se firma con HMAC-SHA256 
-(`X-GitOps-Signature`): secreto `whsec_…` se muestra una sola vez al crear o rotar (24 h gracia, ambos secretos 
-validan); resuelve DNS rechazando IPs privadas/loopback; no sigue redirects; reintentos con backoff (20 fallos 
-= auto-deshabilita). Docs en `docs/webhooks/`. **Slack**: Incoming Webhook (solo URLs `https://hooks.slack.com/services/…`, 
-sin firma), formatea como Block Kit en el idioma del canal (nombre de alerta, resumen, campos, cambios de campos
-con before/after, fecha en zona horaria del lector, nota de contexto y botón "Ver en GitOps" si hay link), escapa
-caracteres Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook Slack. Los errores 4xx no se reintentan 
-y se muestran como último error. **Add to Slack** (`SlackConnectService`): cuando `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` están configurados, 
-los settings de canales muestran "Añadir a Slack"; usuario elige workspace y canal, GitOps crea el canal con webhook. 
-Admin abre `GitOps Settings → Slack`, crea la app Slack (manifest con scope `incoming-webhook` y redirect 
-`<ORIGIN>/notifications/slack/callback`, requiere https), copia credenciales al entorno y reinicia. En dev, usar 
-`DEV_HTTPS=true` con certificados en `.certs/` (ver `.env.example`).
+gestionan destinatarios externos y canales. El módulo `$modules/notifications` maneja dominios permitidos,
+canales de notificación (webhook, Slack, Google Chat), verificación y desuscripción. En
+`/org/<org>/settings/alerts/settings` (modal con tabs **Integraciones** / **Canales** / **Email externo**),
+administradores configuran integraciones como Slack, dominios permitidos y canales (`NotificationChannelEntity`
+en GitDB). Alertas guardan `recipients` (usuarios, roles, emails externos) y `channelIds` (referencias a canales).
+Los canales pertenecen solo a organizaciones (#119): proyectos usan los canales de su organización, no tienen propios.
+Cada canal tiene idioma (`locale`: es | en, por defecto en). URLs de webhook encriptadas con `GITDB_ENCRYPTION_KEY`.
+Emails externos: `pending` → `verified` → `unsubscribed` o `blocked`; template sin campos `sensitive` ni links;
+`List-Unsubscribe` HMAC (90 días). **Webhook** se firma: secreto `whsec_…` una sola vez, resuelve DNS rechazando
+IPs privadas, 20 fallos consecutivos = auto-deshabilita. **Slack**: Incoming Webhook (solo `https://hooks.slack.com/services/…`),
+Block Kit en idioma del canal, escapa Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook.
+Errores 4xx no se reintentan. **Add to Slack** (`SlackConnectService`): cuando `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`
+están configurados, la sección de Integraciones muestra "Añadir a Slack"; usuario elige workspace y canal.
+Admin crea app Slack desde `GitOps Settings → Slack` (manifest con scope `incoming-webhook` y redirect
+`<ORIGIN>/notifications/slack/callback`, requiere https), copia credenciales. En dev: `DEV_HTTPS=true` con certs en `.certs/`.
 
 **Comando `/gitops`** (`SlackAppService`, requiere `SLACK_SIGNING_SECRET`): organización instala el app desde la 
 página de canales (`installSlack` action, scope `commands`), guardando el bot token en `slack_workspaces` 

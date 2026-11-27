@@ -211,7 +211,11 @@ export async function loadAlertList(
     external,
     settings,
     channelsSection,
-    configPath: settings || channelsSection ? `${context.basePath}/settings` : null,
+    // projects have no notification settings of their own: they use the organization's (#119)
+    configPath:
+      location.scope === 'organization' && (settings || channelsSection)
+        ? `${context.basePath}/settings`
+        : null,
     canCreate: allowed.canCreate,
     canUpdate: allowed.canUpdate,
     canDelete: allowed.canDelete,

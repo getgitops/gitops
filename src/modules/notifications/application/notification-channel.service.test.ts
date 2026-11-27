@@ -154,22 +154,88 @@ describe('NotificationChannelService', () => {
   });
 
   describe('scopes', () => {
-    it('lets a project channel serve only its project, and an organization channel all of them', async () => {
+    it('only creates organization channels: projects use their organization ones (#119)', async () => {
+      const errors = await validationErrors(
+        f.service.create(p1, { type: 'slack', name: 'p1', destination: HOOK }, 'a'),
+      );
+      expect(errors).toEqual({ scope: 'project_channels_unsupported' });
+      expect(f.repository.rows).toHaveLength(0);
+    });
+
+    it('lets organization channels serve the organization and all its projects', async () => {
       const org = await create(orgLocation, { type: 'slack', name: 'org', destination: HOOK }, 'a');
-      const own = await create(p1, { type: 'slack', name: 'p1', destination: HOOK }, 'a');
-      await create(
-        { ...p1, projectId: 'p2' },
-        { type: 'slack', name: 'p2', destination: HOOK },
+      // a project channel left from before #119 serves nobody
+      const legacy = await create(
+        orgLocation,
+        { type: 'slack', name: 'p1', destination: HOOK },
         'a',
       );
+      Object.assign(
+        f.repository.rows.find((row) => row.id === legacy.id)!,
+        {
+          scope: 'project',
+          projectId: 'p1',
+        },
+      );
 
-      const usable = await f.service.listUsable({ organizationId: ORG, projectId: 'p1' });
-      expect(usable.map((channel) => channel.id).sort()).toEqual([org.id, own.id].sort());
+      expect(
+        (await f.service.listUsable({ organizationId: ORG, projectId: 'p1' })).map((c) => c.id),
+      ).toEqual([org.id]);
       expect(
         (await f.service.listUsable({ organizationId: ORG, projectId: null })).map((c) => c.id),
       ).toEqual([org.id]);
       expect(await f.service.listUsable({ organizationId: 'other', projectId: null })).toEqual([]);
-      expect((await f.service.list(p1)).map((channel) => channel.name)).toEqual(['p1']);
+    });
+
+    it('purges the project channels left from before #119, once', async () => {
+      const org = await create(orgLocation, { type: 'slack', name: 'org', destination: HOOK }, 'a');
+      const legacy = await create(
+        orgLocation,
+        { type: 'slack', name: 'p1', destination: HOOK },
+        'a',
+      );
+      Object.assign(
+        f.repository.rows.find((row) => row.id === legacy.id)!,
+        {
+          scope: 'project',
+          projectId: 'p1',
+        },
+      );
+
+      await expect(f.service.purgeProjectChannels()).resolves.toEqual([
+        { id: legacy.id, organizationId: ORG },
+      ]);
+      expect(f.repository.rows.map((row) => row.id)).toEqual([org.id]);
+      // nothing left: nothing written
+      const writes = f.repository.writes.length;
+      await expect(f.service.purgeProjectChannels()).resolves.toEqual([]);
+      expect(f.repository.writes).toHaveLength(writes);
+    });
+  });
+
+  describe('types that are switched off', () => {
+    it('neither offers nor creates them, while existing channels keep delivering', async () => {
+      let slackEnabled = true;
+      const g = createChannelsFixture({
+        types: ['slack', 'webhook'],
+        canCreateType: (type) => type !== 'slack' || slackEnabled,
+      });
+      const existing = await g.service.create(
+        orgLocation,
+        { type: 'slack', name: '#old', destination: HOOK },
+        'a',
+      );
+      slackEnabled = false;
+
+      expect(g.service.availableTypes()).toEqual(['webhook']);
+      expect(g.service.registeredTypes()).toEqual(['slack', 'webhook']);
+      const errors = await validationErrors(
+        g.service.create(orgLocation, { type: 'slack', name: '#new', destination: HOOK }, 'a'),
+      );
+      expect(errors).toEqual({ type: 'type_disabled' });
+
+      expect(g.service.toView(existing.channel).available).toBe(true);
+      await expect(g.service.deliver(existing.channel.id, message)).resolves.toBe(true);
     });
   });
 
@@ -382,7 +448,7 @@ describe('NotificationChannelService: signed channels and failure streaks', () =
   it('disables a channel after N definitive failures in a row and announces it once', async () => {
     const f = webhook({ maxConsecutiveFailures: 3 });
     const { channel } = await f.service.create(
-      p1,
+      orgLocation,
       { type: 'webhook', name: 'SIEM', destination: HOOK },
       'creator',
     );
@@ -412,7 +478,7 @@ describe('NotificationChannelService: signed channels and failure streaks', () =
     expect(announced).toHaveLength(1);
     expect(announced[0]).toMatchObject({
       actor: { kind: 'system' },
-      scope: { organizationId: ORG, projectId: 'p1' },
+      scope: { organizationId: ORG, projectId: null },
       payload: {
         channelId: channel.id,
         name: 'SIEM',

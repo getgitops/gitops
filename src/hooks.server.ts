@@ -3,7 +3,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
-import { registerAlertEngine } from '#modules/alerts';
+import { purgeProjectChannels, registerAlertEngine } from '#modules/alerts';
 import { registerStateIac } from '#modules/state-iac';
 import { getMonitoringConfig, startMonitoring } from '#modules/monitoring';
 import {
@@ -36,6 +36,10 @@ const serverReady = (async () => {
   await ensureAuthReady();
   // once per process (HMR-safe): system notifications and alerts on every published event
   registerAlertEngine();
+  // channels are organization-wide (#119): leftover project channels go, in the background
+  purgeProjectChannels().catch((error) =>
+    startupLog.error(error, '[startup] project channels could not be removed'),
+  );
   // State IaC bindings follow the projects they point at
   registerStateIac();
   await refreshBootstrapState();

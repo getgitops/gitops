@@ -27,6 +27,8 @@ export interface NotificationChannelRepositoryPort {
   findById(id: string): Promise<NotificationChannelDomain | null>;
   /** Every channel of the organization, including those of its projects. */
   listByOrganization(organizationId: string): Promise<NotificationChannelDomain[]>;
+  /** Channels owned by a project, in every organization (legacy rows: see #119). */
+  listProjectChannels(): Promise<NotificationChannelDomain[]>;
   create(row: NotificationChannelRow): Promise<void>;
   update(id: string, changes: NotificationChannelChanges): Promise<void>;
   delete(id: string): Promise<void>;
@@ -48,6 +50,14 @@ export class NotificationChannelRepository
       .from(NotificationChannelEntity)
       .where({ organizationId })
       .orderBy('createdAt', 'asc');
+    return result.rows.map((row: any) => new NotificationChannelDomain(row));
+  }
+
+  async listProjectChannels() {
+    const result = await this.db
+      .select()
+      .from(NotificationChannelEntity)
+      .where({ scope: 'project' });
     return result.rows.map((row: any) => new NotificationChannelDomain(row));
   }
 

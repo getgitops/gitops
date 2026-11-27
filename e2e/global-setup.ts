@@ -80,6 +80,11 @@ function buildEnv(): Record<string, string | undefined> {
     MONITORING_ALLOW_PRIVATE_TARGETS: 'true',
     // webhook channels are created with a URL nobody resolves; no delivery is attempted
     NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS: 'true',
+    // "Add to Slack" configured (so Slack channels can be created), `/gitops` not: the Slack
+    // integration shows as disabled. Nothing ever reaches Slack
+    SLACK_CLIENT_ID: 'e2e-slack-client',
+    SLACK_CLIENT_SECRET: 'e2e-slack-secret',
+    SLACK_SIGNING_SECRET: '',
     // State IaC reads the fake S3 bucket with "ambient" auth: dummy static credentials
     AWS_ACCESS_KEY_ID: 'e2e',
     AWS_SECRET_ACCESS_KEY: 'e2e',

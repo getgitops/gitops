@@ -42,40 +42,48 @@ export type ChannelView = {
   rotationEndsAt: string | null;
 };
 
+/**
+ * A type in the "new channel" picker: `available` can be created now, `coming_soon` is not built
+ * yet. Types that are built but switched off (Slack without its app configured) are left out.
+ */
+export type ChannelTypeOption = { type: string; status: 'available' | 'coming_soon' };
+
+/** The notification settings of an organization: its integrations and its channels. */
 export type ChannelsSectionData = {
-  scope: 'organization' | 'project';
   channels: ChannelView[];
-  inherited: ChannelView[];
+  /** Types that can be created now. */
   availableTypes: string[];
+  /** What the "new channel" picker offers, in display order. */
+  channelTypes: ChannelTypeOption[];
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
   /** "Add to Slack" is available (Slack app configured and the caller can create channels). */
   slackConnect: boolean;
-  /** Where a GitOps admin sets up "Add to Slack" while it is not configured; `null` otherwise. */
-  slackSetupPath: string | null;
-  /**
-   * Apps installed in the organization (the GitOps Slack app and, later, other providers): one card
-   * each. `null` on project pages: apps belong to organizations.
-   */
-  apps: AppCardData[] | null;
+  /** Integrations with chat providers (the GitOps Slack app and, later, others): one card each. */
+  apps: AppCardData[];
 };
 
-/** Providers with an app card; the ones without an implementation show as coming soon. */
+/** Providers with an integration card; the ones without an implementation show as coming soon. */
 export const APP_PROVIDERS = ['slack', 'google-chat'] as const;
 export type AppProvider = (typeof APP_PROVIDERS)[number];
 
+/**
+ * - `installed`: connected to at least one workspace;
+ * - `available`: configured, not connected yet;
+ * - `disabled`: the installation lacks its configuration (`SLACK_*` variables);
+ * - `coming_soon`: not built yet.
+ */
+export type AppStatus = 'installed' | 'available' | 'disabled' | 'coming_soon';
+
 export type AppCardData = {
   provider: AppProvider;
-  /** Not built yet: the card only says "coming soon". */
-  comingSoon: boolean;
-  /** The installation has the app configured (credentials set by a GitOps admin). */
-  configured: boolean;
+  status: AppStatus;
   canInstall: boolean;
   canRemove: boolean;
-  /** Where it is installed (Slack workspaces); empty = not installed. */
+  /** Where it is installed (Slack workspaces); still listed, and removable, while disabled. */
   installations: { id: string; name: string }[];
-  /** Shown to GitOps admins while the app is not configured. */
+  /** Shown to GitOps admins while the integration is disabled; `null` for everyone else. */
   setupPath: string | null;
 };
 

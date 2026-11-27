@@ -87,6 +87,11 @@ export type NotificationChannelServiceOptions = {
   rotationGraceMs?: number;
   /** How often a healthy channel records `lastDeliveryAt` (each record is a GitDB commit). */
   deliveryStampIntervalMs?: number;
+  /**
+   * Whether channels of `type` can be created now, on top of having a transport: Slack needs its
+   * app configured (`SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`). Existing channels keep delivering.
+   */
+  canCreateType?: (type: ChatChannelType) => boolean;
   logger?: {
     warn: (object: object, message: string) => void;
     error?: (object: object, message: string) => void;
@@ -131,9 +136,18 @@ export class NotificationChannelService {
     this.rotationGraceMs = options.rotationGraceMs ?? SECRET_ROTATION_GRACE_MS;
   }
 
-  /** Channel types that can be created now (a transport is registered for them). */
+  /** Channel types that can be created now: a transport is registered and the type is enabled. */
   availableTypes(): ChatChannelType[] {
+    return this.transports.available().filter((type) => this.creatable(type));
+  }
+
+  /** Types with a registered transport, enabled or not: the rest are not built yet. */
+  registeredTypes(): ChatChannelType[] {
     return this.transports.available();
+  }
+
+  private creatable(type: ChatChannelType): boolean {
+    return this.options.canCreateType?.(type) ?? true;
   }
 
   async get(id: string): Promise<NotificationChannelDomain> {
@@ -152,7 +166,7 @@ export class NotificationChannelService {
     );
   }
 
-  /** Channels an alert of `location` may use: its project's and its organization's. */
+  /** Channels an alert of `location` may use: its organization's (channels are organization-wide). */
   async listUsable(location: Pick<ChannelLocation, 'organizationId' | 'projectId'>) {
     const channels = await this.repository.listByOrganization(location.organizationId);
     return channels.filter((channel) => channel.usableFrom(location));
@@ -192,6 +206,8 @@ export class NotificationChannelService {
     actorUserId: string,
   ): Promise<IssuedChannel> {
     const errors: Record<string, string> = {};
+    // channels belong to organizations: project alerts use their organization's (#119)
+    if (location.scope !== 'organization') errors.scope = 'project_channels_unsupported';
     const type = this.validateType(input.type, errors);
     const name = this.validateName(input.name, errors);
     const locale =
@@ -213,8 +229,9 @@ export class NotificationChannelService {
       type,
       name,
       locale,
-      ...location,
-      projectId: location.scope === 'project' ? location.projectId : null,
+      scope: 'organization',
+      organizationId: location.organizationId,
+      projectId: null,
       webhookUrl: this.cipher.encrypt(id, destination),
       enabled:
         input.enabled === undefined ? true : input.enabled === true || input.enabled === 'true',
@@ -294,6 +311,20 @@ export class NotificationChannelService {
   async delete(id: string): Promise<void> {
     await this.get(id);
     await this.repository.delete(id);
+  }
+
+  /**
+   * Deletes every project channel (#119: channels are organization-wide now). Idempotent: with
+   * none left it writes nothing. Returns what it deleted so callers can drop the references.
+   */
+  async purgeProjectChannels(): Promise<Array<{ id: string; organizationId: string }>> {
+    const channels = await this.repository.listProjectChannels();
+    const deleted: Array<{ id: string; organizationId: string }> = [];
+    for (const channel of channels) {
+      await this.repository.delete(channel.id);
+      deleted.push({ id: channel.id, organizationId: channel.organizationId });
+    }
+    return deleted;
   }
 
   /**
@@ -491,6 +522,10 @@ export class NotificationChannelService {
     }
     if (!this.transports.get(value)) {
       errors.type = 'type_unavailable';
+      return null;
+    }
+    if (!this.creatable(value)) {
+      errors.type = 'type_disabled';
       return null;
     }
     return value;

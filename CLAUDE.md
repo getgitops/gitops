@@ -349,23 +349,44 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (`organization:notifications:read`; resend a confirmation, or remove a `pending` address added by
   mistake, with `organization:notifications:update`: removing deletes the recipient, so its link
   stops working, and `alertService.removeEmail()` drops it from every alert of the organization).
-  The "Settings" button of the alert lists (no sidebar entry) opens them in a modal
-  (`AlertSettingsPanel`) together with the location's notification channels; its forms post to the
-  actions of `<alerts path>/settings` (`/org/<org>/settings/alerts/settings` or
-  `/org/<org>/projects/<slug>/settings/alerts/settings`), the same pages browsers without
-  JavaScript get. Project settings only hold channels (domains are the organization's). The alert
-  pages also get `data.external` (`ExternalRecipientsEditorData`), `data.channels` (channel options
-  the location's alerts may use), `data.channelsSection` and `data.configPath` (for the settings modal).
+  The "Settings" button of the organization alert list (no sidebar entry) opens them in a modal
+  (`AlertSettingsPanel`, tabs **Integraciones** / **Canales** / **Email externo**; without JavaScript
+  the three sections are stacked) whose forms post to the actions of
+  `/org/<org>/settings/alerts/settings`. Projects have no notification settings of their own (#119):
+  the project alert list has no "Settings" button (`data.configPath` is `null`) but a "?" whose
+  tooltip says they are managed from the organization, and
+  `/org/<org>/projects/<slug>/settings/alerts/settings` redirects to the organization's page (404
+  for who can't open it). Alert pages get `data.external`
+  (`ExternalRecipientsEditorData`), `data.channels` (channel options for the location's alerts),
+  and `data.configPath`.
 - Notification channels (`$modules/notifications`): `NotificationChannelEntity` (GitDB
-  `notification_channels`), owned by an organization (usable by alerts of the organization and of
-  all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
-  a type is available only once its transport is registered with `registerChatTransport()`
-  (`#lib/server/infra/notifications/chat-notification.ts`) in the composition root
-  (`$modules/notifications/index.ts`); today `webhook` and `slack` are, and tests use
-  `FakeChatTransport`. Providers with incoming webhooks on a fixed host (Slack, Google Chat) only
-  write a formatter: `createFixedHostChatTransport({ rule, format })`
-  (`chat-webhook.transport.ts`) does the URL rule, guarded fetch and `postJson`; `truncateText`
-  (`chat-format.ts`) is shared for provider length limits.
+  `notification_channels`), owned by an organization only and usable by alerts of the organization
+  and of all its projects. **Projects have no channels of their own (#119):** `create()` refuses a
+  project location (`scope: 'project_channels_unsupported'`), `listChannels()` for projects returns
+  the usable organization channels (calling `listUsable()`), and `purgeProjectChannels()` (from
+  `$modules/alerts`, run in the background at startup in `hooks.server.ts`) deletes any project
+  rows left from before and drops them from alerts with `alertService.removeChannels()` (an alert
+  left without channels falls back to email). Project alert pages show a "?" hint instead of a
+  settings button, and `/org/<org>/projects/<slug>/settings/alerts/settings` redirects to the
+  organization's page (404 for who can't open it).
+  
+  `type` is `webhook`, `slack` or `google-chat`; a type is available only once its transport is
+  registered with `registerChatTransport()` (`#lib/server/infra/notifications/chat-notification.ts`)
+  in the composition root (`$modules/notifications/index.ts`); today `webhook` and `slack` are, and
+  tests use `FakeChatTransport`. `canCreateType` (service option) switches a built type off for new
+  channels: Slack needs `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` (`slackConnectService.isConfigured()`),
+  otherwise it is refused (`type_disabled`) and left out of the new channel type picker; existing
+  Slack channels keep delivering. `availableTypes()` lists types that can be created (transport
+  registered and type enabled, organization-only), while `registeredTypes()` lists types with a
+  transport. Providers with incoming webhooks on a fixed host (Slack, Google Chat) only write a
+  formatter: `createFixedHostChatTransport({ rule, format })` (`chat-webhook.transport.ts`) does
+  the URL rule, guarded fetch and `postJson`; `truncateText` (`chat-format.ts`) is shared for
+  provider length limits. 
+  
+  UI components (`#lib/components/notifications/`): `IntegrationsSection` (integration cards with
+  status and install/setup links), `ChannelForm` (create/edit modal), `ChannelList` (list with
+  actions), and `channel-ui.ts` (helpers for integration cards and error messages).
+  
   A `ChatTransport` implements `send()` and `validateDestination()` (sync or async), the anti-SSRF
   check run before saving and again before every send: `validateWebhookUrl()` for providers with a
   fixed host (https, no credentials, no IP literal, default port, allowed host and path),
@@ -406,11 +427,14 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (`SlackConnectService`, `SlackOAuthClient`) with only the `incoming-webhook` scope, so Slack asks for
   the workspace and channel and returns its webhook URL, saved as a normal `slack` channel (same transport,
   same `SLACK_WEBHOOK_RULE`). Enabled when `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` are both set
-  (`readSlackAppConfig()`; half set counts as disabled). Picking the Slack card in the create-channel
-  form shows an "Add to Slack" button (`formaction` to the `connectSlack` action, `channels-page.ts`;
-  the enhanced submit follows the redirect with `window.location`; Enter keeps creating the manual channel)
-  next to the manual URL fields, and GitOps admins get a link to `/gitops-settings/slack` while it is not
-  configured. The action needs `<scope>:notifications:create` and a session, not an API key; it sets
+  (`readSlackAppConfig()`; half set counts as disabled); without them the Slack type is not offered
+  at all (see `canCreateType`). Picking the Slack card in the "New channel" modal (`ChannelForm`) shows
+  an "Add to Slack" button (`formaction` to the `connectSlack` action, `channels-page.ts`; the enhanced
+  submit follows the redirect with `window.location`; Enter keeps creating the manual channel) next to
+  the manual URL fields. The integration card (`IntegrationsSection`, `AppCardData.status`:
+  `installed` | `available` | `disabled` | `coming_soon`) shows Slack as **Desactivado** while `/gitops`
+  is not configured (`SLACK_SIGNING_SECRET` too): GitOps admins get a link to `/gitops-settings/slack`,
+  everyone else is told to ask one; workspaces already connected stay listed and can be removed. The action needs `<scope>:notifications:create` and a session, not an API key; it sets
   the `gitops_slack_flow` cookie (`signToken`, 10 min, bound to the user, location, locale and a return
   path) and redirects to Slack; `/notifications/slack/callback` (fixed: it is the app's redirect URL,
   needs the same session) checks the state, exchanges the code (Basic auth), creates the channel through

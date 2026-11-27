@@ -23,8 +23,8 @@ function value(raw: string | undefined): string | null {
 
 /**
  * Read on every call so config reloads and tests see fresh values. `null` when "Add to Slack" is
- * not configured (channels are then created by pasting the webhook URL); throws when only one of
- * the two values is set.
+ * not configured (no Slack channel can be created then); throws when only one of the two values is
+ * set.
  */
 export function readSlackAppConfig(): SlackAppConfig | null {
   const clientId = value(env.SLACK_CLIENT_ID);

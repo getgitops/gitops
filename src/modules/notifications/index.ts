@@ -116,7 +116,12 @@ export const notificationChannelService = new NotificationChannelService(
   createChannelCipher(() => passwordService.ensureEncryptionKey()),
   { get: (type) => getChatTransport(type), available: () => availableChatTypes() },
   channelQueue,
-  { logger: log, events: eventBus },
+  {
+    logger: log,
+    events: eventBus,
+    // new Slack channels only once the Slack app is configured; existing ones keep delivering
+    canCreateType: (type) => type !== 'slack' || slackConnectService.isConfigured(),
+  },
 );
 
 /** "Add to Slack" (#97): OAuth install that returns the webhook of the channel the user picks. */
