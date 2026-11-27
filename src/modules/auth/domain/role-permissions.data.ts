@@ -19,6 +19,7 @@ export const ORGANIZATION_ADMIN_PERMISSIONS = [
   'organization:events:all',
   'organization:alerts:all',
   'organization:notifications:all',
+  'organization:cves:feed:all',
   'organization:stateiac:backends:all',
   'organization:stateiac:stacks:all',
 ];

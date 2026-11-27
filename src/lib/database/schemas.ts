@@ -1,6 +1,7 @@
 import {
   bool,
   defineRelations,
+  double,
   entity,
   integer,
   json,
@@ -475,7 +476,7 @@ export const SlackWorkspaceEntity = entity('slack_workspaces', {
   /** Language of the command replies (`es` | `en`). */
   locale: text(),
   installedByUserId: uuid().notNull(),
-    createdAt: timestamp()
+  createdAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
   updatedAt: timestamp()
@@ -523,6 +524,107 @@ export const StateBindingEntity = entity('state_bindings', {
   updatedAt: timestamp()
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
+});
+
+// CVE feed (`cve_*`). `cve_watchlists` is organization configuration and always lives in the main
+// repository; the three feed tables go to CVE_FEED_GITDB_REPOSITORY_URL when it is set. Never the
+// whole feed: only advisories that match a watched technology, pass the filter and are within the
+// retention window (docs/adr/0004-cve-feed.md).
+
+export const CveWatchlistEntity = entity('cve_watchlists', {
+  id: uuid().primaryKey(),
+  organizationId: uuid().notNull().unique(),
+  // { technologyId, custom?, label?, minSeverity?, versions?, addedAt }[]
+  technologies: json()
+    .notNull()
+    .$defaultFn(() => []),
+  minSeverity: text().notNull().default('high'),
+  includeKev: bool().notNull().default(true),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedBy: uuid(),
+});
+
+// global, trimmed advisories (summary and details are cut, no raw payloads)
+export const CveAdvisoryEntity = entity('cve_advisories', {
+  id: text().primaryKey(),
+  aliases: json()
+    .notNull()
+    .$defaultFn(() => []),
+  title: text().notNull(),
+  summary: text().notNull().default(''),
+  details: text().notNull().default(''),
+  severity: text().notNull().default('unknown'),
+  cvssScore: double(),
+  cvssVector: text(),
+  cwe: json()
+    .notNull()
+    .$defaultFn(() => []),
+  technologyIds: json()
+    .notNull()
+    .$defaultFn(() => []),
+  affected: json()
+    .notNull()
+    .$defaultFn(() => []),
+  fixedVersions: json()
+    .notNull()
+    .$defaultFn(() => []),
+  references: json()
+    .notNull()
+    .$defaultFn(() => []),
+  sources: json()
+    .notNull()
+    .$defaultFn(() => []),
+  publishedAt: timestamp(),
+  modifiedAt: timestamp().notNull(),
+  kev: bool().notNull().default(false),
+  kevAddedAt: text(),
+  epssScore: double(),
+  epssPercentile: double(),
+  epssUpdatedAt: timestamp(),
+  // hash of the normalized content: an unchanged advisory is never rewritten
+  fingerprint: text().notNull(),
+  firstSeenAt: timestamp().notNull(),
+  updatedAt: timestamp().notNull(),
+});
+
+// one row per source (`osv`, `nvd`, `kev`, `epss`) plus the `lock` (lease) and `run` rows
+export const CveFeedStateEntity = entity('cve_feed_state', {
+  id: text().primaryKey(),
+  // source-specific JSON (OSV: ids rejected by the filter; NVD: last end date per CPE)
+  cursor: json(),
+  etag: text(),
+  lastModifiedHeader: text(),
+  lastRunAt: timestamp(),
+  lastSuccessAt: timestamp(),
+  lastError: text(),
+  lastErrorAt: timestamp(),
+  itemsLastRun: integer(),
+  // `lock` row
+  holder: text(),
+  acquiredAt: timestamp(),
+  expiresAt: timestamp(),
+  // `run` row
+  requestedAt: timestamp(),
+  handledRequestedAt: timestamp(),
+  lastDurationMs: integer(),
+  // technologyId -> ISO date of its silent backfill
+  backfilledTechnologies: json(),
+});
+
+// dedup of the events: written (and awaited) BEFORE the event is published
+export const CveOrgMatchEntity = entity('cve_org_matches', {
+  id: text().primaryKey(),
+  organizationId: uuid().notNull(),
+  cveId: text().notNull(),
+  technologyId: text().notNull(),
+  firstSeenAt: timestamp().notNull(),
+  // { published?, escalated?: { severity, kev, epssOver }, fix_available?, affects_project?: string[] }
+  notified: json()
+    .notNull()
+    .$defaultFn(() => ({})),
+  silent: bool().notNull().default(false),
 });
 
 relations.for(ProjectEntity, ({ one, many }) => ({

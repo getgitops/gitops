@@ -6,6 +6,7 @@ import { projectService } from '#modules/projects';
 import { registerAlertEngine } from '#modules/alerts';
 import { registerStateIac } from '#modules/state-iac';
 import { getMonitoringConfig, startMonitoring } from '#modules/monitoring';
+import { startCveFeed } from '#modules/cve-feed';
 import {
   isInternalMonitoringRequest,
   verifyWorkerRequest,
@@ -44,6 +45,8 @@ const serverReady = (async () => {
   startMonitoring().catch((error) =>
     startupLog.error(error, '[startup] monitoring failed to start'),
   );
+  // the CVE feed only schedules work with CVE_FEED_ENABLED=true; otherwise nothing external is called
+  startCveFeed().catch((error) => startupLog.error(error, '[startup] cve feed failed to start'));
 })();
 
 serverReady.catch((error) => {

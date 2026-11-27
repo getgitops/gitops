@@ -628,7 +628,8 @@
         "access": "Access",
         "monitoring": "Monitoring",
         "notifications": "Notifications",
-        "state_iac": "State IaC"
+        "state_iac": "State IaC",
+        "cve_feed": "CVE feed"
       }
     },
     "current": "Current",
@@ -1452,6 +1453,63 @@
         "auth": "Authentication",
         "credentials": "Credentials",
         "enabled": "Enabled"
+      },
+      "cveTechnology": {
+        "nodejs": "Node.js",
+        "express": "Express",
+        "next": "Next.js",
+        "react": "React",
+        "svelte": "Svelte",
+        "sveltekit": "SvelteKit",
+        "vite": "Vite",
+        "lodash": "Lodash",
+        "axios": "Axios",
+        "nestjs": "NestJS",
+        "django": "Django",
+        "flask": "Flask",
+        "fastapi": "FastAPI",
+        "requests": "Requests (Python)",
+        "pillow": "Pillow",
+        "spring-boot": "Spring Boot",
+        "spring-framework": "Spring Framework",
+        "log4j": "Apache Log4j",
+        "jackson": "Jackson",
+        "gin": "Gin",
+        "golang-x-net": "golang.org/x/net",
+        "golang-x-crypto": "golang.org/x/crypto",
+        "tokio": "Tokio",
+        "rails": "Ruby on Rails",
+        "aspnet-core": "ASP.NET Core",
+        "laravel": "Laravel",
+        "postgresql": "PostgreSQL",
+        "mysql": "MySQL",
+        "mongodb": "MongoDB",
+        "redis": "Redis",
+        "nginx": "nginx",
+        "apache-httpd": "Apache HTTP Server",
+        "kubernetes": "Kubernetes",
+        "docker": "Docker Engine",
+        "terraform": "Terraform",
+        "openssl": "OpenSSL",
+        "openssh": "OpenSSH",
+        "linux-kernel": "Linux kernel"
+      },
+      "cveSeverity": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "unknown": "Unknown"
+      },
+      "cveEcosystem": {
+        "npm": "npm",
+        "PyPI": "PyPI",
+        "Go": "Go",
+        "Maven": "Maven",
+        "crates.io": "crates.io",
+        "RubyGems": "RubyGems",
+        "NuGet": "NuGet",
+        "Packagist": "Packagist"
       }
     },
     "vault": {
@@ -1727,6 +1785,58 @@
           }
         }
       }
+    },
+    "cve_feed": {
+      "advisory": {
+        "published": {
+          "label": "New CVE for a followed technology",
+          "description": "A CVE appeared for a technology the organization follows.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        },
+        "escalated": {
+          "label": "CVE escalated",
+          "description": "A followed CVE got more severe, entered CISA KEV or its EPSS crossed the threshold.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        },
+        "fix_available": {
+          "label": "Fix available for a CVE",
+          "description": "A fixed version was published for a followed CVE.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        },
+        "affects_project": {
+          "label": "Followed CVE affects a project",
+          "description": "A CVE of a followed technology also appears in a scan of a project.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1786,7 +1896,8 @@
         "monitorDown": "{name} is down ({cause})",
         "monitorDegraded": "{name} is degraded",
         "monitorRecovered": "{name} recovered after {minutes} min",
-        "channelDisabled": "{name} disabled after {failures} failures"
+        "channelDisabled": "{name} disabled after {failures} failures",
+        "cveAdvisory": "{cveId} ({severity}) {kev}"
       },
       "externalFooter": "You receive this email because {organization} added your address to the alert “{alert}”.",
       "unsubscribe": "Unsubscribe",
