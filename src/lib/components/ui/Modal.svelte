@@ -23,7 +23,7 @@
     title: string;
     description?: string;
     /** Ancho del panel. */
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
     /** `right` lo convierte en un drawer lateral. */
     placement?: 'center' | 'right';
     /** `alertdialog` para confirmaciones destructivas. */
@@ -62,8 +62,14 @@
   const descriptionId = `${uid}-description`;
 
   const widths = {
-    center: { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' },
-    right: { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', xl: 'max-w-3xl' },
+    center: {
+      sm: 'max-w-md',
+      md: 'max-w-lg',
+      lg: 'max-w-2xl',
+      xl: 'max-w-4xl',
+      '2xl': 'max-w-6xl',
+    },
+    right: { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-xl', xl: 'max-w-3xl', '2xl': 'max-w-5xl' },
   };
 
   function panelTransition(node: Element) {

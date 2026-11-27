@@ -19,7 +19,7 @@
   } from '@lucide/svelte';
   import { SEVERITY_BADGE, type SeverityKey } from '#lib/code-report/severity-ui';
   import { FEED_PAGE_SIZE, feedQuery, type FeedFilterValues } from '#lib/cves/feed-view';
-  import { Modal, toast } from '#lib/components/ui';
+  import { Field, Modal, toast } from '#lib/components/ui';
   import { _, locale } from '#lib/i18n';
   import type {
     CveFeedItem,
@@ -29,6 +29,7 @@
     WatchlistSuggestion,
   } from '#modules/cve-feed';
   import { getTechnology } from '#lib/cves/technologies.data';
+  import FormSelect from './FormSelect.svelte';
   import WatchlistForm from './WatchlistForm.svelte';
 
   export type FeedData = {
@@ -74,6 +75,18 @@
   const lastRow = $derived(Math.min(feed.total, filters.page * FEED_PAGE_SIZE));
   const sources = $derived(feed.status.sources);
   const following = $derived(feed.technologies.length > 0);
+
+  const technologyOptions = $derived([
+    { value: '', label: $_('org.cves.feed.filters.allTechnologies') },
+    ...feed.technologies.map((item) => ({ value: item.technologyId, label: item.name })),
+  ]);
+  const severityOptions = $derived([
+    { value: '', label: $_('org.cves.feed.filters.anySeverity') },
+    ...['critical', 'high', 'medium', 'low'].map((severity) => ({
+      value: severity,
+      label: $_('org.cves.feed.filters.atLeast', { values: { severity: severityLabel(severity) } }),
+    })),
+  ]);
 
   let open = $state(false);
   let saving = $state(false);
@@ -262,30 +275,26 @@
     <form method="GET" class="k-card p-5" aria-label={$_('org.cves.feed.filters.label')}>
       <input type="hidden" name="tab" value="technology" />
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label class="block">
-          <span class="k-label">{$_('org.cves.feed.filters.technology')}</span>
-          <select class="k-input" name="technology" value={filters.technology}>
-            <option value="">{$_('org.cves.feed.filters.allTechnologies')}</option>
-            {#each feed.technologies as item (item.technologyId)}
-              <option value={item.technologyId} selected={item.technologyId === filters.technology}>
-                {item.name}
-              </option>
-            {/each}
-          </select>
-        </label>
-        <label class="block">
-          <span class="k-label">{$_('org.cves.feed.filters.severity')}</span>
-          <select class="k-input" name="severity">
-            <option value="">{$_('org.cves.feed.filters.anySeverity')}</option>
-            {#each ['critical', 'high', 'medium', 'low'] as severity (severity)}
-              <option value={severity} selected={severity === filters.severity}>
-                {$_('org.cves.feed.filters.atLeast', {
-                  values: { severity: severityLabel(severity) },
-                })}
-              </option>
-            {/each}
-          </select>
-        </label>
+        <Field label={$_('org.cves.feed.filters.technology')}>
+          {#snippet children(control)}
+            <FormSelect
+              name="technology"
+              options={technologyOptions}
+              value={filters.technology}
+              {...control}
+            />
+          {/snippet}
+        </Field>
+        <Field label={$_('org.cves.feed.filters.severity')}>
+          {#snippet children(control)}
+            <FormSelect
+              name="severity"
+              options={severityOptions}
+              value={filters.severity}
+              {...control}
+            />
+          {/snippet}
+        </Field>
         <label class="block">
           <span class="k-label">{$_('org.cves.feed.filters.from')}</span>
           <input type="date" class="k-input" name="from" value={filters.from} />
@@ -488,7 +497,7 @@
 {#if feed.canUpdate}
   <Modal
     bind:open
-    size="xl"
+    size="2xl"
     dismissible={!saving}
     title={$_('org.cves.feed.modal.title')}
     description={$_('org.cves.feed.modal.description')}
@@ -499,6 +508,7 @@
       watchlist={feed.watchlist}
       severityFloor={feed.severityFloor}
       suggestions={feed.suggestions}
+      scrollColumns
       onsubmit={saveWatchlist}
     />
     {#snippet footer()}
