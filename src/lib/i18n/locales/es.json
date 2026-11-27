@@ -456,7 +456,138 @@
     "cves": {
       "title": "CVEs de la organización",
       "infoMessage": "Este listado agrupa los CVEs de todos los proyectos de la organización usando el último análisis completado de cada servicio.",
-      "emptyMessage": "Todavía no se han detectado CVEs en esta organización."
+      "emptyMessage": "Todavía no se han detectado CVEs en esta organización.",
+      "tabsLabel": "Secciones de CVEs",
+      "tabMine": "Mis CVEs",
+      "tabTechnology": "CVEs por tecnología",
+      "feed": {
+        "infoMessage": "CVEs publicados para las tecnologías que sigues, aunque todavía no aparezcan en ninguno de tus análisis.",
+        "intro": "Elige las tecnologías de tu stack y te mostramos sus CVEs nuevos (OSV y CISA KEV), sin esperar a que un análisis los detecte.",
+        "followed": "Tecnologías que sigues",
+        "manage": "Gestionar tecnologías",
+        "sync": "Sincronizar ahora",
+        "syncRequested": "Sincronización solicitada",
+        "syncRequestedHelp": "El servidor actualizará el feed en breve.",
+        "watchlistSaved": "Tecnologías guardadas",
+        "tableTitle": "CVEs del feed",
+        "noResults": "Ningún CVE coincide con los filtros.",
+        "noAdvisories": "Todavía no hay CVEs para tus tecnologías. Si acabas de añadirlas, la primera sincronización puede tardar unos minutos.",
+        "disabled": {
+          "title": "El feed de CVEs está desactivado",
+          "description": "El servidor no consulta fuentes externas. Para activarlo, un administrador debe definir la variable de entorno"
+        },
+        "empty": {
+          "title": "Aún no sigues ninguna tecnología",
+          "description": "Elige las tecnologías que usáis (Node.js, PostgreSQL, Spring…) y empezaremos a mostrarte sus CVEs.",
+          "readOnly": "Pide a alguien con permiso de edición que elija las tecnologías que se van a seguir.",
+          "action": "Elegir tecnologías"
+        },
+        "errors": {
+          "generic": "No se ha podido completar la acción.",
+          "forbidden": "No tienes permiso para hacerlo.",
+          "disabled": "El feed de CVEs está desactivado en este servidor.",
+          "too_many": "Has superado el máximo de tecnologías que se pueden seguir.",
+          "unknown_technology": "Hay una tecnología que no existe en el catálogo.",
+          "invalid_custom": "La tecnología personalizada no es válida (revisa el ecosistema, el paquete o el CPE).",
+          "invalid_severity": "La severidad mínima no es válida.",
+          "invalid_versions": "Las versiones no son válidas."
+        },
+        "filters": {
+          "label": "Filtros del feed",
+          "technology": "Tecnología",
+          "allTechnologies": "Todas",
+          "severity": "Severidad",
+          "anySeverity": "Cualquiera",
+          "atLeast": "{severity} o superior",
+          "from": "Modificado desde",
+          "to": "Modificado hasta",
+          "kev": "Solo explotados activamente (KEV)",
+          "affectsMe": "Solo los que me afectan",
+          "apply": "Filtrar",
+          "clear": "Quitar filtros"
+        },
+        "columns": {
+          "cve": "CVE",
+          "technology": "Tecnología / paquete",
+          "severity": "Severidad / CVSS",
+          "epss": "EPSS",
+          "flags": "Estado",
+          "published": "Publicado",
+          "updated": "Actualizado",
+          "fixed": "Versión con fix"
+        },
+        "badges": {
+          "kev": "KEV",
+          "affectsMe": "Te afecta"
+        },
+        "pagination": {
+          "label": "Paginación",
+          "summary": "{from}-{to} de {total}",
+          "previous": "Anterior",
+          "next": "Siguiente"
+        },
+        "status": {
+          "title": "Estado del feed",
+          "lastRun": "Última sincronización: {date}",
+          "lastSuccess": "Última correcta: {date}",
+          "never": "nunca",
+          "noErrors": "Sin errores",
+          "sources": {
+            "osv": "OSV",
+            "kev": "CISA KEV",
+            "nvd": "NVD",
+            "epss": "EPSS"
+          }
+        },
+        "categories": {
+          "runtime": "Runtime",
+          "framework": "Framework",
+          "library": "Librería",
+          "database": "Base de datos",
+          "server": "Servidor",
+          "infrastructure": "Infraestructura",
+          "security": "Seguridad",
+          "os": "Sistema operativo"
+        },
+        "modal": {
+          "title": "Gestionar tecnologías",
+          "description": "Elige qué tecnologías sigue la organización y desde qué severidad quieres ver sus CVEs.",
+          "catalog": "Catálogo",
+          "search": "Buscar en el catálogo",
+          "searchPlaceholder": "Buscar tecnología…",
+          "noMatches": "Ninguna tecnología coincide con la búsqueda.",
+          "suggestions": "Sugerencias",
+          "suggestionsHelp": "Tecnologías que aparecen en tus análisis y todavía no sigues.",
+          "custom": "Tecnología personalizada",
+          "customHelp": "Si no está en el catálogo, añade un paquete de OSV (ecosistema y nombre) o un CPE.",
+          "customKind": "Tipo",
+          "kindOsv": "Paquete OSV",
+          "kindCpe": "CPE",
+          "ecosystem": "Ecosistema",
+          "package": "Paquete",
+          "packageHelp": "Nombre exacto del paquete en su ecosistema.",
+          "cpe": "CPE 2.3",
+          "cpeHelp": "Prefijo con formato cpe:2.3:<parte>:<fabricante>:<producto>.",
+          "minSeverity": "Severidad mínima",
+          "minSeverityHelp": "No verás CVEs por debajo de esta severidad.",
+          "includeKev": "CISA KEV",
+          "includeKevHelp": "Los CVEs explotados activamente se muestran siempre, aunque estén por debajo de la severidad mínima.",
+          "includeKevLabel": "Incluir los KEV de mis tecnologías",
+          "floorNotice": "El servidor fija un mínimo global de {severity}: la organización solo puede subirlo.",
+          "save": "Guardar"
+        },
+        "detail": {
+          "title": "Datos del feed",
+          "description": "Según OSV, NVD y CISA KEV; no depende de tus análisis.",
+          "technologies": "Tecnologías que sigues",
+          "affected": "Paquetes y rangos afectados",
+          "noRanges": "Las fuentes no indican rangos de versiones.",
+          "noFix": "sin versión corregida",
+          "fixedVersions": "Versiones corregidas",
+          "sources": "Fuentes",
+          "aliases": "Otros identificadores"
+        }
+      }
     },
     "dashboard": {
       "title": "Dashboard",

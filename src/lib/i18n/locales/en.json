@@ -456,7 +456,138 @@
     "cves": {
       "title": "Organization CVEs",
       "infoMessage": "This list aggregates CVEs from all organization projects using the latest completed analysis for each service.",
-      "emptyMessage": "No CVEs have been detected in this organization yet."
+      "emptyMessage": "No CVEs have been detected in this organization yet.",
+      "tabsLabel": "CVE sections",
+      "tabMine": "My CVEs",
+      "tabTechnology": "CVEs by technology",
+      "feed": {
+        "infoMessage": "CVEs published for the technologies you follow, even if they do not show up in any of your scans yet.",
+        "intro": "Pick the technologies in your stack and we show their new CVEs (OSV and CISA KEV) without waiting for a scan to detect them.",
+        "followed": "Technologies you follow",
+        "manage": "Manage technologies",
+        "sync": "Sync now",
+        "syncRequested": "Sync requested",
+        "syncRequestedHelp": "The server will update the feed shortly.",
+        "watchlistSaved": "Technologies saved",
+        "tableTitle": "Feed CVEs",
+        "noResults": "No CVE matches the filters.",
+        "noAdvisories": "There are no CVEs for your technologies yet. If you just added them, the first sync may take a few minutes.",
+        "disabled": {
+          "title": "The CVE feed is disabled",
+          "description": "The server does not query external sources. To turn it on, an administrator must set the environment variable"
+        },
+        "empty": {
+          "title": "You are not following any technology yet",
+          "description": "Pick the technologies you use (Node.js, PostgreSQL, Spring…) and we will start showing their CVEs.",
+          "readOnly": "Ask someone with edit permission to pick the technologies to follow.",
+          "action": "Pick technologies"
+        },
+        "errors": {
+          "generic": "The action could not be completed.",
+          "forbidden": "You do not have permission to do that.",
+          "disabled": "The CVE feed is disabled on this server.",
+          "too_many": "You have exceeded the maximum number of technologies that can be followed.",
+          "unknown_technology": "A technology is not in the catalog.",
+          "invalid_custom": "The custom technology is not valid (check the ecosystem, package or CPE).",
+          "invalid_severity": "The minimum severity is not valid.",
+          "invalid_versions": "The versions are not valid."
+        },
+        "filters": {
+          "label": "Feed filters",
+          "technology": "Technology",
+          "allTechnologies": "All",
+          "severity": "Severity",
+          "anySeverity": "Any",
+          "atLeast": "{severity} or higher",
+          "from": "Modified from",
+          "to": "Modified until",
+          "kev": "Actively exploited only (KEV)",
+          "affectsMe": "Only those that affect me",
+          "apply": "Filter",
+          "clear": "Clear filters"
+        },
+        "columns": {
+          "cve": "CVE",
+          "technology": "Technology / package",
+          "severity": "Severity / CVSS",
+          "epss": "EPSS",
+          "flags": "Status",
+          "published": "Published",
+          "updated": "Updated",
+          "fixed": "Fixed version"
+        },
+        "badges": {
+          "kev": "KEV",
+          "affectsMe": "Affects you"
+        },
+        "pagination": {
+          "label": "Pagination",
+          "summary": "{from}-{to} of {total}",
+          "previous": "Previous",
+          "next": "Next"
+        },
+        "status": {
+          "title": "Feed status",
+          "lastRun": "Last sync: {date}",
+          "lastSuccess": "Last successful: {date}",
+          "never": "never",
+          "noErrors": "No errors",
+          "sources": {
+            "osv": "OSV",
+            "kev": "CISA KEV",
+            "nvd": "NVD",
+            "epss": "EPSS"
+          }
+        },
+        "categories": {
+          "runtime": "Runtime",
+          "framework": "Framework",
+          "library": "Library",
+          "database": "Database",
+          "server": "Server",
+          "infrastructure": "Infrastructure",
+          "security": "Security",
+          "os": "Operating system"
+        },
+        "modal": {
+          "title": "Manage technologies",
+          "description": "Choose which technologies the organization follows and from which severity you want to see their CVEs.",
+          "catalog": "Catalog",
+          "search": "Search the catalog",
+          "searchPlaceholder": "Search technology…",
+          "noMatches": "No technology matches the search.",
+          "suggestions": "Suggestions",
+          "suggestionsHelp": "Technologies that appear in your scans and you do not follow yet.",
+          "custom": "Custom technology",
+          "customHelp": "If it is not in the catalog, add an OSV package (ecosystem and name) or a CPE.",
+          "customKind": "Type",
+          "kindOsv": "OSV package",
+          "kindCpe": "CPE",
+          "ecosystem": "Ecosystem",
+          "package": "Package",
+          "packageHelp": "Exact package name in its ecosystem.",
+          "cpe": "CPE 2.3",
+          "cpeHelp": "Prefix formatted as cpe:2.3:<part>:<vendor>:<product>.",
+          "minSeverity": "Minimum severity",
+          "minSeverityHelp": "You will not see CVEs below this severity.",
+          "includeKev": "CISA KEV",
+          "includeKevHelp": "Actively exploited CVEs are always shown, even below the minimum severity.",
+          "includeKevLabel": "Include KEVs of my technologies",
+          "floorNotice": "The server sets a global minimum of {severity}: the organization can only raise it.",
+          "save": "Save"
+        },
+        "detail": {
+          "title": "Feed data",
+          "description": "From OSV, NVD and CISA KEV; independent of your scans.",
+          "technologies": "Technologies you follow",
+          "affected": "Affected packages and ranges",
+          "noRanges": "The sources do not list version ranges.",
+          "noFix": "no fixed version",
+          "fixedVersions": "Fixed versions",
+          "sources": "Sources",
+          "aliases": "Other identifiers"
+        }
+      }
     },
     "dashboard": {
       "title": "Dashboard",

@@ -2,6 +2,9 @@ import { apiKeysService, roleService, userAccessService } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { codeReportService } from '#modules/code-report';
+import { CveFeedStoreRepository } from '#modules/cve-feed/infrastructure/repositories/cve-feed-store.repository';
+import type { CveAdvisory } from '#modules/cve-feed';
+import { getGitDb } from '#lib/server/gitdb';
 import { NotificationSettingsRepository } from '#modules/notifications/infrastructure/repositories/notification-settings.repository';
 import { StateBackendRepository } from '#modules/state-iac/infrastructure/repositories/state-backend.repository';
 import { StateBindingRepository } from '#modules/state-iac/infrastructure/repositories/state-binding.repository';
@@ -9,6 +12,9 @@ import { FAKE_S3_BUCKET } from './fake-s3';
 import { E2E_S3_ENDPOINT } from '../global-setup';
 
 export const E2E_PASSWORD = 'E2ePassword!123';
+/** A feed advisory seeded for lodash (see the CVE feed spec). */
+export const E2E_FEED_CVE_ID = 'CVE-2099-0001';
+export const E2E_FEED_ALIAS = 'GHSA-e2e0-0001-0001';
 
 export type PersonaKey =
   | 'clusterAdmin'
@@ -19,6 +25,7 @@ export type PersonaKey =
   | 'orgNone'
   | 'orgProjectsReadOnly'
   | 'orgStateIacReader'
+  | 'orgCveFeedReader'
   | 'projectAdmin'
   | 'projectDeveloper'
   | 'projectViewer'
@@ -170,6 +177,64 @@ export async function seedAll(): Promise<SeedOutput> {
     password: E2E_PASSWORD,
     roleId: orgStateIacReaderRole.id,
     email: 'org-stateiac-reader@e2e.test',
+  });
+
+  // sees the CVE feed ("CVEs por tecnología" tab) but can't edit the watchlist or sync
+  const orgCveFeedReaderRole = await roleService.createRole({
+    name: 'E2E Org CVE Feed Reader',
+    slug: 'e2e-org-cve-feed-reader',
+    scope: 'organization',
+    organizationId: primaryOrg.id,
+    permissions: ['organization:cves:feed:read'],
+  });
+  const orgCveFeedReader = await userAccessService.createOrganizationUser({
+    organizationId: primaryOrg.id,
+    username: 'e2e-org-cve-feed-reader',
+    password: E2E_PASSWORD,
+    roleId: orgCveFeedReaderRole.id,
+    email: 'org-cve-feed-reader@e2e.test',
+  });
+
+  // an advisory the feed already stored for lodash (the feed itself stays disabled in the suite,
+  // so nothing external is ever called); it only shows up once an organization follows lodash
+  const feedNow = new Date().toISOString();
+  const advisory: CveAdvisory = {
+    id: E2E_FEED_CVE_ID,
+    aliases: [E2E_FEED_ALIAS],
+    title: 'Command Injection in lodash',
+    summary: 'Command injection through the template function',
+    details: 'lodash versions prior to 4.17.21 are vulnerable to Command Injection.',
+    severity: 'high',
+    cvssScore: 7.2,
+    cvssVector: null,
+    cwe: ['CWE-77'],
+    technologyIds: ['lodash'],
+    affected: [
+      {
+        technologyId: 'lodash',
+        ecosystem: 'npm',
+        package: 'lodash',
+        ranges: ['>=0 <4.17.21'],
+        fixedVersions: ['4.17.21'],
+      },
+    ],
+    fixedVersions: ['4.17.21'],
+    references: ['https://github.com/advisories/GHSA-35jh-r3h4-6jhm'],
+    sources: ['osv'],
+    publishedAt: feedNow,
+    modifiedAt: feedNow,
+    kev: false,
+    kevAddedAt: null,
+    epssScore: null,
+    epssPercentile: null,
+    epssUpdatedAt: null,
+    fingerprint: 'e2e',
+    firstSeenAt: feedNow,
+    updatedAt: feedNow,
+  };
+  await new CveFeedStoreRepository(() => getGitDb()).applyAdvisories({
+    upsert: [advisory],
+    deleteIds: [],
   });
 
   // --- primary project under the primary org ----------------------------------------------
@@ -428,6 +493,10 @@ export async function seedAll(): Promise<SeedOutput> {
       orgStateIacReader: {
         userId: orgStateIacReader.userId,
         username: orgStateIacReader.username,
+      },
+      orgCveFeedReader: {
+        userId: orgCveFeedReader.userId,
+        username: orgCveFeedReader.username,
       },
       projectAdmin: { userId: projectAdminUser.userId, username: projectAdminUser.username },
       projectDeveloper: {
