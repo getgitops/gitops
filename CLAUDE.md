@@ -41,7 +41,6 @@ Password recovery: `/auth/recover-password` accepts an email and, via `passwordR
 token stored on the user) without revealing whether the address is registered. The link lands on
 `/auth/reset-password?token=...`, which sets a new password and redirects back to `/auth/login`.
 
-
 The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented features.
 
 ## Stack and commands
@@ -167,7 +166,7 @@ Domain layers include entity classes (e.g., `*.domain.ts`) and centralized data 
 `*.data.ts`) for configuration constants: role permissions, default project settings, risk weights,
 and tool policy mappings.
 
-Current modules include `auth`, `config`, `organization`, `projects`, `storage`,
+Current modules include `auth`, `config`, `organization`, `projects`, `state-iac`,
 `code-report`, `vault`, `audit`, `alerts`, `monitoring`, and `notifications`. The `notifications`
 module handles external email recipients of alerts (allowed domains, verification tokens,
 unsubscribe tracking). Shared infrastructure lives in `src/lib/`. Routes should import module APIs from
@@ -193,6 +192,39 @@ header, preventing bypasses when running behind a proxy that rewrites Host heade
 origin of the absolute links in emails (`absoluteUrl()`); only under `vite dev` do those links use
 the origin of the requests the dev server receives instead (`rememberDevOrigin()` in
 `hooks.server.ts`), so they work on port 5173 whatever `ORIGIN` says.
+
+## State IaC
+
+`$modules/state-iac` reads IaC state from the buckets where teams keep it; design and Pulumi DIY
+layout in `docs/adr/0003-state-iac.md`, anonymized real buckets in `test/fixtures/state-iac/`
+(load them with `fixtureStore()` from `application/testing.ts`). GitDB only stores configuration:
+`state_backends` (one bucket/prefix per row, per organization; credentials AES-GCM encrypted with
+the backend id as AAD, never returned, only `hasCredentials`) and `state_bindings` (one per Pulumi
+project of a backend → a GitOps project of the same organization; `stacks` empty = all). Bindings
+go with their backend and with their GitOps project (`registerStateIac()` listens to
+`project.deleted`). Buckets are only read through `ObjectStore` (`GcsObjectStore`, `S3ObjectStore`,
+`InMemoryObjectStore` in tests): never add a write. Org settings page `/org/<org>/settings/state-iac`
+and `/api/state-iac/backends/**` check `organization:stateiac:backends:<action>` (actions include
+`test`); a backend of another organization answers 404. Read failures are stored as short codes in
+`lastError` (`access_denied`, `bucket_not_found`…), never the provider message.
+
+Reading states: `stateIacService` uses a `StateEngine` (`PulumiStateEngine`: both layouts, `.gz`)
+that turns checkpoints and history into the normalized model in `domain/iac.model.ts`; secrets are
+replaced by `{ $iac: 'secret' }` while parsing (`pulumi-state.ts`), and `secrets_providers`, emails
+and local paths never leave it. A project sees only the stacks its bindings cover (any other stack
+is a 404) with `project:stateiac:stacks:read`, and resources/outputs need `project:stateiac:states:read`;
+the project page `/org/<org>/projects/<slug>/state-iac` is a per-stack dashboard (`?stack=<backend>/<project>/<stack>`). The organization has no stacks page for now, but `GET /api/state-iac/stacks?organizationId=` lists every stack with `organization:stateiac:stacks:read`. Listings are cached
+for `STATE_IAC_CACHE_SECONDS` and states by object version, so an unchanged state is read once;
+`?refresh=1` skips the cache. States over `STATE_IAC_MAX_STATE_MB` fail with `too_large`. In e2e the
+dev server reads the fixtures through a local S3 endpoint (`e2e/fixtures/fake-s3.ts`, seeded backend
+`e2e-shared-state`: `acme-infra` → primary project, `acme-platform` → secondary project).
+History and diff: `stateIacService.history()` pages `*.history.json` (`project:stateiac:history:read`);
+`diff()` compares two snapshot sources (`current`, `history:<ns>`, `backup:<ns>`, `retained:<ns>`,
+`previous`, `version:<object version>` from `ObjectStore.listVersions`) with `diffSnapshots()` in
+`application/state-diff.service.ts` (`project:stateiac:states:read`), by default the last update
+against the one before. Two secrets always compare equal (Pulumi re-encrypts them on every write);
+provider-only changes are flagged `providerOnly`. Past sources are cached for good, the current one
+by object version. Periodic scans and `state_iac.stack.*` events are not built (ADR 0003, deferred).
 
 ## Domain events
 
@@ -485,6 +517,7 @@ return { roles, canCreate };
 
 The root layout (`+layout.server.ts`) calculates granular read permissions for each settings section and
 passes them to the AppSidebar component, which filters sidebar items based on specific resource permissions:
+
 - **Project level:** `project:project:read`, `project:users:read`, `project:roles:read`, `project:server-keys:read`, `project:audit:read`, `project:alerts:read`, `project:notifications:read`, plus module-specific permissions: `project:vault:secrets:read`, `project:vault:environments:read`, `project:codereport:reports:read`, `project:codereport:dependencies:read`, `project:codereport:vulnerabilities:read`, `project:stateiac:stacks:read`, `project:stateiac:states:read`, `project:stateiac:history:read`. High-level read flags combine granular permissions with OR logic (e.g., `canReadProjectVault = canReadProjectVaultSecrets || canReadProjectVaultEnvironments`)
 - **Organization level:** `organization:projects:read`, `organization:users:read`, `organization:roles:read`, `organization:settings:read`, `organization:backups:read`, `organization:server-keys:read`, `organization:audit:read`, `organization:events:read`, `organization:alerts:read`, `organization:notifications:read`
 
@@ -493,6 +526,7 @@ This ensures the UI only displays navigation items for sections the user has per
 Default roles and permissions are centralized in `src/modules/auth/domain/role-permissions.data.ts`.
 Permissions always include their scope as a prefix (e.g., `organization:projects:read`,
 `project:vault:secrets:all`) and are stored verbatim—there is no scope-stripping transformation:
+
 - **GitOps Admin** (`cluster-admin`) — grants vault, openreport, stateiac full access
 - **GitOps User** (`cluster-user`) — no inherent permissions; base role for system-level access
 - **Organization Admin** — all org-level permissions: projects, users, roles, settings, backups, server-keys, audit, events, alerts, notifications

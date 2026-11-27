@@ -179,7 +179,7 @@
   {#if !isConfigured}
     <a
       href={organizationSlug
-        ? `/org/${organizationSlug}/settings/storage`
+        ? `/org/${organizationSlug}/settings/state-iac`
         : '/gitops-settings/orgs'}
       class="mt-3 flex items-center gap-2.5 rounded-xl border border-warn/30 bg-warn/8 p-2.5 text-sm font-medium text-amber-200 transition-colors hover:border-warn/50 {collapsed
         ? 'justify-center'

@@ -1,0 +1,83 @@
+{
+    "kind": "update",
+    "startTime": 1795601876,
+    "message": "SA backoffice admin in cloud storage private",
+    "environment": {
+        "exec.kind": "cli",
+        "git.author": "Jane Doe",
+        "git.author.email": "jane@example.com",
+        "git.committer": "Jane Doe",
+        "git.committer.email": "jane@example.com",
+        "git.dirty": "true",
+        "git.head": "30103f358f17a3c2f6021e3c21a71e8cb466075c",
+        "git.headName": "refs/heads/main",
+        "pulumi.arch": "arm64",
+        "pulumi.os": "darwin",
+        "pulumi.version": "v3.276.0",
+        "runtime.executable": "/usr/local/bin/node",
+        "runtime.metadata.packagemanager": "npm",
+        "runtime.metadata.packagemanagerVersion": "11.20.0",
+        "runtime.metadata.typescriptVersion": "5.9.3",
+        "runtime.name": "nodejs",
+        "runtime.version": "v26.12.1",
+        "stack.environments": "[]",
+        "updatePlan": "false",
+        "vcs.kind": "github.com",
+        "vcs.owner": "Acme",
+        "vcs.repo": "acme-infra",
+        "vcs.root": "."
+    },
+    "config": {
+        "gcp:project": "acme-prod",
+        "pulumi:tags": {
+            "pulumi:template": "gcp-typescript"
+        },
+        "acme-infra:artifactRegistryName": "acme-artifact-registry-prod",
+        "acme-infra:artifactRepositoryId": "acme-prod",
+        "acme-infra:assetsBucketName": "acme-assets-prod",
+        "acme-infra:dnsDomain": "acme.example.",
+        "acme-infra:dnsSubdomains": "api,ops-bo,static",
+        "acme-infra:dnsZoneName": "acme-com",
+        "acme-infra:environment": "prod",
+        "acme-infra:privateBucketName": "acme-private-prod",
+        "acme-infra:project": "acme-prod",
+        "acme-infra:pulseBucketName": "acme-pulse-data-prod",
+        "acme-infra:redisInstanceName": "acme-redis-prod",
+        "acme-infra:redisMaintenanceDay": "MONDAY",
+        "acme-infra:redisMaintenanceHour": "3",
+        "acme-infra:redisMemorySizeGb": "2",
+        "acme-infra:redisTier": "STANDARD_HA",
+        "acme-infra:region": "europe-west1",
+        "acme-infra:sqlApiUserPassword": {
+            "secure": "v1:mkU8uL7X:Zml4dHVyZS1jaXBoZXJ0ZXh0LTQx"
+        },
+        "acme-infra:sqlAvailabilityType": "REGIONAL",
+        "acme-infra:sqlBackofficeUserPassword": {
+            "secure": "v1:dN0X+PWt:Zml4dHVyZS1jaXBoZXJ0ZXh0LTQy"
+        },
+        "acme-infra:sqlBackupEnabled": "true",
+        "acme-infra:sqlBackupRetentionDays": "7",
+        "acme-infra:sqlDatabases": "acme_api_prod,acme_backoffice_prod",
+        "acme-infra:sqlDeletionProtection": "true",
+        "acme-infra:sqlDiskAutoresizeLimit": "100",
+        "acme-infra:sqlInstanceName": "acme-prod",
+        "acme-infra:sqlMaintenanceDay": "1",
+        "acme-infra:sqlMaintenanceHour": "3",
+        "acme-infra:sqlPointInTimeRecoveryEnabled": "true",
+        "acme-infra:sqlTier": "db-custom-4-15360",
+        "acme-infra:vpcConnectorIpCidrRange": "10.11.8.0/28",
+        "acme-infra:vpcConnectorMaxThroughput": "1000",
+        "acme-infra:vpcConnectorMinThroughput": "200",
+        "acme-infra:vpcIpCidrRange": "10.11.0.0/24"
+    },
+    "version": 0,
+    "result": "succeeded",
+    "endTime": 1795602066,
+    "resourceChanges": {
+        "create": 38,
+        "delete": 1,
+        "replace": 1,
+        "same": 36,
+        "update": 73
+    }
+}

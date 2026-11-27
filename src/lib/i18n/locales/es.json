@@ -71,7 +71,8 @@
       "events": "Eventos",
       "alerts": "Alertas",
       "monitors": "Monitores",
-      "projectDashboard": "Dashboard"
+      "projectDashboard": "Dashboard",
+      "stateIac": "State IaC"
     },
     "whatsNew": "Ver novedades"
   },
@@ -600,7 +601,8 @@
         "organization": "Organización",
         "access": "Accesos",
         "monitoring": "Monitoring",
-        "notifications": "Notificaciones"
+        "notifications": "Notificaciones",
+        "state_iac": "State IaC"
       }
     },
     "current": "Actual",
@@ -1410,6 +1412,20 @@
         "webhook": "Webhook",
         "slack": "Slack",
         "google-chat": "Google Chat"
+      },
+      "stateIacProvider": {
+        "gcs": "Google Cloud Storage",
+        "s3": "Amazon S3"
+      },
+      "stateIacBackendChangedField": {
+        "name": "Nombre",
+        "bucket": "Bucket",
+        "prefix": "Prefijo",
+        "region": "Región",
+        "endpoint": "Endpoint",
+        "auth": "Autenticación",
+        "credentials": "Credenciales",
+        "enabled": "Activado"
       }
     },
     "vault": {
@@ -1638,6 +1654,50 @@
             "name": "Nombre del canal",
             "failures": "Fallos seguidos",
             "lastError": "Último error"
+          }
+        }
+      }
+    },
+    "state_iac": {
+      "backend": {
+        "created": {
+          "label": "Backend de State IaC creado",
+          "description": "Se ha añadido un bucket de estado a la organización.",
+          "fields": {
+            "name": "Nombre",
+            "provider": "Proveedor",
+            "bucket": "Bucket"
+          }
+        },
+        "updated": {
+          "label": "Backend de State IaC modificado",
+          "description": "Ha cambiado la configuración de un bucket de estado.",
+          "fields": {
+            "name": "Nombre",
+            "provider": "Proveedor",
+            "bucket": "Bucket",
+            "changedFields": "Campos cambiados"
+          }
+        },
+        "deleted": {
+          "label": "Backend de State IaC eliminado",
+          "description": "Se ha quitado un bucket de estado y sus asignaciones.",
+          "fields": {
+            "name": "Nombre",
+            "provider": "Proveedor",
+            "bucket": "Bucket"
+          }
+        }
+      },
+      "binding": {
+        "updated": {
+          "label": "Asignación de proyecto de Pulumi",
+          "description": "Un proyecto de Pulumi se ha asignado, reasignado o desasignado.",
+          "fields": {
+            "backendName": "Backend",
+            "pulumiProject": "Proyecto de Pulumi",
+            "projectId": "Proyecto",
+            "previousProjectId": "Proyecto anterior"
           }
         }
       }
@@ -2262,6 +2322,303 @@
       "secretDocs": "Cómo verificar la firma",
       "webhookHelp": "Cualquier URL https pública. GitOps firma cada petición con HMAC-SHA256 y nunca sigue redirecciones.",
       "comingSoon": "Próximamente"
+    }
+  },
+  "stateIac": {
+    "settings": {
+      "title": "State IaC",
+      "description": "Buckets donde guardas el estado de Pulumi (GCS, S3 o compatibles). GitOps solo los lee: asigna cada proyecto de Pulumi a un proyecto de GitOps para que su equipo vea sus stacks."
+    },
+    "providers": {
+      "gcs": "Google Cloud Storage",
+      "s3": "Amazon S3 o compatible"
+    },
+    "auth": {
+      "ambient": "Credenciales del servidor",
+      "ambientHelpGcs": "Application Default Credentials o Workload Identity del servidor de GitOps.",
+      "ambientHelpS3": "Rol IAM o cadena de credenciales por defecto de AWS del servidor de GitOps.",
+      "credentials": "Credenciales propias",
+      "credentialsHelp": "Se guardan cifradas y no se vuelven a mostrar nunca."
+    },
+    "layouts": {
+      "project": "por proyecto",
+      "legacy": "legacy",
+      "empty": "vacío"
+    },
+    "backends": {
+      "create": "Nuevo backend",
+      "createTitle": "Nuevo backend",
+      "createDescription": "Un bucket (o una carpeta de un bucket) con la carpeta .pulumi.",
+      "editTitle": "Editar backend",
+      "edit": "Editar",
+      "save": "Guardar",
+      "saved": "Backend guardado",
+      "created": "Backend creado",
+      "saveFailed": "No se pudo guardar el backend",
+      "actionFailed": "No se pudo completar la acción",
+      "delete": "Eliminar",
+      "deleted": "Backend eliminado",
+      "deleteTitle": "¿Eliminar backend?",
+      "deleteDescription": "Se borran su configuración y sus asignaciones. El bucket no se toca.",
+      "typeToConfirm": "Escribe {name} para confirmar",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta: layout {layout}, {projects} proyectos y {stacks} stacks.",
+      "testFailed": "No se pudo leer el bucket: {reason}",
+      "disable": "Desactivar",
+      "enable": "Activar",
+      "disabled": "Desactivado",
+      "disabledToast": "Backend desactivado",
+      "enabledToast": "Backend activado",
+      "emptyTitle": "Todavía no hay backends",
+      "emptyDescription": "Añade el bucket donde Pulumi guarda el estado para ver sus proyectos y stacks.",
+      "lastError": "Último error: {error}",
+      "providerImmutable": "No se puede cambiar: un bucket de otra nube es otro backend.",
+      "prefixHelp": "Carpeta del bucket que contiene .pulumi. Vacío si está en la raíz.",
+      "endpointHelp": "Solo para servicios compatibles con S3 (MinIO, R2…). Vacío para AWS S3.",
+      "sessionTokenHelp": "Opcional, para credenciales temporales.",
+      "credentialsKept": "Hay credenciales guardadas. Déjalas vacías para conservarlas o escribe otras para sustituirlas.",
+      "readOnlyNotice": "Basta con permisos de solo lectura (roles/storage.objectViewer o s3:ListBucket y s3:GetObject). GitOps nunca escribe en el bucket.",
+      "fields": {
+        "name": "Nombre",
+        "provider": "Proveedor",
+        "bucket": "Bucket",
+        "prefix": "Prefijo",
+        "region": "Región",
+        "endpoint": "Endpoint",
+        "forcePathStyle": "Usar URLs de tipo path (MinIO y otros compatibles)",
+        "auth": "Autenticación",
+        "serviceAccountJson": "Clave JSON de la cuenta de servicio",
+        "accessKeyId": "Access key ID",
+        "secretAccessKey": "Secret access key",
+        "sessionToken": "Session token"
+      }
+    },
+    "projects": {
+      "toggle": "Proyectos de Pulumi y asignaciones",
+      "title": "Proyectos de Pulumi",
+      "refresh": "Actualizar",
+      "loadFailed": "No se pudieron cargar los proyectos",
+      "empty": "No hay stacks de Pulumi en este bucket.",
+      "legacyNotice": "Layout legacy: el proyecto de cada stack se deduce de sus recursos.",
+      "pulumiProject": "Proyecto de Pulumi",
+      "stacks": "Stacks",
+      "gitopsProject": "Proyecto de GitOps",
+      "unknownProject": "(desconocido)",
+      "unknownHelp": "Sin recursos todavía: no se puede saber su proyecto.",
+      "unassignedOption": "Sin asignar",
+      "assigned": "{pulumiProject} asignado a {project}",
+      "unassigned": "{pulumiProject} ya no está asignado",
+      "assignFailed": "No se pudo cambiar la asignación",
+      "onlyStacks": "Solo: {stacks}",
+      "truncated": "El bucket tiene más stacks de los que se muestran.",
+      "missingTitle": "Asignados pero ya no están en el bucket",
+      "removeBinding": "Quitar asignación"
+    },
+    "errors": {
+      "required": "Obligatorio",
+      "too_long": "Demasiado largo",
+      "duplicate_name": "Ya hay un backend con ese nombre en la organización",
+      "invalid_provider": "Proveedor no válido",
+      "provider_immutable": "El proveedor no se puede cambiar",
+      "invalid_engine": "Motor no soportado",
+      "invalid_bucket": "Nombre de bucket no válido",
+      "invalid_prefix": "Prefijo no válido",
+      "invalid_region": "Región no válida",
+      "invalid_endpoint": "URL no válida: solo http(s)://host[:puerto], sin ruta",
+      "endpoint_s3_only": "El endpoint solo se usa con S3",
+      "endpoint_not_allowed": "Ese host no está permitido (loopback, link-local o metadata)",
+      "invalid_auth": "Autenticación no válida",
+      "invalid_service_account": "No es una clave JSON de cuenta de servicio",
+      "access_key_required": "Hacen falta access key ID y secret access key",
+      "invalid_pulumi_name": "Nombre de proyecto de Pulumi no válido",
+      "invalid_stacks": "Lista de stacks no válida",
+      "project_not_found": "El proyecto no existe en esta organización",
+      "confirm_name": "El nombre no coincide",
+      "access_denied": "Acceso denegado al bucket",
+      "bucket_not_found": "El bucket no existe",
+      "invalid_credentials": "Credenciales no válidas",
+      "network": "No se pudo conectar con el proveedor",
+      "too_large": "Un fichero de estado supera el tamaño máximo",
+      "unsupported_layout": "Versión de meta.yaml no soportada",
+      "undecryptable": "No se pueden descifrar las credenciales (¿ha cambiado GITDB_ENCRYPTION_KEY?)",
+      "unknown": "Error desconocido",
+      "unsupported_state": "Versión del fichero de estado no soportada",
+      "invalid_state": "El fichero de estado no es válido",
+      "state_missing": "El fichero de estado ha desaparecido; refresca"
+    },
+    "stacks": {
+      "refresh": "Refrescar",
+      "resources": "Recursos",
+      "lastUpdate": "Último update",
+      "locked": "En curso",
+      "projectDescription": "Stacks de Pulumi asignados a este proyecto. GitOps solo lee el estado del bucket.",
+      "emptyTitle": "No hay stacks asignados a este proyecto",
+      "emptyDescription": "Los backends y las asignaciones se configuran en los ajustes de la organización (State IaC). Pide a un administrador que asigne aquí los proyectos de Pulumi."
+    },
+    "kinds": {
+      "update": "Update",
+      "refresh": "Refresh",
+      "destroy": "Destroy",
+      "import": "Import",
+      "rename": "Rename",
+      "other": "Otra operación"
+    },
+    "results": {
+      "succeeded": "correcto",
+      "failed": "fallido",
+      "in-progress": "en curso",
+      "unknown": "desconocido"
+    },
+    "detail": {
+      "back": "Volver a los stacks",
+      "secretHelp": "Valor secreto: GitOps nunca lo descifra.",
+      "toolVersion": "Versión de Pulumi",
+      "pendingOperations": "Operaciones pendientes",
+      "noStatesPermission": "No tienes permiso para ver los recursos y outputs de este stack (project:stateiac:states:read).",
+      "tabs": "Contenido del stack",
+      "outputs": "Outputs",
+      "searchResources": "Buscar recurso por nombre, tipo o ID",
+      "type": "Tipo",
+      "allTypes": "Todos los tipos",
+      "provider": "Provider",
+      "allProviders": "Todos los providers",
+      "protectedOnly": "Solo protegidos",
+      "expand": "Desplegar",
+      "collapse": "Plegar",
+      "protected": "Protegido contra borrado",
+      "pendingChange": "Cambio pendiente",
+      "noResources": "Ningún recurso coincide.",
+      "noOutputs": "Este stack no tiene outputs.",
+      "parent": "Padre",
+      "modified": "Modificado",
+      "resourceTabs": "Datos del recurso",
+      "inputs": "Inputs",
+      "dependencies": "Dependencias"
+    },
+    "history": {
+      "title": "Historial",
+      "loadFailed": "No se pudo cargar el historial",
+      "empty": "Este stack no tiene historial de updates.",
+      "took": "duró {duration}",
+      "dirty": "cambios sin commit",
+      "showChanges": "Ver cambios",
+      "loadMore": "Cargar más"
+    },
+    "changes": {
+      "create": "Altas",
+      "update": "Cambios",
+      "replace": "Reemplazos",
+      "delete": "Bajas",
+      "import": "Importados",
+      "same": "Sin cambios"
+    },
+    "diff": {
+      "title": "Cambios",
+      "loadFailed": "No se pudo calcular el diff",
+      "from": "Desde",
+      "to": "Hasta",
+      "noSources": "No hay versiones anteriores de este estado que comparar. Pulumi guarda una copia en el historial con cada update; si se borró, activa el versionado del bucket (GCS Object Versioning o S3 Versioning) o PULUMI_RETAIN_CHECKPOINTS.",
+      "unavailable": "Esa versión ya no está disponible en el bucket.",
+      "lastUpdateChanges": "Según el último update:",
+      "secretsNotice": "Los secretos se comparan sin revelarse. Pulumi los vuelve a cifrar en cada escritura, así que no se puede saber si un valor secreto cambió; solo si pasó a ser secreto o dejó de serlo.",
+      "noChanges": "No hay cambios entre estas dos versiones.",
+      "fields": "{count} propiedades",
+      "property": "Propiedad",
+      "before": "Antes",
+      "after": "Después",
+      "providerOnly": "{count} recursos solo cambiaron de provider (subida de versión)",
+      "outputs": "Outputs del stack",
+      "sources": {
+        "current": "Estado actual",
+        "history": "Update",
+        "backup": "Backup",
+        "retained": "Checkpoint retenido",
+        "previous": "Estado anterior (.bak)",
+        "object-version": "Versión del objeto"
+      }
+    },
+    "dashboard": {
+      "selectStack": "Stack",
+      "searchStack": "Buscar stack…",
+      "backend": "Backend",
+      "backendError": "Error del backend: {error}",
+      "environments": "Entornos",
+      "environmentsLabel": "Stacks del proyecto",
+      "noDeploys": "sin despliegues",
+      "resourcesShort": "{count} recursos",
+      "tabs": {
+        "summary": "Resumen"
+      },
+      "health": {
+        "title": "Salud",
+        "ok": "Correcto",
+        "warn": "Atención",
+        "critical": "Crítico",
+        "reasons": {
+          "read_error": "No se puede leer el estado del stack",
+          "backend_error": "El backend da error",
+          "last_update_failed": "El último update falló",
+          "pending_operations": "Hay operaciones pendientes",
+          "stale_lock": "Lock activo desde hace más de 1 h",
+          "inactive": "Sin actividad en más de 30 días"
+        },
+        "noReasons": "Sin incidencias"
+      },
+      "kpi": {
+        "resources": "Recursos",
+        "managed": "{count} gestionados",
+        "components": "{count} componentes",
+        "protected": "{count} protegidos",
+        "lastDeploy": "Último despliegue",
+        "noDeploy": "Sin despliegues",
+        "took": "duró {duration}",
+        "success": "Éxito 30 días",
+        "successDetail": "{succeeded} de {total} updates",
+        "perWeek": "{count} despliegues/semana",
+        "noUpdates": "Sin updates en 30 días",
+        "lastUpdate": "Último update:"
+      },
+      "deploys": {
+        "title": "Despliegues (últimos 90 días)",
+        "succeeded": "Correctos",
+        "failed": "Fallidos",
+        "week": "Semana del {date}",
+        "tableTitle": "Despliegues por semana",
+        "weekColumn": "Semana",
+        "chart": "Despliegues por semana: correctos y fallidos",
+        "empty": "Sin despliegues en este periodo",
+        "viewTable": "Ver tabla"
+      },
+      "byType": {
+        "title": "Recursos por tipo",
+        "others": "Otros",
+        "components": "componentes",
+        "providers": "Por provider"
+      },
+      "recent": {
+        "title": "Últimos despliegues",
+        "viewHistory": "Ver historial →",
+        "empty": "Este stack no tiene historial de updates."
+      },
+      "lastChanges": {
+        "title": "Últimos cambios",
+        "viewDiff": "Ver diff completo →",
+        "providerOnly": "{count} recursos solo cambiaron de provider",
+        "more": "y {count} más",
+        "noChanges": "El último update no cambió ningún recurso.",
+        "fromUpdate": "Según el último update:"
+      },
+      "warnings": {
+        "title": "Avisos",
+        "versionDrift": "Los stacks usan versiones distintas de Pulumi: {stacks}",
+        "stackFailed": "El último update de {stack} falló ({when})",
+        "staleLock": "{stack} tiene un lock activo desde {when}",
+        "pending": "{count} recursos pendientes de reemplazo o borrado en este stack"
+      },
+      "missingPermissions": "Para ver el resto del resumen hacen falta los permisos project:stateiac:history:read y project:stateiac:states:read.",
+      "notFoundTitle": "Este stack no está en el bucket",
+      "notFoundDescription": "Está asignado al proyecto, pero ya no aparece en el backend. Puede haberse borrado o renombrado.",
+      "backToStacks": "Volver a los stacks"
     }
   }
 }
