@@ -7,7 +7,8 @@ import {
   type ProjectSettings,
 } from '../domain/project.domain';
 import type { EventBus } from '#lib/server/events';
-import type { DomainEventMap, ProjectChangedField } from '#lib/events/domain-events';
+import type { DomainEventMap, FieldChange, ProjectChangedField } from '#lib/events/domain-events';
+import { fieldChange } from '#lib/events/field-changes';
 import { createLogger } from '#lib/server/logger';
 
 const log = createLogger('projects');
@@ -200,7 +201,7 @@ export class ProjectService {
       projectId: after.id,
       name: after.name,
       slug: after.slug ?? '',
-      changedFields: this.changedFields(before, after),
+      ...this.describeChanges(before, after),
     }));
     return after;
   }
@@ -235,6 +236,31 @@ export class ProjectService {
     } catch (error) {
       log.error({ err: error, eventType: type, projectId: project.id }, 'failed to publish event');
     }
+  }
+
+  private describeChanges(
+    before: { [key: string]: unknown; organization?: { id: string; name?: string } | null },
+    after: { [key: string]: unknown; organization?: { id: string; name?: string } | null },
+  ): { changedFields: ProjectChangedField[]; changes: FieldChange<ProjectChangedField>[] } {
+    const enabledModules = (modules: unknown) =>
+      Object.entries((modules as Record<string, unknown>) ?? {})
+        .filter(([, enabled]) => enabled === true)
+        .map(([name]) => name)
+        .sort();
+    const changedFields = this.changedFields(before, after);
+    const changes = changedFields.map((field) => {
+      switch (field) {
+        case 'modules':
+          return fieldChange(field, enabledModules(before.modules), enabledModules(after.modules));
+        case 'organization':
+          return fieldChange(field, before.organization?.name, after.organization?.name);
+        case 'settings':
+          return fieldChange(field, null, null);
+        default:
+          return fieldChange(field, before[field], after[field]);
+      }
+    });
+    return { changedFields, changes };
   }
 
   private changedFields(

@@ -254,9 +254,9 @@ test.describe('organization alerts', () => {
 
     // a webhook channel shows its signing secret once, and rotating it asks first
     const types = channels.getByTestId('channel-type-cards');
-    await expect(types.getByRole('radio', { name: /Slack/ })).toBeDisabled();
+    await expect(types.getByRole('radio', { name: /Slack/ })).toBeEnabled();
     await expect(types.getByRole('radio', { name: /Google Chat/ })).toBeDisabled();
-    await expect(types.locator('[data-channel-type="slack"]')).toContainText('Próximamente');
+    await expect(types.locator('[data-channel-type="google-chat"]')).toContainText('Próximamente');
     await expect(types.getByRole('radio', { name: /Webhook/ })).toBeChecked();
     await channels.getByLabel('Nombre', { exact: true }).fill('SIEM e2e');
     await channels.getByLabel('URL del webhook').fill('https://receiver.example.com/gitops');
@@ -279,6 +279,65 @@ test.describe('organization alerts', () => {
     await expect(secret.getByTestId('channel-secret')).not.toHaveText(first!);
     await secret.getByTestId('channel-secret-done').click();
     await expect(row).toContainText('El secreto anterior es válido hasta');
+
+    await types.locator('[data-channel-type="slack"]').click();
+    await expect(types.getByRole('radio', { name: /Slack/ })).toBeChecked();
+    for (const [name, hook, locale, language] of [
+      ['#seguridad-e2e', 'https://hooks.slack.com/services/T000/B001/aaaa', 'es', 'Español'],
+      ['#incidencias-e2e', 'https://hooks.slack.com/services/T000/B002/bbbb', 'en', 'Inglés'],
+    ]) {
+      await channels.getByLabel('Nombre', { exact: true }).fill(name);
+      await channels.getByLabel('URL del webhook').fill(hook);
+      await channels.getByLabel('Idioma de los mensajes').selectOption(locale);
+      await channels.getByRole('button', { name: 'Añadir canal' }).click();
+      const slackRow = channels.locator('li[data-channel-id]').filter({ hasText: name });
+      await expect(slackRow).toContainText('Slack');
+      await expect(slackRow.getByTestId('channel-locale')).toHaveText(language);
+      await expect(slackRow).not.toContainText('Firmado');
+      await expect(slackRow).not.toContainText(hook);
+    }
+
+    await channels.getByLabel('Nombre', { exact: true }).fill('#otro');
+    await channels
+      .getByLabel('URL del webhook')
+      .fill('https://hooks.slack.com.evil.example/services/x');
+    await channels.getByRole('button', { name: 'Añadir canal' }).click();
+    await expect(
+      channels.getByText('Ese dominio no está permitido para este tipo de canal.'),
+    ).toBeVisible();
+  });
+
+  test('an alert posts to the Slack channels picked in the wizard', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await page.goto(alertsUrl);
+    await page.waitForLoadState('networkidle');
+    const row = page.getByTestId('alert-row').filter({ hasText: GUIDED_NAME });
+    await row.getByRole('link', { name: 'Editar' }).click();
+    const wizard = page.getByRole('dialog', { name: 'Editar alerta' });
+    await wizard.getByRole('button', { name: /Destinos/ }).click();
+
+    const channels = wizard.getByTestId('alert-channels');
+    const slackCard = channels.locator('[data-channel-type="slack"]');
+    await expect(slackCard).not.toContainText('No configurado');
+    await slackCard.getByRole('checkbox').click();
+    await expect(slackCard.getByRole('checkbox')).toHaveAttribute('aria-checked', 'true');
+
+    const seguridad = wizard.getByRole('checkbox', { name: /#seguridad-e2e/ });
+    const incidencias = wizard.getByRole('checkbox', { name: /#incidencias-e2e/ });
+    await expect(seguridad).toBeChecked();
+    await expect(incidencias).toBeChecked();
+    await incidencias.uncheck();
+
+    await wizard.getByRole('button', { name: 'Siguiente' }).click();
+    await expect(wizard).toContainText('#seguridad-e2e');
+    await expect(wizard).not.toContainText('#incidencias-e2e');
+    await wizard.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(wizard).toBeHidden();
+
+    await row.getByRole('link', { name: 'Editar' }).click();
+    await wizard.getByRole('button', { name: /Destinos/ }).click();
+    await expect(wizard.getByRole('checkbox', { name: /#seguridad-e2e/ })).toBeChecked();
+    await expect(wizard.getByRole('checkbox', { name: /#incidencias-e2e/ })).not.toBeChecked();
   });
 
   test('a project viewer gets no settings button', async ({ page, loginAs }) => {

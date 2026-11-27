@@ -45,6 +45,7 @@
 </script>
 
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import {
     ArrowLeft,
     ArrowRight,
@@ -69,6 +70,8 @@
     backLabel = 'Volver a CVEs',
     serviceHref,
     showProject = false,
+    scans = true,
+    feed,
   }: {
     cve: CveDetail;
     remediations: CveRemediation[];
@@ -77,6 +80,10 @@
     backLabel?: string;
     serviceHref: (service: CveAffected) => string;
     showProject?: boolean;
+    /** false: ningún análisis conoce este CVE (solo viene del feed); oculta lo que depende de ellos. */
+    scans?: boolean;
+    /** Datos del feed de CVEs (rangos afectados, KEV, referencias), tras la descripción. */
+    feed?: Snippet;
   } = $props();
 
   let query = $state('');
@@ -148,7 +155,9 @@
         <span class="k-badge {severityBadge(cve.severity)} font-semibold"
           >{SEVERITY_LABEL[cve.severity]}</span
         >
-        {#if fixable}
+        {#if !scans}
+          <!-- sin análisis no hay remediaciones: el feed muestra las versiones corregidas -->
+        {:else if fixable}
           <span class="k-badge k-badge-ok"><Wrench class="h-3 w-3" />Parche disponible</span>
         {:else}
           <span class="k-badge">Sin parche</span>
@@ -156,11 +165,13 @@
       </div>
       <h1 class="mt-2 font-mono text-2xl font-semibold tracking-tight text-white">{cve.id}</h1>
       {#if cve.title}<p class="mt-1 text-fg-muted">{cve.title}</p>{/if}
-      <p class="mt-2 text-sm text-fg-subtle">
-        Afecta a {serviceCount}
-        {serviceCount === 1 ? 'servicio' : 'servicios'}{#if showProject && projectCount > 1}
-          en {projectCount} proyectos{/if}.
-      </p>
+      {#if scans}
+        <p class="mt-2 text-sm text-fg-subtle">
+          Afecta a {serviceCount}
+          {serviceCount === 1 ? 'servicio' : 'servicios'}{#if showProject && projectCount > 1}
+            en {projectCount} proyectos{/if}.
+        </p>
+      {/if}
     </div>
     <div class="flex flex-wrap items-center gap-2">
       {#if cve.cveUrl}
@@ -202,118 +213,125 @@
         {/if}
       </section>
 
-      <section class="k-card overflow-hidden" aria-labelledby="cve-fix">
-        <div class="border-b border-white/8 px-5 py-4">
-          <h2 id="cve-fix" class="font-semibold text-white">Cómo corregirlo</h2>
-          <p class="text-xs text-fg-subtle">
-            Paquetes afectados y la versión a la que hay que actualizar
-          </p>
-        </div>
-        <ul class="divide-y divide-white/6">
-          {#each remediations as item (item.packageName + item.fixedVersion)}
-            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
-              <span class="min-w-0 flex-1 truncate font-medium text-white">{item.packageName}</span>
-              <span class="font-mono text-xs">
-                <span class="text-red-300">{item.installedVersions.join(', ')}</span>
-                <span class="text-fg-subtle">→</span>
-                {#if item.fixedVersion}
-                  <span class="text-ok">{item.fixedVersion}</span>
-                {:else}
-                  <span class="text-fg-subtle">sin versión corregida</span>
-                {/if}
-              </span>
-              <span class="w-24 text-right text-xs text-fg-subtle">
-                {item.serviceCount}
-                {item.serviceCount === 1 ? 'servicio' : 'servicios'}
-              </span>
-            </li>
-          {/each}
-        </ul>
-        {#if !fixable}
-          <p
-            class="flex items-start gap-2 border-t border-white/8 px-5 py-3 text-xs text-amber-200"
-          >
-            <CircleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-            No hay versión corregida publicada. Valora mitigarlo (configuración, WAF) o sustituir el paquete.
-          </p>
-        {/if}
-      </section>
+      {@render feed?.()}
 
-      <section class="k-card overflow-hidden" aria-labelledby="cve-affected">
-        <div class="flex flex-wrap items-center gap-3 border-b border-white/8 px-5 py-4">
-          <div class="mr-auto">
-            <h2 id="cve-affected" class="font-semibold text-white">Servicios afectados</h2>
-            <p class="text-xs text-fg-subtle">Según el último análisis de cada servicio</p>
+      {#if scans}
+        <section class="k-card overflow-hidden" aria-labelledby="cve-fix">
+          <div class="border-b border-white/8 px-5 py-4">
+            <h2 id="cve-fix" class="font-semibold text-white">Cómo corregirlo</h2>
+            <p class="text-xs text-fg-subtle">
+              Paquetes afectados y la versión a la que hay que actualizar
+            </p>
           </div>
-          {#if affected.length > 5}
-            <label class="relative w-full sm:w-64">
-              <Search
-                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
-              />
-              <input
-                type="search"
-                class="k-input h-9 pl-9"
-                placeholder="Buscar servicio o paquete…"
-                aria-label="Buscar servicios afectados"
-                bind:value={query}
-              />
-            </label>
+          <ul class="divide-y divide-white/6">
+            {#each remediations as item (item.packageName + item.fixedVersion)}
+              <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
+                <span class="min-w-0 flex-1 truncate font-medium text-white"
+                  >{item.packageName}</span
+                >
+                <span class="font-mono text-xs">
+                  <span class="text-red-300">{item.installedVersions.join(', ')}</span>
+                  <span class="text-fg-subtle">→</span>
+                  {#if item.fixedVersion}
+                    <span class="text-ok">{item.fixedVersion}</span>
+                  {:else}
+                    <span class="text-fg-subtle">sin versión corregida</span>
+                  {/if}
+                </span>
+                <span class="w-24 text-right text-xs text-fg-subtle">
+                  {item.serviceCount}
+                  {item.serviceCount === 1 ? 'servicio' : 'servicios'}
+                </span>
+              </li>
+            {/each}
+          </ul>
+          {#if !fixable}
+            <p
+              class="flex items-start gap-2 border-t border-white/8 px-5 py-3 text-xs text-amber-200"
+            >
+              <CircleAlert class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+              No hay versión corregida publicada. Valora mitigarlo (configuración, WAF) o sustituir el
+              paquete.
+            </p>
           {/if}
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-176 text-left text-sm">
-            <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
-              <tr class="border-b border-white/8">
-                <th class="px-5 py-3 font-semibold">Servicio</th>
-                <th class="px-3 py-3 font-semibold">Paquete</th>
-                <th class="px-3 py-3 font-semibold">Versión</th>
-                <th class="px-3 py-3 font-semibold">Ubicación</th>
-                <th class="px-5 py-3 font-semibold">Analizado</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-white/5">
-              {#each filtered as item, index (item.projectSlug + item.serviceSlug + item.packageName + item.target + index)}
-                <tr class="transition-colors hover:bg-white/2.5">
-                  <td class="px-5 py-3">
-                    <a
-                      href={serviceHref(item)}
-                      class="group inline-flex items-center gap-1.5 font-medium text-white hover:text-brand-300"
+        </section>
+
+        <section class="k-card overflow-hidden" aria-labelledby="cve-affected">
+          <div class="flex flex-wrap items-center gap-3 border-b border-white/8 px-5 py-4">
+            <div class="mr-auto">
+              <h2 id="cve-affected" class="font-semibold text-white">Servicios afectados</h2>
+              <p class="text-xs text-fg-subtle">Según el último análisis de cada servicio</p>
+            </div>
+            {#if affected.length > 5}
+              <label class="relative w-full sm:w-64">
+                <Search
+                  class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle"
+                />
+                <input
+                  type="search"
+                  class="k-input h-9 pl-9"
+                  placeholder="Buscar servicio o paquete…"
+                  aria-label="Buscar servicios afectados"
+                  bind:value={query}
+                />
+              </label>
+            {/if}
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-176 text-left text-sm">
+              <thead class="text-[11px] uppercase tracking-[0.06em] text-fg-subtle">
+                <tr class="border-b border-white/8">
+                  <th class="px-5 py-3 font-semibold">Servicio</th>
+                  <th class="px-3 py-3 font-semibold">Paquete</th>
+                  <th class="px-3 py-3 font-semibold">Versión</th>
+                  <th class="px-3 py-3 font-semibold">Ubicación</th>
+                  <th class="px-5 py-3 font-semibold">Analizado</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5">
+                {#each filtered as item, index (item.projectSlug + item.serviceSlug + item.packageName + item.target + index)}
+                  <tr class="transition-colors hover:bg-white/2.5">
+                    <td class="px-5 py-3">
+                      <a
+                        href={serviceHref(item)}
+                        class="group inline-flex items-center gap-1.5 font-medium text-white hover:text-brand-300"
+                      >
+                        {item.serviceName}
+                        <ArrowRight
+                          class="h-3 w-3 text-fg-subtle opacity-0 transition group-hover:opacity-100"
+                        />
+                      </a>
+                      {#if showProject}<p class="text-xs text-fg-subtle">{item.projectName}</p>{/if}
+                    </td>
+                    <td class="px-3 py-3 font-mono text-xs text-fg">{item.packageName}</td>
+                    <td class="px-3 py-3 font-mono text-xs">
+                      <span class="text-red-300">{item.installedVersion}</span>
+                      {#if item.fixedVersion}<span class="text-fg-subtle"> → </span><span
+                          class="text-ok">{item.fixedVersion}</span
+                        >{/if}
+                    </td>
+                    <td
+                      class="max-w-56 truncate px-3 py-3 font-mono text-[11px] text-fg-subtle"
+                      title={item.target}
                     >
-                      {item.serviceName}
-                      <ArrowRight
-                        class="h-3 w-3 text-fg-subtle opacity-0 transition group-hover:opacity-100"
-                      />
-                    </a>
-                    {#if showProject}<p class="text-xs text-fg-subtle">{item.projectName}</p>{/if}
-                  </td>
-                  <td class="px-3 py-3 font-mono text-xs text-fg">{item.packageName}</td>
-                  <td class="px-3 py-3 font-mono text-xs">
-                    <span class="text-red-300">{item.installedVersion}</span>
-                    {#if item.fixedVersion}<span class="text-fg-subtle"> → </span><span
-                        class="text-ok">{item.fixedVersion}</span
-                      >{/if}
-                  </td>
-                  <td
-                    class="max-w-56 truncate px-3 py-3 font-mono text-[11px] text-fg-subtle"
-                    title={item.target}
-                  >
-                    {item.target || '—'}
-                  </td>
-                  <td class="whitespace-nowrap px-5 py-3 text-xs text-fg-subtle"
-                    >{date(item.scannedAt)}</td
-                  >
-                </tr>
-              {:else}
-                <tr>
-                  <td colspan="5" class="px-5 py-8 text-center text-sm text-fg-subtle"
-                    >Ningún servicio coincide.</td
-                  >
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                      {item.target || '—'}
+                    </td>
+                    <td class="whitespace-nowrap px-5 py-3 text-xs text-fg-subtle"
+                      >{date(item.scannedAt)}</td
+                    >
+                  </tr>
+                {:else}
+                  <tr>
+                    <td colspan="5" class="px-5 py-8 text-center text-sm text-fg-subtle"
+                      >Ningún servicio coincide.</td
+                    >
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      {/if}
     </div>
 
     <aside class="min-w-0 space-y-4">

@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { authService, SsoError, ssoService } from '#modules/auth';
+import { consumeReturnTo } from '#lib/server/return-to';
 
 const SESSION_COOKIE = 'pos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
@@ -39,6 +40,7 @@ export async function GET({ url, cookies, locals }) {
     maxAge: SESSION_MAX_AGE,
   });
 
-  // same landing as the password form: the root sends the user to their organizations
-  throw redirect(303, '/');
+  // same landing as the password form: the root sends the user to their organizations, unless
+  // they came from a link that asked to come back (`/gitops login`)
+  throw redirect(303, consumeReturnTo(cookies));
 }

@@ -108,8 +108,15 @@ export type ProjectPayload = {
   slug: string;
 };
 
+export type FieldChange<F extends string = string> = {
+  field: F;
+  before: string | null;
+  after: string | null;
+};
+
 export type ProjectUpdatedPayload = ProjectPayload & {
   changedFields: ProjectChangedField[];
+  changes?: FieldChange<ProjectChangedField>[];
 };
 
 export type OrganizationChangedField = 'name' | 'slug' | 'description';
@@ -119,6 +126,7 @@ export type OrganizationUpdatedPayload = {
   name: string;
   slug: string;
   changedFields: OrganizationChangedField[];
+  changes?: FieldChange<OrganizationChangedField>[];
 };
 
 export type AccessScope = 'cluster' | 'organization' | 'project';
@@ -239,6 +247,35 @@ export type StateIacBindingUpdatedPayload = {
   stacks: string[];
 };
 
+export type CveFeedSeverity = 'critical' | 'high' | 'medium' | 'low' | 'unknown';
+
+/**
+ * A CVE of the public feeds (OSV, CISA KEV…) for a technology the organization follows. `url` is
+ * the absolute link to the advisory in the app (a path when `ORIGIN` is not set).
+ */
+export type CveFeedAdvisoryPayload = {
+  cveId: string;
+  aliases: string[];
+  title: string;
+  severity: CveFeedSeverity;
+  cvssScore: number | null;
+  epssScore: number | null;
+  kev: boolean;
+  technologyId: string;
+  /** `null` for software looked up by CPE */
+  ecosystem: string | null;
+  package: string | null;
+  fixedVersions: string[];
+  sources: string[];
+  url: string;
+};
+
+/** The advisory of a followed technology also shows up in a scan of one of the projects. */
+export type CveFeedAffectsProjectPayload = CveFeedAdvisoryPayload & {
+  projectId: string;
+  serviceIds: string[];
+};
+
 export interface DomainEventMap {
   'code_report.analysis.completed': CodeReportAnalysisCompletedPayload;
   'code_report.analysis.failed': CodeReportAnalysisFailedPayload;
@@ -271,6 +308,10 @@ export interface DomainEventMap {
   'state_iac.backend.updated': StateIacBackendUpdatedPayload;
   'state_iac.backend.deleted': StateIacBackendPayload;
   'state_iac.binding.updated': StateIacBindingUpdatedPayload;
+  'cve_feed.advisory.published': CveFeedAdvisoryPayload;
+  'cve_feed.advisory.escalated': CveFeedAdvisoryPayload;
+  'cve_feed.advisory.fix_available': CveFeedAdvisoryPayload;
+  'cve_feed.advisory.affects_project': CveFeedAffectsProjectPayload;
 }
 
 export type EventType = Extract<keyof DomainEventMap, string>;

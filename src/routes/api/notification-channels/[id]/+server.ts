@@ -13,6 +13,7 @@ export async function PATCH({ params, request, locals }) {
     await updateChannel(locals, params.id, {
       name: body.name,
       destination: body.destination,
+      locale: body.locale,
       enabled: body.enabled,
     }),
   );

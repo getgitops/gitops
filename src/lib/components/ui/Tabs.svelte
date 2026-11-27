@@ -2,6 +2,8 @@
   Pestañas accesibles (tablist con foco itinerante: ← → Inicio Fin).
   - variant="underline": navegación entre secciones de una página.
   - variant="segmented": control compacto para filtros o periodos (1h · 24h · 7d).
+  Si los items llevan `href` (variant="underline") es una navegación de enlaces: sin roles de
+  pestaña, la activa es la de `value` y cada página pinta su propio contenido (funciona sin JS).
   Los paneles los pinta quien lo usa; para enlazarlos, dale al panel
   id={tabPanelId(idPrefix, valor)} y aria-labelledby={tabId(idPrefix, valor)}.
 -->
@@ -11,6 +13,8 @@
     label: string;
     count?: number | string;
     disabled?: boolean;
+    /** Con `href` la pestaña es un enlace (navega, funciona sin JS) y `value` marca la activa. */
+    href?: string;
   };
 
   export const tabId = (prefix: string, value: string) => `${prefix}-tab-${value}`;
@@ -66,7 +70,32 @@
   }
 </script>
 
-{#if variant === 'underline'}
+{#if variant === 'underline' && items.some((item) => item.href)}
+  <nav class="border-b border-white/8" aria-label={label}>
+    <ul class="-mb-px flex gap-6 overflow-x-auto">
+      {#each items as item (item.value)}
+        {@const active = item.value === value}
+        <li>
+          <a
+            href={item.href}
+            aria-current={active ? 'page' : undefined}
+            class="flex items-center gap-2 whitespace-nowrap border-b-2 font-medium transition-colors focus-visible:text-white focus-visible:outline-none {size ===
+            'sm'
+              ? 'pb-2 text-xs'
+              : 'pb-3 text-sm'} {active
+              ? 'border-brand-500 text-white'
+              : 'border-transparent text-fg-subtle hover:text-fg'}"
+          >
+            {item.label}
+            {#if item.count !== undefined}<span class="k-badge h-5 px-1.5 text-[11px]"
+                >{item.count}</span
+              >{/if}
+          </a>
+        </li>
+      {/each}
+    </ul>
+  </nav>
+{:else if variant === 'underline'}
   <div class="border-b border-white/8">
     <div
       bind:this={list}

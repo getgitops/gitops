@@ -1,12 +1,10 @@
 import { mailTransport } from './mail.transport';
 import { Notification, type NotificationChannel } from './notification';
-import { slackTransport } from './slack.transport';
 import type { NotificationTransport } from './transport';
 
 const defaults = (): Map<NotificationChannel, NotificationTransport<never>> =>
   new Map<NotificationChannel, NotificationTransport<never>>([
     ['mail', mailTransport as NotificationTransport<never>],
-    ['slack', slackTransport as NotificationTransport<never>],
   ]);
 
 let transports = defaults();

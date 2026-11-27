@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getEventDefinition, type EventDefinition } from '#lib/events/catalog';
 import type { AnyDomainEvent } from '#lib/server/events';
 import { createChannelsFixture } from '#modules/notifications/application/testing';
+import type { FetchLike } from '#lib/server/infra/http/guarded-fetch';
+import { createSlackTransport } from '#lib/server/infra/notifications/slack/slack.transport';
 import {
   AlertDomain,
   AlertValidationError,
@@ -26,6 +28,7 @@ const ORG = 'org-1';
 const orgLocation: AlertLocation = { scope: 'organization', organizationId: ORG, projectId: null };
 const p1: AlertLocation = { scope: 'project', organizationId: ORG, projectId: 'p1' };
 const HOOK = 'https://hooks.example.com/hook/T0/B0/xyz';
+const SLACK_HOOK = 'https://hooks.slack.com/services/T0/B0/xyz';
 const WITHOUT_NOTIFICATIONS = ['project:codereport:reports:read', 'organization:projects:read'];
 
 function input(overrides: AlertInput = {}): AlertInput {
@@ -244,6 +247,78 @@ describe('alerts with notification channels', () => {
       expect(channels.repository.rows.find((row) => row.lastError === 'HTTP 404')).toBeDefined();
     });
 
+    it('emails, posts Block Kit to Slack and posts to a webhook at once; a failing Slack stops none', async () => {
+      const slackBodies: Array<{ text: string; blocks: unknown[] }> = [];
+      let slackStatus = 200;
+      const fetch: FetchLike = async (_url, init) => {
+        slackBodies.push(JSON.parse(String(init.body)));
+        return new Response('ok', { status: slackStatus });
+      };
+      const mixed = createChannelsFixture({
+        types: ['slack', 'webhook'],
+        transports: { slack: createSlackTransport({ fetch }) },
+      });
+      const slack = await mixed.service.create(
+        p1,
+        { type: 'slack', name: '#seguridad', destination: SLACK_HOOK },
+        'a',
+      );
+      const webhook = await mixed.service.create(
+        p1,
+        { type: 'webhook', name: 'SIEM', destination: HOOK },
+        'a',
+      );
+      const mixedPort: NotificationChannelsPort = {
+        ...port,
+        listUsable: async (location) =>
+          (await mixed.service.listUsable(location)).map((channel) => ({
+            id: channel.id,
+            name: channel.name,
+            type: channel.type,
+            scope: channel.scope,
+            enabled: channel.enabled,
+          })),
+        deliver: (id, message, context) => mixed.service.deliver(id, message, context),
+      };
+      const mixedRepository = new InMemoryAlertRepository();
+      const mixedService = new AlertService(mixedRepository, directory, {
+        generateId: () => 'alert-mixed',
+        channels: mixedPort,
+      });
+      const mixedEngine = new AlertEngine({
+        repository: mixedRepository,
+        directory,
+        recipients: new RecipientResolver(directory, async () => true),
+        notifier,
+        channels: mixedPort,
+        channelMessage: buildAlertChannelMessage,
+        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      });
+      await mixedService.create(
+        p1,
+        input({ channelIds: [slack.channel.id, webhook.channel.id] }),
+        actor('admin'),
+      );
+
+      await mixedEngine.handle(analysisEvent());
+      expect(notifier.alerts).toHaveLength(1);
+      expect(mixed.transport.sent).toHaveLength(1);
+      expect(slackBodies).toHaveLength(1);
+      expect(slackBodies[0].text).toContain('Críticas');
+      expect(slackBodies[0].blocks[0]).toEqual({
+        type: 'header',
+        text: { type: 'plain_text', text: 'Críticas', emoji: false },
+      });
+
+      slackStatus = 404;
+      await mixedEngine.handle({ ...analysisEvent(), id: 'evt-again' });
+      expect(notifier.alerts).toHaveLength(2);
+      expect(mixed.transport.sent).toHaveLength(2);
+      expect(mixed.repository.rows.find((row) => row.id === slack.channel.id)?.lastError).toBe(
+        'HTTP 404',
+      );
+    });
+
     it('still posts to channels without SMTP, but sends no emails', async () => {
       mail = false;
       await service.create(p1, input({ channelIds: [p1Channel] }), actor('admin'));
@@ -294,6 +369,7 @@ describe('alerts with notification channels', () => {
       await engine.handle(analysisEvent());
       expect(channels.transport.sent).toHaveLength(2);
       expect(channels.transport.sent[1].message.suppressed).toBe(1);
+      expect(channels.transport.sent[1].message.note).toMatch(/1/);
     });
 
     it('includes the channels in test sends and dry runs', async () => {
@@ -358,6 +434,98 @@ describe('alerts with notification channels', () => {
         url: 'https://gitops.example.com/org/kettu/projects/web/vault',
         label: 'View in GitOps',
       });
+    });
+
+    function projectUpdated() {
+      return {
+        alert: { id: 'a1', name: 'Proyecto actualizado', description: null, scope: 'organization' },
+        event: {
+          id: 'e2',
+          type: 'project.updated',
+          occurredAt: '2026-11-26T08:49:41.000Z',
+          actor: { kind: 'system' },
+          scope: { organizationId: ORG, projectId: 'p1' },
+          payload: {
+            projectId: 'p1',
+            name: 'Mordor',
+            slug: 'mordor',
+            changedFields: ['description', 'status'],
+            changes: [
+              { field: 'description', before: 'Old', after: 'New one' },
+              { field: 'status', before: 'active', after: 'inactive' },
+            ],
+          },
+        } as never,
+        definition: getEventDefinition('project.updated') as EventDefinition,
+        suppressed: 0,
+        names: new Map([['p1', 'Mordor']]),
+        where: { organization: 'Kettu', organizationSlug: 'kettu', project: 'Mordor' },
+      } as const;
+    }
+
+    it('says what changed instead of repeating the project, the date or the field names', () => {
+      const message = buildAlertChannelMessage(projectUpdated());
+      expect(message.location).toEqual({ label: 'Project', name: 'Mordor' });
+      expect(message.text).toBe('[GitOps] Proyecto actualizado');
+      expect(message.labels).toEqual({
+        date: 'Date',
+        changes: 'Changes',
+        before: 'Before',
+        after: 'New',
+        empty: 'empty',
+      });
+      expect(message.occurredAt).toBe('2026-11-26T08:49:41.000Z');
+      expect(message.changes).toEqual([
+        { label: 'Description', before: 'Old', after: 'New one' },
+        { label: 'Status', before: 'active', after: 'inactive' },
+      ]);
+      expect(message.fields).toEqual([]);
+    });
+
+    it('is written in the language it is asked for', () => {
+      const es = buildAlertChannelMessage(projectUpdated(), 'es');
+      const en = buildAlertChannelMessage(projectUpdated(), 'en');
+      expect(es.eventLabel).not.toBe(en.eventLabel);
+      expect(es.changes?.[0].label).not.toBe(en.changes?.[0].label);
+      expect(es.link === null || es.link.label !== en.link?.label).toBe(true);
+    });
+
+    it('keeps the changed field names when the event has no before/after values', () => {
+      const input = projectUpdated();
+      const { changes: _changes, ...payload } = (
+        input.event as { payload: Record<string, unknown> }
+      ).payload;
+      void _changes;
+      const message = buildAlertChannelMessage({
+        ...input,
+        event: { ...(input.event as object), payload } as never,
+      });
+      expect(message.changes).toBeUndefined();
+      expect(message.fields.map((field) => field.value)).toEqual(['Description, Status']);
+    });
+
+    it('builds each channel message in that channel language', async () => {
+      const mixed = createChannelsFixture();
+      const es = await mixed.service.create(
+        p1,
+        { type: 'slack', name: '#es', destination: HOOK, locale: 'es' },
+        'a',
+      );
+      const en = await mixed.service.create(
+        p1,
+        { type: 'slack', name: '#en', destination: HOOK },
+        'a',
+      );
+      expect(es.channel.locale).toBe('es');
+      expect(en.channel.locale).toBe('en');
+
+      const build = (locale: 'es' | 'en') => buildAlertChannelMessage(projectUpdated(), locale);
+      await mixed.service.deliver(es.channel.id, build);
+      await mixed.service.deliver(en.channel.id, build);
+      expect(mixed.transport.sent.map((sent) => sent.message.eventLabel)).toEqual([
+        build('es').eventLabel,
+        build('en').eventLabel,
+      ]);
     });
   });
 });

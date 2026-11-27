@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { authService, ssoService } from '#modules/auth';
 import { clusterSettingsService } from '#modules/config';
+import { consumeReturnTo } from '#lib/server/return-to';
 
 const SESSION_COOKIE = 'pos_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
@@ -8,7 +9,7 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 export async function load({ cookies, url }) {
   const currentUser = await authService.resolveAuthenticatedUser(cookies.get(SESSION_COOKIE));
   if (currentUser) {
-    throw redirect(303, '/');
+    throw redirect(303, consumeReturnTo(cookies));
   }
   const registrationEnabled = await clusterSettingsService.isRegistrationEnabled();
   return {
@@ -44,6 +45,6 @@ export const actions = {
       maxAge: SESSION_MAX_AGE,
     });
 
-    throw redirect(303, '/');
+    throw redirect(303, consumeReturnTo(cookies));
   },
 };

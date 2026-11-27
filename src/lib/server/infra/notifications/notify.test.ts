@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MailNotification } from './mail-notification';
 import { Notification, type NotificationChannel } from './notification';
 import { notify, registerTransport, resetTransports } from './notify';
-import { SlackNotification } from './slack-notification';
+import { ChatNotification } from './chat-notification';
 
 class UnknownNotification extends Notification {
   readonly channel = 'webhook' as NotificationChannel;
@@ -14,6 +14,23 @@ function mailNotification() {
     to: 'user@example.com',
     subject: 'Welcome',
     content: '<p>Hi</p>',
+  });
+}
+
+function slackNotification() {
+  return new ChatNotification({
+    channel: 'slack',
+    destination: 'https://hooks.slack.com/services/T0/B0/x',
+    message: {
+      title: 'Deploy done',
+      summary: 'ok',
+      eventLabel: 'Deploy',
+      fields: [],
+      link: null,
+      suppressed: 0,
+      text: 'Deploy done',
+      test: false,
+    },
   });
 }
 
@@ -52,7 +69,7 @@ describe('notify', () => {
     registerTransport('mail', { send: mailSend } as never);
     registerTransport('slack', { send: slackSend } as never);
 
-    await notify(new SlackNotification({ channelName: '#alerts', text: 'Deploy done' }));
+    await notify(slackNotification());
 
     expect(slackSend).toHaveBeenCalledTimes(1);
     expect(mailSend).not.toHaveBeenCalled();
@@ -78,12 +95,10 @@ describe('notify', () => {
     await expect(notify(mailNotification())).rejects.toThrow('smtp down');
   });
 
-  it('restores the built-in transports on reset', async () => {
+  it('forgets registered transports on reset, keeping only mail', async () => {
     registerTransport('slack', { send: async () => {} } as never);
     resetTransports();
 
-    await expect(
-      notify(new SlackNotification({ channelName: '#alerts', text: 'Deploy done' })),
-    ).rejects.toThrow(/not implemented yet/);
+    await expect(notify(slackNotification())).rejects.toThrow(/No transport registered/);
   });
 });

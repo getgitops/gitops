@@ -3,7 +3,10 @@ import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
 import { UserRepository } from '../infrastructure/repositories/user.repository';
 import { RoleRepository } from '../infrastructure/repositories/role.repository';
-import { CLUSTER_ADMIN_PERMISSIONS, CLUSTER_USER_PERMISSIONS } from '../domain/role-permissions.data';
+import {
+  CLUSTER_ADMIN_PERMISSIONS,
+  CLUSTER_USER_PERMISSIONS,
+} from '../domain/role-permissions.data';
 
 export class AuthService {
   constructor(
@@ -159,7 +162,45 @@ export class AuthService {
     if (!userId) {
       return null;
     }
+    return this.sessionUserById(userId);
+  }
 
+  /**
+   * The user linked to an external identity (`provider` + `providerId`, e.g. a Slack
+   * `<team>:<user>`), or `null`. Callers acting for it must refuse a `disabled` user.
+   */
+  async findByExternalIdentity(
+    provider: string,
+    providerId: string,
+  ): Promise<{ id: string; username: string; email: string | null; disabled: boolean } | null> {
+    const user = await this.userRepository.findByAuthProvider(provider, providerId);
+    if (!user) return null;
+    return { id: user.id, username: user.username, email: user.email, disabled: user.disabled };
+  }
+
+  /**
+   * Links an external identity to `userId`. `taken` when another user already has it: an identity
+   * belongs to one GitOps user, and moving it must be an explicit unlink first.
+   */
+  async linkExternalIdentity(
+    userId: string,
+    provider: string,
+    providerId: string,
+  ): Promise<'linked' | 'taken' | 'not_found'> {
+    const owner = await this.userRepository.findByAuthProvider(provider, providerId);
+    if (owner && owner.id !== userId) return 'taken';
+    if (owner) return 'linked';
+    const user = await this.userRepository.findById(userId);
+    if (!user) return 'not_found';
+    await this.userRepository.updateAuthProviders(userId, [
+      ...user.authProviders,
+      { provider, providerId },
+    ]);
+    return 'linked';
+  }
+
+  /** The same shape as a session's `locals.user`, for requests that act as a user by other means. */
+  async sessionUserById(userId: string): Promise<any> {
     const user = await this.userRepository.findById(userId);
     if (!user) {
       return null;
@@ -169,6 +210,7 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
+      disabled: user.disabled,
       role: user.role
         ? {
             id: user.role.id,

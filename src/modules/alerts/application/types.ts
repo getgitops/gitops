@@ -87,7 +87,11 @@ export interface NotificationChannelsPort {
   }): Promise<UsableChannel[]>;
   deliver(
     channelId: string,
-    message: import('#lib/server/infra/notifications/chat-notification').ChannelMessage,
+    message:
+      | import('#lib/server/infra/notifications/chat-notification').ChannelMessage
+      | ((
+          locale: import('#lib/server/infra/notifications/chat-notification').ChannelLocale,
+        ) => import('#lib/server/infra/notifications/chat-notification').ChannelMessage),
     context?: Record<string, unknown>,
   ): Promise<boolean>;
 }

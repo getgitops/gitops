@@ -11,6 +11,7 @@ import {
   FolderKanban,
   GitBranch,
   Info,
+  Hash,
   KeyRound,
   Layers,
   LayoutDashboard,
@@ -402,6 +403,11 @@ export function buildNavigation(
               label: t('sidebar.items.registration'),
               href: '/gitops-settings/registration',
               icon: KeyRound,
+            },
+            {
+              label: t('sidebar.items.slack'),
+              href: '/gitops-settings/slack',
+              icon: Hash,
             },
             {
               label: t('sidebar.items.database'),

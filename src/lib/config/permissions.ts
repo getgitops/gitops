@@ -73,6 +73,21 @@ const permissions = {
           resource: 'notifications',
           permissions: grantsFor('organization', 'notifications'),
         },
+        // CVE feed (/org/<org>/cves, "CVEs por tecnología" tab): read to see the feed and receive its
+        // alerts, update to edit the watchlist and run "Sincronizar ahora"
+        cves: {
+          resource: 'cves',
+          sections: {
+            feed: {
+              resource: 'feed',
+              permissions: [
+                'organization:cves:feed:read',
+                'organization:cves:feed:update',
+                'organization:cves:feed:all',
+              ],
+            },
+          },
+        },
         // State IaC (/org/<org>/settings/state-iac): the buckets with the IaC state and which
         // GitOps project sees each Pulumi project. `stacks:read` sees every stack, assigned or not
         stateiac: {

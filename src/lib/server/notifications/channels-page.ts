@@ -1,13 +1,24 @@
-import { fail } from '@sveltejs/kit';
-import type { ChannelLocation } from '#modules/notifications';
+import { fail, redirect, type Cookies } from '@sveltejs/kit';
+import { cancanService } from '#modules/auth';
+import {
+  SLACK_FLOW_COOKIE,
+  SLACK_FLOW_COOKIE_PATH,
+  SLACK_FLOW_TTL_MS,
+  slackAppService,
+  slackConnectService,
+  type ChannelLocation,
+} from '#modules/notifications';
 import type { AlertLocals } from '#lib/server/alerts/access';
-import type { ChannelsSectionData } from '#lib/notifications/types';
+import type { AppCardData, ChannelsSectionData } from '#lib/notifications/types';
 import {
   canManageChannels,
   createChannel,
   deleteChannel,
   listChannels,
+  removeSlackWorkspace,
   rotateChannelSecret,
+  startSlackConnection,
+  startSlackInstall,
   testChannel,
   updateChannel,
 } from './channels';
@@ -24,10 +35,80 @@ export async function loadChannelsSection(
     canManageChannels(locals, location, 'update'),
     canManageChannels(locals, location, 'delete'),
   ]);
-  return { ...listed.data, scope: location.scope, canCreate, canUpdate, canDelete };
+  const slackAvailable = listed.data.availableTypes.includes('slack');
+  const slackConfigured = slackConnectService.isConfigured();
+  const isAdmin =
+    !locals.apiKey &&
+    cancanService.canAccessAdminArea(
+      locals.user as Parameters<typeof cancanService.canAccessAdminArea>[0],
+    );
+  // apps belong to organizations: projects use the organization's channels
+  const apps: AppCardData[] | null =
+    location.scope === 'organization'
+      ? [
+          await slackAppCard(locals, location.organizationId, {
+            canCreate,
+            canDelete,
+            isAdmin,
+            available: slackAvailable,
+          }),
+          {
+            provider: 'google-chat',
+            comingSoon: true,
+            configured: false,
+            canInstall: false,
+            canRemove: false,
+            installations: [],
+            setupPath: null,
+          },
+        ]
+      : null;
+  return {
+    ...listed.data,
+    scope: location.scope,
+    apps,
+    canCreate,
+    canUpdate,
+    canDelete,
+    // "Add to Slack" only when the app is configured and Slack channels can be created
+    slackConnect: canCreate && slackAvailable && slackConfigured,
+    // without the app, GitOps admins get a link to set it up from the Slack card
+    slackSetupPath:
+      canCreate && slackAvailable && !slackConfigured && isAdmin ? '/gitops-settings/slack' : null,
+  };
 }
 
-type ActionEvent = { request: Request; params: Record<string, string>; locals: AlertLocals };
+/** The GitOps Slack app (`/gitops`): needs the app configured with its signing secret. */
+async function slackAppCard(
+  locals: AlertLocals,
+  organizationId: string,
+  input: { canCreate: boolean; canDelete: boolean; isAdmin: boolean; available: boolean },
+): Promise<AppCardData> {
+  const configured = input.available && slackConnectService.commandsEnabled();
+  const installations = (await slackAppService.workspacesOf(organizationId)).map((workspace) => ({
+    id: workspace.id,
+    name: workspace.teamName,
+  }));
+  return {
+    provider: 'slack',
+    comingSoon: false,
+    configured,
+    canInstall: configured && input.canCreate && !locals.apiKey,
+    canRemove: input.canDelete,
+    installations,
+    setupPath: !configured && input.isAdmin ? '/gitops-settings/slack' : null,
+  };
+}
+
+type ActionEvent = {
+  request: Request;
+  params: Record<string, string>;
+  locals: AlertLocals;
+  url: URL;
+  cookies: Cookies;
+};
+
+const SLACK_AUTHORIZATION_ORIGIN = 'https://slack.com';
 
 /** Form actions of the channels section, shared by the organization and project pages. */
 export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelLocation>) {
@@ -39,6 +120,7 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
         type: String(form.get('type') ?? ''),
         name: String(form.get('name') ?? ''),
         destination: String(form.get('destination') ?? ''),
+        locale: String(form.get('locale') ?? ''),
         enabled: true,
       };
       const result = await createChannel(event.locals, location, input);
@@ -46,7 +128,7 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
         // the destination is never echoed back: it has to be typed again
         return fail(result.status, {
           channelForm: 'create',
-          channelDraft: { type: input.type, name: input.name },
+          channelDraft: { type: input.type, name: input.name, locale: input.locale },
           channelError: result.error,
           channelErrors: result.errors ?? {},
         });
@@ -58,6 +140,75 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
           ? { channelSecret: { channelId: result.data.id, secret: result.data.signingSecret } }
           : {}),
       };
+    },
+
+    /**
+     * "Add to Slack": a plain (non-enhanced) form posts here and the browser follows the redirect
+     * to Slack; the channel is created by `/notifications/slack/callback`.
+     */
+    async connectSlack(event: ActionEvent) {
+      const location = await resolve(event);
+      const form = await event.request.formData();
+      const result = await startSlackConnection(event.locals, location, {
+        locale: String(form.get('locale') ?? ''),
+        returnTo: String(form.get('returnTo') ?? ''),
+        origin: event.url.origin,
+      });
+      if (!result.ok) {
+        return fail(result.status, { channelForm: 'slack', channelError: result.error });
+      }
+      // sameSite lax: Slack's redirect back is a top-level GET navigation, so the cookie travels
+      event.cookies.set(SLACK_FLOW_COOKIE, result.data.flowCookie, {
+        path: SLACK_FLOW_COOKIE_PATH,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SLACK_FLOW_TTL_MS / 1000,
+      });
+      throw redirect(303, result.data.authorizationUrl, {
+        external: [SLACK_AUTHORIZATION_ORIGIN],
+      });
+    },
+
+    /** Installs the GitOps Slack app for the organization (`/gitops`): off to Slack. */
+    async installSlack(event: ActionEvent) {
+      const location = await resolve(event);
+      const form = await event.request.formData();
+      const result = await startSlackInstall(event.locals, location.organizationId, {
+        locale: String(form.get('locale') ?? ''),
+        returnTo: String(form.get('returnTo') ?? ''),
+        origin: event.url.origin,
+      });
+      if (location.scope !== 'organization' || !result.ok) {
+        return fail(result.ok ? 400 : result.status, {
+          channelForm: 'slack-app',
+          channelError: result.ok ? 'Forbidden' : result.error,
+        });
+      }
+      event.cookies.set(SLACK_FLOW_COOKIE, result.data.flowCookie, {
+        path: SLACK_FLOW_COOKIE_PATH,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SLACK_FLOW_TTL_MS / 1000,
+      });
+      throw redirect(303, result.data.authorizationUrl, {
+        external: [SLACK_AUTHORIZATION_ORIGIN],
+      });
+    },
+
+    async removeSlackWorkspace(event: ActionEvent) {
+      const location = await resolve(event);
+      const form = await event.request.formData();
+      const workspaceId = String(form.get('workspaceId') ?? '');
+      const result = await removeSlackWorkspace(event.locals, location.organizationId, workspaceId);
+      if (location.scope !== 'organization' || !result.ok) {
+        return fail(result.ok ? 400 : result.status, {
+          channelForm: 'slack-app',
+          channelError: result.ok ? 'Forbidden' : result.error,
+        });
+      }
+      return { slackWorkspaceRemoved: workspaceId };
     },
 
     async rotateChannelSecret(event: ActionEvent) {
@@ -84,6 +235,7 @@ export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelL
       const result = await updateChannel(event.locals, channelId, {
         name: String(form.get('name') ?? ''),
         destination: String(form.get('destination') ?? ''),
+        locale: String(form.get('locale') ?? ''),
       });
       if (!result.ok) {
         return fail(result.status, {

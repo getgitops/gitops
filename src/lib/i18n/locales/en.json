@@ -68,6 +68,7 @@
       "database": "Database",
       "auditLog": "Audit Log",
       "registration": "Registration",
+      "slack": "Slack",
       "events": "Events",
       "alerts": "Alerts",
       "monitors": "Monitors",
@@ -400,6 +401,31 @@
       "enableDescription": "When enabled, anyone can create a GitOps user account at /auth/registration without an invitation. They start without an organization and can create their own.",
       "updated": "Registration settings updated.",
       "updateFailed": "Failed to update registration settings."
+    },
+    "slack": {
+      "title": "Slack",
+      "description": "Lets users add Slack channels to their alerts in one click (Add to Slack) instead of pasting a webhook URL.",
+      "statusTitle": "Add to Slack",
+      "configured": "Configured",
+      "notConfigured": "Not configured",
+      "invalid": "Invalid configuration",
+      "configuredHelp": "Channel settings show an Add to Slack button. Users pick the workspace and channel in Slack.",
+      "notConfiguredHelp": "Slack channels are created by pasting an Incoming Webhook URL. Create the Slack app below to enable Add to Slack.",
+      "setupTitle": "Set up the Slack app",
+      "step1": "Create the Slack app for this installation from its manifest (incoming-webhook and commands scopes, the /gitops command and this installation's redirect URL).",
+      "createApp": "Create Slack app",
+      "showManifest": "Show manifest",
+      "step2": "Check that the app's redirect URL (OAuth & Permissions) is this one:",
+      "httpsWarning": "Slack only accepts https redirect URLs: open this page from the installation's public https address.",
+      "step3": "In Basic Information, copy the Client ID and Client Secret into the environment and restart GitOps. To let other workspaces install it, enable Public Distribution in Manage Distribution.",
+      "manualNote": "Pasting a webhook URL keeps working with or without the Slack app.",
+      "copy": "Copy",
+      "copied": "Copied",
+      "commandsTitle": "/gitops command",
+      "commandsOn": "Active",
+      "commandsOff": "SLACK_SIGNING_SECRET missing",
+      "commandsHelp": "With the Signing Secret, each organization installs the app from its channel settings and connects channels from Slack with /gitops. Slack sends the commands to this installation, which must be reachable from the internet.",
+      "step4": "For /gitops, also copy the Signing Secret (Basic Information → App Credentials) to SLACK_SIGNING_SECRET. The manifest already registers the command and the interactivity URL:"
     }
   },
   "org": {
@@ -430,7 +456,141 @@
     "cves": {
       "title": "Organization CVEs",
       "infoMessage": "This list aggregates CVEs from all organization projects using the latest completed analysis for each service.",
-      "emptyMessage": "No CVEs have been detected in this organization yet."
+      "emptyMessage": "No CVEs have been detected in this organization yet.",
+      "tabsLabel": "CVE sections",
+      "tabMine": "My CVEs",
+      "tabTechnology": "CVEs by technology",
+      "feed": {
+        "infoMessage": "CVEs published for the technologies you follow, even if they do not show up in any of your scans yet.",
+        "intro": "Pick the technologies in your stack and we show their new CVEs (OSV and CISA KEV) without waiting for a scan to detect them.",
+        "followed": "Technologies you follow",
+        "manage": "Manage technologies",
+        "sync": "Sync now",
+        "syncRequested": "Sync requested",
+        "syncRequestedHelp": "The server will update the feed shortly.",
+        "watchlistSaved": "Technologies saved",
+        "tableTitle": "Feed CVEs",
+        "noResults": "No CVE matches the filters.",
+        "noAdvisories": "There are no CVEs for your technologies yet. If you just added them, the first sync may take a few minutes.",
+        "disabled": {
+          "title": "The CVE feed is disabled",
+          "description": "The server does not query external sources. To turn it on, an administrator must set the environment variable"
+        },
+        "empty": {
+          "title": "You are not following any technology yet",
+          "description": "Pick the technologies you use (Node.js, PostgreSQL, Spring…) and we will start showing their CVEs.",
+          "readOnly": "Ask someone with edit permission to pick the technologies to follow.",
+          "action": "Pick technologies"
+        },
+        "errors": {
+          "generic": "The action could not be completed.",
+          "forbidden": "You do not have permission to do that.",
+          "disabled": "The CVE feed is disabled on this server.",
+          "too_many": "You have exceeded the maximum number of technologies that can be followed.",
+          "unknown_technology": "A technology is not in the catalog.",
+          "invalid_custom": "The custom technology is not valid (check the ecosystem, package or CPE).",
+          "invalid_severity": "The minimum severity is not valid.",
+          "invalid_versions": "The versions are not valid."
+        },
+        "filters": {
+          "label": "Feed filters",
+          "technology": "Technology",
+          "allTechnologies": "All",
+          "severity": "Severity",
+          "anySeverity": "Any",
+          "atLeast": "{severity} or higher",
+          "from": "Modified from",
+          "to": "Modified until",
+          "kev": "Actively exploited only (KEV)",
+          "affectsMe": "Only those that affect me",
+          "apply": "Filter",
+          "clear": "Clear filters"
+        },
+        "columns": {
+          "cve": "CVE",
+          "technology": "Technology / package",
+          "severity": "Severity / CVSS",
+          "epss": "EPSS",
+          "flags": "Status",
+          "published": "Published",
+          "updated": "Updated",
+          "fixed": "Fixed version"
+        },
+        "badges": {
+          "kev": "KEV",
+          "affectsMe": "Affects you"
+        },
+        "pagination": {
+          "label": "Pagination",
+          "summary": "{from}-{to} of {total}",
+          "previous": "Previous",
+          "next": "Next"
+        },
+        "status": {
+          "title": "Feed status",
+          "lastRun": "Last sync: {date}",
+          "lastSuccess": "Last successful: {date}",
+          "never": "never",
+          "noErrors": "No errors",
+          "sources": {
+            "osv": "OSV",
+            "kev": "CISA KEV",
+            "nvd": "NVD",
+            "epss": "EPSS"
+          }
+        },
+        "categories": {
+          "runtime": "Runtime",
+          "framework": "Framework",
+          "library": "Library",
+          "database": "Database",
+          "server": "Server",
+          "infrastructure": "Infrastructure",
+          "security": "Security",
+          "os": "Operating system"
+        },
+        "modal": {
+          "title": "Manage technologies",
+          "description": "Choose which technologies the organization follows and from which severity you want to see their CVEs.",
+          "catalog": "Catalog",
+          "search": "Search the catalog",
+          "searchPlaceholder": "Search technology…",
+          "noMatches": "No technology matches the search.",
+          "suggestions": "Suggestions",
+          "suggestionsHelp": "Technologies that appear in your scans and you do not follow yet.",
+          "suggestionReasonOne": "You use `{package}` in 1 service",
+          "suggestionReasonMany": "You use `{package}` in {count} services",
+          "custom": "Custom technology",
+          "customHelp": "If it is not in the catalog, add an OSV package (ecosystem and name) or a CPE.",
+          "customKind": "Type",
+          "kindOsv": "OSV package",
+          "kindCpe": "CPE",
+          "ecosystem": "Ecosystem",
+          "package": "Package",
+          "packageHelp": "Exact package name in its ecosystem.",
+          "cpe": "CPE 2.3",
+          "cpeHelp": "Prefix formatted as cpe:2.3:<part>:<vendor>:<product>.",
+          "minSeverity": "Minimum severity",
+          "minSeverityHelp": "You will not see CVEs below this severity.",
+          "includeKev": "CISA KEV",
+          "includeKevHelp": "Actively exploited CVEs are always shown, even below the minimum severity.",
+          "includeKevLabel": "Include KEVs of my technologies",
+          "floorNotice": "The server sets a global minimum of {severity}: the organization can only raise it.",
+          "save": "Save"
+        },
+        "detail": {
+          "title": "Feed data",
+          "description": "From OSV, NVD and CISA KEV; independent of your scans.",
+          "technologies": "Technologies you follow",
+          "affected": "Affected packages and ranges",
+          "noRanges": "The sources do not list version ranges.",
+          "occurrences": "Services affected in your scans",
+          "noFix": "no fixed version",
+          "fixedVersions": "Fixed versions",
+          "sources": "Sources",
+          "aliases": "Other identifiers"
+        }
+      }
     },
     "dashboard": {
       "title": "Dashboard",
@@ -602,7 +762,8 @@
         "access": "Access",
         "monitoring": "Monitoring",
         "notifications": "Notifications",
-        "state_iac": "State IaC"
+        "state_iac": "State IaC",
+        "cve_feed": "CVE feed"
       }
     },
     "current": "Current",
@@ -1426,6 +1587,63 @@
         "auth": "Authentication",
         "credentials": "Credentials",
         "enabled": "Enabled"
+      },
+      "cveTechnology": {
+        "nodejs": "Node.js",
+        "express": "Express",
+        "next": "Next.js",
+        "react": "React",
+        "svelte": "Svelte",
+        "sveltekit": "SvelteKit",
+        "vite": "Vite",
+        "lodash": "Lodash",
+        "axios": "Axios",
+        "nestjs": "NestJS",
+        "django": "Django",
+        "flask": "Flask",
+        "fastapi": "FastAPI",
+        "requests": "Requests (Python)",
+        "pillow": "Pillow",
+        "spring-boot": "Spring Boot",
+        "spring-framework": "Spring Framework",
+        "log4j": "Apache Log4j",
+        "jackson": "Jackson",
+        "gin": "Gin",
+        "golang-x-net": "golang.org/x/net",
+        "golang-x-crypto": "golang.org/x/crypto",
+        "tokio": "Tokio",
+        "rails": "Ruby on Rails",
+        "aspnet-core": "ASP.NET Core",
+        "laravel": "Laravel",
+        "postgresql": "PostgreSQL",
+        "mysql": "MySQL",
+        "mongodb": "MongoDB",
+        "redis": "Redis",
+        "nginx": "nginx",
+        "apache-httpd": "Apache HTTP Server",
+        "kubernetes": "Kubernetes",
+        "docker": "Docker Engine",
+        "terraform": "Terraform",
+        "openssl": "OpenSSL",
+        "openssh": "OpenSSH",
+        "linux-kernel": "Linux kernel"
+      },
+      "cveSeverity": {
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low",
+        "unknown": "Unknown"
+      },
+      "cveEcosystem": {
+        "npm": "npm",
+        "PyPI": "PyPI",
+        "Go": "Go",
+        "Maven": "Maven",
+        "crates.io": "crates.io",
+        "RubyGems": "RubyGems",
+        "NuGet": "NuGet",
+        "Packagist": "Packagist"
       }
     },
     "vault": {
@@ -1701,6 +1919,58 @@
           }
         }
       }
+    },
+    "cve_feed": {
+      "advisory": {
+        "published": {
+          "label": "New CVE for a followed technology",
+          "description": "A CVE appeared for a technology the organization follows.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        },
+        "escalated": {
+          "label": "CVE escalated",
+          "description": "A followed CVE got more severe, entered CISA KEV or its EPSS crossed the threshold.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        },
+        "fix_available": {
+          "label": "Fix available for a CVE",
+          "description": "A fixed version was published for a followed CVE.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        },
+        "affects_project": {
+          "label": "Followed CVE affects a project",
+          "description": "A CVE of a followed technology also appears in a scan of a project.",
+          "fields": {
+            "technologyId": "Technology",
+            "severity": "Severity",
+            "cvssScore": "CVSS score",
+            "epssScore": "EPSS score",
+            "kev": "Actively exploited (CISA KEV)",
+            "ecosystem": "Ecosystem"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1760,12 +2030,14 @@
         "monitorDown": "{name} is down ({cause})",
         "monitorDegraded": "{name} is degraded",
         "monitorRecovered": "{name} recovered after {minutes} min",
-        "channelDisabled": "{name} disabled after {failures} failures"
+        "channelDisabled": "{name} disabled after {failures} failures",
+        "cveAdvisory": "{cveId} ({severity}) {kev}"
       },
       "externalFooter": "You receive this email because {organization} added your address to the alert “{alert}”.",
       "unsubscribe": "Unsubscribe",
       "testSubject": "[Test] {subject}",
-      "testNote": "This is a test email sent from the alert editor with an example event: nothing actually happened."
+      "testNote": "This is a test email sent from the alert editor with an example event: nothing actually happened.",
+      "organization": "Organization"
     },
     "operators": {
       "eq": "is",
@@ -1977,6 +2249,12 @@
       "failed": "Could not complete it. Try again.",
       "notConfigured": "Not configured",
       "configure": "Configure"
+    },
+    "channel": {
+      "before": "Before",
+      "after": "New",
+      "empty": "empty",
+      "changes": "Changes"
     }
   },
   "monitoring": {
@@ -2232,7 +2510,15 @@
       "path_not_allowed": "The URL path does not match this channel type.",
       "private_address": "The URL points to a private or internal address.",
       "unresolvable": "The URL host could not be resolved.",
-      "not_signed": "This channel type does not sign its messages."
+      "not_signed": "This channel type does not sign its messages.",
+      "invalid_locale": "The language is not valid.",
+      "slack_not_configured": "Add to Slack is not configured in this GitOps installation.",
+      "slack_cancelled": "The Slack connection was cancelled.",
+      "slack_invalid_state": "The Slack connection expired or was started by another session. Try again.",
+      "slack_exchange_failed": "Slack did not complete the connection. Try again.",
+      "slack_no_webhook": "Slack did not return a channel webhook: the Slack app needs the incoming-webhook scope.",
+      "slack_wrong_workspace": "The connection was finished in another workspace or by another Slack user. Use the account that typed /gitops channel.",
+      "slack_workspace_taken": "This Slack workspace is already connected to another GitOps organization."
     },
     "link": {
       "invalid": "This link is not valid or has already been used.",
@@ -2321,7 +2607,99 @@
       "secretDone": "I have saved it",
       "secretDocs": "How to verify the signature",
       "webhookHelp": "Any public https URL. GitOps signs each request with HMAC-SHA256 and never follows redirects.",
-      "comingSoon": "Coming soon"
+      "slackHelp": "Slack Incoming Webhook URL (https://hooks.slack.com/services/…). The webhook decides the Slack channel: create one per channel in your Slack app, under \"Incoming Webhooks\".",
+      "comingSoon": "Coming soon",
+      "locale": "Message language",
+      "localeHelp": "Messages to this channel (event, fields and button) are written in this language.",
+      "locales": {
+        "es": "Spanish",
+        "en": "English"
+      },
+      "slackConnectTitle": "Add to Slack",
+      "slackConnectDescription": "Pick the workspace and the channel in Slack: GitOps names the channel and saves its webhook, nothing to copy.",
+      "slackConnect": "Add to Slack",
+      "slackConnected": "Slack channel added",
+      "slackManual": "or paste an Incoming Webhook URL",
+      "slackSetupHint": "Add to Slack (pick the channel in Slack, no URL to copy) is not set up yet.",
+      "slackSetupLink": "Set it up",
+      "slackAppRemove": "Disconnect",
+      "slackAppRemoveTitle": "Disconnect {team}?",
+      "slackAppRemoveConfirm": "/gitops stops working in that workspace until it is installed again. Channels already connected keep posting; to revoke them, remove the app in Slack.",
+      "slackAppInstalledToast": "Slack app installed",
+      "slackAppRemovedToast": "Workspace disconnected"
+    },
+    "slackApp": {
+      "notInstalled": "This Slack workspace is not connected to GitOps. An organization admin has to click *Install in Slack* in GitOps (Settings → Alerts → Settings → Channels).",
+      "help": "*GitOps commands*\n• `/gitops login`: link your Slack user to your GitOps account (once).\n• `/gitops channel`: connect a Slack channel to the organization's alerts.\n• `/gitops status`: linked organization, your account and the connected channels.",
+      "notLinked": "Link your GitOps account first with `/gitops login`.",
+      "disabled": "Your GitOps account is disabled.",
+      "forbidden": "Your GitOps account is not allowed to create channels in this organization.",
+      "failed": "GitOps could not complete the action ({code}).",
+      "linkExpires": "This link is only for you and expires in 10 minutes.",
+      "login": {
+        "prompt": "Open GitOps to link your Slack user to your account (sign in with your password or with Google).",
+        "button": "Link with GitOps"
+      },
+      "status": {
+        "organization": "Organization: *{organization}*",
+        "linked": "Your account: *{username}*",
+        "notLinked": "Your account: not linked (`/gitops login`)",
+        "channels": "Slack channels: {channels}",
+        "noChannels": "No Slack channels connected yet (`/gitops channel`).",
+        "disabled": "disabled"
+      },
+      "locale": {
+        "es": "Spanish",
+        "en": "English"
+      },
+      "channel": {
+        "title": "Connect a channel",
+        "next": "Next",
+        "cancel": "Cancel",
+        "close": "Close",
+        "intro": "The channel is added to *{organization}*, where its alerts can use it.",
+        "name": "Name",
+        "nameHint": "How the configuration shows in GitOps.",
+        "namePlaceholder": "DevOps ES",
+        "locale": "Message language",
+        "nameRequired": "Type a name.",
+        "nameTooLong": "The name is too long (80 characters at most).",
+        "pick": "Last step: pick the Slack channel for *{name}*. Slack opens in the browser with your channels; once you allow it, GitOps saves the configuration and posts a test message to the channel.",
+        "pickButton": "Pick the channel in Slack"
+      }
+    },
+    "slackLink": {
+      "title": "Link Slack",
+      "question": "Link the Slack user {slackUser} (workspace {team}) to your account {username}? You will be able to connect {organization} channels from Slack with /gitops.",
+      "confirm": "Link",
+      "done": "Done. Go back to Slack and use /gitops channel to connect a channel.",
+      "errors": {
+        "invalid": "The link is invalid or has expired. Type /gitops login in Slack again.",
+        "taken": "This Slack user is already linked to another GitOps account.",
+        "forbidden": "Your account does not belong to the organization of this Slack workspace.",
+        "not_installed": "The Slack workspace is no longer connected to GitOps."
+      }
+    },
+    "slackDone": {
+      "title": "Slack",
+      "connected": "Channel “{name}” connected. We posted a test message to it.",
+      "next": "You can now pick it in GitOps alerts. You can close this tab.",
+      "retry": "Go back to Slack and try again with /gitops channel.",
+      "back": "Back to Slack"
+    },
+    "apps": {
+      "title": "Apps",
+      "description": "Integrations installed in the organization. A connected app lets people manage channels from the tool itself.",
+      "installed": "Connected",
+      "notInstalled": "Not installed",
+      "connectedTo": "Connected to {name}",
+      "install": "Install",
+      "remove": "Disconnect",
+      "setupHint": "The app is not set up in this installation yet.",
+      "descriptions": {
+        "slack": "Connect channels from Slack with /gitops login and /gitops channel.",
+        "google-chat": "Connect Google Chat spaces to alerts."
+      }
     }
   },
   "stateIac": {

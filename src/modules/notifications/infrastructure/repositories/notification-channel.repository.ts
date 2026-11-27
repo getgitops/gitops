@@ -9,6 +9,7 @@ export type NotificationChannelChanges = Partial<
   Pick<
     NotificationChannelRow,
     | 'name'
+    | 'locale'
     | 'webhookUrl'
     | 'enabled'
     | 'lastDeliveryAt'
