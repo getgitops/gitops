@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0 — 2026-11-27
+
+- Módulo State IaC: backends de estado de Pulumi por organización (GCS, S3 y compatibles), en
+  solo lectura y con credenciales cifradas (`GITDB_ENCRYPTION_KEY`). ADR 0003.
+- Asignación de proyectos de Pulumi a proyectos de GitOps: cada proyecto ve solo sus stacks
+  (`project:stateiac:*`); configuración en `organization:stateiac:backends:*`.
+- Dashboard por stack (salud, recursos, último despliegue, éxito a 30 días, despliegues de 90
+  días, avisos), árbol de recursos, outputs, historial y diff entre versiones del estado.
+- Los secretos del estado se enmascaran al leerlo y nunca salen del servidor. Caché en memoria
+  (`STATE_IAC_CACHE_SECONDS`) y límite de tamaño (`STATE_IAC_MAX_STATE_MB`).
+- Alertas: destinatarios de email externos con verificación y dominios permitidos, base común de
+  canales de notificación y canal webhook firmado con HMAC.
+
 ## 1.4.0 — 2026-11-24
 
 - Módulo Monitoring: monitores HTTP (método, headers y body cifrados) enlazados con servicios de
