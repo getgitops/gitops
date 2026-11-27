@@ -59,10 +59,12 @@ async function loadAuthorized(locals: AlertLocals, id: string, action: ChannelAc
 }
 
 export type ChannelList = {
+  /**
+   * The organization's channels. For a project, the ones its alerts can use: channels belong to
+   * organizations (#119), a project has none of its own.
+   */
   channels: NotificationChannelView[];
-  /** Organization channels a project's alerts can also use (project locations only). */
-  inherited: NotificationChannelView[];
-  /** Types that can be created now (a transport is registered for them). */
+  /** Types that can be created now (transport registered and type enabled); none for projects. */
   availableTypes: ChatChannelType[];
 };
 
@@ -71,21 +73,17 @@ export async function listChannels(
   location: ChannelLocation,
 ): Promise<ChannelResult<ChannelList>> {
   if (!(await canManageChannels(locals, location, 'read'))) return forbidden;
-  const own = await notificationChannelService.list(location);
-  const inherited =
+  const channels =
     location.scope === 'project'
-      ? await notificationChannelService.list({
-          organizationId: location.organizationId,
-          projectId: null,
-        })
-      : [];
+      ? await notificationChannelService.listUsable(location)
+      : await notificationChannelService.list(location);
   return {
     ok: true,
     status: 200,
     data: {
-      channels: own.map((channel) => notificationChannelService.toView(channel)),
-      inherited: inherited.map((channel) => notificationChannelService.toView(channel)),
-      availableTypes: notificationChannelService.availableTypes(),
+      channels: channels.map((channel) => notificationChannelService.toView(channel)),
+      availableTypes:
+        location.scope === 'organization' ? notificationChannelService.availableTypes() : [],
     },
   };
 }
@@ -230,6 +228,9 @@ export async function startSlackConnection(
 ): Promise<ChannelResult<{ authorizationUrl: string; flowCookie: string }>> {
   const userId = locals.apiKey ? null : locals.user?.id;
   if (!userId || !(await canManageChannels(locals, location, 'create'))) return forbidden;
+  if (location.scope !== 'organization') {
+    return { ok: false, status: 400, error: 'project_channels_unsupported' };
+  }
   try {
     return {
       ok: true,

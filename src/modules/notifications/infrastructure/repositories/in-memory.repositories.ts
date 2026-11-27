@@ -99,6 +99,12 @@ export class InMemoryNotificationChannelRepository implements NotificationChanne
       .map((row) => new NotificationChannelDomain(structuredClone(row)));
   }
 
+  async listProjectChannels() {
+    return this.rows
+      .filter((row) => row.scope === 'project')
+      .map((row) => new NotificationChannelDomain(structuredClone(row)));
+  }
+
   async create(row: NotificationChannelRow) {
     this.rows.push(structuredClone(row));
     this.writes.push({ id: row.id, changes: { ...row } });

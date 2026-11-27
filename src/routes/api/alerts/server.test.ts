@@ -296,7 +296,7 @@ describe('/api/alerts', () => {
       const fixture = (alerts as unknown as { channels: ChannelsFixture }).channels;
       fixture.transport.sent = [];
       const { channel } = await fixture.service.create(
-        { scope: 'project', organizationId: 'org-1', projectId: 'p1' },
+        { scope: 'organization', organizationId: 'org-1', projectId: null },
         { type: 'slack', name: '#ops', destination: 'https://hooks.example.com/hook/T0/B0/x' },
         'admin',
       );

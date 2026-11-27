@@ -2121,7 +2121,9 @@
       "deleted": "Alert deleted",
       "deleteTitle": "Delete the alert?",
       "channelsColumn": "Destinations",
-      "settings": "Settings"
+      "settings": "Settings",
+      "settingsInOrganization": "Notification settings (integrations, channels and external email) are managed from the organization.",
+      "settingsHelp": "Notification settings"
     },
     "editor": {
       "newTitle": "New alert",
@@ -2457,7 +2459,7 @@
     },
     "settings": {
       "title": "Alert settings",
-      "description": "Allowed domains and external recipients: how the organization's alerts leave GitOps.",
+      "description": "Integrations, channels and external recipients: how the organization's alerts leave GitOps.",
       "mailNotConfigured": "SMTP is not configured: no confirmation emails or alerts will be sent.",
       "originNotConfigured": "ORIGIN is not set: confirmation and unsubscribe links can't be built, so external recipients will not get anything.",
       "domainsTitle": "Allowed domains for external emails",
@@ -2484,9 +2486,11 @@
       "removeDescription": "{email} hasn't confirmed yet. Its confirmation link will stop working and it will be removed from every alert of the organization.",
       "removed": "{email} removed",
       "projectDescription": "Chat channels and webhooks this project's alerts can use.",
-      "descriptionProject": "This project's chat channels and webhooks.",
-      "organizationDomains": "Allowed domains and external recipients are managed in the organization.",
-      "organizationDomainsLink": "Open organization settings"
+      "tabs": {
+        "integrations": "Integrations",
+        "channels": "Channels",
+        "external": "External email"
+      }
     },
     "errors": {
       "invalid": "The value is not valid.",
@@ -2518,7 +2522,9 @@
       "slack_exchange_failed": "Slack did not complete the connection. Try again.",
       "slack_no_webhook": "Slack did not return a channel webhook: the Slack app needs the incoming-webhook scope.",
       "slack_wrong_workspace": "The connection was finished in another workspace or by another Slack user. Use the account that typed /gitops channel.",
-      "slack_workspace_taken": "This Slack workspace is already connected to another GitOps organization."
+      "slack_workspace_taken": "This Slack workspace is already connected to another GitOps organization.",
+      "type_disabled": "This channel type is disabled in this installation.",
+      "project_channels_unsupported": "Channels are set up in the organization; project alerts use their organization's."
     },
     "link": {
       "invalid": "This link is not valid or has already been used.",
@@ -2550,8 +2556,7 @@
     },
     "channels": {
       "title": "Channels",
-      "descriptionOrganization": "Chat channels and webhooks the alerts of the organization and its projects can post to.",
-      "descriptionProject": "Channels only this project's alerts can use.",
+      "descriptionOrganization": "Destinations the alerts of the organization and all its projects post to. Projects have no channels of their own: they use these.",
       "privacyNotice": "A channel is read by people who may have no GitOps account or permissions. The channel URL is stored encrypted and never shown in full again.",
       "empty": "No channels yet.",
       "types": {
@@ -2574,8 +2579,6 @@
       "name": "Name",
       "newDestination": "New URL (empty keeps the current one)",
       "save": "Save",
-      "inheritedTitle": "Organization channels",
-      "inheritedDescription": "This project's alerts can also use these channels. They are managed from the organization settings.",
       "create": "Add channel",
       "noTypes": "No channel type is available yet.",
       "type": "Type",
@@ -2620,13 +2623,14 @@
       "slackConnect": "Add to Slack",
       "slackConnected": "Slack channel added",
       "slackManual": "or paste an Incoming Webhook URL",
-      "slackSetupHint": "Add to Slack (pick the channel in Slack, no URL to copy) is not set up yet.",
       "slackSetupLink": "Set it up",
       "slackAppRemove": "Disconnect",
       "slackAppRemoveTitle": "Disconnect {team}?",
       "slackAppRemoveConfirm": "/gitops stops working in that workspace until it is installed again. Channels already connected keep posting; to revoke them, remove the app in Slack.",
       "slackAppInstalledToast": "Slack app installed",
-      "slackAppRemovedToast": "Workspace disconnected"
+      "slackAppRemovedToast": "Workspace disconnected",
+      "new": "New channel",
+      "newDescription": "A destination the alerts of the organization and all its projects can post to."
     },
     "slackApp": {
       "notInstalled": "This Slack workspace is not connected to GitOps. An organization admin has to click *Install in Slack* in GitOps (Settings → Alerts → Settings → Channels).",
@@ -2688,18 +2692,21 @@
       "back": "Back to Slack"
     },
     "apps": {
-      "title": "Apps",
-      "description": "Integrations installed in the organization. A connected app lets people manage channels from the tool itself.",
+      "title": "Integrations",
+      "description": "Connections between the organization and chat tools. A connected integration lets people manage channels from the tool itself.",
       "installed": "Connected",
       "notInstalled": "Not installed",
       "connectedTo": "Connected to {name}",
       "install": "Install",
       "remove": "Disconnect",
-      "setupHint": "The app is not set up in this installation yet.",
+      "setupHint": "The integration is not set up in this installation.",
       "descriptions": {
         "slack": "Connect channels from Slack with /gitops login and /gitops channel.",
         "google-chat": "Connect Google Chat spaces to alerts."
-      }
+      },
+      "disabled": "Disabled",
+      "askAdmin": "It is not set up in this installation. Ask a GitOps administrator to set it up.",
+      "connectedToInactive": "{name} (inactive until it is set up)"
     }
   },
   "stateIac": {

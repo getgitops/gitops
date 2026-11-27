@@ -167,6 +167,27 @@ export function registerAlertEngine(): void {
   }
 }
 
+/**
+ * Deletes the project channels left from before #119 (channels are organization-wide now) and
+ * drops them from the alerts that used them. Runs at startup; with none left it writes nothing.
+ */
+export async function purgeProjectChannels(): Promise<void> {
+  const deleted = await notificationChannelService.purgeProjectChannels();
+  if (deleted.length === 0) return;
+  const byOrganization = new Map<string, string[]>();
+  for (const channel of deleted) {
+    byOrganization.set(channel.organizationId, [
+      ...(byOrganization.get(channel.organizationId) ?? []),
+      channel.id,
+    ]);
+  }
+  let alerts = 0;
+  for (const [organizationId, ids] of byOrganization) {
+    alerts += await alertService.removeChannels(organizationId, ids);
+  }
+  log.info({ channels: deleted.length, alerts }, '[alerts] project channels removed');
+}
+
 /** Whether emails can be sent; a broken SMTP configuration counts as not configured. */
 export function isMailConfigured(): boolean {
   try {

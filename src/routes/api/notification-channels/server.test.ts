@@ -173,13 +173,29 @@ describe('/api/notification-channels', () => {
     expect(notifications.fixture.transport.sent).toHaveLength(0);
   });
 
-  it('keeps project admins and project keys inside their project', async () => {
-    const created = await call(collection.POST, {
+  it('creates no project channels: projects list the organization ones they can use', async () => {
+    const org = await createOrgChannel();
+    const refused = await call(collection.POST, {
       locals: as('projectAdmin'),
       body: { projectId: 'p1', type: 'slack', name: '#p1', destination: HOOK },
     });
-    expect(created.status).toBe(201);
+    expect(refused.status).toBe(400);
+    await expect(refused.json()).resolves.toMatchObject({
+      errors: { scope: 'project_channels_unsupported' },
+    });
 
+    const listed = await call(collection.GET, {
+      locals: as('projectAdmin'),
+      url: 'http://localhost/api/notification-channels?projectId=p1',
+    });
+    expect(listed.status).toBe(200);
+    await expect(listed.json()).resolves.toMatchObject({
+      channels: [{ id: org.id, scope: 'organization' }],
+      availableTypes: [],
+    });
+  });
+
+  it('keeps project admins and project keys inside their project', async () => {
     // no organization channels for a project admin
     const orgChannel = await call(collection.POST, {
       locals: as('projectAdmin'),

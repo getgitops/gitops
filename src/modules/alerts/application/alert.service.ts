@@ -291,6 +291,25 @@ export class AlertService {
     return affected.length;
   }
 
+  /**
+   * Drops deleted channels from every alert of the organization that points at them. An alert
+   * left without channels falls back to email, as a save with no channels does.
+   */
+  async removeChannels(organizationId: string, channelIds: readonly string[]): Promise<number> {
+    const gone = new Set(channelIds);
+    const alerts = await this.repository.listByOrganization(organizationId);
+    const affected = alerts.filter((alert) => alert.channelIds.some((id) => gone.has(id)));
+    for (const alert of affected) {
+      const remaining = alert.channelIds.filter((id) => !gone.has(id));
+      await this.repository.update(alert.id, {
+        channelIds: remaining,
+        ...(remaining.length === 0 ? { channels: ['mail' as const] } : {}),
+      });
+    }
+    if (affected.length > 0) this.onChange();
+    return affected.length;
+  }
+
   async delete(id: string): Promise<void> {
     await this.get(id);
     await this.repository.delete(id);

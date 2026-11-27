@@ -80,6 +80,10 @@ type Shared = {
 export type AlertListData = Shared & {
   settings: NotificationSettingsPage | null;
   channelsSection: ChannelsSectionData | null;
+  /**
+   * The organization's notification settings page, opened in a modal; `null` for projects, which
+   * have none of their own (#119), and for who can't read them.
+   */
   configPath: string | null;
   alerts: AlertRow[];
   /** Organization alerts that also fire for this project (project pages only). */

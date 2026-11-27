@@ -114,7 +114,8 @@ test.describe('project alerts', () => {
       const card = channels.locator(`[data-channel-type="${type}"]`);
       await expect(card.getByRole('checkbox')).toBeDisabled();
       await expect(card).toContainText('No configurado');
-      await expect(card.getByRole('link', { name: 'Configurar' })).toBeVisible();
+      // channels are the organization's: a project admin has no settings to open from here
+      await expect(card.getByRole('link', { name: 'Configurar' })).toHaveCount(0);
     }
 
     const targets = wizard.getByLabel('Destinatarios');
@@ -231,6 +232,8 @@ test.describe('organization alerts', () => {
     await expect(dialog).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}$`));
 
+    // the settings open on the channels tab; domains are under "Email externo"
+    await dialog.getByRole('tab', { name: 'Email externo' }).click();
     const domains = dialog.getByLabel('Dominios (uno por línea)');
     await expect(domains).toHaveValue('example.com');
     await domains.fill('example.com\npartner.com');
@@ -239,28 +242,63 @@ test.describe('organization alerts', () => {
     await expect(domains).toHaveValue('example.com\npartner.com');
   });
 
-  test('project admins manage the project channels, not the organization domains', async ({
+  test('organization admins see the integrations, Slack disabled without its configuration', async ({
     page,
     loginAs,
   }) => {
-    await loginAs('projectAdmin');
-    await page.goto(alertsUrl);
+    await loginAs('orgAdmin');
+    await page.goto(orgAlertsUrl);
     await page.waitForLoadState('networkidle');
     await page.getByTestId('alert-settings').click();
     const dialog = page.getByRole('dialog', { name: 'Configuración de alertas' });
+    await dialog.getByRole('tab', { name: 'Integraciones' }).click();
+
+    // the e2e server has no SLACK_SIGNING_SECRET: /gitops can't work, nothing can be installed
+    const slack = dialog.locator('[data-testid="app-card"][data-app="slack"]');
+    await expect(slack).toHaveAttribute('data-status', 'disabled');
+    await expect(slack.getByTestId('app-status')).toHaveText('Desactivado');
+    await expect(slack.getByTestId('app-install')).toHaveCount(0);
+    // not a GitOps admin: no link to the installation settings, ask one instead
+    await expect(slack.getByTestId('app-setup')).toHaveCount(0);
+    await expect(slack.getByTestId('app-disabled-hint')).toContainText(
+      'Pide a un administrador de GitOps',
+    );
+    const googleChat = dialog.locator('[data-testid="app-card"][data-app="google-chat"]');
+    await expect(googleChat.getByTestId('app-status')).toHaveText('Próximamente');
+  });
+
+  test('organization admins manage the channels every project of the organization uses', async ({
+    page,
+    loginAs,
+  }) => {
+    await loginAs('orgAdmin');
+    await page.goto(orgAlertsUrl);
+    await page.waitForLoadState('networkidle');
+    await page.getByTestId('alert-settings').click();
+    const dialog = page.getByRole('dialog', { name: 'Configuración de alertas' });
+    await dialog.getByRole('tab', { name: /Canales/ }).click();
     const channels = dialog.getByTestId('notification-channels');
     await expect(channels).toBeVisible();
-    await expect(dialog.getByLabel('Dominios (uno por línea)')).toHaveCount(0);
+
+    // "New channel" opens its own modal
+    const newChannel = async () => {
+      await channels.getByTestId('channel-new').click();
+      const modal = page.getByRole('dialog', { name: 'Nuevo canal' });
+      await expect(modal).toBeVisible();
+      return modal;
+    };
 
     // a webhook channel shows its signing secret once, and rotating it asks first
-    const types = channels.getByTestId('channel-type-cards');
+    let modal = await newChannel();
+    const types = modal.getByTestId('channel-type-cards');
     await expect(types.getByRole('radio', { name: /Slack/ })).toBeEnabled();
     await expect(types.getByRole('radio', { name: /Google Chat/ })).toBeDisabled();
     await expect(types.locator('[data-channel-type="google-chat"]')).toContainText('Próximamente');
     await expect(types.getByRole('radio', { name: /Webhook/ })).toBeChecked();
-    await channels.getByLabel('Nombre', { exact: true }).fill('SIEM e2e');
-    await channels.getByLabel('URL del webhook').fill('https://receiver.example.com/gitops');
-    await channels.getByRole('button', { name: 'Añadir canal' }).click();
+    await modal.getByLabel('Nombre', { exact: true }).fill('SIEM e2e');
+    await modal.getByLabel('URL del webhook').fill('https://receiver.example.com/gitops');
+    await modal.getByTestId('channel-create-submit').click();
+    await expect(modal).toBeHidden();
 
     const secret = page.getByRole('dialog', { name: 'Secreto de firma' });
     await expect(secret.getByTestId('channel-secret')).toHaveText(/^whsec_[0-9a-f]{64}$/);
@@ -280,16 +318,20 @@ test.describe('organization alerts', () => {
     await secret.getByTestId('channel-secret-done').click();
     await expect(row).toContainText('El secreto anterior es válido hasta');
 
-    await types.locator('[data-channel-type="slack"]').click();
-    await expect(types.getByRole('radio', { name: /Slack/ })).toBeChecked();
+    // Slack is offered because "Add to Slack" is configured; the webhook URL can still be pasted
     for (const [name, hook, locale, language] of [
       ['#seguridad-e2e', 'https://hooks.slack.com/services/T000/B001/aaaa', 'es', 'Español'],
       ['#incidencias-e2e', 'https://hooks.slack.com/services/T000/B002/bbbb', 'en', 'Inglés'],
     ]) {
-      await channels.getByLabel('Nombre', { exact: true }).fill(name);
-      await channels.getByLabel('URL del webhook').fill(hook);
-      await channels.getByLabel('Idioma de los mensajes').selectOption(locale);
-      await channels.getByRole('button', { name: 'Añadir canal' }).click();
+      modal = await newChannel();
+      await modal.locator('[data-channel-type="slack"]').click();
+      await expect(modal.getByRole('radio', { name: /Slack/ })).toBeChecked();
+      await expect(modal.getByTestId('slack-connect-submit')).toBeVisible();
+      await modal.getByLabel('Nombre', { exact: true }).fill(name);
+      await modal.getByLabel('URL del webhook').fill(hook);
+      await modal.getByLabel('Idioma de los mensajes').selectOption(locale);
+      await modal.getByTestId('channel-create-submit').click();
+      await expect(modal).toBeHidden();
       const slackRow = channels.locator('li[data-channel-id]').filter({ hasText: name });
       await expect(slackRow).toContainText('Slack');
       await expect(slackRow.getByTestId('channel-locale')).toHaveText(language);
@@ -297,14 +339,38 @@ test.describe('organization alerts', () => {
       await expect(slackRow).not.toContainText(hook);
     }
 
-    await channels.getByLabel('Nombre', { exact: true }).fill('#otro');
-    await channels
+    modal = await newChannel();
+    await modal.locator('[data-channel-type="slack"]').click();
+    await modal.getByLabel('Nombre', { exact: true }).fill('#otro');
+    await modal
       .getByLabel('URL del webhook')
       .fill('https://hooks.slack.com.evil.example/services/x');
-    await channels.getByRole('button', { name: 'Añadir canal' }).click();
+    await modal.getByTestId('channel-create-submit').click();
     await expect(
-      channels.getByText('Ese dominio no está permitido para este tipo de canal.'),
+      modal.getByText('Ese dominio no está permitido para este tipo de canal.'),
     ).toBeVisible();
+  });
+
+  test('projects have no channel settings of their own', async ({ page, loginAs }) => {
+    await loginAs('projectAdmin');
+    await page.goto(alertsUrl);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('alert-settings')).toHaveCount(0);
+    // a "?" says where the settings are instead
+    const hint = page.getByTestId('alert-settings-hint');
+    await expect(hint.getByRole('tooltip')).toBeHidden();
+    await hint.hover();
+    await expect(hint.getByRole('tooltip')).toHaveText(
+      'La configuración de notificaciones (integraciones, canales y email externo) se realiza desde la organización.',
+    );
+    // the old project settings page is gone for whoever can't open the organization's
+    const response = await page.goto(`${alertsUrl}/settings`);
+    expect(response?.status()).toBe(404);
+
+    // an organization admin is sent to the organization's settings
+    await loginAs('orgAdmin');
+    await page.goto(`${alertsUrl}/settings`);
+    await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}/settings$`));
   });
 
   test('an alert posts to the Slack channels picked in the wizard', async ({ page, loginAs }) => {
@@ -357,6 +423,9 @@ test.describe('without JavaScript', () => {
     await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}/settings$`));
     await expect(page.getByRole('heading', { name: 'Configuración de alertas' })).toBeVisible();
     await expect(page.getByLabel('Dominios (uno por línea)')).toHaveValue(/example\.com/);
+    // every section shows, and the new channel form is inline
+    await expect(page.getByTestId('apps')).toBeVisible();
+    await expect(page.getByTestId('channel-create-inline')).toBeVisible();
   });
 
   test('the editor still creates an alert through form actions', async ({ page, loginAs }) => {

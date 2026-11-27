@@ -109,6 +109,7 @@ export function createChannelsFixture(
     transports?: Partial<Record<ChatChannelType, ChatTransport>>;
     events?: EventPublisher;
     maxConsecutiveFailures?: number;
+    canCreateType?: (type: ChatChannelType) => boolean;
     logger?: { warn: () => void; error: () => void; debug: () => void };
   } = {},
 ) {
@@ -159,6 +160,7 @@ export function createChannelsFixture(
       generateSecret: () => `whsec_test${++secret}`,
       events: options.events,
       maxConsecutiveFailures: options.maxConsecutiveFailures,
+      canCreateType: options.canCreateType,
     },
   );
   return {

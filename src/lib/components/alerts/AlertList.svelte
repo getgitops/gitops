@@ -9,6 +9,7 @@
     MessageSquare,
     Pencil,
     Plus,
+    CircleHelp,
     Settings,
     Trash2,
     Webhook,
@@ -91,7 +92,26 @@
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      {#if data.configPath}
+      {#if data.scope === 'project'}
+        <!-- projects have no notification settings: a hint says where they are instead -->
+        <span class="group relative inline-flex" data-testid="alert-settings-hint">
+          <button
+            type="button"
+            class="k-btn k-btn-ghost k-btn-icon cursor-help text-fg-subtle"
+            aria-label={$_('alerts.list.settingsHelp')}
+            aria-describedby="alert-settings-hint-text"
+          >
+            <CircleHelp class="h-4 w-4" />
+          </button>
+          <span
+            id="alert-settings-hint-text"
+            role="tooltip"
+            class="k-popover pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-64 px-3 py-2 text-xs text-fg-muted group-focus-within:block group-hover:block"
+          >
+            {$_('alerts.list.settingsInOrganization')}
+          </span>
+        </span>
+      {:else if data.configPath}
         <a
           href={data.configPath}
           class="k-btn k-btn-secondary"
@@ -362,9 +382,7 @@
     bind:open={settingsOpen}
     size="xl"
     title={$_('notifications.settings.title')}
-    description={data.scope === 'project'
-      ? $_('notifications.settings.descriptionProject')
-      : $_('notifications.settings.description')}
+    description={$_('notifications.settings.description')}
   >
     {#snippet icon()}
       <span
@@ -375,7 +393,6 @@
     <AlertSettingsPanel
       data={data.settings}
       channels={data.channelsSection}
-      organizationSettingsPath={data.scope === 'project' ? data.external.settingsPath : null}
       action={data.configPath}
     />
     {#snippet footer()}
