@@ -1,3 +1,4 @@
+import * as env from '$app/env/private';
 import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { sequence } from '@sveltejs/kit/hooks';
 import { apiKeysService, authService, cancanService, ensureAuthReady } from '#modules/auth';
@@ -15,6 +16,11 @@ import { isBootstrapCompleted, refreshBootstrapState } from '#lib/server/bootstr
 import { startGitDb } from '#lib/server/gitdb';
 import { getServerReadyState, markServerFailed, markServerReady } from '#lib/server/server-ready';
 import { renderStartingPage } from '#lib/server/starting-page';
+import {
+  FAVICONS_PLACEHOLDER,
+  faviconLinks,
+  resolveAppEnvironment,
+} from '#lib/server/app-environment';
 import { runWithActor } from '#lib/server/request-context';
 import { csrfForbiddenResponse, isCsrfForbidden } from '#lib/server/csrf';
 import { returnToCookie } from '#lib/server/return-to';
@@ -30,6 +36,11 @@ import { rememberDevOrigin } from '#lib/server/infra/notifications';
 import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
 const startupLog = createLogger('startup');
+
+const appEnvironment = resolveAppEnvironment(env.GITOPS_ENVIRONMENT, import.meta.env.DEV, (value) =>
+  startupLog.warn({ value }, '[startup] invalid GITOPS_ENVIRONMENT, using the default'),
+);
+const favicons = faviconLinks(appEnvironment);
 
 // clone, manifest, sync poll and bootstrap detection run once per process
 const serverReady = (async () => {
@@ -70,6 +81,12 @@ function unauthorized(message: string) {
     headers: { 'content-type': 'application/json' },
   });
 }
+
+// fills the favicon placeholder of app.html with the icons of the current environment
+const faviconHandle: Handle = ({ event, resolve }) =>
+  resolve(event, {
+    transformPageChunk: ({ html }) => html.replace(FAVICONS_PLACEHOLDER, favicons),
+  });
 
 // outermost hook: binds a trace-aware logger to the request and emits the httpRequest
 // entry Cloud Logging groups everything under, whatever the inner hook ends up returning
@@ -124,7 +141,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
         },
       );
     }
-    return renderStartingPage(state, event.request.headers.get('accept-language'));
+    return renderStartingPage(state, event.request.headers.get('accept-language'), favicons);
   }
 
   if (pathname.startsWith('/bootstrap')) {
@@ -269,7 +286,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
   return runWithActor(actor, () => resolve(event));
 };
 
-export const handle = sequence(requestLogger, csrfGuard, authGuard);
+export const handle = sequence(faviconHandle, requestLogger, csrfGuard, authGuard);
 
 // unexpected errors from load/actions/endpoints land here: log with the request's
 // trace-aware logger so the entry is correlated with the failed httpRequest

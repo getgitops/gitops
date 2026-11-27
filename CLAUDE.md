@@ -55,7 +55,8 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 
 Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the
 `GOOGLE_SSO_*` variables described above, "Add to Slack" uses `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`,
-and the `/gitops` Slack command also needs `SLACK_SIGNING_SECRET`.
+and the `/gitops` Slack command also needs `SLACK_SIGNING_SECRET`. `GITOPS_ENVIRONMENT` (`local` | `development` | `production`) picks the favicon
+(`static/favicons/`), see `src/lib/server/app-environment.ts`.
 
 Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 

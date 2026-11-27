@@ -35,6 +35,7 @@ export const variables = defineEnvVars({
   GOOGLE_SSO_ALLOWED_DOMAINS: optional,
   GOOGLE_SSO_AUTO_PROVISION: optional,
   GITOPS_EVENTS_EXPIRATION: optional,
+  GITOPS_ENVIRONMENT: optional,
   MONITORING_GITDB_REPOSITORY_URL: optional,
   MONITORING_GITDB_BRANCH: optional,
   MONITORING_GITDB_DATA_PATH: optional,
