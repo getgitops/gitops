@@ -41,7 +41,11 @@ function pickLocale(acceptLanguage: string | null): Locale {
   return first.startsWith('en') ? 'en' : 'es';
 }
 
-export function renderStartingPage(state: StartingPageState, acceptLanguage: string | null) {
+export function renderStartingPage(
+  state: StartingPageState,
+  acceptLanguage: string | null,
+  favicons = '',
+) {
   const locale = pickLocale(acceptLanguage);
   const { title, body } = COPY[locale][state];
   const hint = HINT[locale];
@@ -66,6 +70,7 @@ export function renderStartingPage(state: StartingPageState, acceptLanguage: str
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+${favicons}
 <title>${title}</title>
 ${poll}
 <style>
