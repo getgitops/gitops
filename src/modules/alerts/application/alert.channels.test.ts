@@ -89,7 +89,9 @@ describe('alerts with notification channels', () => {
   let directory: FakeAlertDirectory;
   let service: AlertService;
   let orgChannel: string;
+  /** A second organization channel, the one the project alerts below use. */
   let p1Channel: string;
+  /** A project channel left from before #119: nobody can use it. */
   let p2Channel: string;
 
   beforeEach(async () => {
@@ -113,15 +115,21 @@ describe('alerts with notification channels', () => {
       )
     ).channel.id;
     p1Channel = (
-      await channels.service.create(p1, { type: 'slack', name: '#p1', destination: HOOK }, 'a')
+      await channels.service.create(
+        orgLocation,
+        { type: 'slack', name: '#p1', destination: HOOK },
+        'a',
+      )
     ).channel.id;
     p2Channel = (
       await channels.service.create(
-        { ...p1, projectId: 'p2' },
+        orgLocation,
         { type: 'slack', name: '#p2', destination: HOOK },
         'a',
       )
     ).channel.id;
+    const legacy = channels.repository.rows.find((row) => row.id === p2Channel)!;
+    Object.assign(legacy, { scope: 'project', projectId: 'p2' });
 
     repository = new InMemoryAlertRepository();
     directory = new FakeAlertDirectory();
@@ -144,7 +152,7 @@ describe('alerts with notification channels', () => {
   });
 
   describe('validation', () => {
-    it('accepts the project and organization channels a project alert may use', async () => {
+    it('accepts the organization channels in a project alert', async () => {
       const alert = await service.create(
         p1,
         input({ channelIds: [p1Channel, orgChannel, p1Channel] }),
@@ -154,22 +162,45 @@ describe('alerts with notification channels', () => {
       expect(alert.channels).toEqual(['mail', 'slack']);
     });
 
-    it('rejects channels of another project or another location', async () => {
+    it('rejects project channels left from before #119, in any location', async () => {
       expect(
         (
           await validationErrors(
-            service.create(p1, input({ channelIds: [p2Channel] }), actor('admin')),
+            service.create(
+              { ...p1, projectId: 'p2' },
+              input({ channelIds: [p2Channel] }),
+              actor('admin'),
+            ),
           )
         ).channelIds,
       ).toBe('unknown_channel');
-      // an organization alert can't use a project channel either
       expect(
         (
           await validationErrors(
-            service.create(orgLocation, input({ channelIds: [p1Channel] }), actor('admin')),
+            service.create(orgLocation, input({ channelIds: [p2Channel] }), actor('admin')),
           )
         ).channelIds,
       ).toBe('unknown_channel');
+    });
+
+    it('drops deleted channels from the alerts of the organization', async () => {
+      const both = await service.create(
+        p1,
+        input({ channelIds: [p1Channel, orgChannel] }),
+        actor('admin'),
+      );
+      const only = await service.create(
+        p1,
+        input({ recipients: {}, channelIds: [p1Channel] }),
+        actor('admin'),
+      );
+      expect(only.channels).toEqual(['slack']);
+
+      await expect(service.removeChannels(ORG, [p1Channel])).resolves.toBe(2);
+      expect((await service.get(both.id)).channelIds).toEqual([orgChannel]);
+      // an alert left without channels falls back to email
+      expect(await service.get(only.id)).toMatchObject({ channelIds: [], channels: ['mail'] });
+      await expect(service.removeChannels(ORG, [p1Channel])).resolves.toBe(0);
     });
 
     it('needs <scope>:notifications:update to add channels, not to keep them', async () => {
@@ -259,12 +290,12 @@ describe('alerts with notification channels', () => {
         transports: { slack: createSlackTransport({ fetch }) },
       });
       const slack = await mixed.service.create(
-        p1,
+        orgLocation,
         { type: 'slack', name: '#seguridad', destination: SLACK_HOOK },
         'a',
       );
       const webhook = await mixed.service.create(
-        p1,
+        orgLocation,
         { type: 'webhook', name: 'SIEM', destination: HOOK },
         'a',
       );
@@ -507,12 +538,12 @@ describe('alerts with notification channels', () => {
     it('builds each channel message in that channel language', async () => {
       const mixed = createChannelsFixture();
       const es = await mixed.service.create(
-        p1,
+        orgLocation,
         { type: 'slack', name: '#es', destination: HOOK, locale: 'es' },
         'a',
       );
       const en = await mixed.service.create(
-        p1,
+        orgLocation,
         { type: 'slack', name: '#en', destination: HOOK },
         'a',
       );

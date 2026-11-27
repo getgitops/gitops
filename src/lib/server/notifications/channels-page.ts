@@ -4,12 +4,14 @@ import {
   SLACK_FLOW_COOKIE,
   SLACK_FLOW_COOKIE_PATH,
   SLACK_FLOW_TTL_MS,
+  notificationChannelService,
   slackAppService,
   slackConnectService,
   type ChannelLocation,
 } from '#modules/notifications';
 import type { AlertLocals } from '#lib/server/alerts/access';
-import type { AppCardData, ChannelsSectionData } from '#lib/notifications/types';
+import { CHAT_CHANNEL_TYPES } from '#lib/server/infra/notifications/chat-types';
+import type { AppCardData, ChannelTypeOption, ChannelsSectionData } from '#lib/notifications/types';
 import {
   canManageChannels,
   createChannel,
@@ -23,11 +25,17 @@ import {
   updateChannel,
 } from './channels';
 
-/** The channels section of a notifications page; `null` without `<scope>:notifications:read`. */
+const SLACK_SETUP_PATH = '/gitops-settings/slack';
+
+/**
+ * The integrations and channels of an organization's notification settings; `null` without
+ * `organization:notifications:read`, and for projects: channels belong to organizations (#119).
+ */
 export async function loadChannelsSection(
   locals: AlertLocals,
   location: ChannelLocation,
 ): Promise<ChannelsSectionData | null> {
+  if (location.scope !== 'organization') return null;
   const listed = await listChannels(locals, location);
   if (!listed.ok) return null;
   const [canCreate, canUpdate, canDelete] = await Promise.all([
@@ -35,68 +43,73 @@ export async function loadChannelsSection(
     canManageChannels(locals, location, 'update'),
     canManageChannels(locals, location, 'delete'),
   ]);
-  const slackAvailable = listed.data.availableTypes.includes('slack');
-  const slackConfigured = slackConnectService.isConfigured();
+  const { availableTypes } = listed.data;
   const isAdmin =
     !locals.apiKey &&
     cancanService.canAccessAdminArea(
       locals.user as Parameters<typeof cancanService.canAccessAdminArea>[0],
     );
-  // apps belong to organizations: projects use the organization's channels
-  const apps: AppCardData[] | null =
-    location.scope === 'organization'
-      ? [
-          await slackAppCard(locals, location.organizationId, {
-            canCreate,
-            canDelete,
-            isAdmin,
-            available: slackAvailable,
-          }),
-          {
-            provider: 'google-chat',
-            comingSoon: true,
-            configured: false,
-            canInstall: false,
-            canRemove: false,
-            installations: [],
-            setupPath: null,
-          },
-        ]
-      : null;
   return {
-    ...listed.data,
-    scope: location.scope,
-    apps,
+    channels: listed.data.channels,
+    availableTypes,
+    channelTypes: channelTypeOptions(availableTypes),
+    apps: [
+      await slackAppCard(locals, location.organizationId, { canCreate, canDelete, isAdmin }),
+      {
+        provider: 'google-chat',
+        status: 'coming_soon',
+        canInstall: false,
+        canRemove: false,
+        installations: [],
+        setupPath: null,
+      },
+    ],
     canCreate,
     canUpdate,
     canDelete,
-    // "Add to Slack" only when the app is configured and Slack channels can be created
-    slackConnect: canCreate && slackAvailable && slackConfigured,
-    // without the app, GitOps admins get a link to set it up from the Slack card
-    slackSetupPath:
-      canCreate && slackAvailable && !slackConfigured && isAdmin ? '/gitops-settings/slack' : null,
+    // Slack channels can only be created with the Slack app configured: "Add to Slack" is there
+    slackConnect: canCreate && availableTypes.includes('slack'),
   };
 }
 
-/** The GitOps Slack app (`/gitops`): needs the app configured with its signing secret. */
+/**
+ * The "new channel" picker: what can be created, and what is not built yet. A type that is built
+ * but switched off (Slack without its app) is not offered at all.
+ */
+function channelTypeOptions(availableTypes: readonly string[]): ChannelTypeOption[] {
+  const registered = notificationChannelService.registeredTypes() as readonly string[];
+  return CHAT_CHANNEL_TYPES.flatMap((type): ChannelTypeOption[] =>
+    availableTypes.includes(type)
+      ? [{ type, status: 'available' }]
+      : registered.includes(type)
+        ? []
+        : [{ type, status: 'coming_soon' }],
+  );
+}
+
+/**
+ * The GitOps Slack app (`/gitops`): disabled until `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` and
+ * `SLACK_SIGNING_SECRET` are set. Workspaces already connected stay listed and can be removed.
+ */
 async function slackAppCard(
   locals: AlertLocals,
   organizationId: string,
-  input: { canCreate: boolean; canDelete: boolean; isAdmin: boolean; available: boolean },
+  input: { canCreate: boolean; canDelete: boolean; isAdmin: boolean },
 ): Promise<AppCardData> {
-  const configured = input.available && slackConnectService.commandsEnabled();
+  const enabled =
+    notificationChannelService.registeredTypes().includes('slack') &&
+    slackConnectService.commandsEnabled();
   const installations = (await slackAppService.workspacesOf(organizationId)).map((workspace) => ({
     id: workspace.id,
     name: workspace.teamName,
   }));
   return {
     provider: 'slack',
-    comingSoon: false,
-    configured,
-    canInstall: configured && input.canCreate && !locals.apiKey,
+    status: !enabled ? 'disabled' : installations.length > 0 ? 'installed' : 'available',
+    canInstall: enabled && input.canCreate && !locals.apiKey && installations.length === 0,
     canRemove: input.canDelete,
     installations,
-    setupPath: !configured && input.isAdmin ? '/gitops-settings/slack' : null,
+    setupPath: !enabled && input.isAdmin ? SLACK_SETUP_PATH : null,
   };
 }
 
@@ -110,7 +123,7 @@ type ActionEvent = {
 
 const SLACK_AUTHORIZATION_ORIGIN = 'https://slack.com';
 
-/** Form actions of the channels section, shared by the organization and project pages. */
+/** Form actions of an organization's integrations and channels. */
 export function channelActions(resolve: (event: ActionEvent) => Promise<ChannelLocation>) {
   return {
     async createChannel(event: ActionEvent) {

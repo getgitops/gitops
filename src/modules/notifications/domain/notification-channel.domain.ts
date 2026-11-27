@@ -124,12 +124,11 @@ export class NotificationChannelDomain implements NotificationChannelRow {
   }
 
   /**
-   * Whether an alert of `location` may use it: an organization channel serves the organization
-   * and all its projects, a project channel only alerts of its project.
+   * Whether an alert of `location` may use it: channels belong to organizations and serve the
+   * organization and all its projects. Project channels (#119: no longer created) serve nobody.
    */
   usableFrom(location: Pick<ChannelLocation, 'organizationId' | 'projectId'>): boolean {
-    if (location.organizationId !== this.organizationId) return false;
-    return this.scope === 'organization' || location.projectId === this.projectId;
+    return location.organizationId === this.organizationId && this.scope === 'organization';
   }
 
   toJson(): NotificationChannelRow {
