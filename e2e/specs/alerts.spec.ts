@@ -232,6 +232,8 @@ test.describe('organization alerts', () => {
     await expect(dialog).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`${orgAlertsUrl}$`));
 
+    // the settings open on the channels tab; domains are under "Email externo"
+    await dialog.getByRole('tab', { name: 'Email externo' }).click();
     const domains = dialog.getByLabel('Dominios (uno por línea)');
     await expect(domains).toHaveValue('example.com');
     await domains.fill('example.com\npartner.com');

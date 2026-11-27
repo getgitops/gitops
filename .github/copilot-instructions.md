@@ -72,7 +72,7 @@ La logica vive en `src/modules/<module>/` con `domain/`, `application/`, `infras
 `index.ts` como composition root. El `domain/` contiene entidades (`*.domain.ts`) y datos
 centralizados (`*.data.ts`) para constantes: permisos de roles, defaults de proyecto, pesos de
 riesgo y mapeos de herramientas. Los modulos actuales son `auth`, `config`, `organization`,
-`projects`, `storage`, `code-report`, `vault`, `audit`, `alerts`, `monitoring` y `notifications`. Las rutas deben importar desde el `index.ts` publico.
+`projects`, `state-iac`, `code-report`, `vault`, `audit`, `alerts`, `monitoring` y `notifications`. Las rutas deben importar desde el `index.ts` publico.
 
 GitDB es la unica fuente de verdad para usuarios, roles, API keys, organizaciones, proyectos,
 metadata de storage y code reports. Se configura con `GITDB_REPOSITORY_URL` (URLs HTTPS o SSH
@@ -119,39 +119,32 @@ tambien usuarios con acceso solo a proyectos bajo la organización (ven el overv
 **Alertas, destinatarios externos y canales de notificación:** `organization:alerts:read|update` y
 `project:alerts:read|update` gestionan alertas por eventos; `organization:notifications:read|update`
 gestionan destinatarios externos y canales. El módulo `$modules/notifications` maneja dominios permitidos,
-canales de notificación (webhook, Slack, Google Chat), verificación y desuscripción. En
-`/org/<org>/settings/alerts/settings` (modal con tabs **Integraciones** / **Canales** / **Email externo**),
-administradores configuran integraciones como Slack, dominios permitidos y canales (`NotificationChannelEntity`
-en GitDB). Alertas guardan `recipients` (usuarios, roles, emails externos) y `channelIds` (referencias a canales).
-Los canales pertenecen solo a organizaciones (#119): proyectos usan los canales de su organización, no tienen propios.
-Cada canal tiene idioma (`locale`: es | en, por defecto en). URLs de webhook encriptadas con `GITDB_ENCRYPTION_KEY`.
-Emails externos: `pending` → `verified` → `unsubscribed` o `blocked`; template sin campos `sensitive` ni links;
-`List-Unsubscribe` HMAC (90 días). **Webhook** se firma: secreto `whsec_…` una sola vez, resuelve DNS rechazando
-IPs privadas, 20 fallos consecutivos = auto-deshabilita. **Slack**: Incoming Webhook (solo `https://hooks.slack.com/services/…`),
-Block Kit en idioma del canal, escapa Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook.
-Errores 4xx no se reintentan. **Add to Slack** (`SlackConnectService`): cuando `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`
-están configurados, la sección de Integraciones muestra "Añadir a Slack"; usuario elige workspace y canal.
-Admin crea app Slack desde `GitOps Settings → Slack` (manifest con scope `incoming-webhook` y redirect
-`<ORIGIN>/notifications/slack/callback`, requiere https), copia credenciales. En dev: `DEV_HTTPS=true` con certs en `.certs/`.
+canales de notificación (webhook, Slack, Google Chat), verificación y desuscripción. 
 
-**Comando `/gitops`** (`SlackAppService`, requiere `SLACK_SIGNING_SECRET`): organización instala el app desde la 
-página de canales (`installSlack` action, scope `commands`), guardando el bot token en `slack_workspaces` 
-(GitDB, una fila por team, vinculada a organización). Los endpoints `/api/slack/commands` y 
-`/api/slack/interactions` verifican la firma Slack (5 min window, `verifySlackSignature`) y actúan como el 
-usuario Slack vinculado (`authProviders` entry `slack` = `<team>:<user>`) con permiso `organization:notifications:create`. 
-Luego en Slack: (1) `/gitops login` → link firmado a `/notifications/slack/link` para vincular usuario a su 
-cuenta GitOps (10 min, una vez; `hooks.server.ts` preserva la URL en `gitops_return_to`); (2) `/gitops channel` 
-pide nombre e idioma → link firmado a `/notifications/slack/connect` que abre selector de canales Slack, crea el 
-canal en GitOps con webhook y posea test → `/notifications/slack/callback` → `/notifications/slack/done`; 
-(3) `/gitops status` muestra organización vinculada y canales conectados. Las rutas de Slack bypass CSRF porque 
-Slack envía requests sin `Origin` header; solo los endpoints firmados (`CSRF_EXEMPT_PATHS`) están excluidos.
+En `/org/<org>/settings/alerts/settings` se abre un modal (`AlertSettingsPanel`) con tres tabs
+(**Integraciones** / **Canales** / **Email externo**):
 
-Configuración: webhook Slack (URL: `https://hooks.slack.com/services/…`), canales tienen idioma (`locale: es|en`), 
-URLs de webhook encriptadas, emails externos: `pending` → `verified` o `blocked`; template sin campos `sensitive` ni 
-links internos; unsubscribe HMAC (90 días). **Webhook** se firma: secreto `whsec_…` (mostrado una sola vez), resuelve 
-DNS rechazando IPs privadas, 20 fallos consecutivos = auto-deshabilita. Variantes de desarrollo: 
-`NOTIFICATIONS_WEBHOOK_ALLOW_HTTP`, `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS`. Rutas públicas 
-`/notifications/verify` y `/notifications/unsubscribe` aceptan POST sin sesión. Sin `ORIGIN` no se envía nada.
+- **Integraciones:** Muestra estado de Slack: `available` si está configurado (`SLACK_CLIENT_ID` / 
+  `SLACK_CLIENT_SECRET`), `disabled` si falta alguno o `SLACK_SIGNING_SECRET`. El comando `/gitops` 
+  se instala solo si ambos están configurados. Google Chat es `coming_soon`.
+- **Canales:** Organizaciones crean canales (`NotificationChannelEntity` en GitDB) aquí; proyectos 
+  usan los canales de su organización (#119). Webhook se firma con `whsec_…` (mostrado una sola 
+  vez), resuelve DNS rechazando IPs privadas, 20 fallos = auto-deshabilita. Slack: Incoming Webhook, 
+  Block Kit, URL `https://hooks.slack.com/services/…` solo. **Add to Slack** cuando credenciales 
+  están configuradas.
+- **Email externo:** Dominios permitidos y gestión de destinatarios externos (`pending` → `verified` 
+  → `unsubscribed` o `blocked`); template sin campos `sensitive` ni links.
+
+**Comando `/gitops`** (requiere `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` / `SLACK_SIGNING_SECRET`): 
+organización instala el app, guardando bot token en `slack_workspaces` (GitDB). Endpoints 
+`/api/slack/commands` y `/api/slack/interactions` verifican firma (5 min window) y actúan como el 
+usuario Slack vinculado. Flujos: (1) `/gitops login` → link firmado para vincular cuenta; (2) 
+`/gitops channel` → modal nombre/idioma → selector canales Slack. Rutas de Slack usan CSRF firmado.
+
+Proyectos no tienen settings de notificación propios: muestran un "?" que dice dónde se gestionan, 
+y `/org/<org>/projects/<slug>/settings/alerts/settings` redirige a la organización (404 sin acceso).
+
+Desarrollo con HTTPS para Slack OAuth: `DEV_HTTPS=true` con certs en `.certs/`.
 
 Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a
