@@ -15,6 +15,34 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6.0',
+    date: '2026-11-27',
+    es: {
+      title: 'CVEs por tecnología y alertas en Slack',
+      summary:
+        'Sigue los CVEs que se publican para las tecnologías que usa tu organización, aunque todavía no estén en ningún análisis, y recibe las alertas también en Slack.',
+      changes: [
+        'Nueva pestaña «CVEs por tecnología» junto a «Mis CVEs», con el feed de OSV, NVD, CISA KEV y EPSS.',
+        'Elige qué tecnologías sigue la organización desde un catálogo, añade paquetes o CPE propios y acepta sugerencias sacadas de tus análisis.',
+        'Marca «Te afecta» cuando un CVE del feed también aparece en tus proyectos.',
+        'Eventos de CVE nuevo, escalado, con fix o que afecta a un proyecto, listos para tus alertas.',
+        'Canal de notificación Slack (Incoming Webhook con Block Kit), con idioma por canal y el detalle de qué cambió.',
+      ],
+    },
+    en: {
+      title: 'CVEs by technology and Slack alerts',
+      summary:
+        'Follow the CVEs published for the technologies your organization uses, even before they show up in a scan, and get your alerts in Slack too.',
+      changes: [
+        'New “CVEs by technology” tab next to “My CVEs”, fed by OSV, NVD, CISA KEV and EPSS.',
+        'Choose the technologies your organization follows from a catalog, add your own packages or CPEs and accept suggestions from your scans.',
+        '“Affects you” flag when a feed CVE also shows up in your projects.',
+        'Events for new, escalated, fixed and project-affecting CVEs, ready for your alerts.',
+        'Slack notification channel (Incoming Webhook with Block Kit), with a language per channel and details of what changed.',
+      ],
+    },
+  },
+  {
     version: '1.5.0',
     date: '2026-11-27',
     es: {

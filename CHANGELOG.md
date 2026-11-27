@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.0 — 2026-11-27
+
+- Feed de CVEs por tecnología (`$modules/cve-feed`): pestañas «Mis CVEs» | «CVEs por tecnología»
+  en `/org/<org>/cves`, con watchlist por organización, catálogo de tecnologías, entradas
+  personalizadas (OSV o CPE) y sugerencias desde los análisis Trivy/SBOM. ADR 0004.
+- Worker embebido con lease en GitDB y fuentes OSV, NVD 2.0 (`NVD_API_KEY` opcional), CISA KEV y
+  EPSS. Solo guarda los CVEs que afectan a tecnologías seguidas, escribe por lotes y no escribe
+  nada si no hay cambios; repositorio dedicado opcional (`CVE_FEED_GITDB_*`). Desactivado por
+  defecto (`CVE_FEED_ENABLED`).
+- Eventos `cve_feed.advisory.published|escalated|fix_available|affects_project`, deduplicados por
+  organización, y permisos `organization:cves:feed:read|update`.
+- Alertas: canal Slack (Incoming Webhook + Block Kit) con idioma por canal y detalle de cambios,
+  sobre una base común para canales de chat con host fijo.
+
 ## 1.5.0 — 2026-11-27
 
 - Módulo State IaC: backends de estado de Pulumi por organización (GCS, S3 y compatibles), en
