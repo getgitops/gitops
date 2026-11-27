@@ -20,7 +20,9 @@ export async function load({ parent, locals, params }) {
   const projects =
     canProjects || !canFeed ? await organizationCveProjects(organization.id, locals.user) : [];
   const advisory = canFeed
-    ? await cveFeedQueryService.getAdvisory(organization.id, params.cve)
+    ? await cveFeedQueryService.getAdvisory(organization.id, params.cve, {
+        projects: canProjects ? projects : [],
+      })
     : null;
 
   // the scans know the CVE by the id they report; the feed matches by id or alias
@@ -37,6 +39,7 @@ export async function load({ parent, locals, params }) {
     ? {
         advisory: advisory.advisory,
         affectsMe: advisory.affectsMe,
+        occurrences: advisory.occurrences,
         technologies: advisory.technologyIds.map((id) => ({
           id,
           name: getTechnology(id)?.name ?? id,

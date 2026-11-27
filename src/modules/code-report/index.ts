@@ -32,4 +32,7 @@ export const codeReportCveService = new CodeReportCveService(
   codeReportAnalysisService,
 );
 
-export type { OrganizationCveOccurrence } from './application/code-report-cve.service';
+export type {
+  OrganizationCveOccurrence,
+  ServicePackageInventory,
+} from './application/code-report-cve.service';

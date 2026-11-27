@@ -36,17 +36,21 @@ export async function load({ parent, locals, url }) {
 
   if (tab === 'technology') {
     const { filters, values } = parseFeedFilters(url.searchParams);
-    const [canUpdate, view, status, suggestions] = await Promise.all([
+    const [canUpdate, view, status] = await Promise.all([
       canUpdateCveFeed(locals.user, organization.id),
       cveFeedQueryService.getView(organization.id),
       cveFeedQueryService.status(),
-      cveWatchlistService.suggestions(organization.id),
     ]);
-    const page = await cveFeedQueryService.list(organization.id, {
-      ...filters,
-      limit: FEED_PAGE_SIZE,
-      offset: (values.page - 1) * FEED_PAGE_SIZE,
-    });
+    // "Te afecta" and the suggestions come from the scans: only the projects the user can see
+    const projects = canProjects ? await organizationCveProjects(organization.id, locals.user) : [];
+    const [page, suggestions] = await Promise.all([
+      cveFeedQueryService.list(
+        organization.id,
+        { ...filters, limit: FEED_PAGE_SIZE, offset: (values.page - 1) * FEED_PAGE_SIZE },
+        { projects },
+      ),
+      canUpdate && canProjects ? cveWatchlistService.suggestions(organization.id) : [],
+    ]);
     return {
       ...base,
       feed: {

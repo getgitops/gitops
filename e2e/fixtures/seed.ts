@@ -1,7 +1,7 @@
 import { apiKeysService, roleService, userAccessService } from '#modules/auth';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
-import { codeReportService } from '#modules/code-report';
+import { codeReportAnalysisService, codeReportService } from '#modules/code-report';
 import { CveFeedStoreRepository } from '#modules/cve-feed/infrastructure/repositories/cve-feed-store.repository';
 import type { CveAdvisory } from '#modules/cve-feed';
 import { getGitDb } from '#lib/server/gitdb';
@@ -417,6 +417,21 @@ export async function seedAll(): Promise<SeedOutput> {
   const seededService = await codeReportService.createService({
     project: requireSeedSlug(primaryProject.slug, 'primary project'),
     name: 'E2E Seeded Service',
+  });
+  // a service whose SBOM uses express: the CVE feed suggests it (see the CVE feed spec). Not the
+  // seeded service: an analysis changes its page, which other specs rely on
+  const inventoryService = await codeReportService.createService({
+    project: requireSeedSlug(primaryProject.slug, 'primary project'),
+    name: 'E2E Inventory Service',
+  });
+  const sbom = await codeReportAnalysisService.startAnalysis({
+    serviceId: inventoryService.id,
+    tool: 'sbom',
+  });
+  await codeReportAnalysisService.completeAnalysis(sbom.id, {
+    result: {
+      components: [{ name: 'express', version: '4.18.2', purl: 'pkg:npm/express@4.18.2' }],
+    },
   });
 
   const { token: readOnlyApiKeyToken } = await apiKeysService.createProjectApiKey({

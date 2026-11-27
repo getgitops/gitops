@@ -130,12 +130,21 @@
               <input
                 type="checkbox"
                 class="k-checkbox"
-                name="technology"
-                value={suggestion.technologyId}
+                name={suggestion.custom ? 'custom' : 'technology'}
+                value={suggestion.custom
+                  ? customFieldValue(suggestion.custom)
+                  : suggestion.technologyId}
               />
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-fg">{suggestion.technologyId}</span>
-                <span class="block truncate text-xs text-fg-subtle">{suggestion.reason}</span>
+                <span class="block truncate text-fg">{suggestion.name}</span>
+                <span class="block truncate text-xs text-fg-subtle">
+                  {$_(
+                    suggestion.services === 1
+                      ? 'org.cves.feed.modal.suggestionReasonOne'
+                      : 'org.cves.feed.modal.suggestionReasonMany',
+                    { values: { package: suggestion.package, count: suggestion.services } },
+                  )}
+                </span>
               </span>
             </label>
           </li>

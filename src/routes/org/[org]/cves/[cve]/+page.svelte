@@ -5,7 +5,7 @@
     type CveRemediation,
   } from '#lib/components/code-report/CveDetailView.svelte';
   import FeedAdvisorySection from '#lib/components/cves/FeedAdvisorySection.svelte';
-  import type { CveAdvisory } from '#modules/cve-feed';
+  import type { CveAdvisory, ScanRef } from '#modules/cve-feed';
 
   let {
     data,
@@ -19,6 +19,7 @@
       feed: {
         advisory: CveAdvisory;
         affectsMe: boolean;
+        occurrences: ScanRef[];
         technologies: { id: string; name: string }[];
       } | null;
     };
@@ -35,6 +36,9 @@
       advisory={data.feed.advisory}
       technologies={data.feed.technologies}
       affectsMe={data.feed.affectsMe}
+      occurrences={data.feed.occurrences}
+      serviceHref={(service) =>
+        `/org/${data.orgSlug}/projects/${service.projectSlug}/code-report/services/${service.serviceSlug}`}
     />
   {/if}
 {/snippet}

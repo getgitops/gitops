@@ -6,16 +6,21 @@
   import { ExternalLink, Flame } from '@lucide/svelte';
   import { KEV_CATALOG_URL, nvdUrl, osvUrl } from '#lib/cves/feed-view';
   import { _, locale } from '#lib/i18n';
-  import type { CveAdvisory } from '#modules/cve-feed';
+  import type { CveAdvisory, ScanRef } from '#modules/cve-feed';
 
   let {
     advisory,
     technologies,
     affectsMe,
+    occurrences = [],
+    serviceHref,
   }: {
     advisory: CveAdvisory;
     technologies: { id: string; name: string }[];
     affectsMe: boolean;
+    /** Services whose latest scans report this CVE (only the projects the user can see). */
+    occurrences?: ScanRef[];
+    serviceHref?: (service: ScanRef) => string;
   } = $props();
 
   const nvd = $derived(nvdUrl(advisory.id));
@@ -60,6 +65,28 @@
           {#each technologies as technology (technology.id)}
             <span class="k-badge">{technology.name}</span>
           {/each}
+        </dd>
+      </div>
+    {/if}
+
+    {#if occurrences.length > 0}
+      <div data-testid="cve-feed-occurrences">
+        <dt class="text-fg-muted">{$_('org.cves.feed.detail.occurrences')}</dt>
+        <dd class="mt-1.5">
+          <ul class="divide-y divide-white/6 rounded-xl border border-white/8">
+            {#each occurrences as service (service.serviceId)}
+              <li class="flex flex-wrap items-center gap-x-3 px-3 py-2 text-xs">
+                <span class="text-fg-subtle">{service.projectName}</span>
+                {#if serviceHref}
+                  <a class="text-white hover:text-brand-300" href={serviceHref(service)}
+                    >{service.serviceName}</a
+                  >
+                {:else}
+                  <span class="text-white">{service.serviceName}</span>
+                {/if}
+              </li>
+            {/each}
+          </ul>
         </dd>
       </div>
     {/if}

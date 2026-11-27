@@ -1,3 +1,4 @@
+import { extractInventoryPackages, type InventoryPackage } from '#lib/code-report/package-inventory';
 import { collectCveOccurrences, type CompletedAnalysis, type CveOccurrence } from '#lib/code-report/cve-aggregation';
 import type { CodeReportService } from './code-report.service';
 import type { CodeReportAnalysisService } from './code-report-analysis.service';
@@ -7,6 +8,17 @@ export type OrganizationCveOccurrence = CveOccurrence & {
   projectSlug: string;
   projectName: string;
 };
+
+export type ServicePackageInventory = {
+  serviceId: string;
+  serviceSlug: string;
+  serviceName: string;
+  projectId: string;
+  packages: InventoryPackage[];
+};
+
+// the tools whose latest completed analysis tells which packages a service uses
+const INVENTORY_TOOLS = ['trivy', 'sbom', 'syft'];
 
 export class CodeReportCveService {
   constructor(
@@ -62,5 +74,39 @@ export class CodeReportCveService {
     }
 
     return occurrencesByCve;
+  }
+
+  /**
+   * The distinct packages of each service of the projects, from the latest completed Trivy, SBOM
+   * and syft analyses (their union).
+   */
+  async getOrganizationPackages(
+    projects: { id: string }[],
+  ): Promise<ServicePackageInventory[]> {
+    const inventory: ServicePackageInventory[] = [];
+    for (const project of projects) {
+      const services = await this.codeReportService.listByProject(project.id);
+      for (const service of services) {
+        const latest = await this.codeReportAnalysisService.getLatestByTool(
+          service.id,
+          INVENTORY_TOOLS,
+        );
+        const packages = new Map<string, InventoryPackage>();
+        for (const tool of INVENTORY_TOOLS) {
+          const analysis = latest[tool];
+          if (analysis?.status !== 'completed') continue;
+          for (const pkg of extractInventoryPackages(analysis.result))
+            packages.set(`${pkg.ecosystem}|${pkg.name}`, pkg);
+        }
+        inventory.push({
+          serviceId: service.id,
+          serviceSlug: service.slug,
+          serviceName: service.name,
+          projectId: project.id,
+          packages: [...packages.values()],
+        });
+      }
+    }
+    return inventory;
   }
 }
