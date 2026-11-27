@@ -40,7 +40,8 @@ export type EventModule =
   | 'access'
   | 'monitoring'
   | 'notifications'
-  | 'state_iac';
+  | 'state_iac'
+  | 'cve_feed';
 
 export type EventDefinitionScope = 'organization' | 'project';
 

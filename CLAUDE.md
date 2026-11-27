@@ -563,6 +563,40 @@ monitors, monitors/new, monitors/[id], monitors/[id]/edit}`, thin routes over
   `#lib/server/monitoring/page.ts`; components in `#lib/components/monitoring/`; the Code Report
   service page shows its monitors (`service-monitors.ts`).
 
+## CVE feed
+
+`$modules/cve-feed` follows the CVEs of public sources for the technologies an organization chooses
+(`/org/<org>/cves`, tab "CVEs por tecnología"); design in `docs/adr/0004-cve-feed.md`.
+
+- Off unless `CVE_FEED_ENABLED=true`: with false no timer starts and **no external call is ever
+  made** (the "Sincronizar ahora" action refuses too). Pages only read GitDB, never a source.
+  Other variables (all documented in `.env.example`): `CVE_FEED_SYNC_INTERVAL` (2h, min 15m),
+  `CVE_FEED_MIN_SEVERITY` (global floor, an organization can only raise it), `CVE_FEED_EPSS_THRESHOLD`,
+  `CVE_FEED_RETENTION`, `CVE_FEED_BACKFILL`, `NVD_API_KEY` (optional, 5 -> 50 requests / 30 s) and
+  `CVE_FEED_GITDB_*` (dedicated repository, recommended in production).
+- Tables (`$lib/database/schemas.ts`): `cve_watchlists` (main GitDB, one per organization),
+  `cve_advisories`, `cve_org_matches` (dedup state) and `cve_feed_state` (cursors, etags, lease,
+  backfilled technologies) in the feed repository when configured. **Storage rules**: never the
+  full feed (filter + retention), trimmed rows, one delete + one insert per table and sync, a row
+  is rewritten only when its fingerprint changes (the sync without news writes nothing), volatile
+  status stays in memory. Keep them in any new source.
+- Sources implement `CveSource` (`infrastructure/sources/`: OSV, NVD, KEV, EPSS) over the shared
+  `HttpClient` (retries, backoff, injectable `fetch`) and never write; `CveFeedRuntime` does, behind
+  a best-effort lease in `cve_feed_state`. Technologies are defined in the catalog
+  `$lib/cves/technologies.data.ts` or as custom OSV/CPE entries. A technology new to the feed is
+  backfilled silently (no events).
+- Read side: `cveFeedQueryService` (per-organization memoized view; "Te afecta" correlates with the
+  scans of the projects the user can see, memoized per organization + project set and dropped on
+  `code_report.analysis.completed`), `cveWatchlistService` (suggestions from Trivy/SBOM packages;
+  never added without confirmation).
+- Permissions: `organization:cves:feed:{read,update,all}`; Organization Admin gets `all` (existing
+  roles are not migrated). `read` sees the tab and the feed data of the detail (404 for others);
+  `update` edits the watchlist and runs "Sincronizar ahora". "Te afecta", the occurrences and the
+  suggestions additionally need `organization:projects:read`.
+- Events `cve_feed.advisory.published|escalated|fix_available|affects_project` (alertable,
+  `readPermission` `organization:cves:feed:read`): one per organization x CVE x change (x project
+  for `affects_project`), the dedup state is written before publishing.
+
 ## Authorization
 
 Permission grants are always scope-prefixed and match the catalog in `src/lib/config/permissions.ts`

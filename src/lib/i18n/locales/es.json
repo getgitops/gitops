@@ -456,7 +456,141 @@
     "cves": {
       "title": "CVEs de la organización",
       "infoMessage": "Este listado agrupa los CVEs de todos los proyectos de la organización usando el último análisis completado de cada servicio.",
-      "emptyMessage": "Todavía no se han detectado CVEs en esta organización."
+      "emptyMessage": "Todavía no se han detectado CVEs en esta organización.",
+      "tabsLabel": "Secciones de CVEs",
+      "tabMine": "Mis CVEs",
+      "tabTechnology": "CVEs por tecnología",
+      "feed": {
+        "infoMessage": "CVEs publicados para las tecnologías que sigues, aunque todavía no aparezcan en ninguno de tus análisis.",
+        "intro": "Elige las tecnologías de tu stack y te mostramos sus CVEs nuevos (OSV y CISA KEV), sin esperar a que un análisis los detecte.",
+        "followed": "Tecnologías que sigues",
+        "manage": "Gestionar tecnologías",
+        "sync": "Sincronizar ahora",
+        "syncRequested": "Sincronización solicitada",
+        "syncRequestedHelp": "El servidor actualizará el feed en breve.",
+        "watchlistSaved": "Tecnologías guardadas",
+        "tableTitle": "CVEs del feed",
+        "noResults": "Ningún CVE coincide con los filtros.",
+        "noAdvisories": "Todavía no hay CVEs para tus tecnologías. Si acabas de añadirlas, la primera sincronización puede tardar unos minutos.",
+        "disabled": {
+          "title": "El feed de CVEs está desactivado",
+          "description": "El servidor no consulta fuentes externas. Para activarlo, un administrador debe definir la variable de entorno"
+        },
+        "empty": {
+          "title": "Aún no sigues ninguna tecnología",
+          "description": "Elige las tecnologías que usáis (Node.js, PostgreSQL, Spring…) y empezaremos a mostrarte sus CVEs.",
+          "readOnly": "Pide a alguien con permiso de edición que elija las tecnologías que se van a seguir.",
+          "action": "Elegir tecnologías"
+        },
+        "errors": {
+          "generic": "No se ha podido completar la acción.",
+          "forbidden": "No tienes permiso para hacerlo.",
+          "disabled": "El feed de CVEs está desactivado en este servidor.",
+          "too_many": "Has superado el máximo de tecnologías que se pueden seguir.",
+          "unknown_technology": "Hay una tecnología que no existe en el catálogo.",
+          "invalid_custom": "La tecnología personalizada no es válida (revisa el ecosistema, el paquete o el CPE).",
+          "invalid_severity": "La severidad mínima no es válida.",
+          "invalid_versions": "Las versiones no son válidas."
+        },
+        "filters": {
+          "label": "Filtros del feed",
+          "technology": "Tecnología",
+          "allTechnologies": "Todas",
+          "severity": "Severidad",
+          "anySeverity": "Cualquiera",
+          "atLeast": "{severity} o superior",
+          "from": "Modificado desde",
+          "to": "Modificado hasta",
+          "kev": "Solo explotados activamente (KEV)",
+          "affectsMe": "Solo los que me afectan",
+          "apply": "Filtrar",
+          "clear": "Quitar filtros"
+        },
+        "columns": {
+          "cve": "CVE",
+          "technology": "Tecnología / paquete",
+          "severity": "Severidad / CVSS",
+          "epss": "EPSS",
+          "flags": "Estado",
+          "published": "Publicado",
+          "updated": "Actualizado",
+          "fixed": "Versión con fix"
+        },
+        "badges": {
+          "kev": "KEV",
+          "affectsMe": "Te afecta"
+        },
+        "pagination": {
+          "label": "Paginación",
+          "summary": "{from}-{to} de {total}",
+          "previous": "Anterior",
+          "next": "Siguiente"
+        },
+        "status": {
+          "title": "Estado del feed",
+          "lastRun": "Última sincronización: {date}",
+          "lastSuccess": "Última correcta: {date}",
+          "never": "nunca",
+          "noErrors": "Sin errores",
+          "sources": {
+            "osv": "OSV",
+            "kev": "CISA KEV",
+            "nvd": "NVD",
+            "epss": "EPSS"
+          }
+        },
+        "categories": {
+          "runtime": "Runtime",
+          "framework": "Framework",
+          "library": "Librería",
+          "database": "Base de datos",
+          "server": "Servidor",
+          "infrastructure": "Infraestructura",
+          "security": "Seguridad",
+          "os": "Sistema operativo"
+        },
+        "modal": {
+          "title": "Gestionar tecnologías",
+          "description": "Elige qué tecnologías sigue la organización y desde qué severidad quieres ver sus CVEs.",
+          "catalog": "Catálogo",
+          "search": "Buscar en el catálogo",
+          "searchPlaceholder": "Buscar tecnología…",
+          "noMatches": "Ninguna tecnología coincide con la búsqueda.",
+          "suggestions": "Sugerencias",
+          "suggestionsHelp": "Tecnologías que aparecen en tus análisis y todavía no sigues.",
+          "suggestionReasonOne": "Usáis `{package}` en 1 servicio",
+          "suggestionReasonMany": "Usáis `{package}` en {count} servicios",
+          "custom": "Tecnología personalizada",
+          "customHelp": "Si no está en el catálogo, añade un paquete de OSV (ecosistema y nombre) o un CPE.",
+          "customKind": "Tipo",
+          "kindOsv": "Paquete OSV",
+          "kindCpe": "CPE",
+          "ecosystem": "Ecosistema",
+          "package": "Paquete",
+          "packageHelp": "Nombre exacto del paquete en su ecosistema.",
+          "cpe": "CPE 2.3",
+          "cpeHelp": "Prefijo con formato cpe:2.3:<parte>:<fabricante>:<producto>.",
+          "minSeverity": "Severidad mínima",
+          "minSeverityHelp": "No verás CVEs por debajo de esta severidad.",
+          "includeKev": "CISA KEV",
+          "includeKevHelp": "Los CVEs explotados activamente se muestran siempre, aunque estén por debajo de la severidad mínima.",
+          "includeKevLabel": "Incluir los KEV de mis tecnologías",
+          "floorNotice": "El servidor fija un mínimo global de {severity}: la organización solo puede subirlo.",
+          "save": "Guardar"
+        },
+        "detail": {
+          "title": "Datos del feed",
+          "description": "Según OSV, NVD y CISA KEV; no depende de tus análisis.",
+          "technologies": "Tecnologías que sigues",
+          "affected": "Paquetes y rangos afectados",
+          "noRanges": "Las fuentes no indican rangos de versiones.",
+          "occurrences": "Servicios afectados en tus análisis",
+          "noFix": "sin versión corregida",
+          "fixedVersions": "Versiones corregidas",
+          "sources": "Fuentes",
+          "aliases": "Otros identificadores"
+        }
+      }
     },
     "dashboard": {
       "title": "Dashboard",
@@ -628,7 +762,8 @@
         "access": "Accesos",
         "monitoring": "Monitoring",
         "notifications": "Notificaciones",
-        "state_iac": "State IaC"
+        "state_iac": "State IaC",
+        "cve_feed": "Feed de CVEs"
       }
     },
     "current": "Actual",
@@ -1452,6 +1587,63 @@
         "auth": "Autenticación",
         "credentials": "Credenciales",
         "enabled": "Activado"
+      },
+      "cveTechnology": {
+        "nodejs": "Node.js",
+        "express": "Express",
+        "next": "Next.js",
+        "react": "React",
+        "svelte": "Svelte",
+        "sveltekit": "SvelteKit",
+        "vite": "Vite",
+        "lodash": "Lodash",
+        "axios": "Axios",
+        "nestjs": "NestJS",
+        "django": "Django",
+        "flask": "Flask",
+        "fastapi": "FastAPI",
+        "requests": "Requests (Python)",
+        "pillow": "Pillow",
+        "spring-boot": "Spring Boot",
+        "spring-framework": "Spring Framework",
+        "log4j": "Apache Log4j",
+        "jackson": "Jackson",
+        "gin": "Gin",
+        "golang-x-net": "golang.org/x/net",
+        "golang-x-crypto": "golang.org/x/crypto",
+        "tokio": "Tokio",
+        "rails": "Ruby on Rails",
+        "aspnet-core": "ASP.NET Core",
+        "laravel": "Laravel",
+        "postgresql": "PostgreSQL",
+        "mysql": "MySQL",
+        "mongodb": "MongoDB",
+        "redis": "Redis",
+        "nginx": "nginx",
+        "apache-httpd": "Apache HTTP Server",
+        "kubernetes": "Kubernetes",
+        "docker": "Docker Engine",
+        "terraform": "Terraform",
+        "openssl": "OpenSSL",
+        "openssh": "OpenSSH",
+        "linux-kernel": "Linux kernel"
+      },
+      "cveSeverity": {
+        "critical": "Crítica",
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Baja",
+        "unknown": "Desconocida"
+      },
+      "cveEcosystem": {
+        "npm": "npm",
+        "PyPI": "PyPI",
+        "Go": "Go",
+        "Maven": "Maven",
+        "crates.io": "crates.io",
+        "RubyGems": "RubyGems",
+        "NuGet": "NuGet",
+        "Packagist": "Packagist"
       }
     },
     "vault": {
@@ -1727,6 +1919,58 @@
           }
         }
       }
+    },
+    "cve_feed": {
+      "advisory": {
+        "published": {
+          "label": "Nuevo CVE de una tecnología seguida",
+          "description": "Ha aparecido un CVE para una tecnología que sigue la organización.",
+          "fields": {
+            "technologyId": "Tecnología",
+            "severity": "Severidad",
+            "cvssScore": "Puntuación CVSS",
+            "epssScore": "Puntuación EPSS",
+            "kev": "Explotado activamente (CISA KEV)",
+            "ecosystem": "Ecosistema"
+          }
+        },
+        "escalated": {
+          "label": "CVE escalado",
+          "description": "Un CVE seguido ha subido de severidad, ha entrado en CISA KEV o su EPSS supera el umbral.",
+          "fields": {
+            "technologyId": "Tecnología",
+            "severity": "Severidad",
+            "cvssScore": "Puntuación CVSS",
+            "epssScore": "Puntuación EPSS",
+            "kev": "Explotado activamente (CISA KEV)",
+            "ecosystem": "Ecosistema"
+          }
+        },
+        "fix_available": {
+          "label": "Corrección disponible para un CVE",
+          "description": "Se ha publicado una versión con la corrección de un CVE seguido.",
+          "fields": {
+            "technologyId": "Tecnología",
+            "severity": "Severidad",
+            "cvssScore": "Puntuación CVSS",
+            "epssScore": "Puntuación EPSS",
+            "kev": "Explotado activamente (CISA KEV)",
+            "ecosystem": "Ecosistema"
+          }
+        },
+        "affects_project": {
+          "label": "Un CVE seguido afecta a un proyecto",
+          "description": "Un CVE de una tecnología seguida aparece también en un análisis de un proyecto.",
+          "fields": {
+            "technologyId": "Tecnología",
+            "severity": "Severidad",
+            "cvssScore": "Puntuación CVSS",
+            "epssScore": "Puntuación EPSS",
+            "kev": "Explotado activamente (CISA KEV)",
+            "ecosystem": "Ecosistema"
+          }
+        }
+      }
     }
   },
   "alerts": {
@@ -1786,7 +2030,8 @@
         "monitorDown": "{name} está caído ({cause})",
         "monitorDegraded": "{name} responde degradado",
         "monitorRecovered": "{name} se ha recuperado tras {minutes} min",
-        "channelDisabled": "{name} deshabilitado tras {failures} fallos"
+        "channelDisabled": "{name} deshabilitado tras {failures} fallos",
+        "cveAdvisory": "{cveId} ({severity}) {kev}"
       },
       "externalFooter": "Recibes este email porque {organization} añadió tu dirección a la alerta “{alert}”.",
       "unsubscribe": "Darme de baja",

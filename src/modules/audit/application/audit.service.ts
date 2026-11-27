@@ -23,10 +23,14 @@ const DEFAULT_PER_PAGE = 20;
 /**
  * Tables written by the system on a timer, not by people: monitoring metrics (`monitoring_*`,
  * kept in the main repository when MONITORING_GITDB_REPOSITORY_URL is not set). The monitor
- * configuration (`monitors`) is audited like any other entity.
+ * configuration (`monitors`) is audited like any other entity. Same for the CVE feed tables the
+ * sync writes (`cve_advisories`, `cve_feed_state`, `cve_org_matches`); `cve_watchlists` is
+ * organization configuration and stays audited.
  */
+const SYSTEM_FEED_ENTITIES = new Set(['cve_advisories', 'cve_feed_state', 'cve_org_matches']);
+
 export function isSystemMetricsEntity(entity: string | null): boolean {
-  return entity !== null && entity.startsWith('monitoring_');
+  return entity !== null && (entity.startsWith('monitoring_') || SYSTEM_FEED_ENTITIES.has(entity));
 }
 const MAX_PER_PAGE = 100;
 
@@ -41,7 +45,10 @@ export class AuditService {
         event.action !== 'other' && event.entity !== null && !isSystemMetricsEntity(event.entity),
     );
 
-    const perPage = Math.min(Math.max(Math.trunc(options.perPage ?? DEFAULT_PER_PAGE), 1), MAX_PER_PAGE);
+    const perPage = Math.min(
+      Math.max(Math.trunc(options.perPage ?? DEFAULT_PER_PAGE), 1),
+      MAX_PER_PAGE,
+    );
     const total = filtered.length;
     const totalPages = Math.max(Math.ceil(total / perPage), 1);
     const page = Math.min(Math.max(Math.trunc(options.page ?? 1), 1), totalPages);
