@@ -29,6 +29,7 @@ export const variables = defineEnvVars({
   NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS: optional,
   SLACK_CLIENT_ID: optional,
   SLACK_CLIENT_SECRET: optional,
+  SLACK_SIGNING_SECRET: optional,
   GOOGLE_SSO_CLIENT_ID: optional,
   GOOGLE_SSO_CLIENT_SECRET: optional,
   GOOGLE_SSO_ALLOWED_DOMAINS: optional,

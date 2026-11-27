@@ -461,6 +461,28 @@ export const NotificationChannelEntity = entity('notification_channels', {
   disabledReason: text(),
 });
 
+/**
+ * A Slack workspace where the GitOps app (and its `/gitops` command) is installed, linked to the
+ * organization it was installed from. One row per workspace (`teamId`).
+ */
+export const SlackWorkspaceEntity = entity('slack_workspaces', {
+  id: uuid().primaryKey(),
+  teamId: text().notNull(),
+  teamName: text().notNull(),
+  organizationId: uuid().notNull(),
+  /** The app's bot token (scopes `commands`, `incoming-webhook`), encrypted; opens the forms. */
+  botToken: text().notNull(),
+  /** Language of the command replies (`es` | `en`). */
+  locale: text(),
+  installedByUserId: uuid().notNull(),
+  createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 relations.for(ProjectEntity, ({ one, many }) => ({
   roles: many(RoleEntity, { fields: ['id'], references: ['projectId'] }),
   organization: one(OrganizationEntity, { fields: ['organizationId'], references: ['id'] }),

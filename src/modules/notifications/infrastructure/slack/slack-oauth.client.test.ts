@@ -30,11 +30,25 @@ describe('SlackOAuthClient', () => {
     });
   });
 
-  it('exchanges the code with Basic credentials and returns the webhook', async () => {
+  it('asks for another scope when told to', () => {
+    const url = new URL(
+      new SlackOAuthClient().buildAuthorizationUrl({
+        clientId: '123.456',
+        redirectUri: EXCHANGE.redirectUri,
+        state: 'state-1',
+        scope: 'commands',
+      }),
+    );
+    expect(url.searchParams.get('scope')).toBe('commands');
+  });
+
+  it('exchanges the code with Basic credentials and returns the installation', async () => {
     const fetchFn = reply({
       ok: true,
       access_token: 'xoxb-secret',
+      token_type: 'bot',
       team: { id: 'T1', name: 'Acme' },
+      authed_user: { id: 'U1' },
       incoming_webhook: {
         channel: '#alerts',
         channel_id: 'C1',
@@ -42,12 +56,18 @@ describe('SlackOAuthClient', () => {
         url: 'https://hooks.slack.com/services/T1/B1/xyz',
       },
     });
-    const webhook = await new SlackOAuthClient(fetchFn).exchangeCode(EXCHANGE);
+    const installation = await new SlackOAuthClient(fetchFn).exchangeCode(EXCHANGE);
 
-    expect(webhook).toEqual({
-      url: 'https://hooks.slack.com/services/T1/B1/xyz',
-      channel: '#alerts',
+    expect(installation).toEqual({
+      teamId: 'T1',
       teamName: 'Acme',
+      authedUserId: 'U1',
+      botToken: 'xoxb-secret',
+      webhook: {
+        url: 'https://hooks.slack.com/services/T1/B1/xyz',
+        channel: '#alerts',
+        channelId: 'C1',
+      },
     });
     const [endpoint, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
     expect(endpoint).toBe('https://slack.com/api/oauth.v2.access');
@@ -72,9 +92,14 @@ describe('SlackOAuthClient', () => {
     await expect(client.exchangeCode(EXCHANGE)).rejects.toMatchObject({ code: 'unknown_error' });
   });
 
-  it('fails when the install returned no webhook', async () => {
-    const client = new SlackOAuthClient(reply({ ok: true, access_token: 'xoxb' }));
-    await expect(client.exchangeCode(EXCHANGE)).rejects.toMatchObject({ code: 'no_webhook' });
+  it('returns no webhook for an install without the incoming-webhook scope', async () => {
+    const client = new SlackOAuthClient(
+      reply({ ok: true, access_token: 'xoxb', token_type: 'bot', team: { id: 'T1' } }),
+    );
+    await expect(client.exchangeCode(EXCHANGE)).resolves.toMatchObject({
+      webhook: null,
+      botToken: 'xoxb',
+    });
   });
 
   it('maps HTTP and network failures', async () => {

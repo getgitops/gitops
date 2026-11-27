@@ -14,7 +14,7 @@ import { eventBus } from '#lib/server/events';
 import { isRetryableWebhookError, webhookRetryAfter } from '#lib/server/infra/http/webhook-request';
 import { RateLimiter } from '#lib/server/infra/rate-limit';
 import { createLogger } from '#lib/server/logger';
-import { passwordService } from '../auth';
+import { authService, cancanService, passwordService } from '../auth';
 import { organizationService } from '../organization';
 import { ExternalRecipientService } from './application/external-recipient.service';
 import { NotificationSettingsService } from './application/notification-settings.service';
@@ -27,6 +27,9 @@ import { readWebhookChannelConfig } from './infrastructure/config/webhook.config
 import { readSlackAppConfig } from './infrastructure/config/slack-app.config';
 import { SlackOAuthClient } from './infrastructure/slack/slack-oauth.client';
 import { SlackConnectService } from './application/slack-connect.service';
+import { SlackAppService } from './application/slack-app.service';
+import { SlackApiClient } from './infrastructure/slack/slack-api.client';
+import { SlackWorkspaceRepository } from './infrastructure/repositories/slack-workspace.repository';
 import { NotificationChannelRepository } from './infrastructure/repositories/notification-channel.repository';
 import { ExternalRecipientMailNotifier } from './infrastructure/external-recipient-mail.notifier';
 import { ExternalRecipientRepository } from './infrastructure/repositories/external-recipient.repository';
@@ -123,6 +126,46 @@ export const slackConnectService = new SlackConnectService({
   secret: () => passwordService.ensureEncryptionKey(),
 });
 
+/**
+ * The GitOps Slack app (`/gitops`): workspaces installed per organization, Slack users linked to
+ * their GitOps accounts, and channels named in Slack and connected through Slack's channel picker.
+ */
+export const slackAppService = new SlackAppService({
+  readConfig: () => readSlackAppConfig(),
+  workspaces: new SlackWorkspaceRepository(),
+  cipher: createChannelCipher(() => passwordService.ensureEncryptionKey()),
+  api: new SlackApiClient(),
+  identities: {
+    find: (provider, providerId) => authService.findByExternalIdentity(provider, providerId),
+    link: (userId, provider, providerId) =>
+      authService.linkExternalIdentity(userId, provider, providerId),
+  },
+  access: {
+    async canCreateChannels(userId, organizationId) {
+      const user = await authService.sessionUserById(userId);
+      return cancanService.canSessionUser(user, 'organization:notifications:create', {
+        scope: 'organization',
+        organizationId,
+      });
+    },
+    async canViewOrganization(userId, organizationId) {
+      const user = await authService.sessionUserById(userId);
+      return cancanService.canViewOrganization(user, organizationId);
+    },
+    organizationName: async (id) =>
+      (await organizationService.getOrganization(id).catch(() => null))?.name ?? null,
+  },
+  channels: {
+    async listSlack(organizationId) {
+      const channels = await notificationChannelService.list({ organizationId, projectId: null });
+      return channels
+        .filter((channel) => channel.type === 'slack')
+        .map((channel) => ({ name: channel.name, enabled: channel.enabled }));
+    },
+  },
+  secret: () => passwordService.ensureEncryptionKey(),
+});
+
 export function registerChannelShutdown(): void {
   const scope = globalThis as GlobalWithChannelQueue;
   if (scope[CHANNEL_SHUTDOWN_KEY]) return;
@@ -165,15 +208,32 @@ export type {
   IssuedChannel,
 } from './application/notification-channel.service';
 export {
+  SLACK_CONNECT_PATH,
+  SLACK_LINK_PATH,
+  SLACK_LINK_TTL_MS,
+  SlackAppService,
+  escapeSlack,
+  type SlackChannelRequest,
+  type SlackLinkResult,
+  type SlackReply,
+} from './application/slack-app.service';
+export { SLACK_IDENTITY_PROVIDER, type SlackWorkspaceView } from './domain/slack-workspace.domain';
+export {
   SLACK_CALLBACK_PATH,
+  SLACK_COMMANDS_PATH,
+  SLACK_DONE_PATH,
+  SLACK_INTERACTIONS_PATH,
   SLACK_FLOW_COOKIE,
   SLACK_FLOW_COOKIE_PATH,
   SLACK_FLOW_TTL_MS,
   SlackConnectError,
   SlackConnectService,
   type SlackConnectErrorCode,
+  type SlackCommandConnection,
   type SlackConnectStatus,
   type SlackConnection,
+  type SlackFlowResult,
+  type SlackInstall,
 } from './application/slack-connect.service';
 export { buildChannelTestMessage } from './infrastructure/channel-test-message';
 export { normalizeEmail } from './domain/email-address';

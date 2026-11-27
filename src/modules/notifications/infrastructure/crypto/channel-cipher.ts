@@ -7,7 +7,7 @@ const IV_BYTES = 12;
 const AUTH_TAG_BYTES = 16;
 
 /** What an encrypted value is: a ciphertext of one purpose doesn't decrypt as another. */
-export type ChannelSecretPurpose = 'destination' | 'signing-secret';
+export type ChannelSecretPurpose = 'destination' | 'signing-secret' | 'slack-bot-token';
 
 export interface ChannelCipher {
   encrypt(channelId: string, value: string, purpose?: ChannelSecretPurpose): string;

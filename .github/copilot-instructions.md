@@ -35,7 +35,8 @@ ejecución. SAML es configuración solo.
 - Playwright para tests e2e de RBAC (`e2e/`)
 
 Las variables de entorno se declaran en `src/env.ts` y se documentan en `.env.example`; Google SSO usa las
-`GOOGLE_SSO_*` descritas arriba, y "Add to Slack" usa `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` (opcionales).
+`GOOGLE_SSO_*` descritas arriba, "Add to Slack" usa `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` y el comando
+`/gitops` también necesita `SLACK_SIGNING_SECRET` (opcionales).
 
 Comandos:
 
@@ -133,13 +134,30 @@ validan); resuelve DNS rechazando IPs privadas/loopback; no sigue redirects; rei
 sin firma), formatea como Block Kit en el idioma del canal (nombre de alerta, resumen, campos, cambios de campos
 con before/after, fecha en zona horaria del lector, nota de contexto y botón "Ver en GitOps" si hay link), escapa
 caracteres Slack (`&<>`) en datos de usuario/evento. Un canal GitOps por webhook Slack. Los errores 4xx no se reintentan 
-y se muestran como último error. **Add to Slack**: cuando `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` están configurados, 
-los settings de canales muestran "Añadir a Slack": usuario elige workspace y canal en Slack, GitOps crea el canal con su webhook 
-(`SlackConnectService` y `SlackOAuthClient`). Admin abre `GitOps Settings → Slack`, crea la app Slack (manifest prefilled con 
-solo scope `incoming-webhook` y redirect URL `<ORIGIN>/notifications/slack/callback`, requiere https), copia Client ID y Secret 
-al entorno y reinicia. En dev, Slack OAuth requiere HTTPS: usar `DEV_HTTPS=true` con certificados en `.certs/` (ver `.env.example`). Variables: 
-`NOTIFICATIONS_WEBHOOK_ALLOW_HTTP` y `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS` (dev/e2e). Rutas públicas 
-`/notifications/verify` y `/notifications/unsubscribe` aceptan POST. Sin `ORIGIN` no se envía nada.
+y se muestran como último error. **Add to Slack** (`SlackConnectService`): cuando `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` están configurados, 
+los settings de canales muestran "Añadir a Slack"; usuario elige workspace y canal, GitOps crea el canal con webhook. 
+Admin abre `GitOps Settings → Slack`, crea la app Slack (manifest con scope `incoming-webhook` y redirect 
+`<ORIGIN>/notifications/slack/callback`, requiere https), copia credenciales al entorno y reinicia. En dev, usar 
+`DEV_HTTPS=true` con certificados en `.certs/` (ver `.env.example`).
+
+**Comando `/gitops`** (`SlackAppService`, requiere `SLACK_SIGNING_SECRET`): organización instala el app desde la 
+página de canales (`installSlack` action, scope `commands`), guardando el bot token en `slack_workspaces` 
+(GitDB, una fila por team, vinculada a organización). Los endpoints `/api/slack/commands` y 
+`/api/slack/interactions` verifican la firma Slack (5 min window, `verifySlackSignature`) y actúan como el 
+usuario Slack vinculado (`authProviders` entry `slack` = `<team>:<user>`) con permiso `organization:notifications:create`. 
+Luego en Slack: (1) `/gitops login` → link firmado a `/notifications/slack/link` para vincular usuario a su 
+cuenta GitOps (10 min, una vez; `hooks.server.ts` preserva la URL en `gitops_return_to`); (2) `/gitops channel` 
+pide nombre e idioma → link firmado a `/notifications/slack/connect` que abre selector de canales Slack, crea el 
+canal en GitOps con webhook y posea test → `/notifications/slack/callback` → `/notifications/slack/done`; 
+(3) `/gitops status` muestra organización vinculada y canales conectados. Las rutas de Slack bypass CSRF porque 
+Slack envía requests sin `Origin` header; solo los endpoints firmados (`CSRF_EXEMPT_PATHS`) están excluidos.
+
+Configuración: webhook Slack (URL: `https://hooks.slack.com/services/…`), canales tienen idioma (`locale: es|en`), 
+URLs de webhook encriptadas, emails externos: `pending` → `verified` o `blocked`; template sin campos `sensitive` ni 
+links internos; unsubscribe HMAC (90 días). **Webhook** se firma: secreto `whsec_…` (mostrado una sola vez), resuelve 
+DNS rechazando IPs privadas, 20 fallos consecutivos = auto-deshabilita. Variantes de desarrollo: 
+`NOTIFICATIONS_WEBHOOK_ALLOW_HTTP`, `NOTIFICATIONS_WEBHOOK_ALLOW_PRIVATE_TARGETS`. Rutas públicas 
+`/notifications/verify` y `/notifications/unsubscribe` aceptan POST sin sesión. Sin `ORIGIN` no se envía nada.
 
 Al crear una organización (vía bootstrap o `/gitops-settings`), se llama automáticamente a
 `roleService.createDefaultOrganizationRoles()`. Al crear un proyecto, se llama a

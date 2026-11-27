@@ -55,7 +55,8 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - Playwright for RBAC end-to-end tests (`e2e/`)
 
 Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the
-`GOOGLE_SSO_*` variables described above, and "Add to Slack" uses `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`.
+`GOOGLE_SSO_*` variables described above, "Add to Slack" uses `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`,
+and the `/gitops` Slack command also needs `SLACK_SIGNING_SECRET`.
 
 Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 
@@ -386,6 +387,29 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   (prefilled manifest link, redirect URL, status); a hosted GitOps uses the official app's credentials
   the same way. Pasting a webhook URL keeps working. A central OAuth broker for self-hosted installations
   is not implemented.
+- `/gitops` (`slackAppService` in `$modules/notifications`): the same Slack app with the `commands`
+  scope, enabled when `SLACK_SIGNING_SECRET` is also set (`slackConnectService.commandsEnabled()`).
+  An organization installs it from its channels page (`installSlack` action, OAuth with only
+  `commands`, flow `kind: 'install'`): `slack_workspaces` (GitDB) keeps one row per Slack team, linked
+  to that organization (another organization gets `slack_workspace_taken`), with the bot token
+  encrypted (`ChannelCipher` purpose `slack-bot-token`; only used to open forms, `views.open`).
+  `/api/slack/commands` and `/api/slack/interactions` have no session or API key: they verify
+  `X-Slack-Signature` (`verifySlackSignature`, 5 min window) on the raw body and act as the GitOps
+  user linked to the Slack user (`authProviders` entry `slack` = `<team>:<user>`, `findByExternalIdentity`),
+  refusing disabled users and checking `organization:notifications:create` every time.
+  `/gitops login` answers with a signed 10-minute link to `/notifications/slack/link` (needs a session:
+  `hooks.server.ts` remembers it in `gitops_return_to` and the password and Google logins come back to
+  it, `#lib/server/return-to`; the user must see the workspace's organization). `/gitops channel` opens a
+  modal (name, locale); its submission answers with a signed link to `/notifications/slack/connect`
+  (no session), which starts Slack's channel picker (flow `kind: 'command'`, bound to the Slack team
+  and user: the callback refuses another one with `slack_wrong_workspace`). `/notifications/slack/callback`
+  then accepts requests without a session (only `command` flows can finish without one), creates the
+  channel through `createChannel()` as the linked user (`runWithActor`), posts a test message and ends
+  on `/notifications/slack/done`. Replies use the workspace's locale (picked at install).
+- CSRF: SvelteKit's origin check is disabled in the framework (`csrf.trustedOrigins: ['*']`) and done
+  by `csrfGuard` in `hooks.server.ts` with the same rule (`#lib/server/csrf`), because Slack posts
+  forms without an `Origin` header. Only `CSRF_EXEMPT_PATHS` (the two signed Slack endpoints) skip it;
+  never add a path there that does not authenticate its requests by other means.
 
   Local development of Slack OAuth flows requires HTTPS (Slack refuses `http://` redirect URLs).
   Set `DEV_HTTPS=true` and create a self-signed certificate:

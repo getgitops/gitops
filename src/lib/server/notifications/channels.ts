@@ -5,12 +5,16 @@ import {
   SlackConnectError,
   buildChannelTestMessage,
   notificationChannelService,
+  slackAppService,
   slackConnectService,
   type ChannelInput,
   type ChannelLocation,
   type IssuedChannel,
   type NotificationChannelView,
+  type SlackFlowResult,
 } from '#modules/notifications';
+import { authService } from '#modules/auth';
+import { runWithActor } from '#lib/server/request-context';
 import { organizationService } from '#modules/organization';
 import { projectService } from '#modules/projects';
 import { absoluteUrl, type ChatChannelType } from '#lib/server/infra/notifications';
@@ -244,28 +248,85 @@ export async function startSlackConnection(
   }
 }
 
-export type SlackConnectionOutcome =
-  | { ok: true; returnTo: string; channel: ChannelWithSecret }
-  | { ok: false; returnTo: string; error: string };
+/**
+ * Starts installing the GitOps Slack app in a workspace for an organization (`/gitops`): needs a
+ * signed-in user with `organization:notifications:create`.
+ */
+export async function startSlackInstall(
+  locals: AlertLocals,
+  organizationId: string,
+  input: { locale: unknown; returnTo: unknown; origin: string },
+): Promise<ChannelResult<{ authorizationUrl: string; flowCookie: string }>> {
+  const location: ChannelLocation = { scope: 'organization', organizationId, projectId: null };
+  const userId = locals.apiKey ? null : locals.user?.id;
+  if (!userId || !(await canManageChannels(locals, location, 'create'))) return forbidden;
+  if (!slackConnectService.commandsEnabled()) {
+    return { ok: false, status: 400, error: 'slack_not_configured' };
+  }
+  try {
+    return {
+      ok: true,
+      status: 303,
+      data: slackConnectService.startInstall({
+        userId,
+        organizationId,
+        locale: input.locale,
+        returnTo: input.returnTo,
+        redirectUri: slackRedirectUri(input.origin),
+      }),
+    };
+  } catch (error) {
+    if (error instanceof SlackConnectError) return { ok: false, status: 400, error: error.code };
+    throw error;
+  }
+}
+
+/** Forgets a Slack workspace of the organization (`organization:notifications:delete`). */
+export async function removeSlackWorkspace(
+  locals: AlertLocals,
+  organizationId: string,
+  workspaceId: string,
+): Promise<ChannelResult<{ id: string }>> {
+  const location: ChannelLocation = { scope: 'organization', organizationId, projectId: null };
+  if (!(await canManageChannels(locals, location, 'delete'))) return forbidden;
+  const removed = await slackAppService.removeWorkspace(organizationId, workspaceId);
+  return removed
+    ? { ok: true, status: 200, data: { id: workspaceId } }
+    : { ok: false, status: 404, error: 'Workspace not found' };
+}
+
+/** Where the callback sends the browser, and the error code to log when it failed. */
+export type SlackFlowOutcome = { location: string; error: string | null };
+
+function withStatus(path: string, status: string, extra: Record<string, string> = {}) {
+  return `${path}?${new URLSearchParams({ slack: status, ...extra })}`;
+}
+
+/** The first validation error of a failed create, as a `notifications.errors.*` code. */
+function createError(result: { status: number; errors?: Record<string, string> }): string {
+  return result.status === 403
+    ? 'Forbidden'
+    : (Object.values(result.errors ?? {})[0] ?? 'slack_exchange_failed');
+}
 
 /**
- * Finishes "Add to Slack": validates the flow (same user, state), trades the code for the
- * channel's webhook and creates the channel, checking `<scope>:notifications:create` again.
+ * Finishes a Slack OAuth flow, whichever started it:
+ * - "Add to Slack" on a channels page: creates the channel (same session, permission again);
+ * - the app install: saves the workspace for the organization (same session, permission again);
+ * - `/gitops channel`: creates the channel named in Slack as the linked user (no session needed,
+ *   the flow is bound to the Slack workspace and user), posts a test message to it, and ends on
+ *   the "go back to Slack" page.
  */
-export async function completeSlackConnection(
+export async function completeSlackFlow(
   locals: AlertLocals,
-  input: {
-    flowCookie: string | undefined;
-    searchParams: URLSearchParams;
-    origin: string;
-  },
-): Promise<SlackConnectionOutcome> {
-  const userId = locals.apiKey ? '' : (locals.user?.id ?? '');
-  let connection;
+  input: { flowCookie: string | undefined; searchParams: URLSearchParams; origin: string },
+): Promise<SlackFlowOutcome> {
+  const sessionUserId = locals.apiKey ? null : (locals.user?.id ?? null);
+  let result: SlackFlowResult;
   try {
-    connection = await slackConnectService.complete({
+    result = await slackConnectService.complete({
       flowCookie: input.flowCookie,
-      userId,
+      sessionUserId,
       state: input.searchParams.get('state'),
       code: input.searchParams.get('code'),
       error: input.searchParams.get('error'),
@@ -273,25 +334,70 @@ export async function completeSlackConnection(
     });
   } catch (error) {
     if (error instanceof SlackConnectError) {
-      return { ok: false, returnTo: error.returnTo, error: error.code };
+      return { location: withStatus(error.returnTo, error.code), error: error.code };
     }
     throw error;
   }
 
-  const created = await createChannel(locals, connection.location, {
-    type: 'slack',
-    name: connection.name,
-    destination: connection.webhookUrl,
-    locale: connection.locale,
-    enabled: true,
-  });
-  if (!created.ok) {
-    // codes of `notifications.errors.*`: the first validation error says enough
-    const code =
-      created.status === 403
-        ? 'Forbidden'
-        : (Object.values(created.errors ?? {})[0] ?? 'slack_exchange_failed');
-    return { ok: false, returnTo: connection.returnTo, error: code };
+  if (result.kind === 'install') {
+    const location: ChannelLocation = {
+      scope: 'organization',
+      organizationId: result.organizationId,
+      projectId: null,
+    };
+    if (!(await canManageChannels(locals, location, 'create'))) {
+      return { location: withStatus(result.returnTo, 'Forbidden'), error: 'Forbidden' };
+    }
+    const installed = await slackAppService.installWorkspace(result);
+    const status = installed === 'installed' ? 'installed' : 'slack_workspace_taken';
+    return {
+      location: withStatus(result.returnTo, status),
+      error: installed === 'installed' ? null : status,
+    };
   }
-  return { ok: true, returnTo: connection.returnTo, channel: created.data };
+
+  if (result.kind === 'channel') {
+    const created = await createChannel(locals, result.location, {
+      type: 'slack',
+      name: result.name,
+      destination: result.webhookUrl,
+      locale: result.locale,
+      enabled: true,
+    });
+    if (!created.ok) {
+      const code = createError(created);
+      return { location: withStatus(result.returnTo, code), error: code };
+    }
+    return { location: withStatus(result.returnTo, 'connected'), error: null };
+  }
+
+  // from Slack: act as the linked user, who must still exist, be enabled and hold the permission
+  const user = await authService.sessionUserById(result.userId);
+  if (!user || user.disabled) {
+    return { location: withStatus(result.returnTo, 'Forbidden'), error: 'Forbidden' };
+  }
+  const userLocals: AlertLocals = { user };
+  const actor = {
+    name: user.username,
+    email: user.email || `${user.username}@gitops.local`,
+    userId: user.id,
+  };
+  return runWithActor(actor, async () => {
+    const created = await createChannel(userLocals, result.location, {
+      type: 'slack',
+      name: result.name,
+      destination: result.webhookUrl,
+      locale: result.locale,
+      enabled: true,
+    });
+    if (!created.ok) {
+      const code = createError(created);
+      return { location: withStatus(result.returnTo, code), error: code };
+    }
+    // the channel says hello: the user sees in Slack that it works
+    await testChannel(userLocals, created.data.id).catch(() => undefined);
+    const extra: Record<string, string> = { team: result.teamId, name: result.name };
+    if (result.channelId) extra.channel = result.channelId;
+    return { location: withStatus(result.returnTo, 'connected', extra), error: null };
+  });
 }

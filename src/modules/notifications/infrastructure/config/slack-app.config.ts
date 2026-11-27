@@ -1,7 +1,14 @@
 import * as env from '$app/env/private';
 
-/** Credentials of the Slack app behind "Add to Slack" (`SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`). */
-export type SlackAppConfig = { clientId: string; clientSecret: string };
+/**
+ * Credentials of the GitOps Slack app: `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` for "Add to
+ * Slack", and `SLACK_SIGNING_SECRET` for the `/gitops` command (`null` while it is not set).
+ */
+export type SlackAppConfig = {
+  clientId: string;
+  clientSecret: string;
+  signingSecret: string | null;
+};
 
 export class SlackAppConfigError extends Error {}
 
@@ -26,5 +33,5 @@ export function readSlackAppConfig(): SlackAppConfig | null {
   if (!clientId || !clientSecret) {
     throw new SlackAppConfigError('SLACK_CLIENT_ID and SLACK_CLIENT_SECRET must be set together');
   }
-  return { clientId, clientSecret };
+  return { clientId, clientSecret, signingSecret: value(env.SLACK_SIGNING_SECRET) };
 }
