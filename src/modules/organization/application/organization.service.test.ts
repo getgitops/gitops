@@ -201,6 +201,7 @@ describe('OrganizationService events', () => {
       name: 'Kettu',
       slug: 'kettu',
       changedFields: ['description'],
+      changes: [{ field: 'description', before: null, after: 'Software studio' }],
     });
     expect(event.scope).toEqual({ organizationId: 'org-1', projectId: null });
   });

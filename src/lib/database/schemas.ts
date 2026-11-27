@@ -439,6 +439,7 @@ export const NotificationChannelEntity = entity('notification_channels', {
   organizationId: uuid().notNull(),
   projectId: uuid().$defaultFn(() => null),
   webhookUrl: text().notNull(),
+  locale: text(),
   enabled: bool().notNull().default(true),
   createdByUserId: uuid().notNull(),
   createdAt: timestamp()
@@ -460,6 +461,27 @@ export const NotificationChannelEntity = entity('notification_channels', {
   disabledReason: text(),
 });
 
+/**
+ * A Slack workspace where the GitOps app (and its `/gitops` command) is installed, linked to the
+ * organization it was installed from. One row per workspace (`teamId`).
+ */
+export const SlackWorkspaceEntity = entity('slack_workspaces', {
+  id: uuid().primaryKey(),
+  teamId: text().notNull(),
+  teamName: text().notNull(),
+  organizationId: uuid().notNull(),
+  /** The app's bot token (scopes `commands`, `incoming-webhook`), encrypted; opens the forms. */
+  botToken: text().notNull(),
+  /** Language of the command replies (`es` | `en`). */
+  locale: text(),
+  installedByUserId: uuid().notNull(),
+    createdAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: timestamp()
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
 // State IaC (docs/adr/0003-state-iac.md): only configuration, the states stay in the buckets
 export const StateBackendEntity = entity('state_backends', {
   id: uuid().primaryKey(),

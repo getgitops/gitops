@@ -327,6 +327,11 @@ describe('ProjectService events', () => {
         name: 'Shop',
         slug: 'shop',
         changedFields: ['description', 'status', 'modules'],
+        changes: [
+          { field: 'description', before: null, after: 'Online store' },
+          { field: 'status', before: 'active', after: 'inactive' },
+          { field: 'modules', before: 'codereport', after: 'codereport, vault' },
+        ],
       },
     ]);
   });

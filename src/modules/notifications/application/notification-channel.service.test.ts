@@ -97,6 +97,45 @@ describe('NotificationChannelService', () => {
       expect(f.service.availableTypes()).toEqual(['slack']);
     });
 
+    it('stores the message language: English by default, Spanish or English on demand', async () => {
+      const plain = await create(orgLocation, { type: 'slack', name: 'a', destination: HOOK }, 'x');
+      expect(plain.locale).toBe('en');
+      const spanish = await create(
+        orgLocation,
+        { type: 'slack', name: 'b', destination: HOOK, locale: 'es' },
+        'x',
+      );
+      expect(f.repository.rows.find((row) => row.id === spanish.id)?.locale).toBe('es');
+
+      await f.service.update(spanish.id, { locale: 'en' });
+      expect((await f.service.get(spanish.id)).locale).toBe('en');
+      await f.service.update(spanish.id, { locale: '' });
+      expect((await f.service.get(spanish.id)).locale).toBe('en');
+
+      expect(
+        await validationErrors(
+          f.service.create(
+            orgLocation,
+            { type: 'slack', name: 'c', destination: HOOK, locale: 'fr' },
+            'x',
+          ),
+        ),
+      ).toEqual({ locale: 'invalid_locale' });
+      expect(await validationErrors(f.service.update(plain.id, { locale: 'de' }))).toEqual({
+        locale: 'invalid_locale',
+      });
+    });
+
+    it('reads channels saved before the language existed as English', async () => {
+      const channel = await create(
+        orgLocation,
+        { type: 'slack', name: 'a', destination: HOOK },
+        'x',
+      );
+      delete (f.repository.rows[0] as { locale?: string }).locale;
+      expect((await f.service.get(channel.id)).locale).toBe('en');
+    });
+
     it('keeps the destination when an update leaves it empty, and re-encrypts a new one', async () => {
       const channel = await create(
         orgLocation,

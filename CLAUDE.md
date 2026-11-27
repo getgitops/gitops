@@ -53,7 +53,9 @@ The roadmap is in `IDEAS.md`. Do not describe roadmap items as implemented featu
 - Vitest, ESLint, and Prettier
 - Playwright for RBAC end-to-end tests (`e2e/`)
 
-Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the `GOOGLE_SSO_*` variables described above.
+Environment variables are declared in `src/env.ts` and documented in `.env.example`; Google SSO uses the
+`GOOGLE_SSO_*` variables described above, "Add to Slack" uses `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`,
+and the `/gitops` Slack command also needs `SLACK_SIGNING_SECRET`.
 
 Email notification templates (`src/notifications/`) are read from disk at runtime; the Docker image copies them so emails can be sent from the container.
 
@@ -359,7 +361,11 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   all its projects) or a project (only its alerts). `type` is `webhook`, `slack` or `google-chat`;
   a type is available only once its transport is registered with `registerChatTransport()`
   (`#lib/server/infra/notifications/chat-notification.ts`) in the composition root
-  (`$modules/notifications/index.ts`); today only `webhook` is, and tests use `FakeChatTransport`.
+  (`$modules/notifications/index.ts`); today `webhook` and `slack` are, and tests use
+  `FakeChatTransport`. Providers with incoming webhooks on a fixed host (Slack, Google Chat) only
+  write a formatter: `createFixedHostChatTransport({ rule, format })`
+  (`chat-webhook.transport.ts`) does the URL rule, guarded fetch and `postJson`; `truncateText`
+  (`chat-format.ts`) is shared for provider length limits.
   A `ChatTransport` implements `send()` and `validateDestination()` (sync or async), the anti-SSRF
   check run before saving and again before every send: `validateWebhookUrl()` for providers with a
   fixed host (https, no credentials, no IP literal, default port, allowed host and path),
@@ -372,6 +378,10 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   leaves the server masked (`https://hooks.slack.com/…/••••1a2b`); changing it means typing it
   again. `enabled` flag can disable delivery without deleting the channel; `disabledReason:
   'failures'` means the platform disabled it after 20 consecutive failures.
+- Channel language: `NotificationChannelEntity.locale` (`es` | `en`, rows without it read as `en`,
+  `CHANNEL_LOCALES` in `chat-types.ts`), set in the channel forms and the API (`locale`, invalid →
+  `invalid_locale`). The engine passes `deliver()` a builder `(locale) => ChannelMessage`
+  (`ChannelMessageSource`) so each channel gets its own language; the test message uses it too.
 - Signed channels: webhook is a signed type. The service generates a signing secret on create
   (`whsec_` + 32 random bytes, encrypted in `signingSecret`) and returns it in clear **only once**
   from `createChannel()` or `POST /api/notification-channels/[id]/rotate-secret` (never readable
@@ -380,6 +390,81 @@ in `docs/adr/0001-event-bus-and-alerts.md`.
   with a stable `deliveryId` per message so receivers can deduplicate retries. The signature is
   `X-GitOps-Signature: t=<unix>,v1=<hash>[,v1=<old-hash>]` using `HMAC-SHA256(secret, 
   "<timestamp>.<raw body>")` on the JSON sent (not encoded).
+- Slack (`#lib/server/infra/notifications/slack/`): Incoming Webhook, URL limited to
+  `https://hooks.slack.com/services/` only (`SLACK_WEBHOOK_RULE`), unsigned. `buildSlackPayload()` turns
+  the `ChannelMessage` into Block Kit in the channel's language only: header (alert name, `plain_text`), the
+  summary only when it differs from the event label, a fields section with `location`
+  (`Project`/`Organization`: name) and the date (`slackDate()`, `<!date^…>`, reader's time zone),
+  a divider and a `*Changes*` title (`labels.changes`), then one section per change (`*Label*` /
+  `Before: …` / `New: …`, `labels.empty` for a `null` side,
+  only the label when both are `null`), remaining field sections of 10, "View in GitOps" button,
+  and `note` as context. Every `mrkdwn` value goes through `escapeSlackText()`
+  (`&`, `<`, `>`) so event or user data can't mention or link. Texts are cut to Block Kit limits.
+  The Slack channel is fixed by the webhook: one GitOps channel per Slack webhook. 4xx responses
+  (revoked webhook, archived or deleted channel) are not retried and show as the channel's last error.
+- Add to Slack (`slackConnectService` in `$modules/notifications`, `#97`): OAuth v2 install
+  (`SlackConnectService`, `SlackOAuthClient`) with only the `incoming-webhook` scope, so Slack asks for
+  the workspace and channel and returns its webhook URL, saved as a normal `slack` channel (same transport,
+  same `SLACK_WEBHOOK_RULE`). Enabled when `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET` are both set
+  (`readSlackAppConfig()`; half set counts as disabled). Picking the Slack card in the create-channel
+  form shows an "Add to Slack" button (`formaction` to the `connectSlack` action, `channels-page.ts`;
+  the enhanced submit follows the redirect with `window.location`; Enter keeps creating the manual channel)
+  next to the manual URL fields, and GitOps admins get a link to `/gitops-settings/slack` while it is not
+  configured. The action needs `<scope>:notifications:create` and a session, not an API key; it sets
+  the `gitops_slack_flow` cookie (`signToken`, 10 min, bound to the user, location, locale and a return
+  path) and redirects to Slack; `/notifications/slack/callback` (fixed: it is the app's redirect URL,
+  needs the same session) checks the state, exchanges the code (Basic auth), creates the channel through
+  `createChannel()` (permission checked again) and goes back with `?slack=connected|<error>`
+  (`notifications.errors.slack_*`). Self-hosted admins create the app from `/gitops-settings/slack`
+  (prefilled manifest link, redirect URL, status); a hosted GitOps uses the official app's credentials
+  the same way. Pasting a webhook URL keeps working. A central OAuth broker for self-hosted installations
+  is not implemented.
+- `/gitops` (`slackAppService` in `$modules/notifications`): the same Slack app with the `commands`
+  scope, enabled when `SLACK_SIGNING_SECRET` is also set (`slackConnectService.commandsEnabled()`).
+  An organization installs it from its channels page (`installSlack` action, OAuth with only
+  `commands`, flow `kind: 'install'`): `slack_workspaces` (GitDB) keeps one row per Slack team, linked
+  to that organization (another organization gets `slack_workspace_taken`), with the bot token
+  encrypted (`ChannelCipher` purpose `slack-bot-token`; only used to open forms, `views.open`).
+  `/api/slack/commands` and `/api/slack/interactions` have no session or API key: they verify
+  `X-Slack-Signature` (`verifySlackSignature`, 5 min window) on the raw body and act as the GitOps
+  user linked to the Slack user (`authProviders` entry `slack` = `<team>:<user>`, `findByExternalIdentity`),
+  refusing disabled users and checking `organization:notifications:create` every time.
+  `/gitops login` answers with a signed 10-minute link to `/notifications/slack/link` (needs a session:
+  `hooks.server.ts` remembers it in `gitops_return_to` and the password and Google logins come back to
+  it, `#lib/server/return-to`; the user must see the workspace's organization). `/gitops channel` opens a
+  modal (name, locale); its submission answers with a signed link to `/notifications/slack/connect`
+  (no session), which starts Slack's channel picker (flow `kind: 'command'`, bound to the Slack team
+  and user: the callback refuses another one with `slack_wrong_workspace`). `/notifications/slack/callback`
+  then accepts requests without a session (only `command` flows can finish without one), creates the
+  channel through `createChannel()` as the linked user (`runWithActor`), posts a test message and ends
+  on `/notifications/slack/done`. Replies use the workspace's locale (picked at install).
+- CSRF: SvelteKit's origin check is disabled in the framework (`csrf.trustedOrigins: ['*']`) and done
+  by `csrfGuard` in `hooks.server.ts` with the same rule (`#lib/server/csrf`), because Slack posts
+  forms without an `Origin` header. Only `CSRF_EXEMPT_PATHS` (the two signed Slack endpoints) skip it;
+  never add a path there that does not authenticate its requests by other means.
+
+  Local development of Slack OAuth flows requires HTTPS (Slack refuses `http://` redirect URLs).
+  Set `DEV_HTTPS=true` and create a self-signed certificate:
+  ```bash
+  mkdir -p .certs && openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj /CN=localhost \
+    -addext subjectAltName=DNS:localhost -keyout .certs/localhost-key.pem -out .certs/localhost.pem
+  ```
+  Then open `https://localhost:5173` and register `https://localhost:5173/notifications/slack/callback`
+  in the test Slack app. See `.env.example` for details.
+- `ChannelMessage` (built by `buildAlertChannelMessage(input, locale)`): `fields` leave out what
+  the message says elsewhere: `occurredAt`, `location` (project or organization, and any field with
+  that name), and `changedFields` when `changes` (translated label + before/after) exists.
+  `labels` carries the translated `Date`/`Changes`/`Before`/`New`/`empty`, and `text` only adds the summary
+  when it differs from the event label, so nothing is said twice in two languages.
+  `note` is the translated side note (test send, throttled count); the raw `suppressed` count is
+  still there. `occurredAt` and `location` are always present; `changes` only for update events;
+  `labels` only when any of `occurredAt`, `location` or `changes` is used by the transport.
+- Update events carry `changes?: FieldChange[]` (`{ field, before, after }`, plain text cut to 200
+  chars by `fieldChange()` in `#lib/events/field-changes.ts`, `null` when empty or not shown):
+  `project.updated` (modules as the enabled list, organization by name, settings without values)
+  and `organization.updated`. Never put secrets in them; `vault.secret.updated` has none. `FieldChange`
+  is defined in `src/lib/events/domain-events.ts` with the type parameter for field names and is
+  used by channels (Slack shows before/after) and by the update events in payloads.
 - Generic webhook (`#lib/server/infra/notifications/webhook/`): `POST` with the versioned
   `WebhookPayload` (`version`, `deliveryId`, `test`, `alert`, `event` with the raw non-sensitive
   catalog `fields` from `ChannelMessage.event.fields`, `link`), headers `X-GitOps-Event`,

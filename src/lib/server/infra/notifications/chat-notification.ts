@@ -5,7 +5,15 @@ import type { WebhookUrlError } from '../http/webhook-request';
 
 import { CHAT_CHANNEL_TYPES, type ChatChannelType } from './chat-types';
 
-export { CHAT_CHANNEL_TYPES, isChatChannelType, type ChatChannelType } from './chat-types';
+export {
+  CHANNEL_LOCALES,
+  CHAT_CHANNEL_TYPES,
+  DEFAULT_CHANNEL_LOCALE,
+  isChannelLocale,
+  isChatChannelType,
+  type ChannelLocale,
+  type ChatChannelType,
+} from './chat-types';
 
 /**
  * Provider-neutral content of a channel message; each transport turns it into its own format
@@ -19,12 +27,16 @@ export type ChannelMessage = {
   summary: string;
   /** Translated event label (`Analysis completed`). */
   eventLabel: string;
-  /** Catalog fields as label/value, sensitive ones left out. */
   fields: Array<{ label: string; value: string }>;
+  occurredAt?: string;
+  location?: { label: string; name: string };
+  labels?: { date: string; changes: string; before: string; after: string; empty: string };
+  changes?: Array<{ label: string; before: string | null; after: string | null }>;
   /** Absolute link to the resource in GitOps (`ORIGIN`), when there is one. */
   link: { url: string; label: string } | null;
   /** Matching events skipped by the throttle since the previous message. */
   suppressed: number;
+  note?: string;
   /** Plain-text fallback (mobile notifications, clients without rich formatting). */
   text: string;
   /** A test from the UI, not a real event. */

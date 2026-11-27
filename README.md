@@ -200,7 +200,7 @@ emails or the other channels.
 Adding channels to an alert needs `organization:notifications:update` or
 `project:notifications:update`: people reading a channel may have no access to the resource.
 Messages leave out sensitive fields. Channel types become available as their transports land:
-generic webhooks are available; Slack and Google Chat are not yet.
+generic webhooks and Slack are available; Google Chat is not yet.
 
 A **webhook** channel posts a versioned JSON body to any public `https` URL, signed with
 HMAC-SHA256 in `X-GitOps-Signature`. Its signing secret is shown once when the channel is created
@@ -208,6 +208,59 @@ HMAC-SHA256 in `X-GitOps-Signature`. Its signing secret is shown once when the c
 link-local and cloud metadata addresses are refused, and redirects are never followed. A channel
 that fails 20 deliveries in a row disables itself and its creator is emailed. The request format,
 retries and how to verify the signature are in [docs/webhooks](docs/webhooks/README.md).
+
+Each channel has a **message language** (Spanish or English, chosen when it is created or edited;
+channels created before the setting existed use English): the event, field labels and button of
+its messages are written in it.
+
+A **Slack** channel posts a Block Kit message, in the channel's language only, to a Slack Incoming
+Webhook: the alert name, a summary when the event has one (`3 critical, 5 high`), where it
+happened (**Project** or **Organization**) and the date (in each reader's time zone), for update
+events a **Changes** section with each changed field and its **Before** and **New** values (`empty` when there was none),
+the remaining event fields and a **View in GitOps** button when `ORIGIN` is set. The webhook decides
+the Slack channel, so each GitOps channel posts to one Slack channel.
+
+**Add to Slack (one click).** When the installation has a Slack app configured
+(`SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET`), the channel settings show **Add to Slack**: the user
+picks the workspace and the channel in Slack and GitOps creates the channel with its webhook, with
+nothing to copy. Any workspace can be connected, so each organization uses its own Slack. To set it
+up, a GitOps admin opens **GitOps Settings → Slack**, clicks **Create Slack app** (Slack opens with a
+prefilled manifest: the `incoming-webhook` and `commands` scopes, the `/gitops` command and this installation's redirect URL,
+`<ORIGIN>/notifications/slack/callback`, which must be https), copies the app's **Client ID** and
+**Client Secret** into the environment and restarts GitOps. To let workspaces other than the one
+that owns the app install it, enable **Public Distribution** in the app's **Manage Distribution**.
+
+**From Slack (`/gitops`).** With the app's **Signing Secret** also set (`SLACK_SIGNING_SECRET`), an
+organization admin clicks **Install in Slack** in the organization's channel settings, once per
+workspace. Then, in Slack:
+
+1. `/gitops login`: a private link opens GitOps (sign in with your password or Google) to link your
+   Slack user to your account. Once per person.
+2. `/gitops channel`: a form asks for the configuration's name and message language; **Pick the
+   channel in Slack** opens Slack's own channel picker in the browser (the only way Slack issues a
+   webhook). GitOps saves the channel in the organization, with its webhook, and posts a test message
+   to it. Repeat for every channel (`#devops_ES`, `#devops_FR`…).
+3. `/gitops status`: the linked organization, your account and the connected channels.
+
+Alerts are still created in GitOps, where the new channels show up like any other. Every action runs
+as the linked GitOps user with the usual permissions (`organization:notifications:create`). Slack
+sends the commands to `<ORIGIN>/api/slack/commands` and `/api/slack/interactions`, so the
+installation must be reachable from the internet (locally: a tunnel such as cloudflared or ngrok).
+
+**Manually**, without a Slack app in GitOps, create one webhook per Slack channel:
+
+1. In Slack, open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From
+   scratch**, and pick the workspace (or open an app your workspace already uses for this).
+2. In the app, go to **Incoming Webhooks**, turn **Activate Incoming Webhooks** on and click **Add
+   New Webhook to Workspace**. Choose the channel and allow it.
+3. Copy the URL (`https://hooks.slack.com/services/T…/B…/…`) and, in GitOps, add a channel of type
+   **Slack** with that URL and a name (usually the Slack channel's, `#security-alerts`). Repeat for
+   every Slack channel.
+4. When you create or edit an alert, pick **Slack** in **Destinations** and tick the channels that
+   should get it (one or several).
+
+Only `https://hooks.slack.com/services/…` URLs are accepted. Slack's 4xx answers (revoked webhook,
+archived or deleted channel) are not retried and show as the channel's last error.
 
 ### Monitoring
 

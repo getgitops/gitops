@@ -11,7 +11,10 @@ import {
 import type { AlertRepositoryPort } from '../infrastructure/repositories/alert.repository';
 import { AlertThrottle } from './alert-throttle';
 import { RecipientResolver, type Recipient } from './recipient-resolver';
-import type { ChannelMessage } from '#lib/server/infra/notifications/chat-notification';
+import type {
+  ChannelLocale,
+  ChannelMessage,
+} from '#lib/server/infra/notifications/chat-notification';
 import {
   eventContext,
   type AlertDirectory,
@@ -79,7 +82,7 @@ export type AlertEngineOptions = {
   now?: () => number;
   deliveryEnabled?: () => boolean;
   channels?: NotificationChannelsPort;
-  channelMessage?: (input: Omit<AlertEmail, 'recipient'>) => ChannelMessage;
+  channelMessage?: (input: Omit<AlertEmail, 'recipient'>, locale?: ChannelLocale) => ChannelMessage;
 };
 
 export type AlertDryRun = {
@@ -365,7 +368,8 @@ export class AlertEngine {
     const channelIds = alert.channelIds ?? [];
     let channelsSent = 0;
     if (channelIds.length > 0 && this.options.channels && this.options.channelMessage) {
-      const message = this.options.channelMessage({
+      const build = this.options.channelMessage;
+      const input = {
         alert,
         event,
         definition,
@@ -373,7 +377,8 @@ export class AlertEngine {
         names,
         where,
         ...(test ? { test: true } : {}),
-      });
+      };
+      const message = (locale: ChannelLocale) => build(input, locale);
       const results = await Promise.all(
         channelIds.map((channelId) =>
           this.options

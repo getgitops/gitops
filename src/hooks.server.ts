@@ -15,6 +15,16 @@ import { startGitDb } from '#lib/server/gitdb';
 import { getServerReadyState, markServerFailed, markServerReady } from '#lib/server/server-ready';
 import { renderStartingPage } from '#lib/server/starting-page';
 import { runWithActor } from '#lib/server/request-context';
+import { csrfForbiddenResponse, isCsrfForbidden } from '#lib/server/csrf';
+import { returnToCookie } from '#lib/server/return-to';
+import {
+  SLACK_CALLBACK_PATH,
+  SLACK_COMMANDS_PATH,
+  SLACK_CONNECT_PATH,
+  SLACK_DONE_PATH,
+  SLACK_INTERACTIONS_PATH,
+  SLACK_LINK_PATH,
+} from '#modules/notifications';
 import { rememberDevOrigin } from '#lib/server/infra/notifications';
 import { createLogger, createRequestLogger, logHttpRequest, logger } from '#lib/server/logger';
 
@@ -65,6 +75,15 @@ const requestLogger: Handle = async ({ event, resolve }) => {
   logHttpRequest(log, event, response, startMs);
 
   return response;
+};
+
+// SvelteKit's CSRF origin check (disabled in the framework, see `#lib/server/csrf`): like the
+// framework, it only applies in production
+const csrfGuard: Handle = async ({ event, resolve }) => {
+  if (!import.meta.env.DEV && isCsrfForbidden(event.request, event.url)) {
+    return csrfForbiddenResponse(event.request);
+  }
+  return resolve(event);
 };
 
 const authGuard: Handle = async ({ event, resolve }) => {
@@ -136,6 +155,12 @@ const authGuard: Handle = async ({ event, resolve }) => {
   if (
     pathname === '/notifications/verify' ||
     pathname === '/notifications/unsubscribe' ||
+    // Slack's requests: authenticated by their signature in the handlers
+    pathname === SLACK_COMMANDS_PATH ||
+    pathname === SLACK_INTERACTIONS_PATH ||
+    // a channel connected from Slack: the signed link and the Slack user identify the caller
+    pathname === SLACK_CONNECT_PATH ||
+    pathname === SLACK_DONE_PATH ||
     pathname === '/auth/login' ||
     pathname === '/auth/sso/google/start' ||
     pathname === '/auth/sso/google/callback' ||
@@ -188,7 +213,18 @@ const authGuard: Handle = async ({ event, resolve }) => {
     if (isApiRequest) {
       return unauthorized('Authentication required');
     }
-    return new Response(null, { status: 302, headers: { location: '/auth/login' } });
+    // the Slack app's redirect URL serves flows that need this session ("Add to Slack", the app
+    // install: they fail without it) and channels connected from Slack (no session needed)
+    if (pathname === SLACK_CALLBACK_PATH) {
+      return resolve(event);
+    }
+    const headers = new Headers({ location: '/auth/login' });
+    // `/gitops login`: come back to the link once signed in
+    if (pathname === SLACK_LINK_PATH) {
+      const cookie = returnToCookie(event.cookies, `${pathname}${event.url.search}`);
+      if (cookie) headers.append('set-cookie', cookie);
+    }
+    return new Response(null, { status: 302, headers });
   }
 
   const projectSettingsMatch = event.url.pathname.match(
@@ -226,7 +262,7 @@ const authGuard: Handle = async ({ event, resolve }) => {
   return runWithActor(actor, () => resolve(event));
 };
 
-export const handle = sequence(requestLogger, authGuard);
+export const handle = sequence(requestLogger, csrfGuard, authGuard);
 
 // unexpected errors from load/actions/endpoints land here: log with the request's
 // trace-aware logger so the entry is correlated with the failed httpRequest

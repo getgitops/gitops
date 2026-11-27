@@ -1,6 +1,5 @@
 export { Notification, type NotificationChannel } from './notification';
 export { MailNotification, type MailNotificationInput } from './mail-notification';
-export { SlackNotification, type SlackNotificationInput } from './slack-notification';
 export { notify, registerTransport, resetTransports } from './notify';
 export type { NotificationTransport } from './transport';
 export {
@@ -25,8 +24,12 @@ export {
 export { withRetry, isRetryableMailError, type RetryOptions } from './retry';
 export { emailButton, emailNote } from './email-parts';
 export {
+  CHANNEL_LOCALES,
   CHAT_CHANNEL_TYPES,
   ChatNotification,
+  DEFAULT_CHANNEL_LOCALE,
+  isChannelLocale,
+  type ChannelLocale,
   ChatTransportUnavailableError,
   availableChatTypes,
   getChatTransport,
@@ -39,6 +42,11 @@ export {
   type ChatTransport,
   type DestinationCheck,
 } from './chat-notification';
+export {
+  createFixedHostChatTransport,
+  type FixedHostChatTransportOptions,
+} from './chat-webhook.transport';
+export { truncateText } from './chat-format';
 export { DeliveryQueue, defaultErrorCode, type DeliveryQueueOptions } from './delivery-queue';
 export { MailQueue, recipientHash, type MailContext, type MailQueueOptions } from './mail-queue';
 
